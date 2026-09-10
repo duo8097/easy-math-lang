@@ -1,0 +1,40 @@
+know thats this project aim to who just need a easy environment coding to create their project or lession plan if they are teacher
+make this code as easy as we can
+"// //": comment
+"f()": run some code to define or sth
+"f(define(write_type.multiplication = * = //sth like . in vn or x in global, i use . because im vn btw// .))"
+"f(define(name = value))"
+"<name> = value": name of varable, call it directly like "<tmp1>", it will compile to value of <tmp1>
+know that if print varable, it just print it like str, no calc
+calc(<varable>): calc varable like eval in py but it just do math 
+ex:
+code:
+f(define(tmp1 = 100 000 000))
+tmp1
+output:
+100 000 000
+ex:
+code:
+f(
+<tmp1> = 2
+<tmp2> = 3
+<tmp3> = <tmp1> * <tmp2>
+)
+Diện tích HCN là: <tmp3> = calc(<tmp3>)
+output:
+Diện tích HCN là: 2 . 3 = 6
+ex:
+code:
+f(
+    <tmp1> = 2
+    <tmp2> = 3
+    define(tmp3 = <tmp1> * <tmp2>)
+    <tmp4> = calc(<tmp1> + <tmp2>)
+)
+Diện tích HCN là: tmp3 = <tmp4>
+output:
+Diện tích HCN là: 2 . 3 = 6
+
+p(): print sth that can conflict with code like f()
+f(frac(numerator ; denominator))
+ex: f(frac(2; 3))
