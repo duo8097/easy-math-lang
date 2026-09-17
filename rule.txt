@@ -46,3 +46,33 @@ ex: *frac(2; 3)
 
 *root(index ; radicand) 
 note for code: when switch to typst add "{}" like $root(3, {x + 1})$
+
+
+*pow(base; exponent)
+
+base_index
+ex: A_1
+
+*abs(expression)
+
+*sin(x)
+*cos(x) 
+*tan(x) 
+*log(x) 
+*ln(x)
+
+*sum(lower ; upper ; expression)
+ex: *sum(i = 1 ; n ; i)
+
+*prod(lower ; upper ; expression)
+ex: *prod(i = 1 ; n ; i)
+
+*lim(variable -> value ; expression)
+ex: *lim(x -> 0 ; sin(x) / x)
+
+*pi
+*infinity
+
+"*degree" add into *pow
+ex: *pow(A; *degree)
+

@@ -8,4 +8,18 @@
 Diện tích HCN là: tmp3 = <tmp4>
 *frac(2; 3)
 *root(3 ; x + 1)
+*pow(2 ; 3)
+*pow(A ; *degree)
+A_1
+*abs(x + 1)
+*sin(x)
+*cos(x)
+*tan(x)
+*log(x)
+*ln(x)
+*sum(i = 1 ; n ; i)
+*prod(i = 1 ; n ; i)
+*lim(x -> 0 ; sin(x) / x)
+*pi
+*infinity
 *p(define(write_type.multiplication = * = .))

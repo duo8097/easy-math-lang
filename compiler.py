@@ -156,34 +156,109 @@ def compile_ezmath(input_file, output_pdf=None):
             result = evaluate_calc(match)
             text = text.replace(f'calc({match})', result)
 
-        # 5. Handle *frac(numerator ; denominator) or *f(frac(...)) or f(frac(...))
+        # 5. Math Constructs Formatting Phase
+        def clean_inner_math(s):
+            s = replace_vars(s.strip())
+            for k, v in defines.items():
+                if k in s:
+                    s = s.replace(k, v)
+            s = s.replace('$', '')
+            s = re.sub(r'\*(sin|cos|tan|log|ln|pi|infinity|degree)\b', r'\1', s)
+            return s
+
+        # *frac(numerator ; denominator)
         def frac_replacer(match):
-            numerator = match.group(1).strip()
-            denominator = match.group(2).strip()
-            numerator = replace_vars(numerator)
-            denominator = replace_vars(denominator)
+            numerator = clean_inner_math(match.group(1))
+            denominator = clean_inner_math(match.group(2))
             return f"$frac({numerator}, {denominator})$"
 
-        # Match either *frac(...;...) or *f(frac(...;...)) or f(frac(...;...))
         text = re.sub(r'(?:\*?f\(frac|\*frac)\((.*?);(.*?)\)\)?', frac_replacer, text)
 
-        # 6. Handle *root(index ; radicand)
+        # *root(index ; radicand)
         def root_replacer(match):
-            index = match.group(1).strip()
-            radicand = match.group(2).strip()
-            index = replace_vars(index)
-            radicand = replace_vars(radicand)
+            index = clean_inner_math(match.group(1))
+            radicand = clean_inner_math(match.group(2))
             return f"$root({index}, {{{radicand}}})$"
 
         text = re.sub(r'(?:\*?f\(root|\*root)\((.*?);(.*?)\)\)?', root_replacer, text)
 
-        # 7. Apply multiplication symbol
-        text = text.replace('*', mult_sym)
+        # *abs(expression)
+        def abs_replacer(match):
+            expr = clean_inner_math(match.group(1))
+            return f"$abs({expr})$"
 
-        # 8. Escape special Typst syntax characters outside of math blocks ($...$)
+        text = re.sub(r'\*abs\((.*)\)', abs_replacer, text)
+
+        # *sin(x), *cos(x), *tan(x), *log(x), *ln(x)
+        def trig_replacer(match):
+            fn = match.group(1)
+            expr = clean_inner_math(match.group(2))
+            return f"${fn}({expr})$"
+
+        text = re.sub(r'\*(sin|cos|tan|log|ln)\((.*)\)', trig_replacer, text)
+
+        # *pi, *infinity
+        text = re.sub(r'\*pi\b', '$pi$', text)
+        text = re.sub(r'\*infinity\b', '$infinity$', text)
+
+        # *pow(base ; exponent)
+        def pow_replacer(match):
+            base = clean_inner_math(match.group(1))
+            exp = clean_inner_math(match.group(2))
+            return f"${base}^({exp})$"
+
+        text = re.sub(r'\*pow\((.*?);(.*)\)', pow_replacer, text)
+
+        # *sum(lower ; upper ; expression)
+        def sum_replacer(match):
+            lower = clean_inner_math(match.group(1))
+            upper = clean_inner_math(match.group(2))
+            expr = clean_inner_math(match.group(3))
+            return f"$sum_({lower})^({upper}) ({expr})$"
+
+        text = re.sub(r'\*sum\((.*?);(.*?);(.*)\)', sum_replacer, text)
+
+        # *prod(lower ; upper ; expression)
+        def prod_replacer(match):
+            lower = clean_inner_math(match.group(1))
+            upper = clean_inner_math(match.group(2))
+            expr = clean_inner_math(match.group(3))
+            return f"$product_({lower})^({upper}) ({expr})$"
+
+        text = re.sub(r'\*prod\((.*?);(.*?);(.*)\)', prod_replacer, text)
+
+        # *lim(variable -> value ; expression)
+        def lim_replacer(match):
+            cond = clean_inner_math(match.group(1))
+            expr = clean_inner_math(match.group(2))
+            return f"$lim_({cond}) ({expr})$"
+
+        text = re.sub(r'\*lim\((.*?);(.*)\)', lim_replacer, text)
+
+        # Merge adjacent math formulas like $...$ / $...$ or $...$$...$ into a single $...$
+        # Also clean up any accidental double dollars inside a math block
+        def merge_math(t):
+            # If line is like "$lim_({cond}) (sin(x)$ / x)", merge into single $...$
+            t = re.sub(r'\$([^\$]+)\$', lambda m: '$' + m.group(1).replace('$', '') + '$', t)
+            return t
+
+        text = merge_math(text)
+
+        # base_index like A_1
+        text = re.sub(r'\b([A-Za-z]+)_([A-Za-z0-9]+)\b', r'$\1_\2$', text)
+
+        # 6. Apply multiplication symbol outside math blocks
+        tokens = re.split(r'(\$.*?\$)', text)
+        for i, token in enumerate(tokens):
+            if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
+                tokens[i] = token.replace('*', mult_sym)
+        text = ''.join(tokens)
+
+        # 7. Escape special Typst syntax characters outside of math blocks ($...$)
         text = escape_typst_outside_math(text)
 
         output_lines.append(text)
+
 
     # Generate Typst File
     typst_file = input_file.rsplit('.', 1)[0] + '.typ'
