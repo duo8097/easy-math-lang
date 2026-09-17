@@ -4,4 +4,5 @@
 
 Diện tích HCN là: 2 . 3 = 6 \
 $frac(2, 3)$ \
-f(define(write_type.multiplication = * = .)) \
+$root(3, {x + 1})$ \
+define(write\_type.multiplication = \* = .) \
