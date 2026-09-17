@@ -1,12 +1,11 @@
-f(
-    define(write_type.multiplication = * = .)
-)
-f(
+*define(write_type.multiplication = * = //sth like . in vn or x in global// .)
+*(
     <tmp1> = 2
     <tmp2> = 3
     define(tmp3 = <tmp1> * <tmp2>)
     <tmp4> = calc(<tmp1> * <tmp2>)
 )
 Diện tích HCN là: tmp3 = <tmp4>
-f(frac(2; 3))
-p(f(define(write_type.multiplication = * = .)))
+*frac(2; 3)
+*root(3 ; x + 1)
+*p(define(write_type.multiplication = * = .))
