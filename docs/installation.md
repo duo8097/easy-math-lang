@@ -113,7 +113,7 @@ typst --version
 If you have Git installed:
 
 ```
-git clone https://github.com/your-username/easy-math-lang
+git clone https://github.com/duo8097/easy-math-lang
 cd easy-math-lang
 ```
 
