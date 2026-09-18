@@ -3,6 +3,7 @@ import sys
 import subprocess
 import ast
 import operator
+from . import geometry
 
 def compile_ezmath(input_file, output_pdf=None):
     if output_pdf is None:
@@ -285,7 +286,7 @@ def compile_ezmath(input_file, output_pdf=None):
         for old, new in symbol_replacements:
             text = text.replace(old, new)
         for old, new in word_replacements:
-            text = re.sub(rf'\b{re.escape(old)}\b', new, text)
+            text = re.sub(rf'\*{re.escape(old)}\b', new, text)
         return text
 
     for line in lines:
@@ -311,15 +312,24 @@ def compile_ezmath(input_file, output_pdf=None):
             else:
                 process_assignment_or_define(inner)
                 continue
-        elif line in ('*(', '*f(', 'f('):
+        elif line in ('*(', '*f(', 'f(', '*draw('):
             in_f_block = True
+            block_type = line
+            block_content = []
             continue
         elif line == ')' and in_f_block:
+            if block_type == '*draw(':
+                output_lines.append(geometry.parse_draw_block('\n'.join(block_content)))
+            else:
+                for stmt in block_content:
+                    process_assignment_or_define(stmt)
+            in_f_block = False
+            continue
             in_f_block = False
             continue
 
         if in_f_block:
-            process_assignment_or_define(line)
+            block_content.append(line)
             continue
 
         if re.match(r'^<[^<>]+>\s*=', line):
@@ -386,7 +396,6 @@ def compile_ezmath(input_file, output_pdf=None):
             s = replace_vars(s.strip())
             s = replace_defines(s)
             s = s.replace('$', '')
-            s = re.sub(r'\*(sin|cos|tan|log|ln|pi|infinity|degree)\b', r'\1', s)
             s = replace_symbol_shortcuts(s)
 
             # Recursively resolve nested math calls
@@ -510,11 +519,14 @@ def compile_ezmath(input_file, output_pdf=None):
     except subprocess.CalledProcessError as e:
         print(f"\n[ERROR] Typst compilation failed: {e}")
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) < 2:
-        print("Usage: python compiler.py <input.ezmath> [output.pdf]")
+        print("Usage: easy-math-lang <input.ezmath> [output.pdf]")
         sys.exit(1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else input_file.rsplit('.', 1)[0] + '.pdf'
     compile_ezmath(input_file, output_file)
+
+if __name__ == "__main__":
+    main()

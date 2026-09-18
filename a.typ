@@ -84,9 +84,9 @@ $display(product_(k = 1)^(n) (k + 1))$ \
 #v(0.65em)
 $lim_(x → 0) (sin(x) / x)$ \
 #v(0.65em)
-$lim_(x → ∞) (1 / x)$ \
+$lim_(x → infinity) (1 / x)$ \
 #v(0.65em)
-$lim_(n → ∞) (1 / n)$ \
+$lim_(n → infinity) (1 / n)$ \
 #v(0.65em)
 $pi$ \
 #v(0.65em)
@@ -96,7 +96,7 @@ $A^(°)$ \
 #v(0.65em)
 $90^(°)$ \
 #v(0.65em)
-A .° \
+A ° \
 #v(0.65em)
 ⇒ \
 #v(0.65em)
@@ -174,7 +174,7 @@ $abs(frac(a, b))$ \
 #v(0.65em)
 $root(2, {x^(2)})$ \
 #v(0.65em)
-$sin(frac(π, 2))$ \
+$sin(frac(pi, 2))$ \
 #v(0.65em)
 Hình chữ nhật có: \
 #v(0.65em)

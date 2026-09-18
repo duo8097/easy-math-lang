@@ -1,79 +1,915 @@
-know thats this project aim to who just need a easy environment coding to create their project or lession plan if they are teacher
-make this code as easy as we can
-"// //": comment
+Easy Math Language
+==================
 
-"*define(write_type.multiplication = * = //sth like . in vn or x in global, i use . because im vn btw// .)"
+Project goal
+------------
 
-"*define(name = value)"
+This project aims to provide an easy coding environment for people who just
+want a simple way to create math documents, projects, or lesson plans,
+especially teachers.
 
-"<name> = value": name of varable, call it directly like "<tmp1>", it will compile to value of <tmp1>
-know that if print varable, it just print it like str, no calc
+The syntax should be kept as simple and readable as possible.
 
-calc(<varable>): calc varable like eval in py but it just do math 
+Comments
+--------
 
-ex:
-code:
+"// text" is used for comments.
+
+Definitions
+-----------
+
+*define(name = value)
+
+Defines a reusable value.
+
+Example:
+
 *define(tmp1 = 100 000 000)
-tmp1
-output:
+
+A defined value can be referenced directly using:
+
+<tmp1>
+
+When a variable is printed directly, it is treated as text.
+It is NOT automatically calculated.
+
+Example:
+
+Code:
+*define(tmp1 = 100 000 000)
+<tmp1>
+
+Output:
 100 000 000
-ex:
-code:
-*(
-<tmp1> = 2
-<tmp2> = 3
-<tmp3> = <tmp1> * <tmp2>
-)
-Diện tích HCN là: <tmp3> = calc(<tmp3>)
-output:
-Diện tích HCN là: 2 . 3 = 6
-ex:
-code:
+
+
+Variables
+---------
+
+<name> = value
+
+Creates a variable.
+
+Example:
+
 *(
     <tmp1> = 2
     <tmp2> = 3
-    define(tmp3 = <tmp1> * <tmp2>)
-    <tmp4> = calc(<tmp1> + <tmp2>)
+    <tmp3> = <tmp1> * <tmp2>
 )
-Diện tích HCN là: tmp3 = <tmp4>
-output:
+
+A variable can be inserted directly into normal text.
+
+Example:
+
+Code:
+<tmp1> = 2
+<tmp2> = 3
+<tmp3> = <tmp1> * <tmp2>
+
+Diện tích HCN là: <tmp3> = calc(<tmp3>)
+
+Output:
 Diện tích HCN là: 2 . 3 = 6
 
-*p(): print sth that can conflict with code like f()
+
+Calculation
+-----------
+
+calc(expression)
+
+Calculates a mathematical expression.
+
+It works similarly to eval() in Python, but only for mathematical
+expressions.
+
+Example:
+
+Code:
+<tmp1> = 2
+<tmp2> = 3
+<tmp3> = <tmp1> * <tmp2>
+
+Diện tích HCN là: <tmp3> = calc(<tmp3>)
+
+Output:
+Diện tích HCN là: 2 . 3 = 6
+
+
+Variables can also be defined using already existing variables.
+
+Example:
+
+Code:
+*(
+    <tmp1> = 2
+    <tmp2> = 3
+    *define(tmp3 = <tmp1> * <tmp2>)
+    <tmp4> = calc(<tmp1> + <tmp2>)
+)
+
+Diện tích HCN là: <tmp3> = <tmp4>
+
+Output:
+Diện tích HCN là: 2 . 3 = 6
+
+
+Printing
+--------
+
+*p(expression)
+
+Prints something explicitly.
+
+This is useful when normal syntax could conflict with the programming
+language.
+
+Example:
+
+*p(f())
+
+The expression inside *p() is printed instead of being interpreted as code.
+
+
+Math syntax
+-----------
+
+All math commands use "*" as a prefix.
+
+The "*" prefix prevents normal words from being interpreted as math commands.
+
+Examples:
+
+*frac(...)
+*sqrt(...)
+*sin(...)
+*cos(...)
+*sum(...)
+
+
+Fractions
+---------
 
 *frac(numerator ; denominator)
-ex: *frac(2; 3)
 
-*root(index ; radicand) 
-note for code: when switch to typst add "{}" like $root(3, {x + 1})$
+Example:
+
+*frac(2 ; 3)
+
+Output:
+
+2
+─
+3
 
 
-*pow(base; exponent)
+Roots
+-----
 
-base_index
-ex: A_1
+*root(index ; radicand)
+
+Example:
+
+*root(3 ; x + 1)
+
+When compiling to Typst, braces should be added around the radicand when
+necessary.
+
+Example Typst output:
+
+$root(3, {x + 1})$
+
+
+Powers
+------
+
+*pow(base ; exponent)
+
+Example:
+
+*pow(x ; 2)
+
+Output:
+
+x²
+
+
+Degree
+------
+
+*degree represents the degree symbol.
+
+Example:
+
+*pow(A ; *degree)
+
+Output:
+
+A°
+
+
+Subscripts
+----------
+
+Use "_" for subscripts.
+
+Example:
+
+A_1
+
+Output:
+
+A₁
+
+
+Absolute value
+--------------
 
 *abs(expression)
 
+Example:
+
+*abs(x - 2)
+
+
+Trigonometric functions
+-----------------------
+
 *sin(x)
-*cos(x) 
-*tan(x) 
-*log(x) 
+*cos(x)
+*tan(x)
+
+
+Logarithms
+----------
+
+*log(x)
 *ln(x)
 
+
+Summation
+---------
+
 *sum(lower ; upper ; expression)
-ex: *sum(i = 1 ; n ; i)
+
+Example:
+
+*sum(i = 1 ; n ; i)
+
+Output:
+
+  n
+  Σ i
+ i=1
+
+
+Product
+-------
 
 *prod(lower ; upper ; expression)
-ex: *prod(i = 1 ; n ; i)
+
+Example:
+
+*prod(i = 1 ; n ; i)
+
+Output:
+
+  n
+  Π i
+ i=1
+
+
+Limit
+-----
 
 *lim(variable -> value ; expression)
-ex: *lim(x -> 0 ; sin(x) / x)
+
+Example:
+
+*lim(x -> 0 ; sin(x) / x)
+
+
+Constants
+---------
 
 *pi
+
+Output:
+
+π
+
+
 *infinity
 
-"*degree" add into *pow
-ex: *pow(A; *degree)
+Output:
 
-some symbol write fast like "=>", "<=>", ... auto switch to like rightarrow
+∞
+
+
+Operators
+---------
+
+The multiplication symbol can be customized.
+
+*define(write_type.multiplication = .)
+
+The default value can be "." because it is commonly used in Vietnam.
+
+For example:
+
+2 * 3
+
+can be displayed as:
+
+2 . 3
+
+Other users may define it as:
+
+*define(write_type.multiplication = x)
+
+which displays:
+
+2 x 3
+
+
+Automatic symbols
+-----------------
+
+Some ASCII shortcuts are automatically converted into mathematical symbols.
+
+Examples:
+
+=>      →      ⇒
+<=>     →      ⇔
+->      →      →
+<-      →      ←
+<->     →      ↔
+|->     →      ↦
+<=      →      ≤
+>=      →      ≥
+!=      →      ≠
+&&      →      ∧
+||      →      ∨
++-      →      ±
+-+      →      ∓
+~=      →      ≈
+~=~     →      ≅
+...     →      …
+
+These shortcuts can also be used inside normal text.
+
+Example:
+
+Nếu x => y thì y => z.
+
+A <=> B.
+
+x -> 0.
+
+
+Math symbol keywords
+--------------------
+
+Math symbols can also be written using "*" commands.
+
+*le          → ≤
+*leq         → ≤
+*ge          → ≥
+*geq         → ≥
+*ne          → ≠
+*neq         → ≠
+*approx      → ≈
+*cong        → ≅
+*pm          → ±
+*mp          → ∓
+*prop        → ∝
+*propto      → ∝
+
+*times       → ×
+*xx          → ×
+*cdot        → ⋅
+*div         → ÷
+*sqrt        → √
+*cbrt        → ∛
+*deg         → °
+*degree      → °
+*angle       → ∠
+*triangle    → △
+*parallel    → ∥
+*perp        → ⊥
+
+*infinity    → ∞
+*infty       → ∞
+*forall      → ∀
+*exists      → ∃
+*notin       → ∉
+*isin        → ∈
+*subset      → ⊂
+*superset    → ⊃
+*subseteq    → ⊆
+*superseteq  → ⊇
+
+*union       → ∪
+*intersect   → ∩
+*intersection → ∩
+*emptyset    → ∅
+
+*land        → ∧
+*lor         → ∨
+*lnot        → ¬
+*therefore   → ∴
+*because     → ∵
+
+
+Greek letters
+-------------
+
+Greek letters can be written using "*" commands.
+
+*alpha       → α
+*beta        → β
+*gamma       → γ
+*delta       → δ
+*epsilon     → ε
+*theta       → θ
+*lambda      → λ
+*mu          → μ
+*pi           → π
+*sigma       → σ
+*omega       → ω
+
+Capital Greek letters:
+
+*Delta       → Δ
+*Sigma       → Σ
+*Omega       → Ω
+
+
+General syntax rule
+-------------------
+
+Words without "*" are treated as normal text or language syntax.
+
+Words beginning with "*" are treated as special commands or math symbols.
+
+Examples:
+
+alpha
+
+means normal text.
+
+*alpha
+
+means the mathematical symbol:
+
+α
+
+This avoids conflicts between normal language and math syntax.
+
+Drawing and Geometry
+--------------------
+
+The language supports drawing basic geometric figures.
+
+The drawing syntax should be simple and readable, so users do not need to
+manually calculate coordinates for every point.
+
+Points
+------
+
+*point(name)
+
+Creates a point.
+
+Example:
+
+*point(A)
+*point(B)
+*point(C)
+
+
+Points can also be defined with coordinates when exact positioning is needed.
+
+*point(A = 0, 0)
+*point(B = 4, 0)
+*point(C = 2, 3)
+
+
+Automatic point positioning
+---------------------------
+
+The drawing system should be able to determine point positions automatically
+when enough geometric constraints are provided.
+
+Users should not have to manually specify coordinates when they are not
+important.
+
+Example:
+
+*point(A)
+*point(B)
+
+*line(A ; B)
+
+
+Geometric relationships can be used to determine other points.
+
+Example:
+
+*point(A = 0, 0)
+*point(B = 4, 0)
+
+*point(C)
+*circle(C ; A ; 3)
+
+The system can determine C from the given geometric constraints when possible.
+
+
+Lines and segments
+------------------
+
+*line(A ; B)
+
+Draws a line segment from A to B.
+
+Example:
+
+*line(A ; B)
+
+
+A line can also be defined using a geometric relationship.
+
+*line(A ; B ; infinite)
+
+Draws an infinite line through A and B.
+
+
+Rays
+----
+
+*ray(A ; B)
+
+Draws a ray starting at A and passing through B.
+
+
+Circles
+-------
+
+*circle(center ; radius)
+
+Draws a circle.
+
+Example:
+
+*circle(O ; 3)
+
+
+A circle can also be defined using a point on the circle.
+
+*circle(O ; A)
+
+
+Arcs
+----
+
+*arc(center ; start ; end)
+
+Draws an arc.
+
+Example:
+
+*arc(O ; A ; B)
+
+
+Angles
+------
+
+*angle(A ; B ; C)
+
+Draws angle ABC.
+
+Example:
+
+*angle(A ; B ; C)
+
+
+An angle can optionally have a label.
+
+*angle(A ; B ; C ; 60°)
+
+
+Right angles
+------------
+
+*right-angle(A ; B ; C)
+
+Draws a right-angle marker.
+
+Example:
+
+*right-angle(A ; B ; C)
+
+Output:
+
+∠ABC = 90°
+
+
+Equal angles
+------------
+
+*equal-angle(A ; B ; C ; D ; E ; F)
+
+Marks two angles as equal.
+
+Example:
+
+*equal-angle(A ; B ; C ; D ; E ; F)
+
+
+Parallel lines
+--------------
+
+*parallel(A ; B ; C ; D)
+
+Marks AB and CD as parallel.
+
+Example:
+
+*parallel(A ; B ; C ; D)
+
+Output:
+
+AB ∥ CD
+
+
+Perpendicular lines
+-------------------
+
+*perp(A ; B ; C ; D)
+
+Marks AB and CD as perpendicular.
+
+Example:
+
+*perp(A ; B ; C ; D)
+
+Output:
+
+AB ⊥ CD
+
+
+Triangles
+---------
+
+*triangle(A ; B ; C)
+
+Draws triangle ABC.
+
+Example:
+
+*triangle(A ; B ; C)
+
+
+A triangle can also include labels.
+
+*triangle(A ; B ; C ; labels)
+
+
+Side marks
+----------
+
+*equal-length(A ; B ; C ; D)
+
+Marks AB and CD as having equal length.
+
+Example:
+
+*equal-length(A ; B ; C ; D)
+
+
+Point labels
+------------
+
+Point labels are displayed automatically.
+
+Example:
+
+*point(A)
+*point(B)
+*point(C)
+
+*triangle(A ; B ; C)
+
+The system automatically places the labels so they do not overlap the
+geometric figure when possible.
+
+
+Text labels
+-----------
+
+*label(point ; text)
+
+Adds a custom label near a point.
+
+Example:
+
+*label(A ; A)
+*label(B ; B)
+*label(C ; C)
+
+
+Measurements
+------------
+
+Lengths and angles can be displayed as labels.
+
+Example:
+
+*length(A ; B)
+
+*angle-value(A ; B ; C)
+
+
+Example:
+
+*length(A ; B) = 5
+*angle-value(A ; B ; C) = 60°
+
+
+Coordinate system
+-----------------
+
+Coordinates are optional.
+
+For simple geometric figures, users should be able to describe relationships
+instead of specifying exact coordinates.
+
+Example:
+
+*point(A = 0, 0)
+*point(B = 5, 0)
+
+*line(A ; B)
+
+*point(C)
+*perp(A ; B ; C)
+
+The drawing engine attempts to determine the position of C automatically.
+
+
+Constraints
+-----------
+
+Geometric constraints can be used to determine point positions.
+
+Examples:
+
+*on-line(A ; B ; C)
+
+C lies on line AB.
+
+
+*on-circle(O ; 5 ; A)
+
+A lies on the circle with center O and radius 5.
+
+
+*distance(A ; B ; 5)
+
+AB has length 5.
+
+
+*perp(A ; B ; C ; D)
+
+AB is perpendicular to CD.
+
+
+*parallel(A ; B ; C ; D)
+
+AB is parallel to CD.
+
+
+*midpoint(A ; B ; C)
+
+C is the midpoint of AB.
+
+
+Intersections
+-------------
+
+*intersection(name ; object1 ; object2)
+
+Creates a point at the intersection of two geometric objects.
+
+Example:
+
+*intersection(C ; line(A ; B) ; line(D ; E))
+
+
+The position of C is calculated automatically by the drawing engine.
+
+
+Drawing blocks
+--------------
+
+Multiple drawing commands can be grouped together using *draw(...).
+
+Example:
+
+*draw(
+    *point(A = 0, 0)
+    *point(B = 5, 0)
+    *point(C = 2.5, 4)
+
+    *triangle(A ; B ; C)
+
+    *angle(B ; A ; C)
+    *angle(A ; B ; C)
+
+    *equal-length(A ; B ; A ; C)
+)
+
+
+Example: right triangle
+-----------------------
+
+Code:
+
+*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)
+
+    *distance(A ; C ; 3)
+    *perp(A ; B ; A ; C)
+
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+)
+
+
+The drawing engine determines the position of C from the constraints.
+
+
+Example: circle and tangent
+---------------------------
+
+Code:
+
+*draw(
+    *point(O = 0, 0)
+    *circle(O ; 3)
+
+    *point(A)
+    *on-circle(O ; 3 ; A)
+
+    *line(O ; A)
+
+    *point(B)
+    *perp(O ; A ; A ; B)
+
+    *line(A ; B)
+)
+
+
+Rendering
+---------
+
+The geometry system is responsible for calculating the positions of points
+and geometric objects.
+
+The final drawing can then be rendered using Typst and a drawing package
+such as CeTZ.
+
+The user should normally work with geometric relationships instead of raw
+coordinates.
+
+Coordinates are still available when precise positioning is required.
+
+
+Design principle
+----------------
+
+Simple drawings should require very little code.
+
+Example:
+
+*draw(
+    *triangle(A ; B ; C)
+    *right-angle(A ; B ; C)
+)
+
+The system should automatically handle:
+
+- Point positioning
+- Label positioning
+- Line and circle geometry
+- Intersection calculation
+- Angle markers
+- Right-angle markers
+- Equal-length markers
+- Parallel markers
+- Perpendicular markers
+- Basic measurements
+
+Manual coordinates should be an option, not a requirement.

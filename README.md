@@ -9,8 +9,15 @@ PDF.
 
 ## Requirements
 
-- Python 3
+- Python 3.12+
+- `uv` package manager
 - Typst installed and available as `typst`
+
+## Installation
+
+```bash
+uv sync
+```
 
 Check Typst with:
 
@@ -23,13 +30,13 @@ typst --version
 Compile an Easy Math file:
 
 ```bash
-python3 compiler.py a.ezmath
+uv run easy-math-lang a.ezmath
 ```
 
 Or choose the output PDF path:
 
 ```bash
-python3 compiler.py a.ezmath output.pdf
+uv run easy-math-lang a.ezmath output.pdf
 ```
 
 This creates:
@@ -359,3 +366,22 @@ Diện tích: <width> * <height> = <area>
 
 The generated Typst output inserts `#v(0.65em)` between output lines so equations
 have space in the PDF.
+
+## Geometry and Drawing
+
+You can now use `*draw(...)` blocks to render geometry automatically using the `cetz` drawing library. 
+The compiler includes a geometric solver that positions points for you based on constraints like `*perp`, `*distance`, `*parallel`, etc.
+
+Example:
+
+```text
+*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)
+    *distance(A ; C ; 3)
+    *perp(A ; B ; A ; C)
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+)
+```
