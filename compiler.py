@@ -1,7 +1,8 @@
 import re
 import sys
-import os
 import subprocess
+import ast
+import operator
 
 def compile_ezmath(input_file, output_pdf=None):
     if output_pdf is None:
@@ -14,14 +15,30 @@ def compile_ezmath(input_file, output_pdf=None):
     with open(input_file, 'r', encoding='utf-8') as f:
         raw_text = f.read()
 
-    # Rule: "// //": comment, can be inline //comment// or line-ending //
-    # Notice rule.txt: "*f(define(write_type.multiplication = * = //sth like . in vn or x in global, i use . because im vn btw// .))"
-    # Remove paired comments //...// first:
-    raw_text = re.sub(r'//.*?//', '', raw_text, flags=re.DOTALL)
+    def strip_comments(text):
+        cleaned_lines = []
+        for raw_line in text.splitlines():
+            line = re.sub(r'//.*?//', '', raw_line)
+            if '//' in line:
+                line = line.split('//', 1)[0]
+            cleaned_lines.append(line)
+        return "\n".join(cleaned_lines)
 
-    lines = raw_text.splitlines()
+    lines = strip_comments(raw_text).splitlines()
     output_lines = []
     in_f_block = False
+
+    safe_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
 
     def replace_vars(text):
         while True:
@@ -34,15 +51,33 @@ def compile_ezmath(input_file, output_pdf=None):
                 break
         return text
 
+    def replace_defines(text):
+        for k, v in defines.items():
+            text = re.sub(rf'(?<![<\w]){re.escape(k)}(?![>\w])', v, text)
+        return text
+
     def evaluate_calc(expression):
         # Substitute variables and defines first
         expression = replace_vars(expression)
-        for k, v in defines.items():
-            if k in expression:
-                expression = expression.replace(k, v)
+        expression = replace_defines(expression)
         try:
             eval_expr = expression.replace(mult_sym, '*').strip()
-            res = eval(eval_expr)
+            eval_expr = re.sub(r'(?<=\d)\s+(?=\d)', '', eval_expr)
+            eval_expr = eval_expr.replace('^', '**')
+            tree = ast.parse(eval_expr, mode='eval')
+
+            def eval_node(node):
+                if isinstance(node, ast.Expression):
+                    return eval_node(node.body)
+                if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                    return node.value
+                if isinstance(node, ast.BinOp) and type(node.op) in safe_operators:
+                    return safe_operators[type(node.op)](eval_node(node.left), eval_node(node.right))
+                if isinstance(node, ast.UnaryOp) and type(node.op) in safe_operators:
+                    return safe_operators[type(node.op)](eval_node(node.operand))
+                raise ValueError("calc only supports numbers and math operators")
+
+            res = eval_node(tree)
             if isinstance(res, float) and res.is_integer():
                 res = int(res)
             return str(res)
@@ -73,6 +108,7 @@ def compile_ezmath(input_file, output_pdf=None):
                     return evaluate_calc(m.group(1))
                 v = re.sub(r'calc\((.*?)\)', _calc_sub, v)
                 defines[k] = v
+                variables[k] = v
             return
 
         if statement.startswith('<') and '=' in statement:
@@ -92,19 +128,52 @@ def compile_ezmath(input_file, output_pdf=None):
         tokens = re.split(r'(\$.*?\$)', content)
         for i, token in enumerate(tokens):
             if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
-                tokens[i] = token.replace('\\', r'\\').replace('*', r'\*').replace('_', r'\_')
+                tokens[i] = (
+                    token
+                    .replace('\\', r'\\')
+                    .replace('*', r'\*')
+                    .replace('_', r'\_')
+                    .replace('<', r'\<')
+                    .replace('>', r'\>')
+                    .replace('/', r'\/')
+                )
         return ''.join(tokens)
+
+    def split_top_level_args(args):
+        parts = []
+        current = []
+        depth = 0
+        for char in args:
+            if char == '(':
+                depth += 1
+            elif char == ')' and depth > 0:
+                depth -= 1
+
+            if char == ';' and depth == 0:
+                parts.append(''.join(current).strip())
+                current = []
+            else:
+                current.append(char)
+
+        parts.append(''.join(current).strip())
+        return parts
+
+    def replace_symbol_shortcuts(text):
+        replacements = [
+            ('<=>', '⇔'),
+            ('=>', '⇒'),
+            ('->', '→'),
+        ]
+        for old, new in replacements:
+            text = text.replace(old, new)
+        return text
 
     for line in lines:
         line = line.strip()
         if not line:
             continue
-
-        # Remaining comments //
-        if '//' in line:
-            line = line.split('//')[0].strip()
-            if not line:
-                continue
+        if line.startswith('```'):
+            continue
 
         # Handle single-line *define(...) or define(...)
         if (line.startswith('*define(') or line.startswith('define(')) and line.endswith(')'):
@@ -133,6 +202,10 @@ def compile_ezmath(input_file, output_pdf=None):
             process_assignment_or_define(line)
             continue
 
+        if re.match(r'^<[^<>]+>\s*=', line):
+            process_assignment_or_define(line)
+            continue
+
         # --- Text Output Formatting Phase ---
         text = line
 
@@ -146,9 +219,7 @@ def compile_ezmath(input_file, output_pdf=None):
         text = replace_vars(text)
 
         # 3. Substitute defines
-        for k, v in defines.items():
-            if k in text:
-                text = text.replace(k, v)
+        text = replace_defines(text)
 
         # 4. Evaluate calc()
         calc_matches = re.findall(r'calc\((.*?)\)', text)
@@ -159,81 +230,108 @@ def compile_ezmath(input_file, output_pdf=None):
         # 5. Math Constructs Formatting Phase
         def clean_inner_math(s):
             s = replace_vars(s.strip())
-            for k, v in defines.items():
-                if k in s:
-                    s = s.replace(k, v)
+            s = replace_defines(s)
             s = s.replace('$', '')
             s = re.sub(r'\*(sin|cos|tan|log|ln|pi|infinity|degree)\b', r'\1', s)
+            s = replace_symbol_shortcuts(s)
             return s
 
-        # *frac(numerator ; denominator)
-        def frac_replacer(match):
-            numerator = clean_inner_math(match.group(1))
-            denominator = clean_inner_math(match.group(2))
-            return f"$frac({numerator}, {denominator})$"
+        def group_power_base(s):
+            s = clean_inner_math(s)
+            if re.search(r'\s[+\-*/]\s|[+\-*/]', s) and not (s.startswith('(') and s.endswith(')')):
+                return f"({s})"
+            return s
 
-        text = re.sub(r'(?:\*?f\(frac|\*frac)\((.*?);(.*?)\)\)?', frac_replacer, text)
+        def replace_math_call(text, name, min_args, formatter):
+            pattern = re.compile(r'\*' + re.escape(name) + r'\(')
+            pos = 0
+            out = []
 
-        # *root(index ; radicand)
-        def root_replacer(match):
-            index = clean_inner_math(match.group(1))
-            radicand = clean_inner_math(match.group(2))
-            return f"$root({index}, {{{radicand}}})$"
+            while True:
+                match = pattern.search(text, pos)
+                if not match:
+                    out.append(text[pos:])
+                    break
 
-        text = re.sub(r'(?:\*?f\(root|\*root)\((.*?);(.*?)\)\)?', root_replacer, text)
+                out.append(text[pos:match.start()])
+                start = match.end()
+                depth = 1
+                i = start
+                while i < len(text) and depth > 0:
+                    if text[i] == '(':
+                        depth += 1
+                    elif text[i] == ')':
+                        depth -= 1
+                    i += 1
 
-        # *abs(expression)
-        def abs_replacer(match):
-            expr = clean_inner_math(match.group(1))
-            return f"$abs({expr})$"
+                if depth != 0:
+                    out.append(text[match.start():])
+                    break
 
-        text = re.sub(r'\*abs\((.*)\)', abs_replacer, text)
+                args = split_top_level_args(text[start:i - 1])
+                if len(args) < min_args:
+                    out.append(text[match.start():i])
+                else:
+                    out.append(formatter(args))
+                pos = i
 
-        # *sin(x), *cos(x), *tan(x), *log(x), *ln(x)
-        def trig_replacer(match):
-            fn = match.group(1)
-            expr = clean_inner_math(match.group(2))
-            return f"${fn}({expr})$"
+            return ''.join(out)
 
-        text = re.sub(r'\*(sin|cos|tan|log|ln)\((.*)\)', trig_replacer, text)
+        text = replace_math_call(
+            text,
+            'frac',
+            2,
+            lambda args: f"$frac({clean_inner_math(args[0])}, {clean_inner_math(args[1])})$"
+        )
+        text = replace_math_call(
+            text,
+            'abs',
+            1,
+            lambda args: f"$abs({clean_inner_math(args[0])})$"
+        )
+
+        for fn_name in ('sin', 'cos', 'tan', 'log', 'ln'):
+            text = replace_math_call(
+                text,
+                fn_name,
+                1,
+                lambda args, fn_name=fn_name: f"${fn_name}({clean_inner_math(args[0])})$"
+            )
 
         # *pi, *infinity
         text = re.sub(r'\*pi\b', '$pi$', text)
         text = re.sub(r'\*infinity\b', '$infinity$', text)
 
-        # *pow(base ; exponent)
-        def pow_replacer(match):
-            base = clean_inner_math(match.group(1))
-            exp = clean_inner_math(match.group(2))
-            return f"${base}^({exp})$"
-
-        text = re.sub(r'\*pow\((.*?);(.*)\)', pow_replacer, text)
-
-        # *sum(lower ; upper ; expression)
-        def sum_replacer(match):
-            lower = clean_inner_math(match.group(1))
-            upper = clean_inner_math(match.group(2))
-            expr = clean_inner_math(match.group(3))
-            return f"$sum_({lower})^({upper}) ({expr})$"
-
-        text = re.sub(r'\*sum\((.*?);(.*?);(.*)\)', sum_replacer, text)
-
-        # *prod(lower ; upper ; expression)
-        def prod_replacer(match):
-            lower = clean_inner_math(match.group(1))
-            upper = clean_inner_math(match.group(2))
-            expr = clean_inner_math(match.group(3))
-            return f"$product_({lower})^({upper}) ({expr})$"
-
-        text = re.sub(r'\*prod\((.*?);(.*?);(.*)\)', prod_replacer, text)
-
-        # *lim(variable -> value ; expression)
-        def lim_replacer(match):
-            cond = clean_inner_math(match.group(1))
-            expr = clean_inner_math(match.group(2))
-            return f"$lim_({cond}) ({expr})$"
-
-        text = re.sub(r'\*lim\((.*?);(.*)\)', lim_replacer, text)
+        text = replace_math_call(
+            text,
+            'pow',
+            2,
+            lambda args: f"${group_power_base(args[0])}^({clean_inner_math(args[1])})$"
+        )
+        text = replace_math_call(
+            text,
+            'root',
+            2,
+            lambda args: f"$root({clean_inner_math(args[0])}, {{{clean_inner_math(args[1])}}})$"
+        )
+        text = replace_math_call(
+            text,
+            'sum',
+            3,
+            lambda args: f"$display(sum_({clean_inner_math(args[0])})^({clean_inner_math(args[1])}) ({clean_inner_math(args[2])}))$"
+        )
+        text = replace_math_call(
+            text,
+            'prod',
+            3,
+            lambda args: f"$display(product_({clean_inner_math(args[0])})^({clean_inner_math(args[1])}) ({clean_inner_math(args[2])}))$"
+        )
+        text = replace_math_call(
+            text,
+            'lim',
+            2,
+            lambda args: f"$lim_({clean_inner_math(args[0])}) ({clean_inner_math(args[1])})$"
+        )
 
         # Merge adjacent math formulas like $...$ / $...$ or $...$$...$ into a single $...$
         # Also clean up any accidental double dollars inside a math block
@@ -244,8 +342,17 @@ def compile_ezmath(input_file, output_pdf=None):
 
         text = merge_math(text)
 
-        # base_index like A_1
-        text = re.sub(r'\b([A-Za-z]+)_([A-Za-z0-9]+)\b', r'$\1_\2$', text)
+        # base_index like A_1 or a_ij
+        def index_replacer(match):
+            base = match.group(1)
+            index = match.group(2)
+            if len(index) == 1:
+                return f"${base}_{index}$"
+            return f"${base}_(\"{index}\")$"
+
+        text = re.sub(r'\b([A-Za-z]+)_([A-Za-z0-9]+)\b', index_replacer, text)
+
+        text = replace_symbol_shortcuts(text)
 
         # 6. Apply multiplication symbol outside math blocks
         tokens = re.split(r'(\$.*?\$)', text)
@@ -270,8 +377,10 @@ def compile_ezmath(input_file, output_pdf=None):
         ""
     ]
 
-    for out_line in output_lines:
+    for index, out_line in enumerate(output_lines):
         typst_content.append(out_line + " \\")
+        if index < len(output_lines) - 1:
+            typst_content.append("#v(0.65em)")
 
     with open(typst_file, 'w', encoding='utf-8') as tf:
         tf.write("\n".join(typst_content) + "\n")

@@ -76,3 +76,4 @@ ex: *lim(x -> 0 ; sin(x) / x)
 "*degree" add into *pow
 ex: *pow(A; *degree)
 
+some symbol write fast like "=>", "<=>", ... auto switch to like rightarrow
