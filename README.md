@@ -253,6 +253,19 @@ Common shortcuts are converted automatically:
 =>
 <=>
 ->
+<-
+<->
+|->
+<=
+>=
+!=
+&&
+||
++-
+-+
+~=
+~=~
+...
 ```
 
 Output:
@@ -261,6 +274,19 @@ Output:
 ⇒
 ⇔
 →
+←
+↔
+↦
+≤
+≥
+≠
+∧
+∨
+±
+∓
+≈
+≅
+…
 ```
 
 They also work inside normal text:
@@ -269,6 +295,28 @@ They also work inside normal text:
 Nếu x => y thì y => z.
 A <=> B.
 x -> 0.
+```
+
+More word shortcuts:
+
+```text
+le leq ge geq ne neq approx cong pm mp prop propto
+times xx cdot div sqrt cbrt deg degree angle triangle parallel perp
+infinity infty forall exists notin isin subset superset subseteq superseteq
+union intersect intersection emptyset empty land lor lnot therefore because
+alpha beta gamma delta epsilon theta lambda mu pi sigma omega
+Delta Sigma Omega
+```
+
+Output:
+
+```text
+≤ ≤ ≥ ≥ ≠ ≠ ≈ ≅ ± ∓ ∝ ∝
+× × ⋅ ÷ √ ∛ ° ° ∠ △ ∥ ⊥
+∞ ∞ ∀ ∃ ∉ ∈ ⊂ ⊃ ⊆ ⊇
+∪ ∩ ∩ ∅ ∅ ∧ ∨ ¬ ∴ ∵
+α β γ δ ε θ λ μ π σ ω
+Δ Σ Ω
 ```
 
 ## Blocks

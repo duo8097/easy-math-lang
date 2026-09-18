@@ -36,7 +36,7 @@ $2^(3)$ \
 #v(0.65em)
 $x^(2)$ \
 #v(0.65em)
-$A^(degree)$ \
+$A^(°)$ \
 #v(0.65em)
 $(x + 1)^(n)$ \
 #v(0.65em)
@@ -84,19 +84,19 @@ $display(product_(k = 1)^(n) (k + 1))$ \
 #v(0.65em)
 $lim_(x → 0) (sin(x) / x)$ \
 #v(0.65em)
-$lim_(x → infinity) (1 / x)$ \
+$lim_(x → ∞) (1 / x)$ \
 #v(0.65em)
-$lim_(n → infinity) (1 / n)$ \
+$lim_(n → ∞) (1 / n)$ \
 #v(0.65em)
-$pi$ \
+$π$ \
 #v(0.65em)
-$infinity$ \
+$∞$ \
 #v(0.65em)
-$A^(degree)$ \
+$A^(°)$ \
 #v(0.65em)
-$90^(degree)$ \
+$90^(°)$ \
 #v(0.65em)
-A .degree \
+A .° \
 #v(0.65em)
 ⇒ \
 #v(0.65em)
@@ -104,15 +104,15 @@ A .degree \
 #v(0.65em)
 → \
 #v(0.65em)
-\<- \
+← \
 #v(0.65em)
-\>= \
+≥ \
 #v(0.65em)
-\<= \
+≤ \
 #v(0.65em)
-!= \
+≠ \
 #v(0.65em)
-== \
+= \
 #v(0.65em)
 + \
 #v(0.65em)
@@ -128,11 +128,11 @@ A ⇔ B. \
 #v(0.65em)
 x → 0. \
 #v(0.65em)
-x \>= 10. \
+x ≥ 10. \
 #v(0.65em)
-x \<= 20. \
+x ≤ 20. \
 #v(0.65em)
-a != b. \
+a ≠ b. \
 #v(0.65em)
 Diện tích hình chữ nhật: \
 #v(0.65em)
@@ -174,7 +174,7 @@ $abs(frac(a, b))$ \
 #v(0.65em)
 $root(2, {x^(2)})$ \
 #v(0.65em)
-$sin(frac(pi, 2))$ \
+$sin(frac(π, 2))$ \
 #v(0.65em)
 Hình chữ nhật có: \
 #v(0.65em)
