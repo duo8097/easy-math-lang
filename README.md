@@ -1,55 +1,47 @@
 # easy-math-lang
 
-`easy-math-lang` is a simple language for writing math documents with plain text.
-It targets beginners, students, and teachers who want an easy way to create lesson
-notes or math documents without learning a full typesetting system.
+**easy-math-lang** is a tool that lets you write math documents using simple text —
+no design skills needed.
 
-Write `.ezmath` files → compile to PDF via Typst.
+You write a plain text file, run one command, and get a clean PDF with proper
+math symbols, fractions, and diagrams.
 
-## Quick Start
+It was made for **teachers and students** who want an easy way to write math
+without fighting complex software.
 
-```bash
-# 1. Install dependencies
-uv sync
+---
 
-# 2. Compile a file
-uv run easy-math-lang my-document.ezmath
+## What does it look like?
 
-# 3. Open the PDF
-my-document.pdf
+You write something like this in a text file:
+
 ```
+// Area of a rectangle
 
-## Documentation
-
-- [Installation](docs/installation.md) — Requirements, setup, and usage
-- [Algebra](docs/algebra.md) — Variables, calculations, math commands, and symbols
-- [Geometry](docs/geometry.md) — Drawing geometric figures with automatic constraint solving
-
-## Hello World
-
-```text
-// My first Easy Math document
-
-*define(write_type.multiplication = .)
-
-<width> = 5
+<width>  = 5
 <height> = 3
-<area> = calc(<width> * <height>)
+<area>   = calc(<width> * <height>)
 
-Rectangle:
-Width:  <width>
-Height: <height>
-Area:   <width> . <height> = <area>
+The rectangle is <width> cm wide and <height> cm tall.
+Its area is: <width> . <height> = <area> cm²
 ```
 
-Output:
+And you get a clean PDF that says:
 
-```
-Rectangle:
-Width:  5
-Height: 3
-Area:   5 . 3 = 15
-```
+> The rectangle is 5 cm wide and 3 cm tall.
+> Its area is: 5 . 3 = 15 cm²
+
+---
+
+## Learn more
+
+If you have never used a terminal or installed programs before, start here:
+
+1. 📦 [Installation guide](docs/installation.md) — how to set everything up, step by step
+2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols
+3. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
+
+---
 
 ## License
 

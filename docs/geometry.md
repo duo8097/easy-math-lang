@@ -1,20 +1,28 @@
-# Geometry
+# Drawing Geometry
 
-easy-math-lang supports drawing geometric figures using `*draw(...)` blocks.
+easy-math-lang can draw geometric figures — triangles, circles, angles, and more —
+directly in your PDF.
 
-The compiler includes a **constraint solver** that automatically calculates point
-positions from geometric relationships. You describe *what* you want — the engine
-figures out *where* to put things.
-
-The final figure is rendered using [CeTZ](https://github.com/cetz-package/cetz) inside Typst.
+You don't need to know the exact coordinates of every point. Just describe the
+**relationships** between points (e.g. "these two sides are equal", "this angle is 90°"),
+and the program figures out where to place everything automatically.
 
 ---
 
-## Drawing Blocks
+## How it works
 
-Wrap all geometry commands in a `*draw(...)` block:
+You write geometry commands inside a `*draw(...)` block.
+The program:
 
-```text
+1. Reads your commands
+2. Calculates where each point should go (using a constraint solver)
+3. Draws the figure and places it in your PDF
+
+---
+
+## A simple example
+
+```
 *draw(
     *point(A = 0, 0)
     *point(B = 4, 0)
@@ -23,208 +31,215 @@ Wrap all geometry commands in a `*draw(...)` block:
 )
 ```
 
+This draws triangle ABC where you have set the coordinates yourself.
+
 ---
 
 ## Points
 
-### Fixed coordinates
+A **point** is a dot with a name.
 
-```text
-*point(A = 0, 0)
-*point(B = 4, 0)
-*point(C = 2, 3)
+### With exact coordinates
+
+If you know where a point should be, write its position as `x, y`:
+
+```
+*point(A = 0, 0)    // A is at position (0, 0) — the bottom left
+*point(B = 4, 0)    // B is 4 units to the right of A
+*point(C = 2, 3)    // C is up and to the right
 ```
 
-### Auto-positioned points
+Think of it like a grid — `x` goes right, `y` goes up.
 
-Omit coordinates when a point's position can be derived from constraints:
+### Without coordinates (auto-positioned)
 
-```text
+If you don't know or don't care about the exact position, just name the point.
+The program will place it automatically based on the other rules you give:
+
+```
 *point(C)
 ```
 
-The solver will find a position for `C` that satisfies all given constraints.
+This is useful when you say something like "C is 3 cm from A" — the program
+figures out a valid position for C.
 
 ---
 
-## Lines and Segments
+## Lines
 
-```text
+### Line segment (from A to B)
+
+```
 *line(A ; B)
 ```
 
-Draws a line segment from A to B.
+Draws a straight line between two points.
 
 ### Infinite line
 
-```text
+```
 *line(A ; B ; infinite)
 ```
 
-### Ray
+Draws a line that extends forever through A and B.
 
-```text
+### Ray (starts at A, goes through B)
+
+```
 *ray(A ; B)
 ```
-
-Draws a ray starting at A passing through B.
 
 ---
 
 ## Triangles
 
-```text
+```
 *triangle(A ; B ; C)
 ```
 
-Draws triangle ABC.
+Draws the three sides of triangle ABC.
 
 ---
 
 ## Circles
 
-```text
-*circle(center ; radius)
 ```
-
-```text
 *circle(O ; 3)
 ```
 
-Using a point on the circle instead of a numeric radius:
+Draws a circle centered at O with radius 3.
 
-```text
+You can also define the circle using a point on it instead of a number:
+
+```
 *circle(O ; A)
 ```
+
+Draws a circle centered at O that passes through point A.
 
 ---
 
 ## Arcs
 
-```text
-*arc(center ; start ; end)
 ```
-
-```text
 *arc(O ; A ; B)
 ```
+
+Draws an arc of a circle centered at O, starting at point A and ending at B.
 
 ---
 
 ## Angles
 
-```text
+```
 *angle(A ; B ; C)
 ```
 
-Draws angle ABC (vertex at B). Optionally provide a label:
+Draws the angle at vertex B, between sides BA and BC.
 
-```text
+You can add a label:
+
+```
 *angle(A ; B ; C ; 60°)
 ```
 
----
+### Right angle (90° marker)
 
-## Right Angles
-
-```text
+```
 *right-angle(A ; B ; C)
 ```
 
-Draws a right-angle marker at B (∠ABC = 90°).
+Draws a small square in the corner at B to show the angle is exactly 90°.
 
 ---
 
-## Constraints
+## Rules and constraints
 
-Constraints let you describe geometric relationships without manually calculating coordinates.
+**Constraints** are rules that tell the program how points relate to each other.
+Use them when you don't want to set exact coordinates yourself.
 
-### Distance
+### Distance between two points
 
-```text
+```
 *distance(A ; B ; 5)
 ```
 
-AB has length 5.
+"The distance from A to B is 5."
 
-### Perpendicular
+### Perpendicular lines (90° angle)
 
-```text
+```
 *perp(A ; B ; C ; D)
 ```
 
-AB ⊥ CD.
+"Line AB is perpendicular to line CD."
 
-### Parallel
+### Parallel lines
 
-```text
+```
 *parallel(A ; B ; C ; D)
 ```
 
-AB ∥ CD.
+"Line AB is parallel to line CD."
 
-### Point on a line
+### Point lies on a line
 
-```text
+```
 *on-line(A ; B ; C)
 ```
 
-C lies on line AB.
+"Point C lies on the line through A and B."
 
-### Point on a circle
+### Point lies on a circle
 
-```text
+```
 *on-circle(O ; 5 ; A)
 ```
 
-A lies on the circle with center O and radius 5.
+"Point A lies on the circle centered at O with radius 5."
 
-### Equal lengths
+### Two sides have the same length
 
-```text
+```
 *equal-length(A ; B ; C ; D)
 ```
 
-Marks AB and CD as equal in length.
+"Segment AB has the same length as segment CD."
+This also draws tick marks on both sides to show they are equal.
 
 ### Midpoint
 
-```text
-*midpoint(A ; B ; C)
+```
+*midpoint(A ; B ; M)
 ```
 
-C is the midpoint of AB.
+"M is the midpoint of AB."
 
-### Intersection
+### Intersection of two lines
 
-```text
+```
 *intersection(P ; line(A ; B) ; line(C ; D))
 ```
 
-P is placed at the intersection of lines AB and CD.
+"P is the point where line AB and line CD cross."
+The program calculates P's position automatically.
 
 ---
 
-## Labels and Measurements
+## Labels and measurements
 
-### Point labels
+Point labels are placed automatically (the program avoids overlaps).
 
-Point labels are placed automatically. You can override with:
+To show a length or angle value in the figure:
 
-```text
-*label(A ; A)
+```
+*length(A ; B)             // shows the length of AB
+*angle-value(A ; B ; C)    // shows the measure of angle ABC
 ```
 
-### Measurements
+You can also assign a value:
 
-```text
-*length(A ; B)            // displays |AB|
-*angle-value(A ; B ; C)   // displays ∠ABC
 ```
-
-With a specific value:
-
-```text
 *length(A ; B) = 5
 *angle-value(A ; B ; C) = 60°
 ```
@@ -233,9 +248,11 @@ With a specific value:
 
 ## Examples
 
-### Right triangle
+### Example 1 — Right triangle
 
-```text
+The program places C automatically so that AC = 3 and the angle at A is 90°.
+
+```
 *draw(
     *point(A = 0, 0)
     *point(B = 4, 0)
@@ -249,11 +266,28 @@ With a specific value:
 )
 ```
 
-The solver automatically places C at (0, 3) so that AC = 3 and AC ⊥ AB.
+### Example 2 — Isosceles triangle
 
-### Circle with a tangent
+Both sides AC and BC are equal in length.
 
-```text
+```
+*draw(
+    *point(A = 0, 0)
+    *point(B = 6, 0)
+    *point(C)
+
+    *equal-length(A ; C ; B ; C)
+    *distance(A ; C ; 5)
+
+    *triangle(A ; B ; C)
+)
+```
+
+### Example 3 — Circle with a tangent line
+
+A tangent line touches the circle at exactly one point (at a right angle to the radius).
+
+```
 *draw(
     *point(O = 0, 0)
     *circle(O ; 3)
@@ -268,43 +302,11 @@ The solver automatically places C at (0, 3) so that AC = 3 and AC ⊥ AB.
 )
 ```
 
-### Isosceles triangle
-
-```text
-*draw(
-    *point(A = 0, 0)
-    *point(B = 6, 0)
-    *point(C)
-
-    *equal-length(A ; C ; B ; C)
-    *distance(A ; C ; 5)
-
-    *triangle(A ; B ; C)
-    *equal-length(A ; C ; B ; C)
-)
-```
-
 ---
 
-## Design Principle
+## Tips
 
-Simple drawings should require very little code:
-
-```text
-*draw(
-    *triangle(A ; B ; C)
-    *right-angle(A ; B ; C)
-)
-```
-
-The system handles:
-
-- Point auto-positioning from constraints
-- Label placement (no overlaps)
-- Right-angle markers
-- Equal-length markers
-- Parallel and perpendicular markers
-- Intersection calculations
-- Angle markers
-
-Manual coordinates are an option, not a requirement.
+- You don't need to set coordinates for every point — only the ones you care about.
+- Think of constraints as rules in plain language: "these sides are equal", "this angle is 90°".
+- The more constraints you give, the more precisely the figure is drawn.
+- If a point has no constraints at all, it will be placed somewhere random — give it at least one rule.
