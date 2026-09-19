@@ -204,17 +204,20 @@ def analyze_text(text):
                     analysis.definitions.append(
                         Definition('draw', 'draw', block_start, pos, pos + 5)
                     )
-                    _analyze_draw('\n'.join(block_content), lines, block_start, idx, analysis)
+                    _analyze_draw(
+                        '\n'.join(stmt for _, stmt in block_content),
+                        lines, block_start, idx, analysis,
+                    )
                 else:
-                    for k, stmt in enumerate(block_content):
+                    for stmt_idx, stmt in block_content:
                         before = _snapshot(ctx)
-                        process_assignment_or_define(ctx, stmt, line_no=block_start + 2 + k)
-                        _record_new(ctx, before, stmt, block_start + 1 + k, analysis)
+                        process_assignment_or_define(ctx, stmt, line_no=stmt_idx + 1)
+                        _record_new(ctx, before, lines[stmt_idx], stmt_idx, analysis)
                 in_f_block = False
                 continue
 
             if in_f_block:
-                block_content.append(s)
+                block_content.append((idx, s))
                 continue
 
             if re.match(r'^<[^<>]+>\s*=', s):
@@ -228,6 +231,8 @@ def analyze_text(text):
                 continue  # raw passthrough, like the compiler
 
             substituted = replace_vars(ctx, code)
+            unresolved = []
+            seen_names = set()
             for m in VAR_TOKEN.finditer(substituted):
                 name = m.group(1)
                 if not re.fullmatch(rf'\s*{IDENT}\s*', name):
@@ -235,17 +240,21 @@ def analyze_text(text):
                 clean = name.strip()
                 if clean in ctx.variables or clean in ctx.defines:
                     continue
-                at = code.find(f'<{name}>')
-                if at == -1:
-                    continue
-                message = f'Undefined variable <{clean}>'
-                known = sorted(set(ctx.variables) | set(ctx.defines))
-                suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
-                if suggestion:
-                    message += f". Did you mean '{suggestion[0]}'?"
-                analysis.diagnostics.append(Diag(
-                    idx, at, at + len(name) + 2, 'error', message,
-                ))
+                if clean not in seen_names:
+                    seen_names.add(clean)
+                    unresolved.append((name, clean))
+            known = sorted(set(ctx.variables) | set(ctx.defines))
+            for name, clean in unresolved:
+                # Every source occurrence gets its own range (code.find
+                # would collapse duplicates onto the first one).
+                for occ in re.finditer(rf'<{re.escape(name)}>', code):
+                    message = f'Undefined variable <{clean}>'
+                    suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
+                    if suggestion:
+                        message += f". Did you mean '{suggestion[0]}'?"
+                    analysis.diagnostics.append(Diag(
+                        idx, occ.start(), occ.end(), 'error', message,
+                    ))
 
             for m in CMD_CALL.finditer(code):
                 if m.group(1) not in KNOWN_COMMANDS:
@@ -271,7 +280,8 @@ def analyze_text(text):
 
     if in_f_block:
         analysis.diagnostics.append(Diag(
-            block_start, 0, block_start, len(lines[block_start]) if block_start < len(lines) else 0,
+            block_start, 0,
+            len(lines[block_start]) if block_start < len(lines) else 0,
             'warning', "Unclosed block '(' — content may be silently consumed",
         ))
 

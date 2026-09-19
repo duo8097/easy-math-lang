@@ -108,6 +108,13 @@ class LSPClient:
 @pytest.fixture(scope='module')
 def client():
     cli = LSPClient()
+    # Handshake here (not in a test) so every test works standalone,
+    # including when a subset is selected with -k.
+    init = cli.request('initialize', {
+        'processId': None, 'capabilities': {}, 'rootUri': None,
+    })
+    cli.init_response = init
+    cli.notify('initialized', {})
     yield cli
     cli.stop()
 
@@ -119,14 +126,11 @@ def _labels(completion_result):
 
 
 def test_initialize(client):
-    resp = client.request('initialize', {
-        'processId': None, 'capabilities': {}, 'rootUri': None,
-    })
-    caps = resp['result']['capabilities']
+    caps = client.init_response['result']['capabilities']
+    assert client.init_response['result'].get('serverInfo', {}).get('name') == 'easy-math-lsp'
     assert 'completionProvider' in caps
     assert 'hoverProvider' in caps
     assert 'documentSymbolProvider' in caps
-    client.notify('initialized', {})
 
 
 def test_open_valid_document_no_diagnostics(client):
@@ -178,6 +182,72 @@ def test_change_updates_diagnostics(client):
     )
     assert any(d['message'].startswith('Undefined variable')
                for d in msg['params']['diagnostics'])
+
+
+def test_multiple_documents_independent(client):
+    uri_a, uri_b = 'file:///multiA.ezmath', 'file:///multiB.ezmath'
+    client.notify('textDocument/didOpen', {'textDocument': {
+        'uri': uri_a, 'languageId': 'easymath', 'version': 1,
+        'text': '<a> = 1\nSee <a>\n'}})
+    client.notify('textDocument/didOpen', {'textDocument': {
+        'uri': uri_b, 'languageId': 'easymath', 'version': 1,
+        'text': 'See <oops>\n'}})
+    assert client.wait_for_diagnostics(uri_a)['params']['diagnostics'] == []
+    diags_b = client.wait_for_diagnostics(uri_b)['params']['diagnostics']
+    assert any('oops' in d['message'] for d in diags_b)
+
+    client.notify('textDocument/didChange', {
+        'textDocument': {'uri': uri_a, 'version': 2},
+        'contentChanges': [{'text': '<a> = 1\nSee <a> and <bad>\n'}]})
+    refreshed = client.wait_for(
+        lambda m: m.get('method') == 'textDocument/publishDiagnostics'
+        and m.get('params', {}).get('uri') == uri_a
+        and any('bad' in d['message'] for d in m['params']['diagnostics']),
+        what='refreshed diagnostics for A')
+    assert refreshed is not None
+
+    resp = client.request('textDocument/completion', {
+        'textDocument': {'uri': uri_b},
+        'position': {'line': 0, 'character': 4}})
+    result = resp['result']
+    labels = [i['label'] for i in (result['items'] if isinstance(result, dict) else result)]
+    assert 'a' not in labels  # no cross-document leakage
+
+    client.notify('textDocument/didClose', {'textDocument': {'uri': uri_a}})
+    cleared = client.wait_for(
+        lambda m: m.get('method') == 'textDocument/publishDiagnostics'
+        and m.get('params', {}).get('uri') == uri_a
+        and m['params']['diagnostics'] == [],
+        what='cleared diagnostics for A')
+    assert cleared is not None
+
+
+def test_unsupported_file_gets_no_intelligence(client):
+    uri = 'file:///plain.txt'
+    client.notify('textDocument/didOpen', {'textDocument': {
+        'uri': uri, 'languageId': 'plaintext', 'version': 1,
+        'text': 'See <oops>\n'}})
+    assert client.wait_for_diagnostics(uri)['params']['diagnostics'] == []
+    resp = client.request('textDocument/completion', {
+        'textDocument': {'uri': uri},
+        'position': {'line': 0, 'character': 1}})
+    result = resp['result']
+    items = result['items'] if isinstance(result, dict) else result
+    assert items == []
+
+
+def test_emoji_positions_use_utf16(client):
+    uri = 'file:///emoji.ezmath'
+    client.notify('textDocument/didOpen', {'textDocument': {
+        'uri': uri, 'languageId': 'easymath', 'version': 1,
+        'text': '😀 <oops>\n'}})
+    msg = client.wait_for_diagnostics(uri)
+    diags = msg['params']['diagnostics']
+    assert len(diags) == 1
+    # 😀 is one code point but two UTF-16 units (0-1), space is 2,
+    # so <oops> starts at UTF-16 offset 3.
+    assert diags[0]['range']['start'] == {'line': 0, 'character': 3}
+    assert diags[0]['range']['end'] == {'line': 0, 'character': 9}
 
 
 def test_shutdown_and_exit(client):

@@ -35,17 +35,41 @@ def is_supported(uri, language_id=None):
     return uri.endswith(SUPPORTED_EXTENSIONS) or language_id in SUPPORTED_LANGUAGE_IDS
 
 
-def to_lsp_diagnostic(diag):
+def _to_lsp_offset(line_text, code_point_offset):
+    """Code-point offset -> LSP (UTF-16) offset for one line."""
+    return len(line_text[:max(0, code_point_offset)].encode('utf-16-le')) // 2
+
+
+def _to_code_point_offset(line_text, utf16_offset):
+    """LSP (UTF-16) offset -> code-point offset for one line."""
+    target = max(0, utf16_offset)
+    index = units = 0
+    while index < len(line_text) and units < target:
+        units += 2 if ord(line_text[index]) > 0xFFFF else 1
+        index += 1
+    return index
+
+
+def _line_at(lines, line):
+    return lines[line] if 0 <= line < len(lines) else ''
+
+
+def _lsp_range(lines, line, start_cp, end_cp):
+    text = _line_at(lines, line)
+    return lsp.Range(
+        start=lsp.Position(line=line, character=_to_lsp_offset(text, start_cp)),
+        end=lsp.Position(line=line, character=_to_lsp_offset(text, end_cp)),
+    )
+
+
+def to_lsp_diagnostic(diag, lines):
     severity = (
         lsp.DiagnosticSeverity.Error
         if diag.severity == 'error'
         else lsp.DiagnosticSeverity.Warning
     )
     return lsp.Diagnostic(
-        range=lsp.Range(
-            start=lsp.Position(line=diag.line, character=diag.start),
-            end=lsp.Position(line=diag.line, character=diag.end),
-        ),
+        range=_lsp_range(lines, diag.line, diag.start, diag.end),
         message=diag.message,
         severity=severity,
         source=SERVER_NAME,
@@ -54,11 +78,14 @@ def to_lsp_diagnostic(diag):
 
 def analyze_and_publish(ls, store, uri):
     text = store.get(uri)
-    diags = (
-        [to_lsp_diagnostic(d) for d in analysis.analyze_text(text).diagnostics]
-        if text is not None
-        else []
-    )
+    if text is None:
+        diags = []
+    else:
+        lines = text.splitlines()
+        diags = [
+            to_lsp_diagnostic(d, lines)
+            for d in analysis.analyze_text(text).diagnostics
+        ]
     ls.text_document_publish_diagnostics(
         lsp.PublishDiagnosticsParams(
             uri=uri, diagnostics=diags, version=store.version(uri)
@@ -112,13 +139,15 @@ def create_server():
         if text is None or not is_supported(uri):
             return lsp.CompletionList(is_incomplete=False, items=[])
         pos = params.position
+        lines = text.splitlines()
+        character = _to_code_point_offset(_line_at(lines, pos.line), pos.character)
         items = [
             lsp.CompletionItem(
                 label=item['label'],
                 kind=_COMPLETION_KINDS.get(item['kind']),
                 detail=item.get('detail'),
             )
-            for item in analysis.complete(text, pos.line, pos.character)
+            for item in analysis.complete(text, pos.line, character)
         ]
         return lsp.CompletionList(is_incomplete=False, items=items)
 
@@ -129,17 +158,16 @@ def create_server():
         if text is None or not is_supported(uri):
             return None
         pos = params.position
-        found = analysis.hover(text, pos.line, pos.character)
+        lines = text.splitlines()
+        character = _to_code_point_offset(_line_at(lines, pos.line), pos.character)
+        found = analysis.hover(text, pos.line, character)
         if found is None:
             return None
         return lsp.Hover(
             contents=lsp.MarkupContent(
                 kind=lsp.MarkupKind.Markdown, value=found['value']
             ),
-            range=lsp.Range(
-                start=lsp.Position(line=pos.line, character=found['start']),
-                end=lsp.Position(line=pos.line, character=found['end']),
-            ),
+            range=_lsp_range(lines, pos.line, found['start'], found['end']),
         )
 
     @server.feature(lsp.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
@@ -148,16 +176,14 @@ def create_server():
         text = store.get(uri)
         if text is None or not is_supported(uri):
             return []
+        lines = text.splitlines()
         return [
             lsp.SymbolInformation(
                 name=name,
                 kind=_SYMBOL_KINDS.get(kind, lsp.SymbolKind.Variable),
                 location=lsp.Location(
                     uri=uri,
-                    range=lsp.Range(
-                        start=lsp.Position(line=line, character=start),
-                        end=lsp.Position(line=line, character=end),
-                    ),
+                    range=_lsp_range(lines, line, start, end),
                 ),
             )
             for name, kind, line, start, end in analysis.document_symbols(text)

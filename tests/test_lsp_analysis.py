@@ -103,6 +103,27 @@ def test_document_symbols():
     assert by_name.get('draw') == 'draw'
 
 
+def test_unclosed_block_warning_not_crash():
+    result = analysis.analyze_text("*(\n<a> = 1\n")
+    assert len(result.diagnostics) == 1
+    diag = result.diagnostics[0]
+    assert diag.severity == 'warning'
+    assert diag.line == 0
+    assert 'Unclosed block' in diag.message
+
+
+def test_duplicate_undefined_each_gets_range():
+    result = analysis.analyze_text("Use <oops> and <oops>\n")
+    assert [(d.start, d.end) for d in result.diagnostics] == [(4, 10), (15, 21)]
+
+
+def test_indented_block_symbol_positions():
+    result = analysis.analyze_text("*(\n    <a> = 1\n)\n")
+    assert [(d.name, d.line, d.start, d.end) for d in result.definitions] == [
+        ('a', 1, 4, 7)
+    ]
+
+
 def test_document_store():
     store = DocumentStore()
     store.open('file:///a.ezmath', 'v1', version=1)
