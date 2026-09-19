@@ -10,11 +10,13 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5.3",
     "pygls>=2.1.1",
+    "pyside6>=6.11.2",
 ]
 
 [project.scripts]
 easy-math-lang = "easy_math_lang:main"
 easy-math-lsp = "easy_math_lang.lsp.server:main"
+easy-math-editor = "easy_math_lang.editor.app:main"
 
 [build-system]
 requires = ["uv_build>=0.12.16,<0.13.0"]
