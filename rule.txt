@@ -520,7 +520,7 @@ Example:
 *point(B = 4, 0)
 
 *point(C)
-*circle(C ; A ; 3)
+*on-circle(A ; 3 ; C)
 
 The system can determine C from the given geometric constraints when possible.
 
@@ -542,6 +542,8 @@ A line can also be defined using a geometric relationship.
 *line(A ; B ; infinite)
 
 Draws an infinite line through A and B.
+
+[planned — not yet implemented]
 
 
 Rays
@@ -576,6 +578,8 @@ Arcs
 
 Draws an arc.
 
+[planned — not yet implemented]
+
 Example:
 
 *arc(O ; A ; B)
@@ -586,7 +590,9 @@ Angles
 
 *angle(A ; B ; C)
 
-Draws angle ABC.
+Draws an angle arc marker at vertex B.
+
+[planned — not yet implemented]
 
 Example:
 
@@ -596,6 +602,8 @@ Example:
 An angle can optionally have a label.
 
 *angle(A ; B ; C ; 60°)
+
+[planned — not yet implemented]
 
 
 Right angles
@@ -607,11 +615,11 @@ Draws a right-angle marker.
 
 Example:
 
-*right-angle(A ; B ; C)
+*right-angle(B ; A ; C)
 
-Output:
+Draws a right-angle marker at vertex A (arms toward B and C).
 
-∠ABC = 90°
+Convention: the middle argument is always the vertex.
 
 
 Equal angles
@@ -620,6 +628,8 @@ Equal angles
 *equal-angle(A ; B ; C ; D ; E ; F)
 
 Marks two angles as equal.
+
+[planned — not yet implemented]
 
 Example:
 
@@ -703,13 +713,14 @@ Example:
 The system automatically places the labels so they do not overlap the
 geometric figure when possible.
 
-
 Text labels
 -----------
 
 *label(point ; text)
 
 Adds a custom label near a point.
+
+[planned — not yet implemented]
 
 Example:
 
@@ -722,6 +733,8 @@ Measurements
 ------------
 
 Lengths and angles can be displayed as labels.
+
+[planned — not yet implemented]
 
 Example:
 
