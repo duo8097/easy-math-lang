@@ -6,11 +6,11 @@
 #align(center)[#cetz.canvas({
   import cetz.draw: *
   circle((0.000, 0.000), radius: 0.05, fill: black, name: "A")
-  content("A", [A], anchor: "south-west", padding: 0.1)
+  content("A", [A], anchor: "south-east", padding: 0.12)
   circle((4.000, 0.000), radius: 0.05, fill: black, name: "B")
-  content("B", [B], anchor: "south-west", padding: 0.1)
+  content("B", [B], anchor: "west", padding: 0.12)
   circle((0.001, -3.004), radius: 0.05, fill: black, name: "C")
-  content("C", [C], anchor: "south-west", padding: 0.1)
+  content("C", [C], anchor: "north-east", padding: 0.12)
   line("A", "B", "C", close: true)
   line((0.200, 0.000), (0.200, -0.200), (0.000, -0.200))
   // [planned] *length(A; B) not yet implemented
@@ -21,11 +21,11 @@
 #align(center)[#cetz.canvas({
   import cetz.draw: *
   circle((0.000, 0.000), radius: 0.05, fill: black, name: "D")
-  content("D", [D], anchor: "south-west", padding: 0.1)
+  content("D", [D], anchor: "north-east", padding: 0.12)
   circle((6.000, 0.000), radius: 0.05, fill: black, name: "E")
-  content("E", [E], anchor: "south-west", padding: 0.1)
+  content("E", [E], anchor: "north-west", padding: 0.12)
   circle((2.992, 4.002), radius: 0.05, fill: black, name: "F")
-  content("F", [F], anchor: "south-west", padding: 0.1)
+  content("F", [F], anchor: "south", padding: 0.12)
   line("D", "E", "F", close: true)
   // [planned] *angle(D; F; E; 60°) not yet implemented
 })] \
@@ -34,11 +34,11 @@
 #align(center)[#cetz.canvas({
   import cetz.draw: *
   circle((0.000, 0.000), radius: 0.05, fill: black, name: "O")
-  content("O", [O], anchor: "south-west", padding: 0.1)
+  content("O", [O], anchor: "south-west", padding: 0.12)
   circle((-2.710, -1.277), radius: 0.05, fill: black, name: "P")
-  content("P", [P], anchor: "south-west", padding: 0.1)
+  content("P", [P], anchor: "north-east", padding: 0.12)
   circle((-2.631, -1.439), radius: 0.05, fill: black, name: "Q")
-  content("Q", [Q], anchor: "south-west", padding: 0.1)
+  content("Q", [Q], anchor: "north-east", padding: 0.12)
   circle("O", radius: 3.000)
   line("O", "P")
   line("P", "Q")

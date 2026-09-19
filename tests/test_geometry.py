@@ -185,3 +185,86 @@ def test_zero_length_ray():
 def test_deterministic_placement():
     block = "*triangle(A ; B ; C)"
     assert geometry.parse_draw_block(block) == geometry.parse_draw_block(block)
+
+
+def _content_lines(output):
+    return [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip().startswith("content(")
+    ]
+
+
+def test_label_anchors_line_endpoints():
+    out = geometry.parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*line(A ; B)"
+    )
+    lines = _content_lines(out)
+    assert 'content("A", [A], anchor: "east", padding: 0.12)' in lines
+    assert 'content("B", [B], anchor: "west", padding: 0.12)' in lines
+
+
+def test_label_anchors_triangle_vertices():
+    # Labels sit outside the triangle, opposite the incident sides.
+    out = geometry.parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 0, 3)\n"
+        "*triangle(A ; B ; C)"
+    )
+    lines = _content_lines(out)
+    assert 'content("A", [A], anchor: "north-east", padding: 0.12)' in lines
+    assert 'content("B", [B], anchor: "west", padding: 0.12)' in lines
+    assert 'content("C", [C], anchor: "south-east", padding: 0.12)' in lines
+
+
+def test_label_anchor_isolated_point_default():
+    out = geometry.parse_draw_block("*point(Z)")
+    lines = _content_lines(out)
+    assert 'content("Z", [Z], anchor: "south-west", padding: 0.12)' in lines
+
+
+def test_label_anchor_circle_point_outward():
+    # On-circle label goes outward, away from the center.
+    out = geometry.parse_draw_block(
+        "*point(O = 0, 0)\n*point(P = 3, 0)\n*circle(O ; P)"
+    )
+    lines = _content_lines(out)
+    assert 'content("O", [O], anchor: "south-west", padding: 0.12)' in lines
+    assert 'content("P", [P], anchor: "west", padding: 0.12)' in lines
+
+
+def test_label_anchor_near_circle_tangent_endpoint():
+    # Q sits ~0.001 off the circle outline (tangent endpoint): it must be
+    # labeled along the outward normal, not along the segment hugging
+    # the circle.
+    out = geometry.parse_draw_block(
+        "*point(O = 0, 0)\n*point(P = -2.71, -1.28)\n"
+        "*point(Q = -2.63, -1.44)\n"
+        "*circle(O ; 3)\n*line(O ; P)\n*line(P ; Q)"
+    )
+    lines = _content_lines(out)
+    assert 'content("Q", [Q], anchor: "north-east", padding: 0.12)' in lines
+
+
+def test_label_anchor_far_from_circle_uses_edges():
+    # A point well clear of the circumference ignores the circle.
+    out = geometry.parse_draw_block(
+        "*point(O = 0, 0)\n*circle(O ; 3)\n"
+        "*point(F = 0, 5)\n*point(G = 4, 5)\n*line(F ; G)"
+    )
+    lines = _content_lines(out)
+    assert 'content("F", [F], anchor: "east", padding: 0.12)' in lines
+
+
+def test_label_anchors_use_valid_compass_set():
+    out = geometry.parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C)\n"
+        "*distance(A ; C ; 3)\n*perp(A ; B ; A ; C)\n"
+        "*triangle(A ; B ; C)\n*right-angle(B ; A ; C)"
+    )
+    valid = {
+        "north", "north-east", "east", "south-east",
+        "south", "south-west", "west", "north-west",
+    }
+    found = re.findall(r'content\("[^"]+", \[[^\]]+\], anchor: "([^"]+)"', out)
+    assert found
+    assert set(found) <= valid
