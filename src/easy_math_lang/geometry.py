@@ -485,7 +485,7 @@ def _process_command(solver, cmd, args):
 
 def generate_typst(solver, errors=None):
     lines = []
-    lines.append('#import "@preview/cetz:0.3.1"')
+    lines.append('#import "@preview/cetz:0.4.2"')
     lines.append('#align(center)[#cetz.canvas({')
     lines.append('  import cetz.draw: *')
 

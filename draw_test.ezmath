@@ -1,0 +1,43 @@
+// Test vẽ hình: tam giác vuông + tam giác cân + đường tròn tiếp tuyến
+
+*draw(
+    // --- Tam giác vuông tại A (constraint solver tự đặt C) ---
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)
+
+    *distance(A ; C ; 3)
+    *perp(A ; B ; A ; C)
+
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+    *length(A ; B) = 4
+    *length(A ; C) = 3
+)
+
+*draw(
+    // --- Tam giác cân, AC = BC ---
+    *point(D = 0, 0)
+    *point(E = 6, 0)
+    *point(F)
+
+    *equal-length(D ; F ; E ; F)
+    *distance(D ; F ; 5)
+
+    *triangle(D ; E ; F)
+    *angle(D ; F ; E ; 60°)
+)
+
+*draw(
+    // --- Đường tròn với tiếp tuyến ---
+    *point(O = 0, 0)
+    *circle(O ; 3)
+
+    *point(P)
+    *on-circle(O ; 3 ; P)
+    *line(O ; P)
+
+    *point(Q)
+    *perp(O ; P ; P ; Q)
+    *line(P ; Q)
+)

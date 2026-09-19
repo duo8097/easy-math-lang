@@ -28,6 +28,15 @@ def test_basic_point():
     assert 'name: "A"' in out
 
 
+def test_cetz_version_pin():
+    # Generated canvases must import a CeTZ release verified to compile
+    # with the array-coordinate syntax we emit (0.3.1 mispanics on
+    # typst ≥ 0.15: "Failed to resolve coordinate").
+    out = geometry.parse_draw_block("*point(A = 1, 2)")
+    assert '#import "@preview/cetz:0.4.2"' in out
+    assert "cetz:0.3.1" not in out
+
+
 def test_line():
     out = geometry.parse_draw_block(
         "*point(A = 0, 0)\n*point(B = 4, 0)\n*line(A ; B)"
