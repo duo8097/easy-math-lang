@@ -67,6 +67,12 @@ figures out a valid position for C.
 
 ## Lines
 
+A `*draw(...)` block can also be written on a single line:
+
+```
+*draw(*triangle(A ; B ; C))
+```
+
 ### Line segment (from A to B)
 
 ```
@@ -81,7 +87,8 @@ Draws a straight line between two points.
 *line(A ; B ; infinite)
 ```
 
-Draws a line that extends forever through A and B.
+> ⚠️ **Not drawn yet.** The `infinite` form is recognized but currently
+> renders as a normal segment. Full infinite-line rendering is planned.
 
 ### Ray (starts at A, goes through B)
 
@@ -121,6 +128,9 @@ Draws a circle centered at O that passes through point A.
 
 ## Arcs
 
+> ⚠️ **Planned, not drawn yet.** `*arc(...)` is recognized but currently
+> produces no drawing.
+
 ```
 *arc(O ; A ; B)
 ```
@@ -130,6 +140,9 @@ Draws an arc of a circle centered at O, starting at point A and ending at B.
 ---
 
 ## Angles
+
+> ⚠️ **Planned, not drawn yet.** `*angle(...)` is recognized but currently
+> produces no drawing.
 
 ```
 *angle(A ; B ; C)
@@ -146,10 +159,11 @@ You can add a label:
 ### Right angle (90° marker)
 
 ```
-*right-angle(A ; B ; C)
+*right-angle(B ; A ; C)
 ```
 
-Draws a small square in the corner at B to show the angle is exactly 90°.
+Draws a small corner marker at the **middle argument** (here: A) to show the
+angle is exactly 90°. The other two arguments define the two arms.
 
 ---
 
@@ -173,6 +187,14 @@ Use them when you don't want to set exact coordinates yourself.
 ```
 
 "Line AB is perpendicular to line CD."
+
+A 3-argument form constrains two segments sharing a point:
+
+```
+*perp(A ; B ; C)
+```
+
+"Segment AB is perpendicular to segment BC."
 
 ### Parallel lines
 
@@ -205,7 +227,7 @@ Use them when you don't want to set exact coordinates yourself.
 ```
 
 "Segment AB has the same length as segment CD."
-This also draws tick marks on both sides to show they are equal.
+(Used by the solver to position points; no tick marks are drawn yet.)
 
 ### Midpoint
 
@@ -228,9 +250,13 @@ The program calculates P's position automatically.
 
 ## Labels and measurements
 
-Point labels are placed automatically (the program avoids overlaps).
+Point labels are placed automatically (the program puts each label on the
+side away from the figure's edges when possible).
 
-To show a length or angle value in the figure:
+> ⚠️ **Planned, not drawn yet.** `*label`, `*length`, and `*angle-value`
+> are recognized but currently produce no drawing.
+
+To show a length or angle value in the figure (once implemented):
 
 ```
 *length(A ; B)             // shows the length of AB
@@ -309,4 +335,4 @@ A tangent line touches the circle at exactly one point (at a right angle to the 
 - You don't need to set coordinates for every point — only the ones you care about.
 - Think of constraints as rules in plain language: "these sides are equal", "this angle is 90°".
 - The more constraints you give, the more precisely the figure is drawn.
-- If a point has no constraints at all, it will be placed somewhere random — give it at least one rule.
+- Placement is deterministic: the same input always produces the same figure.

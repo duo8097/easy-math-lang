@@ -19,6 +19,8 @@ Three things are required:
 
 ## Step 1 — Install Python
 
+You need **Python 3.12 or newer** (see `requires-python` in `pyproject.toml`).
+
 ### Windows
 
 1. Go to [python.org/downloads](https://www.python.org/downloads/)
@@ -152,6 +154,13 @@ You will see two new files appear:
 
 - `my-doc.typ` — the intermediate file (you can ignore this)
 - `my-doc.pdf` — your finished document, open this!
+
+> **Want to try immediately?** The `examples/` folder already contains finished
+> documents. Run `uv run easy-math-lang examples/example.ezmath` and open
+> `examples/example.pdf`.
+
+> **Want autocompletion and error checking in your editor?** See the
+> [Language server](lsp.md) guide.
 
 ---
 

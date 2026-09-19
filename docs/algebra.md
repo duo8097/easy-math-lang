@@ -296,11 +296,15 @@ automatically converted in the PDF:
 | `!=` | ≠ (not equal) |
 | `&&` | ∧ (and) |
 | `\|\|` | ∨ (or) |
+| `==` | = (equals — two become one) |
 | `+-` | ± (plus or minus) |
 | `-+` | ∓ (minus or plus) |
 | `~=` | ≈ (approximately equal) |
+| `~~` | ≈ (approximately equal) |
 | `~=~` | ≅ (congruent) |
 | `...` | … (ellipsis) |
+| `**` | ⋅ (multiplication dot) |
+| `::` | ∷ (proportion) |
 
 These work inside normal sentences too:
 
@@ -325,13 +329,13 @@ You can also type symbols using `*` + a word:
 | `*cong` | ≅ |
 | `*pm` | ± |
 | `*mp` | ∓ |
-| `*prop` | ∝ |
+| `*prop` or `*propto` | ∝ |
 
 ### Math operations
 
 | Type | Gets |
 |---|---|
-| `*times` | × |
+| `*times` or `*xx` | × |
 | `*cdot` | ⋅ |
 | `*div` | ÷ |
 | `*sqrt` | √ |
@@ -351,15 +355,21 @@ You can also type symbols using `*` + a word:
 
 | Type | Gets |
 |---|---|
-| `*infinity` | ∞ |
+| `*infinity` or `*infty` | ∞ |
 | `*forall` | ∀ |
 | `*exists` | ∃ |
 | `*isin` | ∈ |
 | `*notin` | ∉ |
 | `*subset` | ⊂ |
+| `*superset` or `*supset` | ⊃ |
+| `*subseteq` | ⊆ |
+| `*supseteq` | ⊇ |
 | `*union` | ∪ |
 | `*intersect` | ∩ |
-| `*emptyset` | ∅ |
+| `*emptyset` or `*empty` | ∅ |
+| `*land` | ∧ |
+| `*lor` | ∨ |
+| `*lnot` | ¬ |
 | `*therefore` | ∴ |
 | `*because` | ∵ |
 
