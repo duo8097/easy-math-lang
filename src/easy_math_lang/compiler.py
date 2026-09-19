@@ -18,6 +18,24 @@ KNOWN_COMMANDS = {
 
 
 def compile_ezmath(input_file, output_pdf=None):
+    """Compile an .ezmath document to PDF via an intermediate Typst file.
+
+    Actual processing order (per text line, after comment stripping):
+        assignments/defines/draw-blocks (control lines)
+          -> *p(...) raw passthrough
+          -> <variable> substitution
+          -> undefined-variable check (hard error)
+          -> define (bare-word) substitution
+          -> calc(...) evaluation
+          -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
+          -> unknown *command(...) warning
+          -> *pi / *infinity
+          -> subscript notation (A_1, outside math only)
+          -> symbol shortcuts (outside math only)
+          -> multiplication-symbol replacement (outside math only)
+          -> Typst escaping (outside math only)
+        Finally: Typst file generation + `typst compile`.
+    """
     if output_pdf is None:
         output_pdf = input_file.rsplit('.', 1)[0] + '.pdf'
 

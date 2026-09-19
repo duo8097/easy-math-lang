@@ -11,6 +11,16 @@ without fighting complex software.
 
 ---
 
+## Requirements
+
+| What | Version | Why you need it |
+|---|---|---|
+| **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
+| **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
+| **Typst** | any recent release | Turns the intermediate `.typ` file into PDF |
+
+---
+
 ## What does it look like?
 
 You write something like this in a text file:

@@ -413,6 +413,7 @@ Math symbols can also be written using "*" commands.
 *intersect   → ∩
 *intersection → ∩
 *emptyset    → ∅
+*empty       → ∅
 
 *land        → ∧
 *lor         → ∨
@@ -609,7 +610,7 @@ An angle can optionally have a label.
 Right angles
 ------------
 
-*right-angle(A ; B ; C)
+*right-angle(B ; A ; C)
 
 Draws a right-angle marker.
 

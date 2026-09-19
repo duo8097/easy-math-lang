@@ -1,6 +1,7 @@
 import re
 import math
 import sys
+import hashlib
 import numpy as np
 
 # ---------------------------------------------------------------------------
@@ -56,8 +57,9 @@ class GeometrySolver:
             self.fixed.add(name)
         elif name not in self.points:
             # Deterministic layout (no RNG): spread points on a circle
-            # based on the name hash so repeated runs are identical.
-            h = abs(hash(name)) % 360
+            # based on a stable hash of the name so repeated runs
+            # (including across processes) are identical.
+            h = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16) % 360
             r = 3.0
             ang = math.radians(h)
             self.points[name] = np.array([r * math.cos(ang), r * math.sin(ang)])
@@ -492,7 +494,6 @@ def generate_typst(solver, errors=None):
         lines.append(f'  // {err}')
 
     # Draw point dots + labels
-    drawn_points = set()
     for p, coord in solver.points.items():
         lines.append(
             f'  circle(({coord[0]:.3f}, {coord[1]:.3f}), radius: 0.05, '
@@ -501,7 +502,6 @@ def generate_typst(solver, errors=None):
         lines.append(
             f'  content("{p}", [{p}], anchor: "south-west", padding: 0.1)'
         )
-        drawn_points.add(p)
 
     # Compute bounding box for ray extension
     if solver.points:
