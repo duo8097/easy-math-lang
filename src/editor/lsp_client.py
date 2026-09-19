@@ -308,4 +308,4 @@ class LspClient(QtCore.QObject):
 
 def default_server_command():
     """Launch via the current interpreter so no PATH setup is needed."""
-    return [sys.executable, '-m', 'easy_math_lang.lsp']
+    return [sys.executable, '-m', 'lsp']

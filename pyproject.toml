@@ -14,13 +14,16 @@ dependencies = [
 ]
 
 [project.scripts]
-easy-math-lang = "easy_math_lang:main"
-easy-math-lsp = "easy_math_lang.lsp.server:main"
-easy-math-editor = "easy_math_lang.editor.app:main"
+easy-math-lang = "compiler:main"
+easy-math-lsp = "lsp.server:main"
+easy-math-editor = "editor.app:main"
 
 [build-system]
-requires = ["uv_build>=0.12.16,<0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/compiler", "src/editor", "src/geometry", "src/lsp"]
 
 [dependency-groups]
 dev = [

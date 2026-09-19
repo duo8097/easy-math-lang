@@ -44,12 +44,19 @@ def replace_defines(ctx, text):
 
 def check_undefined_vars(text, line_no):
     """Report identifier-like <name> tokens with no definition (hard error)."""
-    remaining = re.findall(r'<([^<>]+)>', text)
-    for name in remaining:
+    for match in re.finditer(r'<([^<>]+)>', text):
+        name = match.group(1)
         # Only flag identifier-like names (tmp1, width). Symbol
         # shortcuts such as <=> / -> / => contain non-identifier
         # chars and are handled later by replace_symbol_shortcuts.
         if not re.fullmatch(r'\s*[A-Za-z_][A-Za-z0-9_]*\s*', name):
+            continue
+        # Skip matches touching another angle bracket: those belong to
+        # multi-char ASCII operators (<< B >>) handled later by
+        # replace_symbol_shortcuts, not to variables.
+        if match.start() > 0 and text[match.start() - 1] == '<':
+            continue
+        if match.end() < len(text) and text[match.end()] == '>':
             continue
         print(
             f'[Error] Line {line_no}: undefined variable <{name}>',

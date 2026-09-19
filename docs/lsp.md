@@ -74,8 +74,8 @@ VS Code needs a small extension to launch a custom server. Options:
 
 ## For developers
 
-The server lives in `src/easy_math_lang/lsp/` and reuses the compiler
-(`src/easy_math_lang/compiler/`, `src/easy_math_lang/geometry/`) instead of
+The server lives in `src/lsp/` and reuses the compiler
+(`src/compiler/`, `src/geometry/`) instead of
 parsing the language a second time. Run its tests with:
 
 ```

@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 
-from easy_math_lang import geometry
+import geometry
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
@@ -217,9 +217,9 @@ def compile_ezmath(input_file, output_pdf=None):
 
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
         print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
-        sys.exit(1)
+        sys.exit(0 if len(sys.argv) > 1 else 1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else input_file.rsplit('.', 1)[0] + '.pdf'

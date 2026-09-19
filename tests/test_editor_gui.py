@@ -12,7 +12,7 @@ from PySide6 import QtGui, QtWidgets  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from easy_math_lang.editor.main_window import (  # noqa: E402
+from editor.main_window import (  # noqa: E402
     MainWindow,
     markdown_to_html,
 )
@@ -20,7 +20,8 @@ from easy_math_lang.editor.main_window import (  # noqa: E402
 
 @pytest.fixture()
 def window(qapp):
-    win = MainWindow(start_lsp=False)
+    # no_save_prompt: tests must never block on the modal save dialog.
+    win = MainWindow(start_lsp=False, no_save_prompt=True)
     win.show()
     yield win
     win.close()
@@ -93,7 +94,7 @@ def test_markdown_to_html():
 
 
 def test_highlighter_patterns():
-    from easy_math_lang.editor import syntax_highlighter as hl
+    from editor import syntax_highlighter as hl
     assert hl.comment_pattern().search('// note')
     assert not hl.comment_pattern().search('<a> = 1')
     assert hl.variable_pattern().search('<width>').group(0) == '<width>'
@@ -103,6 +104,9 @@ def test_highlighter_patterns():
     assert hl.number_pattern().search('100 000')
     assert hl.operator_pattern().search('x => y')
     assert hl.operator_pattern().search('a <-> b').group(0) == '<->'
+    assert hl.operator_pattern().search('a << b').group(0) == '<<'
+    assert hl.operator_pattern().search('a === b').group(0) == '==='
+    assert hl.operator_pattern().search('a <== b').group(0) == '<=='
 
 
 def test_close_kills_running_build(window):
@@ -117,9 +121,11 @@ def test_close_kills_running_build(window):
 
 
 def test_parse_args():
-    from easy_math_lang.editor.app import parse_args
+    from editor.app import parse_args
     assert parse_args([]).path is None
     assert parse_args(['doc.ezmath']).path == 'doc.ezmath'
+    assert parse_args([]).no_save_prompt is False
+    assert parse_args(['--no-save-prompt']).no_save_prompt is True
     with pytest.raises(SystemExit) as exc:
         parse_args(['--help'])
     assert exc.value.code == 0
@@ -127,11 +133,51 @@ def test_parse_args():
         parse_args(['--nope'])
 
 
+def test_no_save_prompt_closes_dirty_doc_without_dialog(qapp):
+    win = MainWindow(start_lsp=False, no_save_prompt=True)
+    try:
+        win.show()
+        win.editor.moveCursor(QtGui.QTextCursor.End)
+        win.editor.insertPlainText('<a> = undefined-symbol\n')
+        assert win.editor.document().isModified()
+        assert win._maybe_save() is True
+        event = QtGui.QCloseEvent()
+        win.closeEvent(event)
+        assert event.isAccepted()
+    finally:
+        win.close()
+
+
+def test_save_prompt_asked_by_default_but_skipped_with_flag(qapp, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, 'question',
+        lambda *a, **k: calls.append(True) or QtWidgets.QMessageBox.Discard,
+    )
+    plain = MainWindow(start_lsp=False)
+    try:
+        plain.show()
+        plain.editor.insertPlainText('dirty\n')
+        assert plain._maybe_save() is True
+        assert calls, 'expected the save dialog without the flag'
+    finally:
+        plain.close()
+    calls.clear()
+    flagged = MainWindow(start_lsp=False, no_save_prompt=True)
+    try:
+        flagged.show()
+        flagged.editor.insertPlainText('dirty\n')
+        assert flagged._maybe_save() is True
+        assert not calls, 'no save dialog expected with the flag'
+    finally:
+        flagged.close()
+
+
 def test_editor_main_module_import_has_no_side_effects():
     import subprocess
     code = ('import sys;'
             'from PySide6 import QtWidgets;'
-            'import easy_math_lang.editor.__main__ as m;'
+            'import editor.__main__ as m;'
             'print("import-ok", QtWidgets.QApplication.instance() is None)')
     proc = subprocess.run(
         [sys.executable, '-c', code], capture_output=True, text=True,
@@ -198,7 +244,7 @@ def test_close_waits_for_real_lsp_shutdown(window, qapp):
 
 
 def test_fuzzy_score():
-    from easy_math_lang.editor.command_palette import fuzzy_score
+    from editor.command_palette import fuzzy_score
     assert fuzzy_score('', 'Anything') == 0
     assert fuzzy_score('fop', 'File: Open…') is not None
     assert fuzzy_score('xyz', 'File: Open…') is None
@@ -207,7 +253,7 @@ def test_fuzzy_score():
 
 
 def test_command_palette_filters_and_chooses(window, qapp):
-    from easy_math_lang.editor.command_palette import CommandPalette
+    from editor.command_palette import CommandPalette
     chosen = {}
     dialog = CommandPalette(window)
     dialog.commandChosen.connect(lambda cmd_id: chosen.setdefault('id', cmd_id))
@@ -225,7 +271,7 @@ def test_command_palette_filters_and_chooses(window, qapp):
 
 def test_recent_files_roundtrip(tmp_path, qapp):
     from PySide6 import QtCore
-    from easy_math_lang.editor.recent import RecentFiles
+    from editor.recent import RecentFiles
     settings = QtCore.QSettings(str(tmp_path / 'recent.ini'),
                                 QtCore.QSettings.IniFormat)
     recent = RecentFiles(settings, max_items=3)
@@ -296,7 +342,7 @@ def test_problems_button_focuses_panel(window):
 
 def test_recent_menu_lists_files(window, tmp_path, qapp):
     from PySide6 import QtCore
-    from easy_math_lang.editor.recent import RecentFiles
+    from editor.recent import RecentFiles
     window._recent = RecentFiles(
         QtCore.QSettings(str(tmp_path / 'r.ini'), QtCore.QSettings.IniFormat))
     target = tmp_path / 'notes.ezmath'

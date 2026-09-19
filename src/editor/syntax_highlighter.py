@@ -28,8 +28,11 @@ def number_pattern():
 
 
 def operator_pattern():
+    # Alternatives are tried left to right: longer sequences first so
+    # '<==' is not split into '<=' + '=', matching compiler/symbols.py.
     return re.compile(
-        r'\|->|<->|<=>|=>|<=|>=|!=|==|&&|\|\||\+-|-\+|~=~|~=|~~|\.\.\.|::|\*\*'
+        r'\|->|<->|<=>|<==|==>|=>|===|==|!==|!=|<=|>=|<<|>>|&&|\|\|'
+        r'\+-|-\+|~=~|~=|~~|\.\.\.|::|\*\*|\|-|-\|'
         r'|->|<-|[+\-*/=<>!&|~^%]+'
     )
 

@@ -341,15 +341,23 @@ Examples:
 
 =>      →      ⇒
 <=>     →      ⇔
+<==     →      ⇐
+==>     →      ⇒
 ->      →      →
 <-      →      ←
 <->     →      ↔
 |->     →      ↦
 <=      →      ≤
 >=      →      ≥
+<<      →      ≪
+>>      →      ≫
 !=      →      ≠
+!==     →      ≢
+===     →      ≡
 &&      →      ∧
 ||      →      ∨
+|-      →      ⊢
+-|      →      ⊣
 +-      →      ±
 -+      →      ∓
 ~=      →      ≈
@@ -378,25 +386,56 @@ Math symbols can also be written using "*" commands.
 *geq         → ≥
 *ne          → ≠
 *neq         → ≠
+*equiv       → ≡
+*sim         → ∼
+*simeq       → ≃
+*asymp       → ≍
+*doteq       → ≐
+*ll          → ≪
+*gg          → ≫
+*prec        → ≺
+*succ        → ≻
+*preceq      → ⪯
+*succeq      → ⪰
 *approx      → ≈
 *cong        → ≅
 *pm          → ±
 *mp          → ∓
 *prop        → ∝
 *propto      → ∝
+*mid         → ∣
+*ni          → ∋
 
 *times       → ×
 *xx          → ×
 *cdot        → ⋅
 *div         → ÷
+*oplus       → ⊕
+*otimes      → ⊗
+*circ        → ∘
+*bullet      → •
+*star        → ⋆
+*dagger      → †
+*cap         → ∩
+*cup         → ∪
+*setminus    → ∖
 *sqrt        → √
+*surd        → √
 *cbrt        → ∛
 *deg         → °
 *degree      → °
 *angle       → ∠
 *triangle    → △
+*square      → □
+*diamond     → ◇
 *parallel    → ∥
 *perp        → ⊥
+*top         → ⊤
+*bot         → ⊥
+*vdash       → ⊢
+*dashv       → ⊣
+*bowtie      → ⋈
+*prime       → ′
 
 *infinity    → ∞
 *infty       → ∞
@@ -421,6 +460,42 @@ Math symbols can also be written using "*" commands.
 *therefore   → ∴
 *because     → ∵
 
+*to          → →
+*rightarrow  → →
+*gets        → ←
+*leftarrow   → ←
+*implies     → ⇒
+*Rightarrow  → ⇒
+*impliedby   → ⇐
+*Leftarrow   → ⇐
+*leftrightarrow → ↔
+*iff         → ⇔
+*uparrow     → ↑
+*downarrow   → ↓
+*updownarrow → ↕
+*mapsto      → ↦
+
+*ldots       → …
+*cdots       → ⋯
+*vdots       → ⋮
+*ddots       → ⋱
+
+*langle      → ⟨
+*rangle      → ⟩
+*lfloor      → ⌊
+*rfloor      → ⌋
+*lceil       → ⌈
+*rceil       → ⌉
+
+*partial     → ∂
+*nabla       → ∇
+*aleph       → ℵ
+*hbar        → ℏ
+*ell         → ℓ
+*Re          → ℜ
+*Im          → ℑ
+*wp          → ℘
+
 
 Greek letters
 -------------
@@ -432,17 +507,38 @@ Greek letters can be written using "*" commands.
 *gamma       → γ
 *delta       → δ
 *epsilon     → ε
+*zeta        → ζ
+*eta         → η
 *theta       → θ
+*iota        → ι
+*kappa       → κ
 *lambda      → λ
 *mu          → μ
+*nu          → ν
+*xi          → ξ
+*omicron     → ο
 *pi           → π
+*rho         → ρ
 *sigma       → σ
+*tau         → τ
+*upsilon     → υ
+*phi         → φ
+*chi         → χ
+*psi         → ψ
 *omega       → ω
 
-Capital Greek letters:
+Capital Greek letters (only those differing from Latin capitals):
 
+*Gamma       → Γ
 *Delta       → Δ
+*Theta       → Θ
+*Lambda      → Λ
+*Xi          → Ξ
+*Pi          → Π
 *Sigma       → Σ
+*Upsilon     → Υ
+*Phi         → Φ
+*Psi         → Ψ
 *Omega       → Ω
 
 

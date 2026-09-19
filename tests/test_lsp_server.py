@@ -30,7 +30,7 @@ class LSPClient:
         env = dict(os.environ)
         env['PYTHONPATH'] = SRC_DIR + os.pathsep + env.get('PYTHONPATH', '')
         self.proc = subprocess.Popen(
-            [sys.executable, '-m', 'easy_math_lang.lsp'],
+            [sys.executable, '-m', 'lsp'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, env=env, cwd=REPO_ROOT,
         )

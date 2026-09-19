@@ -37,10 +37,11 @@ def markdown_to_html(text):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, start_lsp=True, parent=None):
+    def __init__(self, start_lsp=True, parent=None, no_save_prompt=False):
         super().__init__(parent)
         self.setWindowTitle('Easy-Math-Lang Editor')
         self.resize(1100, 750)
+        self._no_save_prompt = no_save_prompt
 
         self._file_path = None
         self._untitled_count = 0
@@ -604,6 +605,8 @@ class MainWindow(QtWidgets.QMainWindow):
         return QtCore.QUrl.fromLocalFile(path).toString()
 
     def _maybe_save(self):
+        if self._no_save_prompt:
+            return True
         if not self.editor.document().isModified():
             return True
         answer = QtWidgets.QMessageBox.question(
@@ -702,7 +705,7 @@ class MainWindow(QtWidgets.QMainWindow):
         import sys as _sys
         code = ('import sys; sys.argv = ["easy-math-lang", '
                 + repr(self._file_path) +
-                ']; from easy_math_lang.compiler.pipeline import main; main()')
+                ']; from compiler.pipeline import main; main()')
         process = QtCore.QProcess(self)
         process.setProcessChannelMode(QtCore.QProcess.MergedChannels)
         process.finished.connect(self._on_build_finished)

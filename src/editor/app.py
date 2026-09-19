@@ -16,6 +16,9 @@ def parse_args(argv=None):
     parser.add_argument('--version', action='version', version='%(prog)s 0.1.0')
     parser.add_argument('path', nargs='?',
                         help='optional .ezmath file to open at launch')
+    parser.add_argument('--no-save-prompt', action='store_true',
+                        help='close without asking to save (unsaved changes '
+                             'are discarded; useful for automated tests)')
     return parser.parse_args(argv)
 
 
@@ -25,7 +28,7 @@ def main(argv=None):
         sys.argv if argv is None else ['easy-math-editor'])
     app.setOrganizationName('easy-math-lang')
     app.setApplicationName('easy-math-editor')
-    window = MainWindow()
+    window = MainWindow(no_save_prompt=args.no_save_prompt)
     if args.path:
         window.open_path(args.path)
     window.show()

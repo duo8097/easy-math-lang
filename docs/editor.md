@@ -4,8 +4,14 @@ The project ships with a small desktop editor for `.ezmath` files.
 Launch it from the project folder:
 
 ```
-uv run easy-math-editor [optional-file.ezmath]
+uv run easy-math-editor [options] [optional-file.ezmath]
 ```
+
+Options:
+
+| Flag | Effect |
+|---|---|
+| `--no-save-prompt` | Close without asking to save (unsaved changes are discarded; useful for automated tests) |
 
 You can also install the `easy-math-editor` command with your Python
 environment — it is declared in `pyproject.toml`.

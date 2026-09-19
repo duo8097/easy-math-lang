@@ -14,7 +14,7 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "src")
 )
 
-from easy_math_lang.compiler import compile_ezmath
+from compiler import compile_ezmath
 
 
 def compile_text(tmp_path, monkeypatch, capsys, text):
@@ -177,6 +177,67 @@ def test_symbol_shortcuts(tmp_path, monkeypatch, capsys):
     )
     for sym in ("⇒", "⇔", "≤", "≥", "≠"):
         assert sym in typ
+
+
+def test_full_greek_alphabet(tmp_path, monkeypatch, capsys):
+    lower = (
+        "*alpha *beta *gamma *delta *epsilon *zeta *eta *theta "
+        "*iota *kappa *lambda *mu *nu *xi *omicron *pi *rho "
+        "*sigma *tau *upsilon *phi *chi *psi *omega\n"
+    )
+    typ, _ = compile_text(tmp_path, monkeypatch, capsys, lower)
+    for glyph in "αβγδεζηθικλμνξορστυφχψω":
+        assert glyph in typ
+    # *pi renders as Typst math (pre-existing behavior), not a literal.
+    assert "$pi$" in typ
+    upper = "*Gamma *Delta *Theta *Lambda *Xi *Pi *Sigma *Upsilon *Phi *Psi *Omega\n"
+    typ, _ = compile_text(tmp_path, monkeypatch, capsys, upper)
+    for glyph in "ΓΔΘΛΞΠΣΥΦΨΩ":
+        assert glyph in typ
+
+
+def test_extended_symbol_keywords(tmp_path, monkeypatch, capsys):
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*equiv *sim *ll *gg *prec *succeq *mid *ni\n"
+        "*oplus *otimes *circ *bullet *cap *cup *setminus\n"
+        "*to *gets *implies *iff *uparrow *downarrow *mapsto\n"
+        "*ldots *cdots *vdots *ddots\n"
+        "*langle *rangle *lfloor *rfloor *lceil *rceil\n"
+        "*partial *nabla *aleph *hbar *ell *Re *Im *prime\n"
+        "*square *diamond *top *bot *vdash *dashv *bowtie\n",
+    )
+    for glyph in ("≡", "∼", "≪", "≫", "≺", "⪰", "∣", "∋",
+                  "⊕", "⊗", "∘", "•", "∩", "∪", "∖",
+                  "→", "←", "⇒", "⇔", "↑", "↓", "↦",
+                  "…", "⋯", "⋮", "⋱",
+                  "⟨", "⟩", "⌊", "⌋", "⌈", "⌉",
+                  "∂", "∇", "ℵ", "ℏ", "ℓ", "ℜ", "ℑ", "′",
+                  "□", "◇", "⊤", "⊥", "⊢", "⊣", "⋈"):
+        assert glyph in typ
+
+
+def test_extended_ascii_symbols(tmp_path, monkeypatch, capsys):
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys, "A << B >> C === D !== E <== F ==> G |- H -| I\n"
+    )
+    for sym in ("≪", "≫", "≡", "≢", "⇐", "⇒", "⊢", "⊣"):
+        assert sym in typ
+
+
+def test_symbol_prefix_collisions(tmp_path, monkeypatch, capsys):
+    # New short words must not swallow existing longer ones.
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*theta *to *tan(x) *tau *notin *ni *alpha\n",
+    )
+    for glyph in ("θ", "→", "∉", "∋", "α", "τ"):
+        assert glyph in typ
+    # *tan is a math command, not a bare symbol: left for the math pass.
+    assert "$tan(x)$" in typ
+    # *infinity renders as Typst math (pre-existing behavior).
+    typ, _ = compile_text(tmp_path, monkeypatch, capsys, "*infinity\n")
+    assert "$infinity$" in typ
 
 
 def test_typst_escaping(tmp_path, monkeypatch, capsys):

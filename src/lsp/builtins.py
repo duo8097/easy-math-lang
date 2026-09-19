@@ -5,9 +5,9 @@ compiler's own tables (see _CROSS_CHECK below); only the short
 descriptions are LSP-layer additions.
 """
 
-from ..compiler.diagnostics import KNOWN_COMMANDS
-from ..compiler.symbols import WORD_REPLACEMENTS
-from ..geometry.commands import KNOWN_GEOMETRY_COMMANDS
+from compiler.diagnostics import KNOWN_COMMANDS
+from compiler.symbols import WORD_REPLACEMENTS
+from geometry.commands import KNOWN_GEOMETRY_COMMANDS
 
 # name -> (signature, short description), from rule.txt.
 MATH_DOCS = {

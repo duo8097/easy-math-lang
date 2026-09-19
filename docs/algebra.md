@@ -287,15 +287,23 @@ automatically converted in the PDF:
 |---|---|
 | `=>` | ⇒ (implies) |
 | `<=>` | ⇔ (if and only if) |
+| `<==` | ⇐ (implied by) |
+| `==>` | ⇒ (implies) |
 | `->` | → (arrow) |
 | `<-` | ← (left arrow) |
 | `<->` | ↔ (double arrow) |
 | `\|->` | ↦ (maps to) |
 | `<=` | ≤ (less than or equal) |
 | `>=` | ≥ (greater than or equal) |
+| `<<` | ≪ (much less than) |
+| `>>` | ≫ (much greater than) |
 | `!=` | ≠ (not equal) |
+| `!==` | ≢ (not identical to) |
+| `===` | ≡ (identical to) |
 | `&&` | ∧ (and) |
 | `\|\|` | ∨ (or) |
+| `\|-` | ⊢ (proves) |
+| `-\|` | ⊣ |
 | `==` | = (equals — two become one) |
 | `+-` | ± (plus or minus) |
 | `-+` | ∓ (minus or plus) |
@@ -325,11 +333,38 @@ You can also type symbols using `*` + a word:
 | `*le` or `*leq` | ≤ |
 | `*ge` or `*geq` | ≥ |
 | `*ne` or `*neq` | ≠ |
+| `*equiv` | ≡ |
+| `*sim` | ∼ |
+| `*simeq` | ≃ |
+| `*asymp` | ≍ |
+| `*doteq` | ≐ |
+| `*ll` | ≪ |
+| `*gg` | ≫ |
+| `*prec` | ≺ |
+| `*succ` | ≻ |
+| `*preceq` | ⪯ |
+| `*succeq` | ⪰ |
 | `*approx` | ≈ |
 | `*cong` | ≅ |
 | `*pm` | ± |
 | `*mp` | ∓ |
 | `*prop` or `*propto` | ∝ |
+| `*mid` | ∣ (divides) |
+| `*ni` | ∋ (contains) |
+
+### Arrows
+
+| Type | Gets |
+|---|---|
+| `*to` or `*rightarrow` | → |
+| `*gets` or `*leftarrow` | ← |
+| `*implies` or `*Rightarrow` | ⇒ |
+| `*impliedby` or `*Leftarrow` | ⇐ |
+| `*iff` or `*leftrightarrow` | ⇔ |
+| `*uparrow` | ↑ |
+| `*downarrow` | ↓ |
+| `*updownarrow` | ↕ |
+| `*mapsto` | ↦ |
 
 ### Math operations
 
@@ -338,7 +373,16 @@ You can also type symbols using `*` + a word:
 | `*times` or `*xx` | × |
 | `*cdot` | ⋅ |
 | `*div` | ÷ |
-| `*sqrt` | √ |
+| `*oplus` | ⊕ |
+| `*otimes` | ⊗ |
+| `*circ` | ∘ |
+| `*bullet` | • |
+| `*star` | ⋆ |
+| `*dagger` | † |
+| `*cap` | ∩ |
+| `*cup` | ∪ |
+| `*setminus` | ∖ |
+| `*sqrt` or `*surd` | √ |
 | `*cbrt` | ∛ |
 
 ### Geometry symbols (in text)
@@ -373,20 +417,68 @@ You can also type symbols using `*` + a word:
 | `*therefore` | ∴ |
 | `*because` | ∵ |
 
+### Dots and delimiters
+
+| Type | Gets |
+|---|---|
+| `*ldots` | … |
+| `*cdots` | ⋯ |
+| `*vdots` | ⋮ |
+| `*ddots` | ⋱ |
+| `*langle` / `*rangle` | ⟨ ⟩ |
+| `*lfloor` / `*rfloor` | ⌊ ⌋ |
+| `*lceil` / `*rceil` | ⌈ ⌉ |
+
+### Misc symbols
+
+| Type | Gets |
+|---|---|
+| `*partial` | ∂ |
+| `*nabla` | ∇ |
+| `*aleph` | ℵ |
+| `*hbar` | ℏ |
+| `*ell` | ℓ |
+| `*Re` | ℜ |
+| `*Im` | ℑ |
+| `*wp` | ℘ |
+| `*prime` | ′ |
+| `*square` | □ |
+| `*diamond` | ◇ |
+| `*top` | ⊤ |
+| `*bot` | ⊥ |
+| `*vdash` | ⊢ |
+| `*dashv` | ⊣ |
+| `*bowtie` | ⋈ |
+
 ### Greek letters
+
+All 24 lowercase letters plus the capitals that differ from Latin:
 
 | Type | Gets | | Type | Gets |
 |---|---|---|---|---|
-| `*alpha` | α | | `*Delta` | Δ |
-| `*beta` | β | | `*Sigma` | Σ |
-| `*gamma` | γ | | `*Omega` | Ω |
-| `*delta` | δ | | | |
-| `*epsilon` | ε | | | |
-| `*theta` | θ | | | |
-| `*lambda` | λ | | | |
+| `*alpha` | α | | `*Gamma` | Γ |
+| `*beta` | β | | `*Delta` | Δ |
+| `*gamma` | γ | | `*Theta` | Θ |
+| `*delta` | δ | | `*Lambda` | Λ |
+| `*epsilon` | ε | | `*Xi` | Ξ |
+| `*zeta` | ζ | | `*Pi` | Π |
+| `*eta` | η | | `*Sigma` | Σ |
+| `*theta` | θ | | `*Upsilon` | Υ |
+| `*iota` | ι | | `*Phi` | Φ |
+| `*kappa` | κ | | `*Psi` | Ψ |
+| `*lambda` | λ | | `*Omega` | Ω |
 | `*mu` | μ | | | |
+| `*nu` | ν | | | |
+| `*xi` | ξ | | | |
+| `*omicron` | ο | | | |
 | `*pi` | π | | | |
+| `*rho` | ρ | | | |
 | `*sigma` | σ | | | |
+| `*tau` | τ | | | |
+| `*upsilon` | υ | | | |
+| `*phi` | φ | | | |
+| `*chi` | χ | | | |
+| `*psi` | ψ | | | |
 | `*omega` | ω | | | |
 
 ---

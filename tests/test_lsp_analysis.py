@@ -5,8 +5,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from easy_math_lang.lsp import analysis
-from easy_math_lang.lsp.document import DocumentStore
+from lsp import analysis
+from lsp.document import DocumentStore
 
 
 def test_valid_document_has_no_diagnostics():
@@ -133,3 +133,15 @@ def test_document_store():
     assert store.version('file:///a.ezmath') == 2
     store.close('file:///a.ezmath')
     assert store.get('file:///a.ezmath') is None
+
+
+def test_completion_includes_new_symbols():
+    items = analysis.complete("*ze", 0, 3)
+    labels = [item['label'] for item in items]
+    assert '*zeta' in labels
+
+
+def test_hover_new_symbol():
+    found = analysis.hover("*Phi", 0, 2)
+    assert found is not None
+    assert 'Φ' in found['value']

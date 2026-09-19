@@ -1,4 +1,4 @@
-"""Launch the Easy-Math-Lang desktop editor: ``python -m easy_math_lang.editor``."""
+"""Launch the Easy-Math-Lang desktop editor: ``python -m editor``."""
 
 from .app import main
 

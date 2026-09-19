@@ -10,7 +10,7 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "src")
 )
 
-from easy_math_lang import geometry
+import geometry
 
 
 def shape_circles(output, name):

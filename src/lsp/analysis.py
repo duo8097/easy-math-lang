@@ -22,13 +22,13 @@ import difflib
 import io
 import re
 
-from ..compiler.calc import apply_calc_in_string
-from ..compiler.comments import strip_comments
-from ..compiler.diagnostics import KNOWN_COMMANDS
-from ..compiler.statements import process_assignment_or_define
-from ..compiler.state import CompileContext
-from ..compiler.variables import replace_defines, replace_vars
-from ..geometry.parsing import parse_draw_block
+from compiler.calc import apply_calc_in_string
+from compiler.comments import strip_comments
+from compiler.diagnostics import KNOWN_COMMANDS
+from compiler.statements import process_assignment_or_define
+from compiler.state import CompileContext
+from compiler.variables import replace_defines, replace_vars
+from geometry.parsing import parse_draw_block
 from . import builtins
 
 IDENT = r'[A-Za-z_][A-Za-z0-9_]*'

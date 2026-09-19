@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from easy_math_lang.editor import protocol
+from editor import protocol
 
 
 def _frame(payload):

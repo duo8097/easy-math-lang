@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from easy_math_lang.editor import positions
+from editor import positions
 
 
 def test_ascii_offsets_match():

@@ -14,7 +14,7 @@ from PySide6 import QtCore  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from easy_math_lang.editor.lsp_client import (  # noqa: E402
+from editor.lsp_client import (  # noqa: E402
     LspClient,
     default_server_command,
 )

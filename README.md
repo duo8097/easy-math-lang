@@ -4,7 +4,9 @@
 no design skills needed.
 
 You write a plain text file, run one command, and get a clean PDF with proper
-math symbols, fractions, and diagrams.
+math symbols, fractions, and diagrams — including the full Greek alphabet
+(`*alpha` … `*omega`, `*Gamma` … `*Omega`), arrows (`*to`, `*implies`, …),
+relations (`*equiv`, `*leq`, …), and set/logic symbols (`*forall`, `*isin`, …).
 
 It was made for **teachers and students** who want an easy way to write math
 without fighting complex software.
@@ -84,7 +86,7 @@ uv run pytest tests/ -v
 Project layout:
 
 ```
-src/easy_math_lang/
+src/
 ├── compiler/     # .ezmath → Typst compiler (text pipeline)
 ├── geometry/     # constraint solver + CeTZ drawing output
 └── lsp/          # language server (reuses the compiler)
