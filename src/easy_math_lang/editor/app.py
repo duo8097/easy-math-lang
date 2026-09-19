@@ -23,6 +23,8 @@ def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(
         sys.argv if argv is None else ['easy-math-editor'])
+    app.setOrganizationName('easy-math-lang')
+    app.setApplicationName('easy-math-editor')
     window = MainWindow()
     if args.path:
         window.open_path(args.path)

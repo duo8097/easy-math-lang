@@ -1,15 +1,19 @@
 """Main window: menus, docks, file handling and LSP wiring."""
 
 import html
+import os
 import re
 import sys
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from .command_palette import CommandPalette
 from .editor_widget import EditorWidget
+from .find_bar import FindBar
 from .lsp_client import LspClient, default_server_command
 from .outline_panel import OutlinePanel
 from .problems_panel import ProblemsPanel
+from .recent import RecentFiles, default_settings
 
 SUPPORTED_SUFFIXES = ('.ezmath', '.eml')
 
@@ -45,9 +49,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self._lsp_open = False  # didOpen acknowledged for current doc
         self._lsp_starting = False  # launch attempted, init not done yet
         self._closing = False  # closeEvent deferred until LSP shutdown done
+        self._restart_pending = False  # restart once the old server exits
+        self._reopen_after_connect = False  # re-didOpen after a restart
 
         self.editor = EditorWidget(self)
-        self.setCentralWidget(self.editor)
+        self._default_font_size = self.editor.font().pointSizeF() or 12.0
+
+        self._find_bar = FindBar()
+        self._find_bar.findRequested.connect(self._on_find_requested)
+        central = QtWidgets.QWidget(self)
+        central_layout = QtWidgets.QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+        central_layout.addWidget(self._find_bar)
+        central_layout.addWidget(self.editor, 1)
+        self.setCentralWidget(central)
 
         self.outline = OutlinePanel(self)
         self._outline_dock = QtWidgets.QDockWidget('Outline', self)
@@ -60,11 +76,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self._problems_dock)
 
         self._cursor_label = QtWidgets.QLabel('Ln 1  Col 1', self)
-        self._problems_label = QtWidgets.QLabel('', self)
+        self._problems_button = QtWidgets.QPushButton('', self)
+        self._problems_button.setFlat(True)
+        self._problems_button.setCursor(QtCore.Qt.PointingHandCursor)
+        self._problems_button.setToolTip('Show Problems panel')
+        self._problems_button.clicked.connect(self._focus_problems)
         self._lsp_label = QtWidgets.QLabel('LSP: Disconnected', self)
         self.statusBar().addPermanentWidget(self._cursor_label)
-        self.statusBar().addPermanentWidget(self._problems_label)
+        self.statusBar().addPermanentWidget(self._problems_button)
         self.statusBar().addPermanentWidget(self._lsp_label)
+
+        self._recent = RecentFiles(default_settings())
 
         self._change_timer = QtCore.QTimer(self)
         self._change_timer.setSingleShot(True)
@@ -77,8 +99,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QCompleter.PopupCompletion)
         self._completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self._completer.activated[str].connect(self._insert_completion)
+        self._completer.highlighted[str].connect(self._show_completion_detail)
         self._completion_model = QtCore.QStringListModel(self._completer)
         self._completer.setModel(self._completion_model)
+        self._completion_info = {}  # label -> (kind_name, detail)
 
         self._build_process = None
 
@@ -126,11 +150,28 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage(
                 f'LSP initialization failed: {detail}', 8000)
             return
-        self._open_current_in_lsp()
+        if not self._lsp_open:
+            # A restart already reopened the document from _on_lsp_connected.
+            self._open_current_in_lsp()
 
     def _on_lsp_connected(self):
         self._lsp_starting = False
         self._set_lsp_status('LSP: Connected')
+        if self._reopen_after_connect:
+            self._reopen_after_connect = False
+            self._open_current_in_lsp()
+
+    def _restart_lsp(self):
+        """Restart the server (e.g. after a crash); reopens the document."""
+        if self._restart_pending or self._closing:
+            return
+        if self.lsp.state == 'stopped':
+            self._start_lsp()
+            return
+        self._restart_pending = True
+        self._close_current_in_lsp()
+        self.statusBar().showMessage('Restarting language server…', 3000)
+        self.lsp.stop()
 
     def _on_lsp_disconnected(self, _code):
         self._lsp_starting = False
@@ -140,6 +181,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # Deferred close from closeEvent: the server process is gone,
             # so the window may now be destroyed safely.
             self.close()
+            return
+        if self._restart_pending:
+            self._restart_pending = False
+            self._reopen_after_connect = True
+            self._start_lsp()
 
     def _on_lsp_error(self, message):
         if not self.lsp.is_connected():
@@ -226,7 +272,7 @@ class MainWindow(QtWidgets.QMainWindow):
             })
         self.problems.set_diagnostics(rows)
         count = len(rows)
-        self._problems_label.setText(f'Problems: {count}' if count else '')
+        self._problems_button.setText(f'Problems: {count}' if count else '')
 
     # ------------------------------------------------------------------
     # Navigation (LSP positions are UTF-16; QTextCursor is natively UTF-16)
@@ -250,32 +296,72 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     # Completion + hover
     # ------------------------------------------------------------------
+    # LSP CompletionItemKind values we care about (the rest need no
+    # argument handling).
+    _COMPLETION_KIND_NAMES = {3: 'function', 14: 'keyword',
+                              6: 'variable', 21: 'constant'}
+
     def _on_completion_requested(self):
         if not self.lsp.is_connected() or not self._lsp_open:
             return
         line, col = self.editor.cursor_line_col()
         uri = self._doc_uri
+        self.lsp.request_completion(
+            uri, line, col,
+            lambda result, error: self._handle_completion_response(
+                uri, result, error))
 
-        def _done(result, error):
-            if error is not None or uri != self._doc_uri:
-                return
-            items = result.get('items') if isinstance(result, dict) else result
-            if not isinstance(items, list):
-                return
-            labels = [i.get('label', '') for i in items
-                      if isinstance(i, dict) and i.get('label')]
-            if not labels:
-                return
-            self._completion_model.setStringList(sorted(set(labels)))
-            self._completer.setCompletionPrefix(self.editor.word_under_cursor())
-            self._completer.complete()
+    def _handle_completion_response(self, uri, result, error):
+        if error is not None or uri != self._doc_uri:
+            return
+        items = result.get('items') if isinstance(result, dict) else result
+        if not isinstance(items, list):
+            return
+        info = {}
+        for item in items:
+            if not isinstance(item, dict) or not item.get('label'):
+                continue
+            kind = self._COMPLETION_KIND_NAMES.get(item.get('kind'), '')
+            info[item['label']] = (kind, item.get('detail', ''))
+        if not info:
+            return
+        self._completion_info = info
+        self._completion_model.setStringList(sorted(info))
+        self._completer.setCompletionPrefix(self.editor.word_under_cursor())
+        self._completer.complete()
 
-        self.lsp.request_completion(uri, line, col, _done)
+    def _show_completion_detail(self, text):
+        """Show the highlighted candidate's signature in the status bar."""
+        _kind, detail = self._completion_info.get(text, ('', ''))
+        if detail:
+            self.statusBar().showMessage(detail)
+
+    def _char_after(self, pos):
+        """Document character at absolute offset ('' when out of range)."""
+        text = self.editor.toPlainText()
+        return text[pos] if 0 <= pos < len(text) else ''
 
     def _insert_completion(self, text):
+        kind, detail = self._completion_info.get(text, ('', ''))
         cursor = self.editor.textCursor()
         cursor.select(QtGui.QTextCursor.WordUnderCursor)
-        cursor.insertText(text)
+        start, end = cursor.selectionStart(), cursor.selectionEnd()
+        if text.startswith('*') and start > 0 \
+                and self._char_after(start - 1) == '*':
+            # Swallow the trigger '*' the user already typed so '*pi'
+            # does not become '**pi'.
+            start -= 1
+        add_parens = (kind in ('function', 'keyword')
+                      and '(' in (detail or '')
+                      and self._char_after(end) != '('
+                      and not (start == end
+                               and self._char_after(start - 1) == '('))
+        cursor.setPosition(start)
+        cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
+        cursor.insertText(text + ('()' if add_parens else ''))
+        if add_parens:
+            # Leave the cursor inside the parens, ready for arguments.
+            cursor.setPosition(cursor.position() - 1)
         self.editor.setTextCursor(cursor)
 
     def _on_hover_requested(self, global_pos):
@@ -309,6 +395,195 @@ class MainWindow(QtWidgets.QMainWindow):
                                             self.editor)
 
         self.lsp.request_hover(uri, line, col, _done)
+
+    # ------------------------------------------------------------------
+    # Friendly extras: palette, find, go-to-line, recent files
+    # ------------------------------------------------------------------
+    _FIND_ALL_COLOR = QtGui.QColor('#ffe082')
+    _FIND_CURRENT_COLOR = QtGui.QColor('#ffab40')
+    _MAX_FIND_MATCHES = 1000
+
+    def _focus_problems(self):
+        self._problems_dock.show()
+        self._problems_dock.raise_()
+
+    def _palette_commands(self):
+        toggle_outline = self._outline_dock.toggleViewAction()
+        toggle_problems = self._problems_dock.toggleViewAction()
+        return [
+            ('file.new', 'File: New', '', self._new_document),
+            ('file.open', 'File: Open…', 'Ctrl+O', self._open_file),
+            ('file.save', 'File: Save', 'Ctrl+S', lambda: self._save()),
+            ('file.saveAs', 'File: Save As…', '', lambda: self._save_as()),
+            ('file.exit', 'File: Exit', '', self.close),
+            ('edit.find', 'Find in File…', 'Ctrl+F', self._toggle_find),
+            ('edit.gotoLine', 'Go to Line…', 'Ctrl+G', self._go_to_line),
+            ('view.toggleOutline', 'View: Toggle Outline', '',
+             toggle_outline.trigger),
+            ('view.toggleProblems', 'View: Toggle Problems', '',
+             toggle_problems.trigger),
+            ('view.zoomIn', 'View: Zoom In', 'Ctrl+=',
+             lambda: self._zoom(1)),
+            ('view.zoomOut', 'View: Zoom Out', 'Ctrl+-',
+             lambda: self._zoom(-1)),
+            ('view.zoomReset', 'View: Reset Zoom', 'Ctrl+0',
+             self._zoom_reset),
+            ('build.compile', 'Build: Compile to PDF', 'Ctrl+B',
+             self._compile),
+            ('build.restartLSP', 'Build: Restart Language Server', '',
+             self._restart_lsp),
+        ]
+
+    def _show_palette(self):
+        dialog = CommandPalette(self)
+        dialog.set_commands(
+            [(cmd_id, title, hint)
+             for cmd_id, title, hint, _ in self._palette_commands()])
+        dialog.commandChosen.connect(self._run_palette_command)
+        dialog.exec()
+
+    def _run_palette_command(self, cmd_id):
+        for item_id, _title, _hint, action in self._palette_commands():
+            if item_id == cmd_id:
+                action()
+                return
+
+    def _toggle_find(self):
+        if self._find_bar.isVisible():
+            self._find_bar.hide_bar()
+            self.editor.setFocus()
+            return
+        selected = self.editor.textCursor().selectedText()
+        self._find_bar.show_bar(selected or self.editor.word_under_cursor())
+
+    def _find_again(self, direction):
+        if not self._find_bar.isVisible():
+            self._toggle_find()
+            return
+        self._do_find(self._find_bar._input.text(), direction)
+
+    def _on_find_requested(self, text, direction):
+        self._do_find(text, direction)
+
+    def _find_all_ranges(self, text):
+        """Absolute (start, end) offsets of every case-insensitive match."""
+        if not text:
+            return []
+        doc = self.editor.toPlainText().casefold()
+        pattern = text.casefold()
+        ranges, start = [], 0
+        while len(ranges) < self._MAX_FIND_MATCHES:
+            found = doc.find(pattern, start)
+            if found == -1:
+                break
+            ranges.append((found, found + len(text)))
+            start = found + max(1, len(text))
+        return ranges
+
+    def _do_find(self, text, direction):
+        self._clear_find_highlights()
+        ranges = self._find_all_ranges(text)
+        self._find_ranges = ranges
+        if not ranges:
+            self._find_bar.set_match_count(0, 0)
+            return
+        pos = self.editor.textCursor().position()
+        if direction == 0:
+            index = next((i for i, (s, _e) in enumerate(ranges) if s >= pos),
+                         0)
+        else:
+            at_or_before = [i for i, (_s, e) in enumerate(ranges) if e <= pos]
+            if direction > 0:
+                index = 0 if not at_or_before else \
+                    (at_or_before[-1] + 1) % len(ranges)
+            else:
+                index = len(ranges) - 1 if not at_or_before else \
+                    (at_or_before[-1] - 1) % len(ranges)
+        self._show_find_match(index)
+
+    def _show_find_match(self, index):
+        ranges = self._find_ranges
+        self._highlight_find_ranges(ranges, index)
+        self._find_bar.set_match_count(index + 1, len(ranges))
+        start, end = ranges[index]
+        cursor = self.editor.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
+        self.editor.setTextCursor(cursor)
+
+    def _highlight_find_ranges(self, ranges, current):
+        document = self.editor.document()
+        selections = []
+        for i, (start, end) in enumerate(ranges):
+            selection = QtWidgets.QTextEdit.ExtraSelection()
+            color = self._FIND_CURRENT_COLOR if i == current \
+                else self._FIND_ALL_COLOR
+            selection.format.setBackground(color)
+            cursor = QtGui.QTextCursor(document)
+            cursor.setPosition(start)
+            cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
+            selection.cursor = cursor
+            selections.append(selection)
+        self.editor.setExtraSelections(
+            self._current_extra_selections() + selections)
+
+    def _current_extra_selections(self):
+        """Selections not owned by find (e.g. the current-line highlight)."""
+        keep = []
+        for selection in self.editor.extraSelections():
+            background = selection.format.background()
+            if background != self._FIND_ALL_COLOR \
+                    and background != self._FIND_CURRENT_COLOR:
+                keep.append(selection)
+        return keep
+
+    def _clear_find_highlights(self):
+        self.editor.setExtraSelections(self._current_extra_selections())
+
+    def _go_to_line(self):
+        current = self.editor.textCursor().blockNumber() + 1
+        total = max(1, self.editor.blockCount())
+        line, ok = QtWidgets.QInputDialog.getInt(
+            self, 'Go to Line', f'Line number (1–{total}):',
+            current, 1, total, 1)
+        if ok:
+            self._goto(line - 1, 0)
+            self.editor.setFocus()
+
+    def _refresh_recent_menu(self):
+        self._recent_menu.clear()
+        paths = [p for p in self._recent.list() if p]
+        if not paths:
+            empty = self._recent_menu.addAction('(No recent files)')
+            empty.setEnabled(False)
+            return
+        for path in paths:
+            if not os.path.exists(path):
+                continue
+            action = self._recent_menu.addAction(
+                os.path.basename(path) or path)
+            action.setStatusTip(path)
+            action.setData(path)
+            action.triggered.connect(
+                lambda _checked=False, p=path: self._open_recent(p))
+        self._recent_menu.addSeparator()
+        clear_action = self._recent_menu.addAction('Clear Menu')
+        clear_action.triggered.connect(self._recent.clear)
+
+    def _open_recent(self, path):
+        if not os.path.exists(path):
+            self.statusBar().showMessage(f'File not found: {path}', 5000)
+            return
+        if not self._maybe_save():
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as handle:
+                text = handle.read()
+        except OSError as e:
+            QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
+            return
+        self._recent.add(path)
+        self._switch_document(path, text)
 
     # ------------------------------------------------------------------
     # File operations
@@ -350,7 +625,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editor.moveCursor(QtGui.QTextCursor.Start)
         self.problems.clear()
         self.outline.clear()
-        self._problems_label.setText('')
+        self._problems_button.setText('')
         self._open_current_in_lsp()
         self._update_title()
 
@@ -373,6 +648,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except OSError as e:
             QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
             return
+        self._recent.add(path)
         self._switch_document(path, text)
 
     def _save(self):
@@ -400,6 +676,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except OSError as e:
             QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
             return False
+        self._recent.add(path)
         self._switch_document(path, self.editor.toPlainText())
         return True
 
@@ -460,16 +737,23 @@ class MainWindow(QtWidgets.QMainWindow):
     def _create_menus(self):
         file_menu = self.menuBar().addMenu('&File')
         new_action = file_menu.addAction('&New')
+
         new_action.setShortcut(QtGui.QKeySequence.New)
+        new_action.setStatusTip('Start a new document')
         new_action.triggered.connect(self._new_document)
         open_action = file_menu.addAction('&Open…')
         open_action.setShortcut(QtGui.QKeySequence.Open)
+        open_action.setStatusTip('Open an existing .ezmath file')
         open_action.triggered.connect(self._open_file)
+        self._recent_menu = file_menu.addMenu('Open R&ecent')
+        file_menu.aboutToShow.connect(self._refresh_recent_menu)
         save_action = file_menu.addAction('&Save')
         save_action.setShortcut(QtGui.QKeySequence.Save)
+        save_action.setStatusTip('Save the current document')
         save_action.triggered.connect(self._save)
         save_as_action = file_menu.addAction('Save &As…')
         save_as_action.setShortcut(QtGui.QKeySequence.SaveAs)
+        save_as_action.setStatusTip('Save under a new name')
         save_as_action.triggered.connect(self._save_as)
         file_menu.addSeparator()
         exit_action = file_menu.addAction('E&xit')
@@ -497,15 +781,80 @@ class MainWindow(QtWidgets.QMainWindow):
         select_all_action = edit_menu.addAction('Select &All')
         select_all_action.setShortcut(QtGui.QKeySequence.SelectAll)
         select_all_action.triggered.connect(self.editor.selectAll)
+        edit_menu.addSeparator()
+        find_action = edit_menu.addAction('&Find…')
+        find_action.setShortcut('Ctrl+F')
+        find_action.setStatusTip('Find text in the document')
+        find_action.triggered.connect(self._toggle_find)
+        goto_action = edit_menu.addAction('Go to &Line…')
+        goto_action.setShortcut('Ctrl+G')
+        goto_action.setStatusTip('Jump to a line number')
+        goto_action.triggered.connect(self._go_to_line)
 
         view_menu = self.menuBar().addMenu('&View')
         view_menu.addAction(self._outline_dock.toggleViewAction())
         view_menu.addAction(self._problems_dock.toggleViewAction())
+        view_menu.addSeparator()
+        palette_action = view_menu.addAction('Command &Palette…')
+        palette_action.setShortcut('Ctrl+Shift+P')
+        palette_action.setStatusTip('Run any command by name')
+        palette_action.triggered.connect(self._show_palette)
+        view_menu.addSeparator()
+        zoom_in_action = view_menu.addAction('Zoom &In')
+        zoom_in_action.setShortcuts(['Ctrl+=', 'Ctrl++'])
+        zoom_in_action.setStatusTip('Make the editor text bigger')
+        zoom_in_action.triggered.connect(lambda: self._zoom(1))
+        zoom_out_action = view_menu.addAction('Zoom &Out')
+        zoom_out_action.setShortcut('Ctrl+-')
+        zoom_out_action.setStatusTip('Make the editor text smaller')
+        zoom_out_action.triggered.connect(lambda: self._zoom(-1))
+        zoom_reset_action = view_menu.addAction('&Reset Zoom')
+        zoom_reset_action.setShortcut('Ctrl+0')
+        zoom_reset_action.setStatusTip('Restore the default text size')
+        zoom_reset_action.triggered.connect(self._zoom_reset)
 
         build_menu = self.menuBar().addMenu('&Build')
         compile_action = build_menu.addAction('&Compile')
         compile_action.setShortcut('Ctrl+B')
+        compile_action.setStatusTip('Compile the document to PDF')
         compile_action.triggered.connect(self._compile)
+        build_menu.addSeparator()
+        restart_action = build_menu.addAction('&Restart Language Server')
+        restart_action.setStatusTip(
+            'Restart the language server (fixes stale errors)')
+        restart_action.triggered.connect(self._restart_lsp)
+
+        toolbar = self.addToolBar('Main Toolbar')
+        toolbar.addAction(new_action)
+        toolbar.addAction(open_action)
+        toolbar.addAction(save_action)
+        toolbar.addSeparator()
+        toolbar.addAction(compile_action)
+
+        find_next_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence.StandardKey.FindNext, self)
+        find_next_shortcut.activated.connect(lambda: self._find_again(1))
+        find_prev_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence.StandardKey.FindPrevious, self)
+        find_prev_shortcut.activated.connect(lambda: self._find_again(-1))
+
+    # ------------------------------------------------------------------
+    # Editor text size
+    # ------------------------------------------------------------------
+    _MIN_FONT_SIZE = 6.0
+    _MAX_FONT_SIZE = 48.0
+
+    def _set_editor_font_size(self, size):
+        clamped = max(self._MIN_FONT_SIZE, min(self._MAX_FONT_SIZE, size))
+        font = self.editor.font()
+        font.setPointSizeF(clamped)
+        self.editor.setFont(font)
+
+    def _zoom(self, step):
+        self._set_editor_font_size(self.editor.font().pointSizeF() + step)
+
+    def _zoom_reset(self):
+        self._set_editor_font_size(self._default_font_size)
 
     def _connect_editor(self):
         self.editor.cursorMoved.connect(self._on_cursor_moved)
@@ -531,6 +880,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except OSError as e:
             QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
             return
+        self._recent.add(path)
         self._switch_document(path, text)
 
     def closeEvent(self, event):
@@ -541,6 +891,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self._maybe_save():
             event.ignore()
             return
+        self._restart_pending = False
+        self._reopen_after_connect = False
         self._change_timer.stop()
         self._close_current_in_lsp()
         if self._build_process is not None:

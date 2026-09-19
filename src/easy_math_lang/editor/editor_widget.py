@@ -30,6 +30,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     hoverRequested = QtCore.Signal(QtCore.QPoint)
 
     HOVER_DELAY_MS = 600
+    COMPLETION_TRIGGERS = ('*', '<')
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,6 +39,16 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         self.setFont(font)
         self.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
         self.setMouseTracking(True)
+        self.setTabStopDistance(
+            4 * self.fontMetrics().horizontalAdvance(' '))
+        self.setPlaceholderText(
+            'Start typing Easy-Math-Lang here…\n'
+            '\n'
+            '<width> = 5\n'
+            '<area> = calc(<width> * 2)\n'
+            'Area: <area>\n'
+            '\n'
+            'Tip: File → Open → examples/example.ezmath')
 
         self._line_numbers = _LineNumberArea(self)
         self._highlighter = EmlHighlighter(self.document())
@@ -72,6 +83,19 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     def _emit_cursor_moved(self):
         line, col = self.cursor_line_col()
         self.cursorMoved.emit(line, col)
+
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        # Auto-show autocompletion right after a trigger character, like
+        # Ctrl+Space but without asking. Programmatic edits (completion
+        # insertion, paste handling) never produce key events, so this
+        # cannot loop back on itself.
+        modifiers = event.modifiers() & (
+            QtCore.Qt.KeyboardModifier.ControlModifier
+            | QtCore.Qt.KeyboardModifier.AltModifier
+            | QtCore.Qt.KeyboardModifier.MetaModifier)
+        if event.text() in self.COMPLETION_TRIGGERS and not modifiers:
+            self.completionRequested.emit()
 
     def goto_position(self, line, character):
         """Move the cursor; character is a UTF-16 offset like LSP sends."""

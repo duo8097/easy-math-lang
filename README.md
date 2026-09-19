@@ -103,6 +103,7 @@ If you have never used a terminal or installed programs before, start here:
 2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols
 3. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
 4. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
+5. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor
 
 ---
 

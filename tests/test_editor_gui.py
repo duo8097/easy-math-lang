@@ -195,3 +195,288 @@ def test_close_waits_for_real_lsp_shutdown(window, qapp):
     finally:
         QtCore.qInstallMessageHandler(previous)
     assert qt_warnings == []
+
+
+def test_fuzzy_score():
+    from easy_math_lang.editor.command_palette import fuzzy_score
+    assert fuzzy_score('', 'Anything') == 0
+    assert fuzzy_score('fop', 'File: Open…') is not None
+    assert fuzzy_score('xyz', 'File: Open…') is None
+    assert fuzzy_score('file', 'File: Open') < fuzzy_score('file', 'XfXiXlXe')
+    assert fuzzy_score('FILE', 'file: save') is not None
+
+
+def test_command_palette_filters_and_chooses(window, qapp):
+    from easy_math_lang.editor.command_palette import CommandPalette
+    chosen = {}
+    dialog = CommandPalette(window)
+    dialog.commandChosen.connect(lambda cmd_id: chosen.setdefault('id', cmd_id))
+    dialog.set_commands([
+        ('file.open', 'File: Open…', 'Ctrl+O'),
+        ('file.save', 'File: Save', 'Ctrl+S'),
+        ('build.compile', 'Build: Compile to PDF', 'Ctrl+B'),
+    ])
+    assert dialog._list.count() == 3
+    dialog._input.setText('comp')
+    assert dialog._list.count() == 1
+    dialog._accept_current()
+    assert chosen == {'id': 'build.compile'}
+
+
+def test_recent_files_roundtrip(tmp_path, qapp):
+    from PySide6 import QtCore
+    from easy_math_lang.editor.recent import RecentFiles
+    settings = QtCore.QSettings(str(tmp_path / 'recent.ini'),
+                                QtCore.QSettings.IniFormat)
+    recent = RecentFiles(settings, max_items=3)
+    assert recent.list() == []
+    recent.add('/a.ezmath')
+    recent.add('/b.ezmath')
+    recent.add('/a.ezmath')  # duplicate moves to front, no copy
+    recent.add('/c.ezmath')
+    recent.add('/d.ezmath')  # over capacity trims oldest
+    assert recent.list() == ['/d.ezmath', '/c.ezmath', '/a.ezmath']
+    assert RecentFiles(settings, max_items=3).list() == recent.list()  # persisted
+    recent.clear()
+    assert recent.list() == []
+
+
+def test_find_next_prev_and_count(window):
+    window.editor.setPlainText('foo bar foo\nfoo\n')
+    window.editor.moveCursor(QtGui.QTextCursor.Start)
+    window._do_find('foo', 0)
+    cursor = window.editor.textCursor()
+    assert (cursor.selectionStart(), cursor.selectionEnd()) == (0, 3)
+    assert window._find_bar._count.text() == '1 of 3'
+    window._do_find('foo', 1)
+    cursor = window.editor.textCursor()
+    assert (cursor.selectionStart(), cursor.selectionEnd()) == (8, 11)
+    assert window._find_bar._count.text() == '2 of 3'
+    window._do_find('foo', -1)
+    cursor = window.editor.textCursor()
+    assert (cursor.selectionStart(), cursor.selectionEnd()) == (0, 3)
+    assert window._find_bar._count.text() == '1 of 3'
+    window._do_find('', 0)
+    assert window._find_bar._count.text() == '0 of 0'
+    window._do_find('zzz', 0)
+    assert window._find_bar._count.text() == '0 of 0'
+
+
+def test_find_bar_toggle_prefills_word(window):
+    window.editor.setPlainText('<width> = 5\n')
+    window.editor.moveCursor(QtGui.QTextCursor.Start)
+    window.editor.moveCursor(QtGui.QTextCursor.Right,
+                             QtGui.QTextCursor.KeepAnchor)
+    window._toggle_find()
+    assert window._find_bar.isVisible()
+    assert window._find_bar._input.text() != ''
+    window._toggle_find()
+    assert not window._find_bar.isVisible()
+
+
+def test_go_to_line(window, monkeypatch):
+    window.editor.setPlainText('a\nb\nc\n')
+    monkeypatch.setattr(QtWidgets.QInputDialog, 'getInt',
+                        lambda *a, **k: (2, True))
+    window._go_to_line()
+    assert window.editor.textCursor().blockNumber() == 1
+
+
+def test_problems_button_focuses_panel(window):
+    window._doc_uri = 'file:///t.ezmath'
+    window._on_diagnostics('file:///t.ezmath', [{
+        'range': {'start': {'line': 0, 'character': 0},
+                  'end': {'line': 0, 'character': 1}},
+        'severity': 1, 'message': 'boom'}])
+    assert 'Problems: 1' in window._problems_button.text()
+    window._problems_dock.hide()
+    window._problems_button.click()
+    assert window._problems_dock.isVisible()
+
+
+def test_recent_menu_lists_files(window, tmp_path, qapp):
+    from PySide6 import QtCore
+    from easy_math_lang.editor.recent import RecentFiles
+    window._recent = RecentFiles(
+        QtCore.QSettings(str(tmp_path / 'r.ini'), QtCore.QSettings.IniFormat))
+    target = tmp_path / 'notes.ezmath'
+    target.write_text('<a> = 1\n', encoding='utf-8')
+    window._recent.add(str(target))
+    window._recent.add(str(tmp_path / 'gone.ezmath'))  # missing: hidden
+    window._refresh_recent_menu()
+    texts = [a.text() for a in window._recent_menu.actions() if a.isEnabled()]
+    assert 'notes.ezmath' in texts
+    assert not any('gone' in t for t in texts)
+
+
+def test_toolbar_has_main_actions(window):
+    toolbars = window.findChildren(QtWidgets.QToolBar)
+    assert len(toolbars) == 1
+    texts = [a.text() for a in toolbars[0].actions() if a.text()]
+    for expected in ('&New', '&Open…', '&Save', '&Compile'):
+        assert expected in texts
+
+
+def test_zoom_in_out_reset_and_clamp(window):
+    original = window.editor.font().pointSizeF()
+    window._zoom(1)
+    assert window.editor.font().pointSizeF() == original + 1
+    window._zoom(-1)
+    assert window.editor.font().pointSizeF() == original
+    for _ in range(100):
+        window._zoom(1)
+    assert window.editor.font().pointSizeF() == 48.0
+    for _ in range(100):
+        window._zoom(-1)
+    assert window.editor.font().pointSizeF() == 6.0
+    window._zoom_reset()
+    assert window.editor.font().pointSizeF() == original
+
+
+def test_placeholder_guides_new_users(window):
+    placeholder = window.editor.placeholderText()
+    assert placeholder != ''
+    assert 'example.ezmath' in placeholder
+
+
+def test_tab_width_is_four_spaces(window):
+    expected = 4 * window.editor.fontMetrics().horizontalAdvance(' ')
+    assert window.editor.tabStopDistance() == expected
+
+
+def test_restart_lsp_reconnects_and_reopens(window, qapp):
+    connects = {}
+    window.lsp.connected.connect(
+        lambda: connects.update(n=connects.get('n', 0) + 1))
+    window._restart_lsp()  # stopped -> starts directly
+    _pump_until(lambda: connects.get('n', 0) >= 1, 'first LSP connect')
+    assert 'Connected' in window._lsp_label.text()
+    assert window._lsp_open  # untitled .ezmath doc was (re)opened
+
+    window._restart_lsp()  # connected -> stop, then start on disconnect
+    _pump_until(lambda: connects.get('n', 0) >= 2, 'second LSP connect')
+    assert 'Connected' in window._lsp_label.text()
+    assert window._lsp_open
+
+    window.lsp.stop()
+    _pump_until(lambda: window.lsp.state == 'stopped', 'final LSP stop')
+
+
+def _press_key(widget, key, text, modifiers=None):
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
+    mods = Qt.NoModifier if modifiers is None else modifiers
+    widget.keyPressEvent(QKeyEvent(QEvent.KeyPress, key, mods, text))
+
+
+def test_star_keypress_requests_completion(window):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtCore import QEvent
+    requested = []
+    window.editor.completionRequested.connect(lambda: requested.append(1))
+    _press_key(window.editor, Qt.Key_Asterisk, '*')
+    assert window.editor.toPlainText() == '*'
+    assert len(requested) == 1
+
+
+def test_less_than_keypress_requests_completion(window):
+    from PySide6.QtCore import Qt
+    requested = []
+    window.editor.completionRequested.connect(lambda: requested.append(1))
+    _press_key(window.editor, Qt.Key_Less, '<')
+    assert window.editor.toPlainText() == '<'
+    assert len(requested) == 1
+
+
+def test_plain_keypress_does_not_request_completion(window):
+    from PySide6.QtCore import Qt
+    requested = []
+    window.editor.completionRequested.connect(lambda: requested.append(1))
+    _press_key(window.editor, Qt.Key_A, 'a')
+    assert window.editor.toPlainText() == 'a'
+    assert requested == []
+
+
+def test_ctrl_star_does_not_request_completion(window):
+    from PySide6.QtCore import Qt
+    requested = []
+    window.editor.completionRequested.connect(lambda: requested.append(1))
+    _press_key(window.editor, Qt.Key_Asterisk, '*', Qt.ControlModifier)
+    assert requested == []
+
+
+def test_completion_response_stores_details(window):
+    result = {'items': [
+        {'label': 'frac', 'kind': 3, 'detail': '*frac(numerator ; denominator)'},
+        {'label': 'width', 'kind': 6, 'detail': '= 10'},
+        {'label': 'pi', 'kind': 21, 'detail': ''},
+        {'no-label': True},
+    ]}
+    window._handle_completion_response(window._doc_uri, result, None)
+    assert window._completion_info == {
+        'frac': ('function', '*frac(numerator ; denominator)'),
+        'width': ('variable', '= 10'),
+        'pi': ('constant', ''),
+    }
+    assert sorted(window._completion_model.stringList()) == ['frac', 'pi', 'width']
+
+
+def test_completion_response_ignores_stale_or_bad(window):
+    window._completion_info = {'old': ('variable', '')}
+    window._handle_completion_response('file:///other.ezmath', {'items': []}, None)
+    assert window._completion_info == {'old': ('variable', '')}
+    window._handle_completion_response(window._doc_uri, {'items': None}, None)
+    assert window._completion_info == {'old': ('variable', '')}
+    window._handle_completion_response(window._doc_uri, {'items': []}, 'boom')
+    assert window._completion_info == {'old': ('variable', '')}
+
+
+def test_insert_function_adds_parens_with_cursor_inside(window):
+    window._completion_info = {'frac': ('function', '*frac(numerator ; denominator)')}
+    window.editor.setPlainText('*fr')
+    window.editor.moveCursor(QtGui.QTextCursor.End)
+    window._insert_completion('frac')
+    assert window.editor.toPlainText() == '*frac()'
+    assert window.editor.textCursor().position() == len('*frac(')
+
+
+def test_insert_variable_has_no_parens(window):
+    window._completion_info = {'width': ('variable', '= calc(2 + 3)')}
+    window.editor.setPlainText('<wid')
+    window.editor.moveCursor(QtGui.QTextCursor.End)
+    window._insert_completion('width')
+    assert window.editor.toPlainText() == '<width'
+
+
+def test_insert_starred_label_swallows_trigger_star(window):
+    window._completion_info = {}
+    window.editor.setPlainText('*')
+    window.editor.moveCursor(QtGui.QTextCursor.End)
+    window._insert_completion('*pi')
+    assert window.editor.toPlainText() == '*pi'
+
+
+def test_insert_does_not_duplicate_open_paren(window):
+    window._completion_info = {'frac': ('function', '*frac(numerator ; denominator)')}
+    window.editor.setPlainText('*frac(')
+    window.editor.moveCursor(QtGui.QTextCursor.End)
+    window._insert_completion('frac')
+    assert window.editor.toPlainText() == '*frac(frac'
+
+
+def test_show_completion_detail_in_status_bar(window):
+    window._completion_info = {'frac': ('function', '*frac(numerator ; denominator)')}
+    window._show_completion_detail('frac')
+    assert '*frac(numerator ; denominator)' in window.statusBar().currentMessage()
+    window._show_completion_detail('unknown-label')  # no crash, message kept
+
+
+def test_programmatic_insert_does_not_retrigger_completion(window):
+    requested = []
+    window.editor.completionRequested.connect(lambda: requested.append(1))
+    window._completion_info = {'frac': ('function', '*frac(a ; b)')}
+    window.editor.setPlainText('*fr')
+    window.editor.moveCursor(QtGui.QTextCursor.End)
+    window._insert_completion('frac')
+    assert requested == []
