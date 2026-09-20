@@ -14,12 +14,14 @@ def _cross2d(v1, v2):
 def _normalize(v):
     n = _norm(v)
     if n < 1e-9:
-        return v
+        raise ValueError("cannot normalize zero-length vector")
     return v / n
 
 
 def _bounding_box(points_dict):
     """Return (xmin, ymin, xmax, ymax) of all points."""
+    if not points_dict:
+        raise ValueError("cannot compute bounding box of empty point set")
     xs = [p[0] for p in points_dict.values()]
     ys = [p[1] for p in points_dict.values()]
     return min(xs), min(ys), max(xs), max(ys)

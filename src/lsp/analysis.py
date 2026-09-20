@@ -33,7 +33,7 @@ from . import builtins
 
 IDENT = r'[A-Za-z_][A-Za-z0-9_]*'
 VAR_TOKEN = re.compile(r'<([^<>]+)>')
-CALC_OPEN = re.compile(r'calc\(')
+CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])calc\(')
 CMD_CALL = re.compile(r'\*([A-Za-z][A-Za-z0-9_]*)\s*\(')
 P_LINE = re.compile(r'^\*p\((.*)\)$')
 WORD_AT = re.compile(IDENT)
@@ -204,6 +204,23 @@ def analyze_text(text):
             if s.startswith('```'):
                 continue
 
+            # Control lines suspended while multiline math is open
+            # (mirrors compiler/pipeline.py: tail after the closer is
+            # still processed as normal text).
+            if in_math:
+                masked = _mask_p_segments(code)
+                _bs_close = _unescaped_bs_positions(masked)
+                if len(_bs_close) % 2 == 1:
+                    in_math = False
+                    # Process the tail after the closing delimiter.
+                    last = _bs_close[-1]
+                    code = code[last + 1:]
+                    s = code.strip()
+                    if not s:
+                        continue
+                else:
+                    continue
+
             # *define(...) / define(...)
             if (s.startswith('*define(') or s.startswith('define(')) and s.endswith(')'):
                 prefix_len = 8 if s.startswith('*define(') else 7
@@ -218,8 +235,13 @@ def analyze_text(text):
                 inner = s[6:-1]
                 inner = replace_vars(ctx, inner)
                 inner = replace_defines(ctx, inner)
+                inner = apply_calc_in_string(ctx, inner)
                 pos = code.index('*draw')
                 analysis.definitions.append(Definition('draw', 'draw', idx, pos, pos + 5))
+                if '[Calc Error' in inner:
+                    analysis.diagnostics.append(Diag(
+                        idx, pos, pos + 5, 'error', inner[inner.index('[Calc Error'):inner.index('[Calc Error') + 120],
+                    ))
                 _analyze_draw(inner, lines, idx, idx, analysis)
                 continue
 
@@ -310,32 +332,45 @@ def analyze_text(text):
                     tmp = tmp[:o[0]] + ' ' * (o[1] + 1 - o[0]) + tmp[o[1] + 1:]
 
             substituted = replace_vars(ctx, check_code)
-            unresolved = []
-            seen_names = set()
-            for m in VAR_TOKEN.finditer(substituted):
-                name = m.group(1)
-                if not re.fullmatch(rf'\s*{IDENT}\s*', name):
+            known = sorted(set(ctx.variables) | set(ctx.defines))
+            # Flag every undefined <name> occurrence in source offsets
+            # (spacing variants like <oops> vs < oops > are distinct).
+            for occ in VAR_TOKEN.finditer(check_code):
+                raw_name = occ.group(1)
+                if not re.fullmatch(rf'\s*{IDENT}\s*', raw_name):
                     continue
-                clean = name.strip()
+                # Mirror the compiler's << >> guard on the substituted
+                # text is approximations; use source adjacency here.
+                if occ.start() > 0 and check_code[occ.start() - 1] == '<':
+                    continue
+                if occ.end() < len(check_code) and check_code[occ.end()] == '>':
+                    continue
+                clean = raw_name.strip()
+                # Resolvability check on substituted values.
                 if clean in ctx.variables or clean in ctx.defines:
                     continue
-                if clean not in seen_names:
-                    seen_names.add(clean)
-                    unresolved.append((name, clean))
-            known = sorted(set(ctx.variables) | set(ctx.defines))
-            for name, clean in unresolved:
-                # Every source occurrence gets its own range (code.find
-                # would collapse duplicates onto the first one).
-                for occ in re.finditer(rf'<{re.escape(name)}>', check_code):
-                    message = f'Undefined variable <{clean}>'
-                    suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
-                    if suggestion:
-                        message += f". Did you mean '{suggestion[0]}'?"
-                    analysis.diagnostics.append(Diag(
-                        idx, occ.start(), occ.end(), 'error', message,
-                    ))
+                # Also skip if substitution already resolved it
+                # (e.g. defined later on the same line is not supported;
+                # keep simple: undefined means not in ctx).
+                message = f'Undefined variable <{clean}>'
+                suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
+                if suggestion:
+                    message += f". Did you mean '{suggestion[0]}'?"
+                analysis.diagnostics.append(Diag(
+                    idx, occ.start(), occ.end(), 'error', message,
+                ))
 
-            for m in CMD_CALL.finditer(check_code):
+            # Mask single-line math pairs so commands inside math don't
+            # warn (mirrors compiler placeholders before warn_unknown).
+            _math_masked = check_code
+            while True:
+                _o = _unescaped_bs_positions(_math_masked)
+                if len(_o) < 2:
+                    break
+                _math_masked = (
+                    _math_masked[:_o[0]] + ' ' * (_o[1] + 1 - _o[0]) + _math_masked[_o[1] + 1:]
+                )
+            for m in CMD_CALL.finditer(_math_masked):
                 if m.group(1) not in KNOWN_COMMANDS:
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), m.end(), 'warning',
@@ -429,7 +464,7 @@ def hover(text, line, character):
     cur = lines[line]
     token = None
     for m in WORD_AT.finditer(cur):
-        if m.start() <= character <= m.end():
+        if m.start() <= character < m.end():
             token = m
             break
     if token is None:

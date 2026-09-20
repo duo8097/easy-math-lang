@@ -5,7 +5,7 @@ import sys
 
 KNOWN_COMMANDS = {
     'define', 'p',
-    'frac', 'abs', 'sin', 'cos', 'tan', 'log', 'ln',
+    'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
     'pow', 'root', 'sum', 'prod', 'lim',
     # symbol shortcuts handled separately: pi, infinity, degree, ...
 }

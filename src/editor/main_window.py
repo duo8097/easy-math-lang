@@ -229,6 +229,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.lsp.is_connected() or not self._lsp_open:
             return
         uri = self._doc_uri
+        version = self._doc_version
 
         def _done(result, error):
             if error is not None or not isinstance(result, list):
@@ -249,8 +250,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     'line': (start.get('line') or 0),
                     'start': (start.get('character') or 0),
                 })
-            # Ignore stale responses from a previous document.
-            if uri == self._doc_uri:
+            # Ignore stale responses from a previous document or version.
+            if uri == self._doc_uri and version == self._doc_version:
                 self.outline.set_symbols(symbols)
 
         self.lsp.request_symbols(uri, _done)
@@ -307,13 +308,16 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         line, col = self.editor.cursor_line_col()
         uri = self._doc_uri
+        version = self._doc_version
         self.lsp.request_completion(
             uri, line, col,
             lambda result, error: self._handle_completion_response(
-                uri, result, error))
+                uri, result, error, version=version))
 
-    def _handle_completion_response(self, uri, result, error):
+    def _handle_completion_response(self, uri, result, error, version=None):
         if error is not None or uri != self._doc_uri:
+            return
+        if version is not None and version != self._doc_version:
             return
         items = result.get('items') if isinstance(result, dict) else result
         if not isinstance(items, list):
@@ -374,9 +378,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         line, col = cursor.blockNumber(), cursor.positionInBlock()
         uri = self._doc_uri
+        version = self._doc_version
 
         def _done(result, error):
-            if error is not None or not result or uri != self._doc_uri:
+            if error is not None or not result or uri != self._doc_uri or version != self._doc_version:
                 return
             contents = result.get('contents')
             if isinstance(contents, dict):
@@ -470,15 +475,13 @@ class MainWindow(QtWidgets.QMainWindow):
         """Absolute (start, end) offsets of every case-insensitive match."""
         if not text:
             return []
-        doc = self.editor.toPlainText().casefold()
-        pattern = text.casefold()
-        ranges, start = [], 0
-        while len(ranges) < self._MAX_FIND_MATCHES:
-            found = doc.find(pattern, start)
-            if found == -1:
+        import re as _re
+        doc = self.editor.toPlainText()
+        ranges = []
+        for m in _re.finditer(_re.escape(text), doc, flags=_re.IGNORECASE):
+            ranges.append((m.start(), m.end()))
+            if len(ranges) >= self._MAX_FIND_MATCHES:
                 break
-            ranges.append((found, found + len(text)))
-            start = found + max(1, len(text))
         return ranges
 
     def _do_find(self, text, direction):
@@ -489,17 +492,30 @@ class MainWindow(QtWidgets.QMainWindow):
             self._find_bar.set_match_count(0, 0)
             return
         pos = self.editor.textCursor().position()
+        inside = next((i for i, (s, e) in enumerate(ranges) if s <= pos < e), None)
         if direction == 0:
-            index = next((i for i, (s, _e) in enumerate(ranges) if s >= pos),
-                         0)
-        else:
-            at_or_before = [i for i, (_s, e) in enumerate(ranges) if e <= pos]
-            if direction > 0:
-                index = 0 if not at_or_before else \
-                    (at_or_before[-1] + 1) % len(ranges)
+            index = inside if inside is not None else next(
+                (i for i, (s, _e) in enumerate(ranges) if s >= pos), 0)
+        elif direction > 0:
+            if inside is not None:
+                # Cursor inside a match: advance to the next one
+                # (previously stayed on the same match).
+                index = (inside + 1) % len(ranges)
             else:
-                index = len(ranges) - 1 if not at_or_before else \
-                    (at_or_before[-1] - 1) % len(ranges)
+                at_or_before = [i for i, (_s, e) in enumerate(ranges) if e <= pos]
+                index = 0 if not at_or_before else (at_or_before[-1] + 1) % len(ranges)
+        else:
+            if inside is not None:
+                index = (inside - 1) % len(ranges)
+                # When the cursor sits inside a match, at_or_before
+                # excludes it, so the generic formula would skip one.
+            else:
+                at_or_before = [i for i, (_s, e) in enumerate(ranges) if e <= pos]
+                index = len(ranges) - 1 if not at_or_before else (at_or_before[-1] - 1) % len(ranges)
+                # NOTE: after _show_find_match the cursor sits at the end
+                # of the shown match (e == pos), so at_or_before includes
+                # the current match and -1 steps to the previous one,
+                # which is what the Prev button expects.
         self._show_find_match(index)
 
     def _show_find_match(self, index):

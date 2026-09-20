@@ -16,6 +16,7 @@ MATH_DOCS = {
     'sin': ('*sin(x)', 'Sine.'),
     'cos': ('*cos(x)', 'Cosine.'),
     'tan': ('*tan(x)', 'Tangent.'),
+    'sqrt': ('*sqrt(x)', 'Square root.'),
     'log': ('*log(x)', 'Logarithm.'),
     'ln': ('*ln(x)', 'Natural logarithm.'),
     'pow': ('*pow(base ; exponent)', 'Power.'),
@@ -58,7 +59,7 @@ GEOMETRY_DOCS = {
 # every compiler math command must be advertised (no silent divergence).
 _CROSS_CHECK = (
     set(MATH_DOCS) <= KNOWN_COMMANDS
-    and {'frac', 'abs', 'sin', 'cos', 'tan', 'log', 'ln',
+    and {'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
          'pow', 'root', 'sum', 'prod', 'lim'} <= set(MATH_DOCS)
     and set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS)
 )

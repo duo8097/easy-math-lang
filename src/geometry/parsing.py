@@ -44,12 +44,22 @@ def _parse_commands(block_text):
         while j < len(block_text) and (block_text[j].isalnum() or block_text[j] == '-'):
             j += 1
 
-        if j == star + 1 or j >= len(block_text) or block_text[j] != '(':
+        if j == star + 1:
             # Not a valid command — skip the *
             i = star + 1
             continue
+        # Allow whitespace between command name and '(' (e.g. *point (A)).
+        name_end = j
+        k_scan = j
+        while k_scan < len(block_text) and block_text[k_scan] in ' \t\n\r':
+            k_scan += 1
+        if k_scan >= len(block_text) or block_text[k_scan] != '(':
+            # Not a valid command — skip the *
+            i = star + 1
+            continue
+        j = k_scan
 
-        cmd_name = block_text[star + 1:j]
+        cmd_name = block_text[star + 1:name_end]
         # j now points to '('
         depth = 1
         k = j + 1
@@ -108,4 +118,13 @@ def parse_draw_block(block_text):
         print(msg, file=sys.stderr)
         errors.append(msg)
 
-    return generate_typst(solver, errors)
+    try:
+        return generate_typst(solver, errors)
+    except Exception as e:
+        msg = f"[GeometryError] code generation failed: {e}"
+        print(msg, file=sys.stderr)
+        errors.append(msg)
+        try:
+            return generate_typst(GeometrySolver(), errors)
+        except Exception:
+            return '#import "@preview/cetz:0.4.2"\n#align(center)[#cetz.canvas({\n  import cetz.draw: *\n})]'

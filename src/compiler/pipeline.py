@@ -105,6 +105,13 @@ def _render_text_line(ctx, raw, line_no):
     # per line allowed). Raw parts bypass all later rules; surrounding
     # text flows through the normal pipeline. Bare p(...) is text.
     p_segs = _extract_p_segments(raw)
+    for is_raw, content in p_segs:
+        if not is_raw and '*p(' in content:
+            print(
+                f'[Warning] Line {line_no}: unclosed *p( — treated as plain text',
+                file=sys.stderr,
+            )
+            break
     if any(is_raw for is_raw, _ in p_segs):
         placeholders = {}
         text = ''

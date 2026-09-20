@@ -20,9 +20,22 @@ class GeometrySolver:
 
     def add_point(self, name, x=None, y=None):
         if x is not None and y is not None:
+            import math as _math
+
+            fx, fy = float(x), float(y)
+            if not (_math.isfinite(fx) and _math.isfinite(fy)):
+                raise GeometryError(f"invalid coordinates for point '{name}': ({x}, {y}) must be finite")
+            new_pt = np.array([fx, fy])
+            if name in self.fixed:
+                old = self.points[name]
+                if _norm(old - new_pt) > 1e-9:
+                    raise GeometryError(
+                        f"duplicate definition of point '{name}' with different coordinates"
+                    )
+                return
             # Explicit coordinates always win, even if the point was
             # previously auto-created by a constraint.
-            self.points[name] = np.array([float(x), float(y)])
+            self.points[name] = new_pt
             self.fixed.add(name)
         elif name not in self.points:
             # Deterministic layout (no RNG): spread points on a circle
@@ -39,9 +52,11 @@ class GeometrySolver:
     def validate(self):
         """Check for undefined points before solving."""
         for cmd, args in self.draw_commands:
-            for arg in args:
+            for i, arg in enumerate(args):
                 arg = arg.strip()
                 if arg.lower() == 'infinite':
+                    continue
+                if cmd == 'triangle' and i == 3 and arg.lower() == 'labels':
                     continue
                 # point names are single tokens that look like identifiers
                 if re.match(r'^[A-Za-z][A-Za-z0-9_]*$', arg) and arg not in self.points:
@@ -73,9 +88,15 @@ class GeometrySolver:
                 total += fn(pts)
             return total
 
+        import math as _math
+
         for _step in range(5000):
             eps = 1e-5
             base_cost = eval_constraints(self.points)
+            if not _math.isfinite(base_cost):
+                raise GeometryError(
+                    "solver diverged (non-finite cost) — check constraints for degeneracy"
+                )
             if base_cost < 1e-4:
                 break
 
@@ -102,6 +123,12 @@ class GeometrySolver:
                     self.points[p] += velocity[p]
 
         final_cost = eval_constraints(self.points)
+        import math as _math2
+
+        if not _math2.isfinite(final_cost):
+            raise GeometryError(
+                "solver diverged (non-finite final cost) — diagram coordinates invalid"
+            )
 
         # Check per-constraint residuals to distinguish conflict from non-convergence
         if final_cost > 1e-2:

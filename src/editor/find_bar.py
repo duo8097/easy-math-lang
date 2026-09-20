@@ -45,7 +45,7 @@ class FindBar(QtWidgets.QWidget):
         self.setVisible(False)
 
     def show_bar(self, initial_text=''):
-        if initial_text and not self._input.text():
+        if initial_text and initial_text != self._input.text():
             self._input.setText(initial_text)
         self.setVisible(True)
         self._input.setFocus()

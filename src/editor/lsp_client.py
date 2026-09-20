@@ -86,6 +86,11 @@ class LspClient(QtCore.QObject):
             return
         if self._state == 'stopping':
             return
+        if self._state != 'connected':
+            # Never initialized per LSP spec (initialize precedes
+            # shutdown); kill immediately instead of a bogus handshake.
+            self.abort()
+            return
         self._state = 'stopping'
         self._fail_all_pending('client stopped')
         self.send_request('shutdown', None, self._finish_stop,
@@ -152,19 +157,28 @@ class LspClient(QtCore.QObject):
 
     def on_data_received(self, data):
         """Feed raw stdout bytes; dispatches complete messages."""
-        try:
-            messages = self._framing.feed(data)
-        except ValueError as e:
-            self.protocol_error.emit(f'Malformed LSP frame: {e}')
-            return
+        messages, error = self._framing.feed_collect(data)
         for message in messages:
             self.dispatch_message(message)
+        if error is not None:
+            self.protocol_error.emit(f'Malformed LSP frame: {error}')
 
     def dispatch_message(self, message):
-        if 'id' in message:
+        has_id = 'id' in message
+        has_method = 'method' in message
+        if has_id and not has_method:
             self._dispatch_response(message)
-        elif 'method' in message:
+        elif has_method and not has_id:
             self._dispatch_notification(message)
+        elif has_id and has_method:
+            # Server-to-client request (e.g. window/workDoneProgress/create).
+            # Surface it and answer MethodNotFound so the server never hangs.
+            self._dispatch_notification(message)
+            try:
+                self._send({'jsonrpc': '2.0', 'id': message['id'],
+                            'error': {'code': -32601, 'message': 'Method not found'}})
+            except Exception:
+                pass
         else:
             self.protocol_error.emit(f'LSP message is neither response '
                                      f'nor notification: {message!r:.120}')
@@ -285,6 +299,9 @@ class LspClient(QtCore.QObject):
         self.server_started.emit()
 
     def _on_finished(self, exit_code, _status):
+        if self._process is None and self._state == 'stopped':
+            # Already aborted/reaped; avoid double disconnected + spurious error.
+            return
         self._fail_all_pending('LSP server terminated')
         if self._state != 'stopping':
             self.process_error.emit(

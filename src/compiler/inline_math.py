@@ -99,6 +99,8 @@ def process_math_inner(ctx, inner_raw, line_no=None):
             file=sys.stderr,
         ) if line_no else None
         return ''
+    # Protect literal \\ so it never toggles math and survives Typst.
+    inner = inner.replace('\\\\', BS_PLACEHOLDER)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
     inner = re.sub(r'\*pi\b', '$pi$', inner)

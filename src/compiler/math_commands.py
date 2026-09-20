@@ -28,6 +28,7 @@ def split_top_level_args(args):
 
 def replace_math_call(text, name, min_args, formatter):
     """Replace *name(...) calls using depth-aware paren matching."""
+    import sys
     pattern = re.compile(r'\*' + re.escape(name) + r'\(')
     pos = 0
     out = []
@@ -47,6 +48,10 @@ def replace_math_call(text, name, min_args, formatter):
                 depth -= 1
             i += 1
         if depth != 0:
+            print(
+                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
             out.append(text[match.start():])
             break
         args = split_top_level_args(text[start:i - 1])
@@ -80,10 +85,11 @@ def math_call_specs(ctx):
         ('sin', 1, lambda args: f"$sin({clean_inner_math(ctx, args[0])})$"),
         ('cos', 1, lambda args: f"$cos({clean_inner_math(ctx, args[0])})$"),
         ('tan', 1, lambda args: f"$tan({clean_inner_math(ctx, args[0])})$"),
+        ('sqrt', 1, lambda args: f"$sqrt({clean_inner_math(ctx, args[0])})$"),
         ('log', 1, lambda args: f"$log({clean_inner_math(ctx, args[0])})$"),
         ('ln',  1, lambda args: f"$ln({clean_inner_math(ctx, args[0])})$"),
         ('pow', 2,
-         lambda args: f"${group_power_base(ctx, args[0])}^({clean_inner_math(ctx, args[1])})$"),
+         lambda args: _format_pow(ctx, args)),
         ('root', 2,
          lambda args: f"$root({clean_inner_math(ctx, args[0])}, {{{clean_inner_math(ctx, args[1])}}})$"),
         ('sum', 3,
@@ -106,3 +112,12 @@ def group_power_base(ctx, s):
     if re.search(r'\s[+\-*/]\s|[+\-*/]', s) and not (s.startswith('(') and s.endswith(')')):
         return f'({s})'
     return s
+
+
+def _format_pow(ctx, args):
+    base = group_power_base(ctx, args[0])
+    exp = clean_inner_math(ctx, args[1])
+    # *pow(A ; *degree) means A° per spec, not A^(°).
+    if exp == '°':
+        return f'${base}°$'
+    return f'${base}^({exp})$'

@@ -20,9 +20,22 @@ safe_operators = {
 }
 
 
-def evaluate_calc(ctx, expression, line_no=None):
+def evaluate_calc(ctx, expression, line_no=None, _depth=0):
+    if _depth > 20:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        return '[Calc Error: nested too deep]'
     expression = replace_vars(ctx, expression)
     expression = replace_defines(ctx, expression)
+    # Resolve nested calc(...) inside-out so calc(calc(1+1)+1) works.
+    try:
+        nested = apply_calc_in_string(ctx, expression, line_no=line_no, _depth=_depth + 1)
+    except RecursionError:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        return '[Calc Error: nested too deep]'
+    if nested != expression:
+        expression = nested
     try:
         # Only treat mult_sym as an operator when spaced, so decimals
         # (3.14) and words containing 'x' are not corrupted.
@@ -32,7 +45,7 @@ def evaluate_calc(ctx, expression, line_no=None):
             ).strip()
         else:
             eval_expr = expression.strip()
-        eval_expr = re.sub(r'(?<=\d)\s+(?=\d)', '', eval_expr)
+        eval_expr = re.sub(r'(?<=\d)\s+(?=\d{3}\b)', '', eval_expr)
         eval_expr = eval_expr.replace('^', '**')
         tree = ast.parse(eval_expr, mode='eval')
 
@@ -46,7 +59,20 @@ def evaluate_calc(ctx, expression, line_no=None):
                 right = eval_node(node.right)
                 if isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)) and right == 0:
                     raise ZeroDivisionError("division by zero")
-                return safe_operators[type(node.op)](left, right)
+                if isinstance(node.op, ast.Pow):
+                    # Guard against gigantic bigint DoS (e.g. 9 ** 9 ** 9).
+                    try:
+                        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                            if abs(right) > 1000 or (abs(left) > 10 and abs(right) > 100):
+                                raise ValueError('calc: exponent too large')
+                    except ValueError:
+                        raise
+                    except Exception:
+                        pass
+                result = safe_operators[type(node.op)](left, right)
+                if isinstance(result, int) and abs(result) > 10 ** 4000:
+                    raise ValueError('calc: result too large')
+                return result
             if isinstance(node, ast.UnaryOp) and type(node.op) in safe_operators:
                 return safe_operators[type(node.op)](eval_node(node.operand))
             raise ValueError('calc only supports numbers and math operators')
@@ -59,17 +85,25 @@ def evaluate_calc(ctx, expression, line_no=None):
         loc = f' Line {line_no}:' if line_no else ''
         print(f'[Error]{loc} calc(): division by zero in: {expression!r}', file=sys.stderr)
         return '[Calc Error: division by zero]'
+    except RecursionError:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        return '[Calc Error: nested too deep]'
     except Exception as e:
         loc = f' Line {line_no}:' if line_no else ''
         print(f'[Error]{loc} calc(): {e} in: {expression!r}', file=sys.stderr)
         return f'[Calc Error: {e}]'
 
 
-def apply_calc_in_string(ctx, text, line_no=None):
+def apply_calc_in_string(ctx, text, line_no=None, _depth=0):
     """Evaluate every calc(...) in text (handles nested parentheses)."""
+    if _depth > 20:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} calc(): nested too deep — leaving as-is', file=sys.stderr)
+        return text
     out = []
     pos = 0
-    pattern = re.compile(r'calc\(')
+    pattern = re.compile(r'(?<![A-Za-z0-9_])calc\(')
     while True:
         m = pattern.search(text, pos)
         if not m:
@@ -94,6 +128,6 @@ def apply_calc_in_string(ctx, text, line_no=None):
             out.append(text[m.start():])
             break
         expr = text[start:i - 1]
-        out.append(evaluate_calc(ctx, expr, line_no=line_no))
+        out.append(evaluate_calc(ctx, expr, line_no=line_no, _depth=_depth + 1))
         pos = i
     return ''.join(out)

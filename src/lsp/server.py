@@ -100,12 +100,22 @@ def create_server():
         text_document_sync_kind=lsp.TextDocumentSyncKind.Full,
     )
     store = DocumentStore()
+    _support_cache = {}
+
+    def _cached_supported(uri):
+        if uri in _support_cache:
+            return _support_cache[uri]
+        supported = is_supported(uri)
+        _support_cache[uri] = supported
+        return supported
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
     def did_open(ls, params: lsp.DidOpenTextDocumentParams):
         doc = params.text_document
         store.open(doc.uri, doc.text, doc.version)
-        if is_supported(doc.uri, doc.language_id):
+        supported = is_supported(doc.uri, doc.language_id)
+        _support_cache[doc.uri] = supported
+        if supported:
             analyze_and_publish(ls, store, doc.uri)
         else:
             ls.text_document_publish_diagnostics(
@@ -118,13 +128,16 @@ def create_server():
         if params.content_changes:
             store.update(uri, params.content_changes[-1].text,
                          params.text_document.version)
-        if is_supported(uri):
+        supported = _support_cache.get(uri, is_supported(uri))
+        _support_cache[uri] = supported
+        if supported:
             analyze_and_publish(ls, store, uri)
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CLOSE)
     def did_close(ls, params: lsp.DidCloseTextDocumentParams):
         uri = params.text_document.uri
         store.close(uri)
+        _support_cache.pop(uri, None)
         ls.text_document_publish_diagnostics(
             lsp.PublishDiagnosticsParams(uri=uri, diagnostics=[])
         )
@@ -136,7 +149,7 @@ def create_server():
     def completion(ls, params: lsp.CompletionParams):
         uri = params.text_document.uri
         text = store.get(uri)
-        if text is None or not is_supported(uri):
+        if text is None or not _cached_supported(uri):
             return lsp.CompletionList(is_incomplete=False, items=[])
         pos = params.position
         lines = text.splitlines()
@@ -155,7 +168,7 @@ def create_server():
     def hover(ls, params: lsp.HoverParams):
         uri = params.text_document.uri
         text = store.get(uri)
-        if text is None or not is_supported(uri):
+        if text is None or not _cached_supported(uri):
             return None
         pos = params.position
         lines = text.splitlines()
@@ -174,7 +187,7 @@ def create_server():
     def document_symbol(ls, params: lsp.DocumentSymbolParams):
         uri = params.text_document.uri
         text = store.get(uri)
-        if text is None or not is_supported(uri):
+        if text is None or not _cached_supported(uri):
             return []
         lines = text.splitlines()
         return [
