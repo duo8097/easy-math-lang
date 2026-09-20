@@ -22,7 +22,7 @@ import difflib
 import io
 import re
 
-from compiler.calc import apply_calc_in_string
+from compiler.calc import apply_calc_in_string, evaluate_calc
 from compiler.comments import strip_comments
 from compiler.diagnostics import KNOWN_COMMANDS
 from compiler.statements import process_assignment_or_define
@@ -97,6 +97,28 @@ def _balanced_range(text, open_index):
             if depth == 0:
                 return i + 1
     return None
+
+
+def _mask_p_segments(code):
+    """Replace balanced *p(...) spans with spaces (preserving offsets).
+
+    Raw *p content bypasses all checks, like the compiler. Unclosed
+    *p( is left intact so later checks can still flag it.
+    """
+    chars = list(code)
+    pos = 0
+    pat = re.compile(r'\*p\(')
+    while True:
+        m = pat.search(code, pos)
+        if not m:
+            break
+        close = _balanced_range(code, m.end() - 1)
+        if close is None:
+            break
+        for i in range(m.start(), close):
+            chars[i] = ' '
+        pos = close
+    return ''.join(chars)
 
 
 def _record_new(ctx, before, stmt_text, line_no, analysis):
@@ -192,7 +214,17 @@ def analyze_text(text):
                     process_assignment_or_define(ctx, inner, line_no=idx + 1)
                     _record_new(ctx, before, code, idx, analysis)
                     continue
-            elif s in ('*(', '*f(', 'f(', '*draw('):
+            elif ((s.startswith('*(') and s.endswith(')') and len(s) > 3)
+                  or (s.startswith('f(') and s.endswith(')') and len(s) > 3
+                      and not s.startswith('frac('))):
+                inner = s[2:-1].strip()
+                if inner and not inner.startswith('*'):
+                    if re.match(r'^<[^<>]+>\s*=', inner) or inner.startswith('define('):
+                        before = _snapshot(ctx)
+                        process_assignment_or_define(ctx, inner, line_no=idx + 1)
+                        _record_new(ctx, before, code, idx, analysis)
+                        continue
+            if s in ('*(', '*f(', 'f(', '*draw('):
                 in_f_block = True
                 block_type = s
                 block_content = []
@@ -227,10 +259,12 @@ def analyze_text(text):
                 continue
 
             # --- Text line checks (positions refer to the source line) ---
-            if P_LINE.match(s):
-                continue  # raw passthrough, like the compiler
+            # *p(...) raw spans are masked so their contents bypass checks.
+            check_code = _mask_p_segments(code)
+            if check_code.strip() == '':
+                continue
 
-            substituted = replace_vars(ctx, code)
+            substituted = replace_vars(ctx, check_code)
             unresolved = []
             seen_names = set()
             for m in VAR_TOKEN.finditer(substituted):
@@ -247,7 +281,7 @@ def analyze_text(text):
             for name, clean in unresolved:
                 # Every source occurrence gets its own range (code.find
                 # would collapse duplicates onto the first one).
-                for occ in re.finditer(rf'<{re.escape(name)}>', code):
+                for occ in re.finditer(rf'<{re.escape(name)}>', check_code):
                     message = f'Undefined variable <{clean}>'
                     suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
                     if suggestion:
@@ -256,7 +290,7 @@ def analyze_text(text):
                         idx, occ.start(), occ.end(), 'error', message,
                     ))
 
-            for m in CMD_CALL.finditer(code):
+            for m in CMD_CALL.finditer(check_code):
                 if m.group(1) not in KNOWN_COMMANDS:
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), m.end(), 'warning',
@@ -264,15 +298,20 @@ def analyze_text(text):
                     ))
 
             sub_all = replace_defines(ctx, substituted)
-            for m in CALC_OPEN.finditer(code):
-                close = _balanced_range(code, m.end() - 1)
+            for m in CALC_OPEN.finditer(check_code):
+                close = _balanced_range(check_code, m.end() - 1)
                 if close is None:
                     analysis.diagnostics.append(Diag(
-                        idx, m.start(), len(code), 'error',
+                        idx, m.start(), len(check_code), 'error',
                         'Unclosed parenthesis in calc(...)',
                     ))
                     continue
-                res = apply_calc_in_string(ctx, sub_all[m.start():])
+                # Evaluate the expression extracted from the source line
+                # directly (evaluate_calc re-applies var/define
+                # substitution). Slicing sub_all with source offsets is
+                # wrong when earlier substitutions changed the length.
+                expr = check_code[m.end():close - 1]
+                res = evaluate_calc(ctx, expr)
                 if res.startswith('[Calc Error'):
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), close, 'error', res,

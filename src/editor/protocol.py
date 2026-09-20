@@ -42,6 +42,7 @@ class FramingBuffer:
             return None
         header = bytes(self._buf[:sep]).decode('ascii', errors='replace')
         length = None
+        bad_reason = None
         for line in header.split('\r\n'):
             if ':' not in line:
                 continue
@@ -50,9 +51,21 @@ class FramingBuffer:
                 try:
                     length = int(value.strip())
                 except ValueError:
-                    raise ValueError(f'invalid Content-Length: {value.strip()!r}')
-        if length is None:
-            raise ValueError('LSP frame without Content-Length')
+                    bad_reason = f'invalid Content-Length: {value.strip()!r}'
+                break
+        if bad_reason is None and length is None:
+            bad_reason = 'LSP frame without Content-Length'
+        if bad_reason is not None:
+            # Resync: drop the bad header and any non-framed bytes, keep
+            # from the next plausible header so one malformed frame does
+            # not poison the stream forever.
+            rest = bytes(self._buf[sep + 4:])
+            nxt = rest.find(b'Content-Length:')
+            if nxt == -1:
+                self._buf.clear()
+            else:
+                del self._buf[:sep + 4 + nxt]
+            raise ValueError(bad_reason)
         start = sep + 4
         if len(self._buf) < start + length:
             return None  # wait for more data

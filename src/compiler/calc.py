@@ -44,7 +44,7 @@ def evaluate_calc(ctx, expression, line_no=None):
             if isinstance(node, ast.BinOp) and type(node.op) in safe_operators:
                 left = eval_node(node.left)
                 right = eval_node(node.right)
-                if isinstance(node.op, ast.Div) and right == 0:
+                if isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)) and right == 0:
                     raise ZeroDivisionError("division by zero")
                 return safe_operators[type(node.op)](left, right)
             if isinstance(node, ast.UnaryOp) and type(node.op) in safe_operators:

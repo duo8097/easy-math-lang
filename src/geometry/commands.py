@@ -44,6 +44,8 @@ def _process_command(solver, cmd, args):
             d = float(args[2].strip())
         except ValueError:
             raise GeometryError(f"distance value must be numeric, got: {args[2]!r}")
+        if d < 0:
+            raise GeometryError(f"distance must be non-negative, got: {args[2]!r}")
         solver.add_point(A)
         solver.add_point(B)
         solver.add_constraint(
@@ -101,6 +103,8 @@ def _process_command(solver, cmd, args):
             r = float(r_str)
         except ValueError:
             raise GeometryError(f"radius must be numeric, got: {r_str!r}")
+        if r < 0:
+            raise GeometryError(f"radius must be non-negative, got: {r_str!r}")
         for pt in [O, A]:
             solver.add_point(pt)
         solver.add_constraint(

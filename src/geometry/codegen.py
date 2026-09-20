@@ -112,6 +112,8 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax):
                 raise GeometryError(
                     f"circle radius must be numeric or an existing point name, got: {r_or_pt!r}"
                 )
+            if r < 0:
+                raise GeometryError(f"circle radius must be non-negative, got: {r_or_pt!r}")
             lines.append(f'  circle("{center}", radius: {r:.3f})')
 
     elif cmd == 'right-angle':

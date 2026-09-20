@@ -33,7 +33,9 @@ def replace_defines(ctx, text):
     for _ in range(10):
         changed = False
         for k, v in ctx.defines.items():
-            new_text = re.sub(rf'\b{re.escape(k)}\b', v, text)
+            # Never rewrite *command names (e.g. a define named 'pi'
+            # must not turn *pi into *3). Bare words only.
+            new_text = re.sub(rf'(?<!\*)\b{re.escape(k)}\b', v, text)
             if new_text != text:
                 changed = True
                 text = new_text

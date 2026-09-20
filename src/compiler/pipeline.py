@@ -17,6 +17,39 @@ from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
 
 
+def _extract_p_segments(text):
+    """Split text into (is_raw, content) segments for balanced *p(...).
+
+    Finds every ``*p(`` with depth-aware paren matching. Unclosed
+    ``*p(`` is left as normal text so later passes can warn.
+    """
+    segs = []
+    pos = 0
+    pat = re.compile(r'\*p\(')
+    while True:
+        m = pat.search(text, pos)
+        if not m:
+            segs.append((False, text[pos:]))
+            break
+        if m.start() > pos:
+            segs.append((False, text[pos:m.start()]))
+        start = m.end()
+        depth = 1
+        i = start
+        while i < len(text) and depth > 0:
+            if text[i] == '(':
+                depth += 1
+            elif text[i] == ')':
+                depth -= 1
+            i += 1
+        if depth != 0:
+            segs.append((False, text[m.start():]))
+            break
+        segs.append((True, text[start:i - 1]))
+        pos = i
+    return segs
+
+
 def compile_ezmath(input_file, output_pdf=None):
     """Compile an .ezmath document to PDF via an intermediate Typst file.
 
@@ -41,8 +74,12 @@ def compile_ezmath(input_file, output_pdf=None):
 
     ctx = CompileContext()
 
-    with open(input_file, 'r', encoding='utf-8') as f:
-        raw_text = f.read()
+    try:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            raw_text = f.read()
+    except OSError as e:
+        print(f'[Error] Cannot open input file {input_file!r}: {e}', file=sys.stderr)
+        return
 
     lines = strip_comments(raw_text).splitlines()
     output_lines = []
@@ -74,12 +111,29 @@ def compile_ezmath(input_file, output_pdf=None):
             continue
 
         # Multi-line blocks: *( or *f( or f( or *draw(
+        # Single-line silent blocks: *(...), *f(...), f(...) holding
+        # one assignment (e.g. *(<a> = 1)).
         if line.startswith('*f(') and line.endswith(')'):
             inner = line[3:-1].strip()
             if not (inner.startswith('frac(') or inner.startswith('root(')):
                 process_assignment_or_define(ctx, inner, line_no=line_no)
                 continue
-        elif line in ('*(', '*f(', 'f(', '*draw('):
+        elif ((line.startswith('*(') and line.endswith(')')
+               and len(line) > 3)
+              or (line.startswith('f(') and line.endswith(')')
+                  and len(line) > 3 and not line.startswith('frac('))):
+            if line.startswith('*('):
+                inner = line[2:-1].strip()
+            else:
+                inner = line[2:-1].strip()
+            if inner and not inner.startswith('*'):
+                # Heuristic: only treat as a silent block when it looks
+                # like an assignment/define, otherwise fall through to
+                # normal text (e.g. math grouping).
+                if re.match(r'^<[^<>]+>\s*=', inner) or inner.startswith('define('):
+                    process_assignment_or_define(ctx, inner, line_no=line_no)
+                    continue
+        if line in ('*(', '*f(', 'f(', '*draw('):
             in_f_block = True
             block_type = line
             block_content = []
@@ -102,14 +156,23 @@ def compile_ezmath(input_file, output_pdf=None):
             continue
 
         # --- Text Output Formatting Phase ---
-        text = line
-
-        # 1. *p(...): Print raw text directly, bypassing all other rules
-        # Spec requires the '*' prefix, so bare p(...) is normal text.
-        p_match = re.match(r'^\*p\((.*)\)$', text)
-        if p_match:
-            output_lines.append(escape_typst_outside_math(p_match.group(1)))
-            continue
+        # 1. *p(...): raw passthrough segments (balanced parens, multiple
+        # per line allowed). Raw parts bypass all later rules; surrounding
+        # text flows through the normal pipeline. Bare p(...) is text.
+        p_segs = _extract_p_segments(line)
+        if any(is_raw for is_raw, _ in p_segs):
+            placeholders = {}
+            text = ''
+            for k, (is_raw, content) in enumerate(p_segs):
+                if is_raw:
+                    ph = f'\x00P{k}\x00'
+                    placeholders[ph] = escape_typst_outside_math(content)
+                    text += ph
+                else:
+                    text += content
+        else:
+            text = line
+            placeholders = {}
 
         # 2. Substitute variables <var>
         text = replace_vars(ctx, text)
@@ -164,6 +227,9 @@ def compile_ezmath(input_file, output_pdf=None):
 
         # 13. Escape special Typst syntax characters outside math blocks
         text = escape_typst_outside_math(text)
+
+        for ph, raw in placeholders.items():
+            text = text.replace(ph, raw)
 
         output_lines.append(text)
 

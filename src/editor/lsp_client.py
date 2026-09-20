@@ -62,13 +62,15 @@ class LspClient(QtCore.QObject):
             process.started.connect(self._on_started)
             process.finished.connect(self._on_finished)
             process.errorOccurred.connect(self._on_process_error)
+            self._process = process
+            self._state = 'starting'
             process.start(self._command[0], self._command[1:])
         except Exception as e:  # noqa: BLE001 - report, don't crash
+            self._process = None
+            self._state = 'stopped'
             self.process_error.emit(
                 f'Could not start LSP server {" ".join(self._command)}: {e}')
             return False
-        self._process = process
-        self._state = 'starting'
         return True
 
     def stop(self):
