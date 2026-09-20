@@ -278,6 +278,40 @@ Means: the limit of sin(x)/x as x approaches 0.
 
 ---
 
+## Inline math mode — `\ ... \`
+
+Wrap an expression in backslashes to get Typst math typography:
+
+```
+The solution is \ x = 2 \.
+```
+
+This becomes `$x = 2$` in Typst, so math fonts apply automatically.
+Outside math mode, text stays normal document text.
+
+Inside math mode just write naturally:
+
+```
+\ x <= y \
+\ a^2 + b^2 = c^2 \
+\ x -> infinity \
+```
+
+Existing replacements keep working inside math mode
+(`<=` → ≤, `->` → →, `*alpha` → α).
+You do NOT need LaTeX commands like `\leq` or `\rightarrow`.
+
+Rules:
+
+* The first unescaped `\` opens math, the next one closes it.
+* Spaces just inside the delimiters are ignored.
+* `\\` is a literal backslash and never opens math mode.
+* Math can span several lines; the opener buffers until its closer.
+* A missing closing `\` produces an error diagnostic.
+* Empty `\ \` warns and emits nothing.
+
+---
+
 ## Automatic symbol shortcuts
 
 You don't need to copy-paste math symbols. Just type these and they are

@@ -563,6 +563,46 @@ means the mathematical symbol:
 
 This avoids conflicts between normal language and math syntax.
 
+Inline math mode
+----------------
+
+\ expression \
+
+Writes expression in mathematical mode (Typst math typography).
+
+Example:
+
+The solution is \ x = 2 \.
+
+Output uses Typst math mode: $x = 2$.
+
+Whitespace just inside the delimiters is ignored.
+
+An unescaped \ opens math mode, the next unescaped \ closes it.
+\\ is a literal backslash and never opens math mode.
+
+Inside math mode, normal ASCII-friendly syntax works:
+
+\ x <= y \
+\ a^2 + b^2 = c^2 \
+\ x -> infinity \
+
+Existing replacements still apply inside math mode
+(<= becomes ≤, -> becomes →, *alpha becomes α, ...).
+
+Do NOT use LaTeX commands such as \leq or \rightarrow.
+Just write <=, >=, !=, -> directly.
+
+Math mode can span several lines: the first unescaped \ opens,
+content on following lines is buffered until the closing \.
+
+An unclosed \ produces a diagnostic (missing closing \).
+Empty \ \ produces a warning and emits nothing.
+
+Control lines (assignments, *define, *draw blocks) take precedence:
+a line that is a control line is not treated as math, and while a
+multiline math block is open, control lines are suspended.
+
 Drawing and Geometry
 --------------------
 

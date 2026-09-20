@@ -121,6 +121,20 @@ def _mask_p_segments(code):
     return ''.join(chars)
 
 
+def _unescaped_bs_positions(s):
+    """Offsets of unescaped ``\\`` in *s* (``\\\\`` ignored)."""
+    out = []
+    i, n = 0, len(s)
+    while i < n:
+        if s[i] == '\\':
+            if i + 1 < n and s[i + 1] == '\\':
+                i += 2
+                continue
+            out.append(i)
+        i += 1
+    return out
+
+
 def _record_new(ctx, before, stmt_text, line_no, analysis):
     """Record names defined by one processed statement."""
     new_vars = set(ctx.variables) - before[0]
@@ -178,6 +192,9 @@ def analyze_text(text):
     block_type = None
     block_content = []
     block_start = 0
+    in_math = False
+    math_start = 0
+    math_start_char = 0
 
     with _quiet():
         for idx, code in enumerate(lines):
@@ -264,6 +281,34 @@ def analyze_text(text):
             if check_code.strip() == '':
                 continue
 
+            # --- Inline math state (mirrors compiler toggle semantics) ---
+            # Checks below still run on math contents (variables/calc are
+            # valid inside math); this only tracks unclosed delimiters.
+            bs = _unescaped_bs_positions(check_code)
+            if in_math:
+                if len(bs) % 2 == 1:
+                    in_math = False
+            else:
+                if len(bs) % 2 == 1:
+                    in_math = True
+                    math_start = idx
+                    math_start_char = bs[-1]
+            # Warn on empty \ \ pairs on this line.
+            tmp = check_code
+            while True:
+                o = _unescaped_bs_positions(tmp)
+                if len(o) < 2:
+                    break
+                inner = tmp[o[0] + 1:o[1]]
+                if inner.strip() == '':
+                    analysis.diagnostics.append(Diag(
+                        idx, o[0], o[1] + 1, 'warning',
+                        'Empty math expression \\ \\.',
+                    ))
+                    tmp = tmp[:o[0]] + ' ' * (o[1] + 1 - o[0]) + tmp[o[1] + 1:]
+                else:
+                    tmp = tmp[:o[0]] + ' ' * (o[1] + 1 - o[0]) + tmp[o[1] + 1:]
+
             substituted = replace_vars(ctx, check_code)
             unresolved = []
             seen_names = set()
@@ -316,6 +361,13 @@ def analyze_text(text):
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), close, 'error', res,
                     ))
+
+    if in_math:
+        analysis.diagnostics.append(Diag(
+            math_start, math_start_char,
+            len(lines[math_start]) if math_start < len(lines) else math_start_char + 1,
+            'error', 'Unclosed math delimiter \\ ... \\ — missing closing \\.',
+        ))
 
     if in_f_block:
         analysis.diagnostics.append(Diag(
