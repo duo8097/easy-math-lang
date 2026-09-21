@@ -24,7 +24,7 @@ class LspClient(QtCore.QObject):
     process_error = QtCore.Signal(str)         # human-readable problem
     protocol_error = QtCore.Signal(str)        # malformed inbound data
     notification_received = QtCore.Signal(str, dict)  # (method, params)
-    diagnostics_received = QtCore.Signal(str, list)   # (uri, [diagnostics])
+    diagnostics_received = QtCore.Signal(str, list, object)  # (uri, [diagnostics], version)
     response_received = QtCore.Signal(object, object, object)  # (id, result, error)
 
     def __init__(self, command, parent=None, default_timeout_ms=10000):
@@ -55,7 +55,18 @@ class LspClient(QtCore.QObject):
         the ``server_started`` signal (emitted on QProcess.started).
         """
         if self._state != 'stopped':
-            return True
+            # A previous start may have died (FailedToStart) while the
+            # state stayed 'starting': allow retry when no live process
+            # exists instead of deadlocking future restarts.
+            if self._process is not None:
+                try:
+                    alive = self._process.state() != QtCore.QProcess.NotRunning
+                except RuntimeError:  # Qt object already deleted
+                    alive = False
+                if alive:
+                    return True
+            self._process = None
+            self._state = 'stopped'
         try:
             process = QtCore.QProcess(self)
             process.readyReadStandardOutput.connect(self._on_ready_read)
@@ -143,7 +154,9 @@ class LspClient(QtCore.QObject):
         timer = QtCore.QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(lambda: self._on_timeout(request_id))
-        timer.start(timeout_ms or self._default_timeout_ms)
+        if timeout_ms is None:
+            timeout_ms = self._default_timeout_ms
+        timer.start(timeout_ms)
         self._pending[request_id] = (callback, timer)
         if not self._send({'jsonrpc': '2.0', 'id': request_id,
                            'method': method, 'params': params}):
@@ -153,7 +166,9 @@ class LspClient(QtCore.QObject):
         return request_id
 
     def send_notification(self, method, params):
-        self._send({'jsonrpc': '2.0', 'method': method, 'params': params})
+        if not self._send({'jsonrpc': '2.0', 'method': method, 'params': params}):
+            self.process_error.emit(
+                f'LSP notification {method!r} not sent (server not running)')
 
     def on_data_received(self, data):
         """Feed raw stdout bytes; dispatches complete messages."""
@@ -164,9 +179,18 @@ class LspClient(QtCore.QObject):
             self.protocol_error.emit(f'Malformed LSP frame: {error}')
 
     def dispatch_message(self, message):
+        if not isinstance(message, dict):
+            self.protocol_error.emit(
+                f'Malformed LSP message (not an object): {message!r:.120}')
+            return
         has_id = 'id' in message
         has_method = 'method' in message
         if has_id and not has_method:
+            request_id = message.get('id')
+            if not isinstance(request_id, (int, str)) or isinstance(request_id, bool):
+                self.protocol_error.emit(
+                    f'Malformed LSP response id: {request_id!r:.120}')
+                return
             self._dispatch_response(message)
         elif has_method and not has_id:
             self._dispatch_notification(message)
@@ -286,9 +310,15 @@ class LspClient(QtCore.QObject):
     def _dispatch_notification(self, message):
         method = message.get('method', '')
         params = message.get('params') or {}
+        if not isinstance(params, dict):
+            params = {}
         if method == 'textDocument/publishDiagnostics':
+            diags = params.get('diagnostics', [])
+            if not isinstance(diags, list):
+                diags = []
             self.diagnostics_received.emit(params.get('uri', ''),
-                                           params.get('diagnostics', []))
+                                           diags,
+                                           params.get('version'))
         self.notification_received.emit(method, params)
 
     def _on_ready_read(self):
@@ -326,5 +356,10 @@ class LspClient(QtCore.QObject):
 
 
 def default_server_command():
-    """Launch via the current interpreter so no PATH setup is needed."""
+    """Prefer the installed console script, fall back to module mode."""
+    import shutil
+
+    exe = shutil.which('easy-math-lsp')
+    if exe:
+        return [exe]
     return [sys.executable, '-m', 'lsp']

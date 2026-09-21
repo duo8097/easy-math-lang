@@ -1,10 +1,15 @@
 """Document pipeline: line loop, text phases, Typst generation."""
 
+import os
 import re
-import subprocess
 import sys
 
 import geometry
+
+try:
+    import typst
+except ImportError:  # pragma: no cover - degraded mode without PDF backend
+    typst = None
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
@@ -117,7 +122,10 @@ def _render_text_line(ctx, raw, line_no):
         text = ''
         for k, (is_raw, content) in enumerate(p_segs):
             if is_raw:
-                ph = f'\x00P{k}\x00'
+                # Digit-only placeholder: define names must match
+                # [A-Za-z_][A-Za-z0-9_]* so replace_defines can never
+                # rewrite it (old \x00P{k}\x00 collided with define(P1)).
+                ph = f'\x01{k}\x01'
                 placeholders[ph] = escape_typst_outside_math(content)
                 text += ph
             else:
@@ -157,7 +165,9 @@ def _render_text_line(ctx, raw, line_no):
         inner_raw = text[opening + 1:closing]
         tail = text[closing + 1:]
         wrapped = process_math_inner(ctx, inner_raw, line_no)
-        ph = f'\x00M{m_idx}\x00'
+        # Digit-only placeholder (see *p() above): immune to
+        # bare-word define substitution (old \x00M{i}\x00 matched \bM0\b).
+        ph = f'\x00{m_idx}\x02'
         m_idx += 1
         math_placeholders[ph] = wrapped
         text = text[:opening] + ph + tail
@@ -202,7 +212,8 @@ def _render_text_line(ctx, raw, line_no):
     text = ''.join(tokens)
 
     # 13. Escape special Typst syntax characters outside math blocks
-    text = escape_typst_outside_math(text)
+    # (lone '$' included: anything still outside $...$ here is literal).
+    text = escape_typst_outside_math(text, escape_dollar=True)
 
     for ph, raw_content in placeholders.items():
         text = text.replace(ph, raw_content)
@@ -215,6 +226,7 @@ def _render_text_line(ctx, raw, line_no):
 def _render_math_inner_multiline(ctx, full_raw, line_no):
     """Substitute vars/defines/calc then convert a multiline math body."""
     sub = replace_vars(ctx, full_raw)
+    sub = check_undefined_vars(sub, line_no)
     sub = replace_defines(ctx, sub)
     sub = apply_calc_in_string(ctx, sub, line_no=line_no)
     return process_math_inner(ctx, sub, line_no)
@@ -238,7 +250,7 @@ def compile_ezmath(input_file, output_pdf=None):
           -> symbol shortcuts (outside math only)
           -> multiplication-symbol replacement (outside math only)
           -> Typst escaping (outside math only)
-        Finally: Typst file generation + `typst compile`.
+        Finally: Typst file generation + `typst.compile()` (PyPI package).
 
     Inline math: an unescaped ``\\`` opens math mode, the next
     unescaped ``\\`` closes it. ``\\\\`` is a literal backslash.
@@ -246,18 +258,25 @@ def compile_ezmath(input_file, output_pdf=None):
     following lines until its closer (control lines are suspended
     while math is open). Content inside is processed with the same
     math-command/symbol pipeline as the rest of the document.
+
+    Returns True on success, False on failure (.typ is still written
+    whenever parsing reaches the codegen stage).
     """
+    input_str = os.fspath(input_file)
     if output_pdf is None:
-        output_pdf = input_file.rsplit('.', 1)[0] + '.pdf'
+        base, _ = os.path.splitext(input_str)
+        output_pdf = base + '.pdf'
+    else:
+        output_pdf = os.fspath(output_pdf)
 
     ctx = CompileContext()
 
     try:
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_str, 'r', encoding='utf-8') as f:
             raw_text = f.read()
     except OSError as e:
-        print(f'[Error] Cannot open input file {input_file!r}: {e}', file=sys.stderr)
-        return
+        print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
+        return False
 
     lines = strip_comments(raw_text).splitlines()
     output_lines = []
@@ -365,7 +384,6 @@ def compile_ezmath(input_file, output_pdf=None):
         positions = find_unescaped(det)
         if len(positions) % 2 == 1:
             # Unclosed opener: render head now, buffer the rest.
-            opening = positions[0]
             # Only simple case (one opener, closer on a later line) is
             # buffered; multiple pairs plus a trailing opener still
             # buffers just the tail after the last opener for simplicity:
@@ -404,7 +422,8 @@ def compile_ezmath(input_file, output_pdf=None):
     # ------------------------------------------------------------------
     # Generate Typst file
     # ------------------------------------------------------------------
-    typst_file = input_file.rsplit('.', 1)[0] + '.typ'
+    base, _ = os.path.splitext(input_str)
+    typst_file = base + '.typ'
 
     typst_content = [
         '#set text(size: 12pt)',
@@ -424,23 +443,30 @@ def compile_ezmath(input_file, output_pdf=None):
     print(f'Generated intermediate file: {typst_file}')
 
     # ------------------------------------------------------------------
-    # Compile with Typst
+    # Compile with Typst (PyPI `typst` package — no external binary needed)
     # ------------------------------------------------------------------
     print('Compiling PDF with Typst...')
-    try:
-        subprocess.run(
-            ['typst', 'compile', '--ignore-system-fonts', typst_file, output_pdf],
-            check=True,
-        )
-        print(f'Successfully compiled {input_file} to {output_pdf} via Typst!')
-    except FileNotFoundError:
+    if typst is None:
         print(
-            '\n[ERROR] Typst is not installed or not in PATH.\n'
-            'Install it from https://typst.app before running easy-math-lang.',
+            '\n[ERROR] The `typst` Python package is not installed.\n'
+            'Run `uv sync` to install it, then retry.',
             file=sys.stderr,
         )
-    except subprocess.CalledProcessError as e:
+        return False
+    try:
+        parent = os.path.dirname(os.path.abspath(output_pdf))
+        os.makedirs(parent, exist_ok=True)
+        typst.compile(typst_file, output_pdf, ignore_system_fonts=True)
+        print(f'Successfully compiled {input_str} to {output_pdf} via Typst!')
+        return True
+    except FileNotFoundError as e:
+        # Input .typ vanished between write and compile (I/O race).
+        print(f'\n[ERROR] Typst compilation failed (file not found): {e}', file=sys.stderr)
+        return False
+    except Exception as e:
+        # typst.TypstError (bad markup) and any other compile failure.
         print(f'\n[ERROR] Typst compilation failed: {e}', file=sys.stderr)
+        return False
 
 
 def main():
@@ -449,8 +475,13 @@ def main():
         sys.exit(0 if len(sys.argv) > 1 else 1)
 
     input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else input_file.rsplit('.', 1)[0] + '.pdf'
-    compile_ezmath(input_file, output_file)
+    if len(sys.argv) > 2:
+        output_file = sys.argv[2]
+    else:
+        base, _ = os.path.splitext(os.fspath(input_file))
+        output_file = base + '.pdf'
+    ok = compile_ezmath(input_file, output_file)
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == '__main__':

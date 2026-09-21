@@ -3,11 +3,11 @@
 import re
 
 
-def escape_typst_outside_math(content):
+def escape_typst_outside_math(content, escape_dollar=False):
     tokens = re.split(r'(\$.*?\$)', content)
     for i, token in enumerate(tokens):
         if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
-            tokens[i] = (
+            token = (
                 token
                 .replace('\\', r'\\')
                 .replace('*', r'\*')
@@ -22,6 +22,13 @@ def escape_typst_outside_math(content):
                 # unchanged pending a concrete regression report.
                 .replace('/', r'\/')
             )
+            if escape_dollar:
+                # Lone '$' left over after $...$ math spans are split out
+                # is a literal dollar, not math: escape for Typst.
+                # Callers holding raw Typst (e.g. *p passthrough) must opt
+                # out by leaving this False.
+                token = token.replace('$', r'\$')
+            tokens[i] = token
     return ''.join(tokens)
 
 

@@ -36,8 +36,20 @@ def _label_anchors(solver):
         if frm not in edge_dirs or to not in pts:
             return None
         d = pts[to] - pts[frm]
+        import math as _math
+
+        # Non-finite coordinates (NaN/inf from a diverged solver) must
+        # never propagate into anchor math: atan2/int(NaN) would crash
+        # the whole canvas. Skip the edge; the point keeps its default.
+        try:
+            if not (_math.isfinite(float(d[0])) and _math.isfinite(float(d[1]))):
+                return None
+        except (TypeError, ValueError, IndexError):
+            return None
         n = _norm(d)
-        if n < 1e-9:
+        import math as _math2
+
+        if not _math2.isfinite(n) or n < 1e-9:
             return None
         return d / n
 
@@ -108,11 +120,31 @@ def _label_anchors(solver):
     for name, dirs in edge_dirs.items():
         # Near-circle override: label along the outward normal.
         outward = None
+        try:
+            pvec = pts[name]
+            pfinite = bool(
+                math.isfinite(float(pvec[0])) and math.isfinite(float(pvec[1]))
+            )
+        except (TypeError, ValueError, IndexError):
+            pfinite = False
+        if not pfinite:
+            anchors[name] = 'south-west'
+            continue
         for cname, r in circles:
             if name == cname:
                 continue
-            dvec = pts[name] - pts[cname]
+            try:
+                cvec = pts[cname]
+                if not (math.isfinite(float(cvec[0])) and math.isfinite(float(cvec[1]))):
+                    continue
+                if not math.isfinite(float(r)):
+                    continue
+            except (TypeError, ValueError, IndexError):
+                continue
+            dvec = pvec - cvec
             d = _norm(dvec)
+            if not math.isfinite(d):
+                continue
             if d > 1e-9 and abs(d - r) < min(0.25, 0.5 * r):
                 outward = dvec / d
                 break
@@ -123,8 +155,22 @@ def _label_anchors(solver):
         if not dirs:
             anchors[name] = 'south-west'
             continue
-        sx = sum(v[0] for v in dirs)
-        sy = sum(v[1] for v in dirs)
+        # Filter non-finite edge dirs (can arise from NaN/inf points).
+        fdirs = []
+        for v in dirs:
+            try:
+                if math.isfinite(float(v[0])) and math.isfinite(float(v[1])):
+                    fdirs.append(v)
+            except (TypeError, ValueError, IndexError):
+                continue
+        if not fdirs:
+            anchors[name] = 'south-west'
+            continue
+        sx = sum(v[0] for v in fdirs)
+        sy = sum(v[1] for v in fdirs)
+        if not (math.isfinite(sx) and math.isfinite(sy)):
+            anchors[name] = 'south-west'
+            continue
         if math.hypot(sx, sy) < 1e-9:
             anchors[name] = 'south-west'
             continue

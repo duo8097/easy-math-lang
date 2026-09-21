@@ -237,6 +237,12 @@ def _process_command(solver, cmd, args):
         # explicit *point() (per spec: coordinates are optional).
         for i, arg in enumerate(args):
             a = arg.strip()
+            # *circle(O ; r-or-point): the second arg is a radius unless it
+            # names an already-defined point. Never auto-create it: a
+            # typo'd radius (*circle(O ; hello)) must error instead of
+            # silently drawing a circle around a fresh point.
+            if cmd == 'circle' and i == 1:
+                continue
             # *triangle(A ; B ; C ; labels): 4th arg is a keyword, not a point.
             if cmd == 'triangle' and i == 3 and a.lower() == 'labels':
                 continue

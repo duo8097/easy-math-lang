@@ -1,11 +1,11 @@
 """Compiler tests for easy-math-lang.
 
-Each test compiles a small .ezmath snippet (Typst compilation is stubbed
-out) and asserts on the generated .typ content and/or diagnostics.
+Each test compiles a small .ezmath snippet (Typst PDF compilation via the
+PyPI `typst` package is stubbed out) and asserts on the generated .typ
+content and/or diagnostics.
 """
 
 import os
-import subprocess
 import sys
 
 import pytest
@@ -15,15 +15,19 @@ sys.path.insert(
 )
 
 from compiler import compile_ezmath
+from compiler import pipeline as _pipeline
 
 
 def compile_text(tmp_path, monkeypatch, capsys, text):
     """Compile `text` as .ezmath; return (typ_content, captured_stderr)."""
     src = tmp_path / "case.ezmath"
     src.write_text(text, encoding="utf-8")
-    monkeypatch.setattr(
-        subprocess, "run", lambda *a, **k: None
-    )
+    # Stub the PDF backend at the use site (compiler.pipeline.typst) so
+    # these tests run with or without the real `typst` package installed.
+    _stub = type(
+        "_TypstStub", (), {"compile": staticmethod(lambda *a, **k: None)}
+    )()
+    monkeypatch.setattr(_pipeline, "typst", _stub)
     compile_ezmath(str(src), str(tmp_path / "case.pdf"))
     typ = (tmp_path / "case.typ").read_text(encoding="utf-8")
     err = capsys.readouterr().err

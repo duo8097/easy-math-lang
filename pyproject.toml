@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=2.5.3",
     "pygls>=2.1.1",
     "pyside6>=6.11.2",
+    "typst>=0.15.0",
 ]
 
 [project.scripts]

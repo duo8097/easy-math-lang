@@ -143,6 +143,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_initialize(self, result, error):
         if error is not None:
             self._lsp_starting = False
+            # Reset the client out of its stuck 'starting' state so a
+            # later _start_lsp() actually launches a new process.
+            try:
+                self.lsp.abort()
+            except Exception:
+                pass
             self._set_lsp_status('LSP: Disconnected')
             if isinstance(error, dict):
                 detail = error.get('message') or repr(error)
@@ -191,6 +197,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_lsp_error(self, message):
         if not self.lsp.is_connected():
             self._lsp_starting = False
+            # A FailedToStart while state=='starting' would otherwise
+            # deadlock future restarts (start() early-returns True).
+            if self.lsp.state == 'starting':
+                try:
+                    self.lsp.abort()
+                except Exception:
+                    pass
         self.statusBar().showMessage(message, 8000)
         sys.stderr.write(f'[easy-math-editor] {message}\n')
 
@@ -238,17 +251,31 @@ class MainWindow(QtWidgets.QMainWindow):
             for item in result:
                 if not isinstance(item, dict):
                     continue
-                loc = item.get('location') or {}
+                loc = item.get('location')
+                if not isinstance(loc, dict):
+                    loc = {}
                 # Accept DocumentSymbol-style `range` as well as
                 # SymbolInformation-style `location.range`.
-                rng = item.get('range', loc.get('range') or {})
+                rng = item.get('range') or loc.get('range') or {}
+                if not isinstance(rng, dict):
+                    rng = {}
                 start = rng.get('start') or {}
+                if not isinstance(start, dict):
+                    start = {}
                 kind = item.get('kind', '')
+                try:
+                    line = int(start.get('line', 0))
+                except (TypeError, ValueError):
+                    line = 0
+                try:
+                    char = int(start.get('character', 0))
+                except (TypeError, ValueError):
+                    char = 0
                 symbols.append({
-                    'name': item.get('name', '?'),
+                    'name': item.get('name', '?') if isinstance(item.get('name'), str) else '?',
                     'kind': _SYMBOL_KIND_NAMES.get(kind, str(kind)),
-                    'line': (start.get('line') or 0),
-                    'start': (start.get('character') or 0),
+                    'line': line,
+                    'start': char,
                 })
             # Ignore stale responses from a previous document or version.
             if uri == self._doc_uri and version == self._doc_version:
@@ -256,21 +283,53 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.lsp.request_symbols(uri, _done)
 
-    def _on_diagnostics(self, uri, diagnostics):
+    def _on_diagnostics(self, uri, diagnostics, version=None):
         if uri != self._doc_uri:
             return
+        # Drop stale diagnostics from an older document version.
+        if version is not None:
+            try:
+                if int(version) < int(self._doc_version):
+                    return
+            except (TypeError, ValueError):
+                pass
+        if not isinstance(diagnostics, list):
+            diagnostics = []
         rows = []
-        for diag in diagnostics or []:
-            rng = diag.get('range') or {}
-            start = rng.get('start') or {}
-            end = rng.get('end') or {}
+        for diag in diagnostics:
+            if not isinstance(diag, dict):
+                continue
+            rng = diag.get('range')
+            if not isinstance(rng, dict):
+                rng = {}
+            start = rng.get('start')
+            if not isinstance(start, dict):
+                start = {}
+            end = rng.get('end')
+            if not isinstance(end, dict):
+                end = {}
             sev = diag.get('severity', 1)
+            try:
+                line = int(start.get('line', 0))
+            except (TypeError, ValueError):
+                line = 0
+            try:
+                s_char = int(start.get('character', 0))
+            except (TypeError, ValueError):
+                s_char = 0
+            try:
+                e_char = int(end.get('character', s_char))
+            except (TypeError, ValueError):
+                e_char = s_char
+            msg = diag.get('message', '')
+            if not isinstance(msg, str):
+                msg = str(msg)
             rows.append({
-                'line': start.get('line', 0),
-                'start': start.get('character', 0),
-                'end': end.get('character', start.get('character', 0)),
+                'line': line,
+                'start': s_char,
+                'end': e_char,
                 'severity': 'error' if sev == 1 else 'warning',
-                'message': diag.get('message', ''),
+                'message': msg,
             })
         self.problems.set_diagnostics(rows)
         count = len(rows)
@@ -280,9 +339,17 @@ class MainWindow(QtWidgets.QMainWindow):
     # Navigation (LSP positions are UTF-16; QTextCursor is natively UTF-16)
     # ------------------------------------------------------------------
     def _goto(self, line, character):
+        try:
+            line, character = int(line), int(character)
+        except (TypeError, ValueError):
+            return
         self.editor.goto_position(line, character)
 
     def _goto_range(self, line, start, end):
+        try:
+            line, start, end = int(line), int(start), int(end)
+        except (TypeError, ValueError):
+            return
         block = self.editor.document().findBlockByNumber(max(0, line))
         if not block.isValid():
             return
@@ -382,6 +449,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         def _done(result, error):
             if error is not None or not result or uri != self._doc_uri or version != self._doc_version:
+                return
+            if not isinstance(result, dict):
                 return
             contents = result.get('contents')
             if isinstance(contents, dict):
@@ -607,7 +676,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     def _display_name(self):
         if self._file_path:
-            return self._file_path.rsplit('/', 1)[-1]
+            return os.path.basename(self._file_path) or self._file_path
         return 'Untitled'
 
     def _update_title(self):
@@ -743,7 +812,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 'utf-8', errors='replace')
             process.deleteLater()
         if exit_code == 0:
-            pdf = (self._file_path or '').rsplit('.', 1)[0] + '.pdf'
+            pdf_base, _ = os.path.splitext(self._file_path or '')
+            pdf = pdf_base + '.pdf' if pdf_base else '.pdf'
             self.statusBar().showMessage(f'Compiled to {pdf}', 8000)
         else:
             QtWidgets.QMessageBox.critical(
@@ -934,5 +1004,11 @@ class MainWindow(QtWidgets.QMainWindow):
         """Last-resort close when LSP shutdown hangs."""
         if not self._closing:
             return
-        self.lsp.abort()
-        self.close()
+        try:
+            self.lsp.abort()
+        except RuntimeError:
+            pass  # Qt objects already destroyed during teardown
+        try:
+            self.close()
+        except RuntimeError:
+            pass

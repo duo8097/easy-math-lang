@@ -7,13 +7,16 @@ even if you have never set up a programming tool before.
 
 ## What you need to install
 
-Three things are required:
+Two things are required:
 
 | What | Why you need it |
 |---|---|
 | **Python** | The language the compiler is written in |
 | **uv** | A tool that manages Python packages (think of it like an app store for Python) |
-| **Typst** | Turns your math text into a beautiful PDF |
+
+Typst (the tool that turns your math text into a beautiful PDF) is now
+installed automatically as a Python package (`typst` from PyPI) when you
+run `uv sync` below — you do **not** need to install it separately.
 
 ---
 
@@ -78,39 +81,9 @@ You should see something like `uv 0.x.x`. If you do, it worked!
 
 ---
 
-## Step 3 — Install Typst
-
-**Windows** — In Command Prompt:
-
-```
-winget install --id Typst.Typst
-```
-
-If `winget` does not work, download Typst directly from [github.com/typst/typst/releases](https://github.com/typst/typst/releases) — grab the file ending in `-windows.zip`, unzip it, and place `typst.exe` somewhere on your Desktop.
-
-**macOS** — In Terminal:
-
-```
-brew install typst
-```
-
-If you don't have Homebrew, install it first from [brew.sh](https://brew.sh).
-
-**Linux** — In Terminal:
-
-```
-cargo install --git https://github.com/typst/typst --locked typst-cli
-```
-
-Check it worked:
-
-```
-typst --version
-```
-
 ---
 
-## Step 4 — Download easy-math-lang
+## Step 3 — Download easy-math-lang
 
 If you have Git installed:
 
@@ -128,7 +101,7 @@ Unzip it, then open a terminal **inside that folder**.
 
 ---
 
-## Step 5 — Install the project dependencies
+## Step 4 — Install the project dependencies
 
 Inside the project folder, run:
 
@@ -136,7 +109,8 @@ Inside the project folder, run:
 uv sync
 ```
 
-This installs everything the project needs. You only have to do this once.
+This installs everything the project needs — including Typst (the PDF
+engine, via the `typst` PyPI package). You only have to do this once.
 
 ---
 
@@ -169,6 +143,5 @@ You will see two new files appear:
 | Problem | Solution |
 |---|---|
 | `uv: command not found` | Close and reopen the terminal after installing uv |
-| `typst: command not found` | Make sure Typst is installed and on your PATH |
 | `Python not found` | Re-install Python and check "Add to PATH" |
 | PDF looks empty | Check your `.ezmath` file for typos |

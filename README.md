@@ -19,7 +19,7 @@ without fighting complex software.
 |---|---|---|
 | **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
 | **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
-| **Typst** | any recent release | Turns the intermediate `.typ` file into PDF |
+| **Typst** | ≥ 0.15.0 (installed automatically via the `typst` PyPI package — no separate install needed) | Turns the intermediate `.typ` file into PDF |
 | **pygls** | ≥ 2.1.1 (installed automatically as a project dependency) | Editor support (language server) |
 
 ---

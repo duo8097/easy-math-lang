@@ -1,7 +1,6 @@
 """Inline math mode (\\ ... \\) tests for easy-math-lang."""
 
 import os
-import subprocess
 import sys
 
 import pytest
@@ -9,13 +8,17 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from compiler import compile_ezmath
+from compiler import pipeline as _pipeline
 from lsp import analysis
 
 
 def compile_text(tmp_path, monkeypatch, capsys, text):
     src = tmp_path / "case.ezmath"
     src.write_text(text, encoding="utf-8")
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: None)
+    _stub = type(
+        "_TypstStub", (), {"compile": staticmethod(lambda *a, **k: None)}
+    )()
+    monkeypatch.setattr(_pipeline, "typst", _stub)
     compile_ezmath(str(src), str(tmp_path / "case.pdf"))
     typ = (tmp_path / "case.typ").read_text(encoding="utf-8")
     err = capsys.readouterr().err

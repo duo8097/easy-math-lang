@@ -2,6 +2,24 @@
 
 import re
 
+from .inline_math import find_unescaped
+
+
+def _math_ranges(line_prot):
+    """Ranges covered by ``\\ ... \\`` math on one line (never comments).
+
+    Balanced pairs protect the whole ``\\...\\`` span; a trailing
+    unclosed opener (multiline math) protects through end of line,
+    mirroring the pipeline's buffering.
+    """
+    positions = find_unescaped(line_prot)
+    ranges = []
+    for i in range(0, len(positions) - 1, 2):
+        ranges.append((positions[i], positions[i + 1] + 1))
+    if len(positions) % 2 == 1:
+        ranges.append((positions[-1], len(line_prot)))
+    return ranges
+
 
 def _balanced_spans(line, opener):
     """Yield (start, end) spans of balanced opener(...) on one line."""
@@ -30,10 +48,16 @@ def _balanced_spans(line, opener):
 
 
 def _protected_ranges(line):
-    """Ranges where // must not start a comment: calc(...), *p(...)."""
+    """Ranges where // must not start a comment.
+
+    Covers calc(...), *p(...), any other balanced *command(...) span,
+    while \\...\\ math is handled separately in strip_comments.
+    """
     ranges = []
     for opener in ('calc(', '*p('):
         ranges.extend(_balanced_spans(line, opener))
+    for m in re.finditer(r'\*[A-Za-z][A-Za-z0-9_]*\(', line):
+        ranges.extend(_balanced_spans(line, m.group(0)))
     return ranges
 
 
@@ -50,10 +74,17 @@ def _find_comment_start(line_prot, protected):
 def strip_comments(text):
     cleaned_lines = []
     for raw_line in text.splitlines():
-        # Protect URL schemes (https://, http://, ftp://) from // comment stripping
+        # Protect full URLs (scheme://host/path...) from // comment
+        # stripping — the old scheme-only shield let a later // in the
+        # path start a bogus comment (https://example.com/a//b).
         placeholder = '\x00URLSLASH\x00'
-        line_prot = re.sub(r'([A-Za-z][A-Za-z0-9+.-]*://)', lambda m: m.group(1).replace('/', placeholder), raw_line)
+        line_prot = re.sub(
+            r'([A-Za-z][A-Za-z0-9+.-]*://\S*)',
+            lambda m: m.group(1).replace('/', placeholder),
+            raw_line,
+        )
         protected = _protected_ranges(line_prot)
+        protected.extend(_math_ranges(line_prot))
         idx = _find_comment_start(line_prot, protected)
         if idx != -1:
             line_prot = line_prot[:idx]

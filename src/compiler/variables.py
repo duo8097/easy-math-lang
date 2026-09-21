@@ -46,6 +46,7 @@ def replace_defines(ctx, text):
 
 def check_undefined_vars(text, line_no):
     """Report identifier-like <name> tokens with no definition (hard error)."""
+    seen = set()
     for match in re.finditer(r'<([^<>]+)>', text):
         name = match.group(1)
         # Only flag identifier-like names (tmp1, width). Symbol
@@ -60,6 +61,9 @@ def check_undefined_vars(text, line_no):
             continue
         if match.end() < len(text) and text[match.end()] == '>':
             continue
+        if name in seen:
+            continue
+        seen.add(name)
         print(
             f'[Error] Line {line_no}: undefined variable <{name}>',
             file=sys.stderr,

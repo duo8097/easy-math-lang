@@ -18,6 +18,10 @@ def split_args(args_str):
             depth += 1
         elif char == ')':
             depth -= 1
+            if depth < 0:
+                # Unbalanced ')': do not let depth go negative and merge
+                # the rest into one confusing arg; clamp and keep splitting.
+                depth = 0
         if char == ';' and depth == 0:
             parts.append(''.join(current).strip())
             current = []
@@ -115,6 +119,12 @@ def parse_draw_block(block_text):
         errors.append(msg)
     except GeometryWarning as e:
         msg = f"[GeometryWarning] {e}"
+        print(msg, file=sys.stderr)
+        errors.append(msg)
+    except Exception as e:
+        # Belts and braces: never crash the caller on solver internals
+        # (numpy errors, etc.) — return a degraded canvas instead.
+        msg = f"[GeometryError] solver failed: {e}"
         print(msg, file=sys.stderr)
         errors.append(msg)
 

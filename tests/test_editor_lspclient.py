@@ -57,7 +57,7 @@ def test_full_session(qapp):
 
         diags = {}
         client.diagnostics_received.connect(
-            lambda uri, items: diags.update({uri: items}))
+            lambda uri, items, _version=None: diags.update({uri: items}))
         client.did_open(URI, 'easymath', 1, 'See <oops>\n')
         pump_until(lambda: URI in diags, 'diagnostics')
         assert any('oops' in d['message'] for d in diags[URI])

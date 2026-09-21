@@ -11,7 +11,12 @@ class DocumentStore:
         self._docs[uri] = {'text': text, 'version': version}
 
     def update(self, uri, text, version=None):
+        # didChange implies an open document; ignore changes for unknown
+        # URIs instead of creating phantom servable documents.
+        if uri not in self._docs:
+            return False
         self._docs[uri] = {'text': text, 'version': version}
+        return True
 
     def close(self, uri):
         self._docs.pop(uri, None)

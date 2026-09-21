@@ -32,17 +32,31 @@ _SYMBOL_KINDS = {
 
 
 def is_supported(uri, language_id=None):
+    if not isinstance(uri, str):
+        return False
     return uri.endswith(SUPPORTED_EXTENSIONS) or language_id in SUPPORTED_LANGUAGE_IDS
+
+
+def _coerce_int(value, default=0):
+    """Best-effort int() for wire data; never raises."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _to_lsp_offset(line_text, code_point_offset):
     """Code-point offset -> LSP (UTF-16) offset for one line."""
-    return len(line_text[:max(0, code_point_offset)].encode('utf-16-le')) // 2
+    if not isinstance(line_text, str):
+        return 0
+    return len(line_text[:max(0, _coerce_int(code_point_offset))].encode('utf-16-le')) // 2
 
 
 def _to_code_point_offset(line_text, utf16_offset):
     """LSP (UTF-16) offset -> code-point offset for one line."""
-    target = max(0, utf16_offset)
+    if not isinstance(line_text, str):
+        return 0
+    target = max(0, _coerce_int(utf16_offset))
     index = units = 0
     while index < len(line_text) and units < target:
         units += 2 if ord(line_text[index]) > 0xFFFF else 1
@@ -51,10 +65,17 @@ def _to_code_point_offset(line_text, utf16_offset):
 
 
 def _line_at(lines, line):
+    try:
+        line = int(line)
+    except (TypeError, ValueError):
+        return ''
     return lines[line] if 0 <= line < len(lines) else ''
 
 
 def _lsp_range(lines, line, start_cp, end_cp):
+    line = _coerce_int(line, default=0)
+    if line < 0:
+        line = 0
     text = _line_at(lines, line)
     return lsp.Range(
         start=lsp.Position(line=line, character=_to_lsp_offset(text, start_cp)),
@@ -125,9 +146,15 @@ def create_server():
     @server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls, params: lsp.DidChangeTextDocumentParams):
         uri = params.text_document.uri
+        if uri not in store:
+            return
         if params.content_changes:
-            store.update(uri, params.content_changes[-1].text,
-                         params.text_document.version)
+            # Full-sync only: ignore incremental (range) edits and
+            # non-string payloads instead of poisoning the store.
+            new_text = params.content_changes[-1].text
+            if isinstance(new_text, str):
+                store.update(uri, new_text,
+                             params.text_document.version)
         supported = _support_cache.get(uri, is_supported(uri))
         _support_cache[uri] = supported
         if supported:
@@ -152,15 +179,20 @@ def create_server():
         if text is None or not _cached_supported(uri):
             return lsp.CompletionList(is_incomplete=False, items=[])
         pos = params.position
+        try:
+            line = int(pos.line)
+            character_raw = int(pos.character)
+        except (TypeError, ValueError):
+            return lsp.CompletionList(is_incomplete=False, items=[])
         lines = text.splitlines()
-        character = _to_code_point_offset(_line_at(lines, pos.line), pos.character)
+        character = _to_code_point_offset(_line_at(lines, line), character_raw)
         items = [
             lsp.CompletionItem(
                 label=item['label'],
                 kind=_COMPLETION_KINDS.get(item['kind']),
                 detail=item.get('detail'),
             )
-            for item in analysis.complete(text, pos.line, character)
+            for item in analysis.complete(text, line, character)
         ]
         return lsp.CompletionList(is_incomplete=False, items=items)
 
@@ -171,16 +203,21 @@ def create_server():
         if text is None or not _cached_supported(uri):
             return None
         pos = params.position
+        try:
+            line = int(pos.line)
+            character_raw = int(pos.character)
+        except (TypeError, ValueError):
+            return None
         lines = text.splitlines()
-        character = _to_code_point_offset(_line_at(lines, pos.line), pos.character)
-        found = analysis.hover(text, pos.line, character)
+        character = _to_code_point_offset(_line_at(lines, line), character_raw)
+        found = analysis.hover(text, line, character)
         if found is None:
             return None
         return lsp.Hover(
             contents=lsp.MarkupContent(
                 kind=lsp.MarkupKind.Markdown, value=found['value']
             ),
-            range=_lsp_range(lines, pos.line, found['start'], found['end']),
+            range=_lsp_range(lines, line, found['start'], found['end']),
         )
 
     @server.feature(lsp.TEXT_DOCUMENT_DOCUMENT_SYMBOL)

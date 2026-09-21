@@ -29,9 +29,22 @@ def unmask_escaped(text):
 
 
 def find_unescaped(text):
-    """Positions of unescaped ``\\`` in text (``\\\\`` ignored)."""
-    masked = mask_escaped(text)
-    return [m.start() for m in re.finditer(r'\\', masked)]
+    """Positions of unescaped ``\\`` in text (``\\\\`` ignored).
+
+    Escape-aware scan on the raw string so returned offsets are valid
+    for slicing *text* (older masked-regex version returned shifted
+    offsets whenever ``\\\\`` appeared before a delimiter).
+    """
+    positions = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] == '\\':
+            if i + 1 < n and text[i + 1] == '\\':
+                i += 2
+                continue
+            positions.append(i)
+        i += 1
+    return positions
 
 
 def split_first_pair(text):
@@ -40,18 +53,6 @@ def split_first_pair(text):
     Returns (head, inner, tail) or None when there is no closing
     delimiter. ``\\\\`` sequences never count as delimiters.
     """
-    masked = mask_escaped(text)
-    first = masked.find('\\')
-    if first == -1:
-        return None
-    second = masked.find('\\', first + 1)
-    if second == -1:
-        return None
-    head = text[:first]
-    inner = text[first + 1:second]
-    tail = text[second + 1:]
-    # Map masked offsets back: placeholder differs in length from '\\\\',
-    # so recompute on the raw string with an escape-aware scan for safety.
     return _split_raw(text)
 
 
@@ -88,6 +89,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     symbol-shortcut table (source of truth stays in ``symbols.py``).
     Returns the wrapped string, or '' for empty content (with warning).
     """
+    from .diagnostics import warn_unknown_commands
     from .math_commands import math_call_specs, replace_math_call
     from .symbols import replace_symbol_shortcuts
 
@@ -103,6 +105,10 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     inner = inner.replace('\\\\', BS_PLACEHOLDER)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
+    if line_no is not None:
+        # Unknown *cmd(...) inside math never reaches the text-pass
+        # warning (it is hidden behind a math placeholder by then).
+        warn_unknown_commands(inner, line_no)
     inner = re.sub(r'\*pi\b', '$pi$', inner)
     inner = re.sub(r'\*infinity\b', '$infinity$', inner)
     # Strip the temporary $ wrappers from *pi so the outer wrap stays clean:

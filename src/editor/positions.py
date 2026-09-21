@@ -14,14 +14,25 @@ def utf16_units(text):
     return len(text.encode('utf-16-le')) // 2
 
 
+def _coerce_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def to_lsp_offset(line_text, code_point_offset):
     """Code-point offset -> LSP (UTF-16) offset within one line."""
-    return utf16_units(line_text[:max(0, code_point_offset)])
+    if not isinstance(line_text, str):
+        return 0
+    return utf16_units(line_text[:max(0, _coerce_int(code_point_offset))])
 
 
 def to_code_point_offset(line_text, utf16_offset):
     """LSP (UTF-16) offset -> code-point offset within one line."""
-    target = max(0, utf16_offset)
+    if not isinstance(line_text, str):
+        return 0
+    target = max(0, _coerce_int(utf16_offset))
     index = units = 0
     while index < len(line_text) and units < target:
         units += 2 if ord(line_text[index]) > 0xFFFF else 1
@@ -31,6 +42,7 @@ def to_code_point_offset(line_text, utf16_offset):
 
 def line_col_to_offset(lines, line, utf16_character):
     """(line, LSP character) -> absolute code-point offset in ``\\n`` text."""
+    line = _coerce_int(line, default=0)
     if line < 0:
         return 0
     if line >= len(lines):

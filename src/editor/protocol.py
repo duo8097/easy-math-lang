@@ -64,7 +64,7 @@ class FramingBuffer:
                 break
             messages.append(msg)
         if first_error is not None:
-            return messages, ValueError(first_error)
+            return messages, first_error
         return messages, None
 
     def _try_take_one(self):

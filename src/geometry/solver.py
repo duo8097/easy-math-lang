@@ -97,6 +97,17 @@ class GeometrySolver:
                 raise GeometryError(
                     "solver diverged (non-finite cost) — check constraints for degeneracy"
                 )
+            # Positions can go non-finite while cost stays finite.
+            for _p, _c in self.points.items():
+                try:
+                    if not (_math.isfinite(float(_c[0])) and _math.isfinite(float(_c[1]))):
+                        raise GeometryError(
+                            "solver diverged (non-finite coordinates) — check constraints for degeneracy"
+                        )
+                except (TypeError, ValueError, IndexError):
+                    raise GeometryError(
+                        "solver diverged (invalid coordinates) — check constraints for degeneracy"
+                    )
             if base_cost < 1e-4:
                 break
 
@@ -119,8 +130,25 @@ class GeometrySolver:
 
             for p in self.points:
                 if p not in self.fixed:
-                    velocity[p] = momentum * velocity[p] - lr * grads[p]
+                    step = momentum * velocity[p] - lr * grads[p]
+                    # Gradient clipping: a coincident-segment cliff can
+                    # otherwise fling points to infinity in one step.
+                    n = float(np.linalg.norm(step))
+                    if _math.isfinite(n) and n > 1.0:
+                        step = step * (1.0 / n)
+                    velocity[p] = step
                     self.points[p] += velocity[p]
+                    # Clamp to a sane canvas so one bad step cannot blow up.
+                    # NOTE: max/min launders NaN (nan comparisons are False,
+                    # so max(-1e6, min(1e6, nan)) == 1e6): check finiteness
+                    # first so divergence is raised, not hidden.
+                    for _axis in (0, 1):
+                        _v = float(self.points[p][_axis])
+                        if not _math.isfinite(_v):
+                            raise GeometryError(
+                                "solver diverged (non-finite coordinates) — check constraints for degeneracy"
+                            )
+                        self.points[p][_axis] = max(-1e6, min(1e6, _v))
 
         final_cost = eval_constraints(self.points)
         import math as _math2
@@ -129,6 +157,16 @@ class GeometrySolver:
             raise GeometryError(
                 "solver diverged (non-finite final cost) — diagram coordinates invalid"
             )
+        for _p, _c in self.points.items():
+            try:
+                if not (_math2.isfinite(float(_c[0])) and _math2.isfinite(float(_c[1]))):
+                    raise GeometryError(
+                        "solver diverged (non-finite final coordinates) — diagram coordinates invalid"
+                    )
+            except (TypeError, ValueError, IndexError):
+                raise GeometryError(
+                    "solver diverged (invalid final coordinates) — diagram coordinates invalid"
+                )
 
         # Check per-constraint residuals to distinguish conflict from non-convergence
         if final_cost > 1e-2:
@@ -141,7 +179,14 @@ class GeometrySolver:
                     f"constraint conflict — these constraints cannot be satisfied simultaneously: {labels}"
                 )
             else:
-                label = conflicting[0][0] if conflicting else "unknown"
+                if conflicting:
+                    label = conflicting[0][0]
+                elif residuals:
+                    # Many small residuals can sum past the threshold with
+                    # none individually over it: report the worst one.
+                    label = max(residuals, key=lambda t: t[1])[0]
+                else:
+                    label = "unknown"
                 raise GeometryWarning(
                     f"solver did not converge (cost={final_cost:.4f}) "
                     f"near constraint '{label}' — diagram may be incorrect"
