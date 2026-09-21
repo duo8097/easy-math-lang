@@ -69,6 +69,8 @@ def _process_command(solver, cmd, args):
 
         if not _math.isfinite(d):
             raise GeometryError(f"distance must be finite, got: {args[2]!r}")
+        if d > 1e6:
+            raise GeometryError(f"distance exceeds the canvas limit (1e6), got: {args[2]!r}")
         if d < 0:
             raise GeometryError(f"distance must be non-negative, got: {args[2]!r}")
         solver.add_point(A)
@@ -161,6 +163,8 @@ def _process_command(solver, cmd, args):
 
         if not _math2.isfinite(r):
             raise GeometryError(f"radius must be finite, got: {r_str!r}")
+        if r > 1e6:
+            raise GeometryError(f"radius exceeds the canvas limit (1e6), got: {r_str!r}")
         if r <= 0:
             raise GeometryError(f"radius must be positive, got: {r_str!r}")
         for pt in [O, A]:
@@ -243,8 +247,32 @@ def _process_command(solver, cmd, args):
             # silently drawing a circle around a fresh point.
             if cmd == 'circle' and i == 1:
                 continue
-            # *triangle(A ; B ; C ; labels): 4th arg is a keyword, not a point.
-            if cmd == 'triangle' and i == 3 and a.lower() == 'labels':
+            # Only documented point positions auto-create. Anything past a
+            # command's arity is malformed and must not leave stray dots
+            # (codegen rejects it loudly instead).
+            if cmd == 'triangle' and i >= 3:
+                continue
+            if cmd == 'line' and i >= 2:
+                continue
+            if cmd == 'ray' and i >= 2:
+                continue
+            if cmd == 'circle' and i >= 2:
+                continue
+            if cmd == 'right-angle' and i >= 3:
+                continue
+            if cmd == 'arc' and i >= 3:
+                continue
+            if cmd == 'length' and i >= 2:
+                continue
+            if cmd == 'angle-value' and i >= 3:
+                continue
+            # *label(P ; text): only the first arg is a point; the text
+            # must never auto-create a stray point (e.g. *label(A ; hello)).
+            if cmd == 'label' and i >= 1:
+                continue
+            # *angle(A ; B ; C ; label): the 4th arg is label text, and
+            # anything beyond is malformed.
+            if cmd == 'angle' and i >= 3:
                 continue
             if a.lower() == 'infinite':
                 continue
@@ -254,13 +282,6 @@ def _process_command(solver, cmd, args):
                 except ValueError:
                     solver.add_point(a)
                     continue
-            # circle(O ; r-or-point): second arg may be a point name
-            if cmd == 'circle':
-                try:
-                    float(a)
-                except ValueError:
-                    if re.match(r'^[A-Za-z][A-Za-z0-9_]*$', a):
-                        solver.add_point(a)
     # (parallel/perp as constraint-only — don't add draw command separately)
 
     solver.draw_commands.append((cmd, args))

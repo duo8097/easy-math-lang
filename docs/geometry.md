@@ -87,8 +87,7 @@ Draws a straight line between two points.
 *line(A ; B ; infinite)
 ```
 
-> ⚠️ **Not drawn yet.** The `infinite` form is recognized but currently
-> renders as a normal segment. Full infinite-line rendering is planned.
+Draws the infinite line through A and B, clipped to the figure bounds.
 
 ### Ray (starts at A, goes through B)
 
@@ -128,27 +127,22 @@ Draws a circle centered at O that passes through point A.
 
 ## Arcs
 
-> ⚠️ **Planned, not drawn yet.** `*arc(...)` is recognized but currently
-> produces no drawing.
-
 ```
 *arc(O ; A ; B)
 ```
 
-Draws an arc of a circle centered at O, starting at point A and ending at B.
+Draws an arc of the circle centered at O, going counterclockwise from
+point A to point B (radius = distance OA).
 
 ---
 
 ## Angles
 
-> ⚠️ **Planned, not drawn yet.** `*angle(...)` is recognized but currently
-> produces no drawing.
-
 ```
 *angle(A ; B ; C)
 ```
 
-Draws the angle at vertex B, between sides BA and BC.
+Draws the interior angle marker at vertex B, between sides BA and BC.
 
 You can add a label:
 
@@ -253,14 +247,17 @@ The program calculates P's position automatically.
 Point labels are placed automatically (the program puts each label on the
 side away from the figure's edges when possible).
 
-> ⚠️ **Planned, not drawn yet.** `*label`, `*length`, and `*angle-value`
-> are recognized but currently produce no drawing.
+Custom text labels attach to a point, just outside its automatic label:
 
-To show a length or angle value in the figure (once implemented):
+```
+*label(A ; entrance)
+```
+
+To show a length or angle value in the figure:
 
 ```
 *length(A ; B)             // shows the length of AB
-*angle-value(A ; B ; C)    // shows the measure of angle ABC
+*angle-value(A ; B ; C)    // shows the measure of angle ABC (vertex B)
 ```
 
 You can also assign a value:

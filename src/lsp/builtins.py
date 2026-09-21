@@ -39,7 +39,7 @@ GEOMETRY_DOCS = {
     'circle': ('*circle(center ; radius-or-point)', 'Draw a circle.'),
     'triangle': ('*triangle(A ; B ; C)', 'Draw triangle ABC.'),
     'right-angle': ('*right-angle(B ; A ; C)', 'Right-angle marker at A.'),
-    'angle': ('*angle(A ; B ; C)', 'Angle marker at B. [planned]'),
+    'angle': ('*angle(A ; B ; C [; label])', 'Angle marker at B.'),
     'equal-angle': ('*equal-angle(...)', 'Mark two angles equal. [planned]'),
     'equal-length': ('*equal-length(A ; B ; C ; D)', 'Mark AB and CD equal.'),
     'parallel': ('*parallel(A ; B ; C ; D)', 'AB is parallel to CD.'),
@@ -49,10 +49,10 @@ GEOMETRY_DOCS = {
     'distance': ('*distance(A ; B ; d)', 'AB has length d.'),
     'midpoint': ('*midpoint(A ; B ; C)', 'C is the midpoint of AB.'),
     'intersection': ('*intersection(C ; line(A;B) ; line(D;E))', 'Point at intersection.'),
-    'arc': ('*arc(center ; start ; end)', 'Draw an arc. [planned]'),
-    'label': ('*label(point ; text)', 'Custom label. [planned]'),
-    'length': ('*length(A ; B)', 'Length label. [planned]'),
-    'angle-value': ('*angle-value(A ; B ; C)', 'Angle label. [planned]'),
+    'arc': ('*arc(center ; start ; end)', 'Arc around center from start to end (counterclockwise).'),
+    'label': ('*label(point ; text)', 'Custom text label near a point.'),
+    'length': ('*length(A ; B)', 'Show the measured length of AB.'),
+    'angle-value': ('*angle-value(A ; B ; C)', 'Show the measured angle at B.'),
 }
 
 # Sanity: every builtin we advertise must exist in the compiler tables, and

@@ -17,6 +17,7 @@ class GeometrySolver:
         self.fixed = set()
         self.constraints = []   # list of (label, lambda P: cost)
         self.draw_commands = []  # list of (cmd, args)
+        self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
 
     def add_point(self, name, x=None, y=None):
         if x is not None and y is not None:
@@ -25,6 +26,12 @@ class GeometrySolver:
             fx, fy = float(x), float(y)
             if not (_math.isfinite(fx) and _math.isfinite(fy)):
                 raise GeometryError(f"invalid coordinates for point '{name}': ({x}, {y}) must be finite")
+            # Canvas limit (matches the solver's ±1e6 clamp on free points):
+            # absurd magnitudes would emit unrenderable coordinates.
+            if abs(fx) > 1e6 or abs(fy) > 1e6:
+                raise GeometryError(
+                    f"coordinates for point '{name}' exceed the canvas limit (±1e6): ({x}, {y})"
+                )
             new_pt = np.array([fx, fy])
             if name in self.fixed:
                 old = self.points[name]
@@ -58,6 +65,11 @@ class GeometrySolver:
                     continue
                 if cmd == 'triangle' and i == 3 and arg.lower() == 'labels':
                     continue
+                # Text (not point) args: *label(P ; text), *angle(A;B;C;label).
+                if cmd == 'label' and i >= 1:
+                    continue
+                if cmd == 'angle' and i >= 3:
+                    continue
                 # point names are single tokens that look like identifiers
                 if re.match(r'^[A-Za-z][A-Za-z0-9_]*$', arg) and arg not in self.points:
                     # Could be a numeric value or keyword — only flag if it looks like a point ref
@@ -70,7 +82,8 @@ class GeometrySolver:
                             'line', 'ray', 'triangle', 'circle', 'right-angle',
                             'angle', 'equal-length', 'parallel', 'perp',
                             'on-line', 'on-circle', 'distance', 'midpoint',
-                            'intersection', 'equal-angle',
+                            'intersection', 'equal-angle', 'arc', 'label',
+                            'length', 'angle-value',
                         }
                         if cmd in point_using_cmds:
                             raise GeometryError(

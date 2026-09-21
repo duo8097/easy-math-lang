@@ -680,8 +680,6 @@ A line can also be defined using a geometric relationship.
 
 Draws an infinite line through A and B.
 
-[planned — not yet implemented]
-
 
 Rays
 ----
@@ -715,8 +713,6 @@ Arcs
 
 Draws an arc.
 
-[planned — not yet implemented]
-
 Example:
 
 *arc(O ; A ; B)
@@ -729,8 +725,6 @@ Angles
 
 Draws an angle arc marker at vertex B.
 
-[planned — not yet implemented]
-
 Example:
 
 *angle(A ; B ; C)
@@ -739,8 +733,6 @@ Example:
 An angle can optionally have a label.
 
 *angle(A ; B ; C ; 60°)
-
-[planned — not yet implemented]
 
 
 Right angles
@@ -857,8 +849,6 @@ Text labels
 
 Adds a custom label near a point.
 
-[planned — not yet implemented]
-
 Example:
 
 *label(A ; A)
@@ -870,8 +860,6 @@ Measurements
 ------------
 
 Lengths and angles can be displayed as labels.
-
-[planned — not yet implemented]
 
 Example:
 

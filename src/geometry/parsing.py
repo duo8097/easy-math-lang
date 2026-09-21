@@ -33,9 +33,16 @@ def split_args(args_str):
 
 def _parse_commands(block_text):
     """
-    Yield (cmd_name, args_str) for each *cmd(...) in block_text,
+    Yield (cmd_name, args_str, annotation) for each *cmd(...) in block_text,
     handling nested parentheses correctly.
+
+    ``annotation`` is an optional trailing ``= value`` on the same line
+    (e.g. ``*length(A ; B) = 5``) used by measurement labels; it is '' when
+    absent. The ``=`` must follow the closing paren (optionally separated
+    by spaces/tabs) so ``==``/``=>`` inside later text is never consumed.
     """
+    import re as _re
+
     i = 0
     while i < len(block_text):
         # Find next *
@@ -83,7 +90,13 @@ def _parse_commands(block_text):
             continue
 
         args_str = block_text[j + 1:k - 1]
-        yield cmd_name, args_str
+        annot = ''
+        m = _re.match(r'[ \t]*=(?![=>])[ \t]*([^\n]*)', block_text[k:])
+        if m:
+            # A value never contains a new command: stop at `*name(`
+            # so `= 2*3` survives but a following command does not leak in.
+            annot = _re.sub(r'\*[A-Za-z][A-Za-z0-9_]*\s*\(.*$', '', m.group(1)).strip()
+        yield cmd_name, args_str, annot
         i = k
 
 
@@ -91,7 +104,7 @@ def parse_draw_block(block_text):
     solver = GeometrySolver()
     errors = []  # collect non-fatal geometry errors as strings
 
-    for cmd, args_str in _parse_commands(block_text):
+    for cmd, args_str, annot in _parse_commands(block_text):
         try:
             args = split_args(args_str)
             _process_command(solver, cmd, args)
@@ -103,6 +116,11 @@ def parse_draw_block(block_text):
             msg = f"[GeometryError] *{cmd}({args_str}): unexpected error: {e}"
             print(msg, file=sys.stderr)
             errors.append(msg)
+        else:
+            # Store only on success: indexing by len() before the call
+            # would leak this annotation to the next command on failure.
+            if annot:
+                solver.draw_annotations[len(solver.draw_commands) - 1] = annot
 
     try:
         solver.validate()
