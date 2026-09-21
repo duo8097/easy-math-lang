@@ -6,7 +6,6 @@ DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLangSetup
 Compression=lzma2
 SolidCompression=yes
-ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
@@ -23,13 +22,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang from the terminal)"; GroupDescription: "Additional options:"; Flags: unchecked
 
 [Registry]
-Root: HKA
-Subkey: "Environment"
-ValueType: expandsz
-ValueName: "Path"
-ValueData: "{olddata};{app}\bin"
-Tasks: addtopath
-Check: NeedsAddPath('{app}\bin')
+Root: HKA; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Tasks: addtopath; Check: NeedsAddPath('{app}\bin')
 
 [Code]
 function NeedsAddPath(Param: string): boolean;
@@ -41,6 +34,5 @@ begin
     Result := True;
     exit;
   end;
-
   Result := Pos(';' + Param + ';', ';' + OrigPath + ';') = 0;
 end;
