@@ -1,0 +1,106 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install project + build dependencies
+        run: uv sync
+
+      # --- Entry-point shims -------------------------------------------------
+      - name: Write entry-point scripts
+        shell: bash
+        run: |
+          cat > entry_compiler.py <<'EOF'
+          from compiler import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          cat > entry_lsp.py <<'EOF'
+          from lsp.server import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          cat > entry_editor.py <<'EOF'
+          from editor.app import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+      # --- PyInstaller builds ------------------------------------------------
+      - name: Build compiler (CLI, onefile)
+        run: >
+          uv run pyinstaller entry_compiler.py
+          --name easy-math-lang
+          --onefile
+          --collect-all typst
+          --collect-all numpy
+          --noconfirm
+
+      - name: Build LSP server (CLI, onefile)
+        run: >
+          uv run pyinstaller entry_lsp.py
+          --name easy-math-lsp
+          --onefile
+          --collect-all pygls
+          --collect-all typst
+          --noconfirm
+
+      - name: Build editor (GUI, onedir)
+        run: >
+          uv run pyinstaller entry_editor.py
+          --name easy-math-editor
+          --onedir
+          --windowed
+          --collect-all PySide6
+          --collect-all typst
+          --noconfirm
+
+      # --- Inno Setup --------------------------------------------------------
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+
+      # --- Artifact ----------------------------------------------------------
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyMathLangSetup
+          path: installer\Output\EasyMathLangSetup.exe
+          if-no-files-found: error
+
+      # --- GitHub Release ----------------------------------------------------
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer\Output\EasyMathLangSetup.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
