@@ -9,9 +9,9 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
-Source: "...\dist\easy-math-lang.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "...\dist\easy-math-lsp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "...\dist\easy-math-editor\*"; DestDir: "{app}\editor"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\easy-math-lang.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-lsp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-editor\*"; DestDir: "{app}\editor"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Easy Math Editor"; Filename: "{app}\editor\easy-math-editor.exe"
