@@ -54,6 +54,32 @@ use `Build → Restart Language Server`.
 
 ---
 
+## Under the hood: helper programs
+
+The editor needs two helper programs to work fully:
+
+| Program | Used for |
+|---|---|
+| `easy-math-lsp` | Error checking, completion, hover, outline (everything above) |
+| `easy-math-lang` | `Build → Compile` (Ctrl+B) turning your document into a PDF |
+
+You never have to configure them. On startup the editor looks for each
+program in this order:
+
+1. The `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` environment variable,
+   if you set one.
+2. Next to the editor itself — the installer's `bin/` folder, or the
+   `Scripts/` folder of your Python environment when running from source.
+3. Anywhere on your `PATH`.
+4. Only when running from source: the current Python (`python -m lsp` /
+   `python -m compiler`).
+
+That means the installed app works even when `bin/` was **not** added to
+`PATH` during setup — just keep the installed `editor/` and `bin/`
+folders together.
+
+---
+
 ## Making text comfortable to read
 
 - `View → Zoom In` (**Ctrl+=**), `Zoom Out` (**Ctrl+-**),

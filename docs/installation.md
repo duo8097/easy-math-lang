@@ -3,7 +3,29 @@
 This guide will walk you through everything you need to install,
 even if you have never set up a programming tool before.
 
+> **On Windows?** The fastest way is the ready-made installer —
+> see [Option A](#option-a--windows-installer-easiest) below.
+> No Python needed.
+
 ---
+
+## Option A — Windows installer (easiest)
+
+1. Download `EasyMathLangSetup.exe` from the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+2. Run it and follow the steps. Two options are offered:
+   - *Create a desktop shortcut* (off by default).
+   - *Add compiler/LSP to PATH* (off by default) — tick this only if you
+     want to run `easy-math-lang` from a terminal.
+3. Launch **Easy Math Editor** from the Start Menu.
+
+No further setup is needed: the editor finds its helper programs
+(`easy-math-lsp`, `easy-math-lang`) next to itself automatically —
+see [Desktop editor](editor.md#under-the-hood-helper-programs).
+
+---
+
+## Option B — Run from source (all platforms)
 
 ## What you need to install
 
@@ -145,3 +167,4 @@ You will see two new files appear:
 | `uv: command not found` | Close and reopen the terminal after installing uv |
 | `Python not found` | Re-install Python and check "Add to PATH" |
 | PDF looks empty | Check your `.ezmath` file for typos |
+| Editor installed from setup says `LSP: Disconnected` | Keep the installed folders together (`editor/` next to `bin/`). Then use `Build → Restart Language Server`. If you moved the binaries, point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files — see [Desktop editor](editor.md#under-the-hood-helper-programs). |

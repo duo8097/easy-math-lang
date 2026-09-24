@@ -13,6 +13,7 @@ import sys
 from PySide6 import QtCore
 
 from . import protocol
+from .paths import resolve_lsp_command
 
 
 class LspClient(QtCore.QObject):
@@ -356,10 +357,5 @@ class LspClient(QtCore.QObject):
 
 
 def default_server_command():
-    """Prefer the installed console script, fall back to module mode."""
-    import shutil
-
-    exe = shutil.which('easy-math-lsp')
-    if exe:
-        return [exe]
-    return [sys.executable, '-m', 'lsp']
+    """Command starting the language server (see :mod:`editor.paths`)."""
+    return resolve_lsp_command()

@@ -12,6 +12,7 @@ from .editor_widget import EditorWidget
 from .find_bar import FindBar
 from .lsp_client import LspClient, default_server_command
 from .outline_panel import OutlinePanel
+from .paths import resolve_compiler_command
 from .problems_panel import ProblemsPanel
 from .recent import RecentFiles, default_settings
 
@@ -787,15 +788,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._build_process is not None:
             self.statusBar().showMessage('A build is already running', 5000)
             return
-        import sys as _sys
-        code = ('import sys; sys.argv = ["easy-math-lang", '
-                + repr(self._file_path) +
-                ']; from compiler.pipeline import main; main()')
+        cmd = resolve_compiler_command(self._file_path)
         process = QtCore.QProcess(self)
         process.setProcessChannelMode(QtCore.QProcess.MergedChannels)
         process.finished.connect(self._on_build_finished)
         process.errorOccurred.connect(self._on_build_error)
-        process.start(_sys.executable, ['-c', code])
+        process.start(cmd[0], cmd[1:])
         self._build_process = process
         self.statusBar().showMessage('Compiling…')
 

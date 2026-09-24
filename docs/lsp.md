@@ -69,6 +69,7 @@ VS Code needs a small extension to launch a custom server. Options:
 | Editor says the server didn't start | Run `uv run easy-math-lsp` by hand and send it `initialize` — it should answer with its capabilities. Make sure `uv sync` was run so dependencies (`pygls`) are installed. |
 | No diagnostics appear | Confirm the file is recognized (`.ezmath`/`.eml` extension or `easymath` language id) and was opened *after* the server started. |
 | Server disconnects randomly | Something is writing to the server's stdout. Only stderr may be used for logs. |
+| Packaged app (installer/`dist/`): editor can't start the server or compile | The editor finds `easy-math-lsp` / `easy-math-lang` next to itself (`../bin` or side-by-side) without needing `PATH`. If you moved the binaries, keep them together or point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files. |
 
 ---
 

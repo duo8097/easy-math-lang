@@ -89,11 +89,26 @@ Project layout:
 src/
 ├── compiler/     # .ezmath → Typst compiler (text pipeline)
 ├── geometry/     # constraint solver + CeTZ drawing output
-└── lsp/          # language server (reuses the compiler)
-tests/            # pytest suite (compiler, geometry, LSP)
+├── lsp/          # language server (reuses the compiler)
+└── editor/       # desktop editor (PySide6 + LSP client, incl. paths.py
+                   # which locates the helper binaries in every install type)
+tests/            # pytest suite (compiler, geometry, LSP, editor, packaging)
 examples/         # sample .ezmath documents with expected output
 docs/             # user guides
+installer/        # Inno Setup script for the Windows installer
+scripts/          # local packaging helpers (build_local.ps1)
 ```
+
+Packaged-binary tests are opt-in (they need a real build in `dist/`):
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1
+$env:EASYMATH_RUN_BUILD_TESTS = '1'
+uv run pytest tests/test_packaged_build.py -v
+```
+
+See [Packaging and releases](docs/packaging.md) for the full build,
+installer-layout, and runtime-resolution picture.
 
 ---
 
@@ -101,11 +116,12 @@ docs/             # user guides
 
 If you have never used a terminal or installed programs before, start here:
 
-1. 📦 [Installation guide](docs/installation.md) — how to set everything up, step by step
+1. 📦 [Installation guide](docs/installation.md) — setup, step by step (Windows installer or from source)
 2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols
 3. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
 4. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
 5. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor
+6. 📦 [Packaging and releases](docs/packaging.md) — building the binaries and installer (developers)
 
 ---
 
