@@ -32,6 +32,9 @@ MANIFEST
 *.manifest
 *.spec
 
+# Inno Setup build output (rebuilt by CI / scripts; never commit binaries)
+installer/Output/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

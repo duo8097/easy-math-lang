@@ -30,8 +30,20 @@ with this installed layout:
 ```
 
 The editor shortcut points at `{app}\editor\easy-math-editor.exe`.
-Adding `{app}\bin` to `PATH` is an **optional** setup task — the editor
-must work without it (see below).
+Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
+**per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`
+so new terminals pick it up) — the editor must work without it (see below).
+Never write `PATH` to `HKLM\Environment`: it is not a real environment
+location, and creating keys directly under `HKLM` fails on some machines
+with `RegCreateKeyEx failed; code 87`, aborting the whole install.
+`tests/test_installer_script.py` guards this statically.
+
+Note: ISCC prints a `UsedUserAreasWarning` because the setup runs
+elevated (`PrivilegesRequired=admin`) yet writes `HKCU`. That is intended:
+with the usual UAC consent prompt `HKCU` is the installing user's own
+hive, so the optional PATH entry lands in the right place. Only
+over-the-shoulder elevation (different admin credentials) would target
+the admin's hive instead — an accepted edge case, same as most installers.
 
 ---
 
@@ -83,6 +95,13 @@ Fast unit tests for the resolution logic (fake trees, no build needed):
 
 ```
 uv run pytest tests/test_editor_paths.py -v
+```
+
+Static checks for the installer script (hive choice, broadcast flag,
+`NeedsAddPath` consistency) run in the normal suite:
+
+```
+uv run pytest tests/test_installer_script.py -v
 ```
 
 Slow tests against real binaries in `dist/` (opt-in so the normal suite

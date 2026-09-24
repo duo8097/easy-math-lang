@@ -16,7 +16,9 @@ even if you have never set up a programming tool before.
 2. Run it and follow the steps. Two options are offered:
    - *Create a desktop shortcut* (off by default).
    - *Add compiler/LSP to PATH* (off by default) — tick this only if you
-     want to run `easy-math-lang` from a terminal.
+     want to run `easy-math-lang` from a terminal. It appends to your
+     **user** PATH (`HKCU\Environment`), so no extra permissions are needed
+     for that step.
 3. Launch **Easy Math Editor** from the Start Menu.
 
 No further setup is needed: the editor finds its helper programs
