@@ -145,3 +145,22 @@ def test_hover_new_symbol():
     found = analysis.hover("*Phi", 0, 2)
     assert found is not None
     assert 'Φ' in found['value']
+
+
+def test_define_backslash_values_never_raise():
+    # Mirrors the compiler crash: backslash-heavy define values must not
+    # raise re.error out of analyze_text (which must never raise).
+    for value in ("\\1", "C:\\path\\to", "foo\\", "\\g<0>", "a\\\\b"):
+        result = analysis.analyze_text(f"*define(FOO = {value})\nhello FOO world\n")
+        assert isinstance(result.diagnostics, list)
+
+
+def test_multiline_math_closes_at_first_delimiter():
+    # Mirrors compiler/pipeline.py: the first unescaped backslash on a
+    # continuation line closes multiline math; the tail is normal text.
+    # The unclosed-math diagnostic must point at the reopened math on
+    # line 1, not at the original opener on line 0.
+    result = analysis.analyze_text("start \\open\nline with \\pair\\ inside\ntail\n")
+    unclosed = [d for d in result.diagnostics if 'Unclosed math' in d.message]
+    assert len(unclosed) == 1
+    assert unclosed[0].line == 1

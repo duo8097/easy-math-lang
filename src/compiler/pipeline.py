@@ -412,10 +412,14 @@ def compile_ezmath(input_file, output_pdf=None):
         if leftover:
             output_lines.append(_render_text_line(ctx, leftover, math_start))
 
-    # Warn if a block was never closed
+    # Warn if a block was never closed.
+    # An unclosed block silently swallows its buffered lines, so fail
+    # the build loudly instead of reporting success with missing content.
+    unclosed_block = in_f_block
     if in_f_block:
         print(
-            "[WARNING] Unclosed block '(' detected — content inside may have been silently consumed.",
+            "[ERROR] Unclosed block '(' detected — content inside was not emitted. "
+            "Add the missing ')' to fix.",
             file=sys.stderr,
         )
 
@@ -441,6 +445,14 @@ def compile_ezmath(input_file, output_pdf=None):
         tf.write('\n'.join(typst_content) + '\n')
 
     print(f'Generated intermediate file: {typst_file}')
+
+    if unclosed_block:
+        print(
+            '\n[ERROR] Build failed: unclosed block — output PDF not attempted. '
+            'Add the missing \')\' and retry.',
+            file=sys.stderr,
+        )
+        return False
 
     # ------------------------------------------------------------------
     # Compile with Typst (PyPI `typst` package — no external binary needed)

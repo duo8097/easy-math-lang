@@ -299,3 +299,43 @@ def test_error_locations_for_undefined_and_calc(
     )
     assert "[Error] Line 2: undefined variable <missing>" in err
     assert "[Error] Line 3:" in err
+
+
+def test_define_with_backslash_value_no_crash(tmp_path, monkeypatch, capsys):
+    # Define values are literal text: backslashes, Windows paths and
+    # regex-looking sequences (e.g. \1) must be substituted literally —
+    # re.sub must not parse them as group references/escapes (used to
+    # raise re.error and crash the build).
+    from compiler.state import CompileContext
+    from compiler.variables import replace_defines
+    ctx = CompileContext()
+    for value in ("\\1", "C:\\path\\to", "foo\\", "\\g<0>", "a\\\\b", "\\"):
+        ctx.defines["FOO"] = value
+        assert replace_defines(ctx, "hello FOO world") == f"hello {value} world"
+    # End-to-end: such defines must not crash the build either.
+    # (Note: a lone backslash is the math delimiter, so substituted
+    # values containing odd backslashes render as math — that is
+    # intended language behavior; the point here is no exception.)
+    compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*define(gag = \\1)\nhello gag world\n",
+    )
+    compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*define(pp = C:\\path\\to)\nhello pp world\n",
+    )
+
+
+def test_unclosed_block_fails_build(tmp_path, monkeypatch, capsys):
+    src = tmp_path / "case.ezmath"
+    src.write_text("Hello before\n*(\n<a> = 1\nLost line one\n", encoding="utf-8")
+    _stub = type(
+        "_TypstStub", (), {"compile": staticmethod(lambda *a, **k: None)}
+    )()
+    monkeypatch.setattr(_pipeline, "typst", _stub)
+    ok = compile_ezmath(str(src), str(tmp_path / "case.pdf"))
+    err = capsys.readouterr().err
+    assert ok is False
+    assert "Unclosed block" in err
+    # The intermediate .typ is still written for inspection.
+    assert (tmp_path / "case.typ").exists()

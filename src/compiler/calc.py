@@ -67,7 +67,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
                                 raise ValueError('calc: exponent too large')
                     except ValueError:
                         raise
-                    except Exception:
+                    except TypeError:
                         pass
                 result = safe_operators[type(node.op)](left, right)
                 if isinstance(result, int) and abs(result) > 10 ** 4000:

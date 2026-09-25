@@ -210,15 +210,17 @@ def analyze_text(text):
             if in_math:
                 masked = _mask_p_segments(code)
                 _bs_close = _unescaped_bs_positions(masked)
-                if len(_bs_close) % 2 == 1:
-                    in_math = False
-                    # Process the tail after the closing delimiter.
-                    last = _bs_close[-1]
-                    code = code[last + 1:]
-                    s = code.strip()
-                    if not s:
-                        continue
-                else:
+                if not _bs_close:
+                    continue
+                # Mirror the compiler (compiler/pipeline.py): the first
+                # unescaped backslash closes multiline math; the tail
+                # after it is normal text (it may open new math pairs,
+                # handled by the single-line tracking below).
+                in_math = False
+                first = _bs_close[0]
+                code = code[first + 1:]
+                s = code.strip()
+                if not s:
                     continue
 
             # *define(...) / define(...)

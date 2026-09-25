@@ -35,7 +35,10 @@ def replace_defines(ctx, text):
         for k, v in ctx.defines.items():
             # Never rewrite *command names (e.g. a define named 'pi'
             # must not turn *pi into *3). Bare words only.
-            new_text = re.sub(rf'(?<!\*)\b{re.escape(k)}\b', v, text)
+            # NOTE: replacement via function so backslashes/group refs
+            # (e.g. Windows paths, \1) in the value are inserted
+            # literally instead of being parsed as re.sub escapes.
+            new_text = re.sub(rf'(?<!\*)\b{re.escape(k)}\b', lambda _m, _v=v: _v, text)
             if new_text != text:
                 changed = True
                 text = new_text
