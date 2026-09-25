@@ -14,6 +14,7 @@ Three PyInstaller binaries, with the exact flags used by CI
 | Binary | Mode | Contents |
 |---|---|---|
 | `easy-math-lang.exe` | onefile CLI | Compiler (`.ezmath` → PDF via Typst) |
+| `ezmath.exe` | onefile CLI | Same compiler binary under the short alias name (file copy, not a rebuild) |
 | `easy-math-lsp.exe` | onefile CLI | Language server (compiler bundled in-process) |
 | `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (PySide6) |
 
@@ -24,6 +25,7 @@ with this installed layout:
 {app}/
 ├── bin/
 │   ├── easy-math-lang.exe
+│   ├── ezmath.exe
 │   └── easy-math-lsp.exe
 └── editor/
     └── easy-math-editor.exe (+ support files)

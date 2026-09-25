@@ -59,6 +59,11 @@ jobs:
           --collect-all numpy
           --noconfirm
 
+      # `ezmath` is the short CLI alias (pyproject [project.scripts]): same
+      # binary under another name, so copy instead of rebuilding.
+      - name: Provide ezmath alias binary
+        run: Copy-Item dist/easy-math-lang.exe dist/ezmath.exe -Force
+
       - name: Build LSP server (CLI, onefile)
         run: >
           uv run pyinstaller entry_lsp.py

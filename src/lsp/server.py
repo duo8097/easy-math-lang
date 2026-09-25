@@ -12,7 +12,16 @@ from .document import DocumentStore
 logger = logging.getLogger('easy-math-lsp')
 
 SERVER_NAME = 'easy-math-lsp'
-SERVER_VERSION = '0.1.0'
+# Installed version; the literal is a frozen-build fallback only.
+SERVER_VERSION = '1.1.0'
+try:
+    from importlib.metadata import version as _dist_version
+
+    _found = _dist_version('easy-math-lang')
+    if isinstance(_found, str) and _found.strip():
+        SERVER_VERSION = _found.strip()
+except Exception:
+    pass
 
 SUPPORTED_EXTENSIONS = ('.ezmath', '.eml')
 SUPPORTED_LANGUAGE_IDS = {'easymath', 'easy-math-lang', 'ezmath', 'eml'}

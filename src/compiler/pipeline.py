@@ -481,14 +481,56 @@ def compile_ezmath(input_file, output_pdf=None):
         return False
 
 
-def main():
-    if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
-        print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
-        sys.exit(0 if len(sys.argv) > 1 else 1)
+def _print_usage():
+    print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
+    print('')
+    print('Options:')
+    print('  -h, --help      Show this help and exit')
+    print('  --version       Show version and exit')
+    print('  --check-update  Check whether a newer EasyMath release '
+          'is available')
+    print('  --              Treat remaining arguments as file names '
+          '(e.g. a file literally named --version)')
 
-    input_file = sys.argv[1]
-    if len(sys.argv) > 2:
-        output_file = sys.argv[2]
+
+def _standalone_flag_error(flag):
+    print(f'error: {flag} takes no arguments', file=sys.stderr)
+    _print_usage()
+    sys.exit(2)
+
+
+def main():
+    args = sys.argv[1:]
+    # `--` escape hatch: everything after it is a file operand, so files
+    # with flag-like names (e.g. `--version`) stay compilable.
+    positional_only = args[:1] == ['--']
+    if positional_only:
+        args = args[1:]
+    # Standalone flags are only honored in flag position (args[0]); a
+    # trailing flag after a filename must not hijack the compile job.
+    if not positional_only and args[:1] == ['--check-update']:
+        if len(args) > 1:
+            _standalone_flag_error('--check-update')
+        from .update import run_check_update
+        sys.exit(run_check_update())
+    if not positional_only and args[:1] == ['--version']:
+        if len(args) > 1:
+            _standalone_flag_error('--version')
+        from .update import APP_NAME, get_current_version
+        print(f'{APP_NAME} {get_current_version()}')
+        sys.exit(0)
+    if not args or (not positional_only and args[0] in ('-h', '--help')):
+        _print_usage()
+        sys.exit(0 if args and not positional_only else 1)
+    if len(args) > 2:
+        print(f'error: too many arguments: {" ".join(args[2:])}',
+              file=sys.stderr)
+        _print_usage()
+        sys.exit(2)
+
+    input_file = args[0]
+    if len(args) > 1:
+        output_file = args[1]
     else:
         base, _ = os.path.splitext(os.fspath(input_file))
         output_file = base + '.pdf'

@@ -1,7 +1,7 @@
 [project]
 name = "easy-math-lang"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.1.0"
+description = "target to help new people easier to write math with code, maybe include more symbol for science"
 readme = "README.md"
 authors = [
     { name = "duo8097", email = "Imanoob8097@gmail.com" }
@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 easy-math-lang = "compiler:main"
+ezmath = "compiler:main"
 easy-math-lsp = "lsp.server:main"
 easy-math-editor = "editor.app:main"
 
