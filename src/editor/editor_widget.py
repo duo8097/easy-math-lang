@@ -52,6 +52,9 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
 
         self._line_numbers = _LineNumberArea(self)
         self._highlighter = EmlHighlighter(self.document())
+        self._theme = 'light'
+        self._theme_colors = None
+        self.set_theme('light')
 
         self._hover_timer = QtCore.QTimer(self)
         self._hover_timer.setSingleShot(True)
@@ -72,6 +75,26 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             QtCore.Qt.WidgetWithChildrenShortcut)
         self._completion_shortcut.activated.connect(
             self.completionRequested.emit)
+
+    def set_theme(self, theme):
+        """Apply a light/dark color set (see :mod:`editor.theme`)."""
+        from .theme import editor_colors, normalize
+        theme = normalize(theme)
+        self._theme = theme
+        self._theme_colors = editor_colors(theme)
+        palette = self.palette()
+        palette.setColor(QtGui.QPalette.Base,
+                         QtGui.QColor(self._theme_colors['editor_bg']))
+        palette.setColor(QtGui.QPalette.Text,
+                         QtGui.QColor(self._theme_colors['editor_fg']))
+        self.setPalette(palette)
+        self._highlighter.set_theme(theme)
+        self._line_numbers.update()
+        self._highlight_current_line(refresh=True)
+
+    @property
+    def theme(self):
+        return self._theme
 
     # ------------------------------------------------------------------
     # Cursor position (0-based line, UTF-16 column — same units as LSP)
@@ -140,8 +163,10 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
                          self.line_number_area_width(), rect.height()))
 
     def line_number_area_paint_event(self, event):
+        from .theme import editor_colors
+        colors = self._theme_colors or editor_colors('light')
         painter = QtGui.QPainter(self._line_numbers)
-        painter.fillRect(event.rect(), QtGui.QColor('#f0f0f0'))
+        painter.fillRect(event.rect(), QtGui.QColor(colors['line_bg']))
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
         top = self.blockBoundingGeometry(block).translated(
@@ -149,7 +174,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         bottom = top + self.blockBoundingRect(block).height()
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
-                painter.setPen(QtCore.Qt.darkGray)
+                painter.setPen(QtGui.QColor(colors['line_fg']))
                 painter.drawText(0, int(top),
                                  self._line_numbers.width() - 4,
                                  self.fontMetrics().height(),
@@ -159,11 +184,15 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1
 
-    def _highlight_current_line(self):
-        line_color = QtGui.QColor('#fff9c4')
+    def _highlight_current_line(self, refresh=False):
+        from .theme import editor_colors
+        colors = self._theme_colors or editor_colors('light')
+        line_color = QtGui.QColor(colors['current_line'])
+        # The current-line marker is the only FullWidthSelection, so it
+        # is found (and replaced on theme switches) regardless of color.
         others = [s for s in self.extraSelections()
-                  if not (s.format.background() == line_color
-                          and s.format.property(QtGui.QTextFormat.FullWidthSelection))]
+                  if not s.format.property(
+                      QtGui.QTextFormat.FullWidthSelection)]
         selection = QtWidgets.QTextEdit.ExtraSelection()
         selection.format.setBackground(line_color)
         selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection, True)

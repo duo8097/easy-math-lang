@@ -21,7 +21,7 @@ APP_NAME = 'EasyMath Lang'
 DISTRIBUTION_NAME = 'easy-math-lang'
 # Fallback when installed metadata is unavailable (e.g. frozen build).
 # Source of truth stays ``pyproject.toml``; keep this in sync on release.
-FALLBACK_VERSION = '1.1.0'
+FALLBACK_VERSION = '1.1.1'
 
 REPO = 'duo8097/easy-math-lang'
 LATEST_RELEASE_URL = (

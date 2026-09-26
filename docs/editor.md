@@ -54,7 +54,25 @@ use `Build → Restart Language Server`.
 
 ---
 
+## Live preview
+
+- `View → Live Preview` (**Ctrl+Shift+V**) opens a PDF preview dock on the
+  right. It recompiles automatically (~0.8 s after you stop typing) in a
+  background thread, so typing never stutters.
+- `Build → Refresh Preview` (**F5**, or the ⟳ button in the panel) renders
+  immediately. The `Auto` checkbox pauses automatic updates; `Fit` / `+` /
+  `−` control zoom and `Open…` opens the preview PDF externally.
+- The preview uses the same compiler as `Build → Compile`, so variables,
+  `calc()`, and `*draw` geometry all match the final PDF — including
+  untitled documents (no save needed). Failures show the compiler log in
+  the panel instead of a popup, and the last good page stays visible.
+
+---
+
 ## Under the hood: helper programs
+
+The live preview compiles in-process, so it needs no helper. Full
+`Build → Compile` still uses the `easy-math-lang` program below.
 
 The editor needs two helper programs to work fully:
 
@@ -84,6 +102,10 @@ folders together.
 
 - `View → Zoom In` (**Ctrl+=**), `Zoom Out` (**Ctrl+-**),
   `Reset Zoom` (**Ctrl+0**). Sizes stay between 6 and 48 pt.
+- `View → Dark Mode` (**Ctrl+Shift+D**): switches the whole editor —
+  chrome, editor background, line numbers, syntax colors, and find
+  highlights — between light and dark. Your choice is remembered
+  between launches.
 - The editor uses a monospace font with line numbers, a highlighted
   current line, and 4-space tab stops.
 
@@ -101,10 +123,18 @@ folders together.
 ## Layout
 
 - The **toolbar** holds New, Open, Save, and Compile for one-click access.
-- The **Outline** (left) and **Problems** (bottom) panels can be hidden
-  from `View` or by closing them; reopen them from the same menu.
+- The **Outline** (left), **Problems** (bottom), and **Preview** (right)
+  panels can be hidden from `View` or by closing them; reopen them from
+  the same menu.
 - The **status bar** shows cursor position, problem count, and language
   server status.
+
+## Settings file
+
+Your preferences (recent files, dark/light mode) live in one plain INI
+file: `~/.config/ezmath/config.ini`. Delete it to reset the editor to
+defaults; settings from older versions are migrated there automatically
+on first launch.
 
 ---
 
@@ -118,8 +148,9 @@ folders together.
 | Find in File | Edit | Ctrl+F, F3 / Shift+F3, Esc |
 | Go to Line | Edit | Ctrl+G |
 | Command Palette | View | Ctrl+Shift+P |
-| Toggle Outline / Problems, Zoom | View | Ctrl+=, Ctrl+-, Ctrl+0 |
+| Toggle Outline / Problems / Preview, Zoom, Dark Mode | View | Ctrl+=, Ctrl+-, Ctrl+0, Ctrl+Shift+V, Ctrl+Shift+D |
 | Compile to PDF | Build | Ctrl+B |
+| Refresh Preview | Build | F5 |
 | Restart Language Server | Build | — |
 | Autocompletion | — (in editor) | auto after `*`/`<`, or Ctrl+Space |
 

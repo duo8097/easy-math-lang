@@ -1,6 +1,6 @@
 [project]
 name = "easy-math-lang"
-version = "1.1.0"
+version = "1.1.1"
 description = "target to help new people easier to write math with code, maybe include more symbol for science"
 readme = "README.md"
 authors = [

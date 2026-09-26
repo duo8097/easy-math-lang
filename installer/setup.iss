@@ -1,6 +1,6 @@
 [Setup]
 AppName=Easy Math Lang
-AppVersion=1.1.0
+AppVersion=1.1.1
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLangSetup

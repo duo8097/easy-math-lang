@@ -1,6 +1,6 @@
 """Recent-files list persisted with QSettings (no widgets)."""
 
-from PySide6 import QtCore
+from .config import default_settings  # noqa: F401  (public re-export)
 
 
 class RecentFiles:
@@ -26,8 +26,3 @@ class RecentFiles:
 
     def clear(self):
         self._settings.remove(self._key)
-
-
-def default_settings():
-    """QSettings for the running app (organization/application set in main)."""
-    return QtCore.QSettings()

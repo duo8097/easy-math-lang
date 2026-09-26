@@ -86,16 +86,38 @@ def _unescaped_positions(text):
 class EmlHighlighter(QtGui.QSyntaxHighlighter):
     """QSyntaxHighlighter with one rule set for Easy-Math-Lang."""
 
-    def __init__(self, document):
+    def __init__(self, document, theme='light'):
         super().__init__(document)
-        self._math_format = self._make_format('#2aa198', bold=True)
-        self._comment_format = self._make_format('#93a1a1', italic=True)
+        self._theme = None
+        self._math_format = None
+        self._comment_format = None
+        self._rules = []
+        self.set_theme(theme)
+
+    def set_theme(self, theme):
+        """Swap the color set (see :mod:`editor.theme`); rehighlights."""
+        from .theme import normalize, syntax_colors
+        theme = normalize(theme)
+        if theme == self._theme and self._rules:
+            return
+        self._theme = theme
+        colors = syntax_colors(theme)
+        self._math_format = self._make_format(colors['math'], bold=True)
+        self._comment_format = self._make_format(colors['comment'],
+                                                 italic=True)
         self._rules = [
-            (number_pattern(), self._make_format('#b58900')),
-            (operator_pattern(), self._make_format('#cb4b16')),
-            (variable_pattern(), self._make_format('#268bd2', bold=True)),
-            (command_pattern(), self._make_format('#6c71c4', bold=True)),
+            (number_pattern(), self._make_format(colors['number'])),
+            (operator_pattern(), self._make_format(colors['operator'])),
+            (variable_pattern(),
+             self._make_format(colors['variable'], bold=True)),
+            (command_pattern(),
+             self._make_format(colors['command'], bold=True)),
         ]
+        self.rehighlight()
+
+    @property
+    def theme(self):
+        return self._theme
 
     @staticmethod
     def _make_format(color, bold=False, italic=False):

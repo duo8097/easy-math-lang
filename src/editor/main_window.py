@@ -3,7 +3,9 @@
 import html
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -13,8 +15,12 @@ from .find_bar import FindBar
 from .lsp_client import LspClient, default_server_command
 from .outline_panel import OutlinePanel
 from .paths import resolve_compiler_command
+from .preview import PREVIEW_DEBOUNCE_MS
+from .preview_panel import PreviewPanel
 from .problems_panel import ProblemsPanel
-from .recent import RecentFiles, default_settings
+from .config import default_settings
+from .recent import RecentFiles
+from . import theme as app_theme
 
 SUPPORTED_SUFFIXES = ('.ezmath', '.eml')
 
@@ -37,7 +43,24 @@ def markdown_to_html(text):
     return escaped.replace('\n', '<br>')
 
 
+class _PreviewWorker(QtCore.QObject):
+    """Background compiler for live preview (never touches Qt widgets)."""
+
+    finished = QtCore.Signal(int, dict)
+
+    @QtCore.Slot(int, str, str)
+    def render(self, version, text, workdir):
+        from .preview import compile_source_to_pdf
+        try:
+            result = compile_source_to_pdf(text, workdir)
+        except Exception as exc:  # keep the editor alive on any failure
+            result = {'ok': False, 'pdf': None, 'typ': '', 'log': str(exc)}
+        self.finished.emit(version, result)
+
+
 class MainWindow(QtWidgets.QMainWindow):
+    _preview_request = QtCore.Signal(int, str, str)
+
     def __init__(self, start_lsp=True, parent=None, no_save_prompt=False):
         super().__init__(parent)
         self.setWindowTitle('Easy-Math-Lang Editor')
@@ -77,6 +100,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._problems_dock.setWidget(self.problems)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self._problems_dock)
 
+        self.preview = PreviewPanel(self)
+        self._preview_dock = QtWidgets.QDockWidget('Preview', self)
+        self._preview_dock.setWidget(self.preview)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._preview_dock)
+        self._preview_dock.hide()
+        self._preview_dock.visibilityChanged.connect(
+            self._on_preview_visibility)
+
         self._cursor_label = QtWidgets.QLabel('Ln 1  Col 1', self)
         self._problems_button = QtWidgets.QPushButton('', self)
         self._problems_button.setFlat(True)
@@ -88,7 +119,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().addPermanentWidget(self._problems_button)
         self.statusBar().addPermanentWidget(self._lsp_label)
 
-        self._recent = RecentFiles(default_settings())
+        self._settings = default_settings()
+        self._recent = RecentFiles(self._settings)
+        self._theme_name = app_theme.load_theme_name(self._settings)
+        app = QtWidgets.QApplication.instance()
+        self._default_palette = app.palette() if app is not None else None
+        colors = app_theme.editor_colors(self._theme_name)
+        self._find_all_color = QtGui.QColor(colors['find_all'])
+        self._find_current_color = QtGui.QColor(colors['find_current'])
+        self._find_ranges = []
+        self._find_current_index = 0
 
         self._change_timer = QtCore.QTimer(self)
         self._change_timer.setSingleShot(True)
@@ -108,15 +148,39 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._build_process = None
 
-        self._create_menus()
-        self._connect_editor()
-
+        # The LSP client must exist before any wired slot can run:
+        # applying the theme rehighlights the editor, which emits
+        # textChanged synchronously.
         self.lsp = LspClient(default_server_command(), self)
         self.lsp.server_started.connect(self._request_initialize)
         self.lsp.connected.connect(self._on_lsp_connected)
         self.lsp.disconnected.connect(self._on_lsp_disconnected)
         self.lsp.process_error.connect(self._on_lsp_error)
         self.lsp.diagnostics_received.connect(self._on_diagnostics)
+
+        self._preview_workdir = tempfile.mkdtemp(prefix='easymath-preview-')
+        self._preview_version = 0
+        self._preview_auto = True
+        self._preview_shutdown = False
+        self._preview_timer = QtCore.QTimer(self)
+        self._preview_timer.setSingleShot(True)
+        self._preview_timer.setInterval(PREVIEW_DEBOUNCE_MS)
+        self._preview_timer.timeout.connect(self._on_preview_timeout)
+        self._preview_thread = QtCore.QThread(self)
+        self._preview_worker = _PreviewWorker()
+        self._preview_worker.moveToThread(self._preview_thread)
+        self._preview_request.connect(
+            self._preview_worker.render, QtCore.Qt.QueuedConnection)
+        self._preview_worker.finished.connect(self._on_preview_finished)
+        self._preview_thread.start()
+        self.preview.refreshRequested.connect(self._refresh_preview_now)
+        self.preview.autoToggled.connect(self._on_preview_auto)
+        self.preview.openPdfRequested.connect(self._open_preview_externally)
+
+        self._create_menus()
+        self._connect_editor()
+        self._apply_theme(self._theme_name, save=False)
+
         if start_lsp:
             self._start_lsp()
 
@@ -370,6 +434,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # argument handling).
     _COMPLETION_KIND_NAMES = {3: 'function', 14: 'keyword',
                               6: 'variable', 21: 'constant'}
+    # Custom text-format marker for find highlights (robust across theme
+    # switches, unlike comparing background colors).
+    _FIND_PROP = QtGui.QTextFormat.UserProperty + 1
 
     def _on_completion_requested(self):
         if not self.lsp.is_connected() or not self._lsp_open:
@@ -475,8 +542,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     # Friendly extras: palette, find, go-to-line, recent files
     # ------------------------------------------------------------------
-    _FIND_ALL_COLOR = QtGui.QColor('#ffe082')
-    _FIND_CURRENT_COLOR = QtGui.QColor('#ffab40')
+    # Find highlight colors live on the instance (self._find_all_color /
+    # self._find_current_color) so they follow the active theme.
     _MAX_FIND_MATCHES = 1000
 
     def _focus_problems(self):
@@ -486,6 +553,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _palette_commands(self):
         toggle_outline = self._outline_dock.toggleViewAction()
         toggle_problems = self._problems_dock.toggleViewAction()
+        toggle_preview = self._preview_dock.toggleViewAction()
         return [
             ('file.new', 'File: New', '', self._new_document),
             ('file.open', 'File: Open…', 'Ctrl+O', self._open_file),
@@ -498,6 +566,10 @@ class MainWindow(QtWidgets.QMainWindow):
              toggle_outline.trigger),
             ('view.toggleProblems', 'View: Toggle Problems', '',
              toggle_problems.trigger),
+            ('view.togglePreview', 'View: Toggle Live Preview', 'Ctrl+Shift+V',
+             toggle_preview.trigger),
+            ('view.toggleTheme', 'View: Toggle Dark Mode', 'Ctrl+Shift+D',
+             self._toggle_theme),
             ('view.zoomIn', 'View: Zoom In', 'Ctrl+=',
              lambda: self._zoom(1)),
             ('view.zoomOut', 'View: Zoom Out', 'Ctrl+-',
@@ -506,6 +578,8 @@ class MainWindow(QtWidgets.QMainWindow):
              self._zoom_reset),
             ('build.compile', 'Build: Compile to PDF', 'Ctrl+B',
              self._compile),
+            ('build.refreshPreview', 'Build: Refresh Preview', 'F5',
+             self._refresh_preview_now),
             ('build.restartLSP', 'Build: Restart Language Server', '',
              self._restart_lsp),
         ]
@@ -590,6 +664,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _show_find_match(self, index):
         ranges = self._find_ranges
+        self._find_current_index = index
         self._highlight_find_ranges(ranges, index)
         self._find_bar.set_match_count(index + 1, len(ranges))
         start, end = ranges[index]
@@ -603,9 +678,10 @@ class MainWindow(QtWidgets.QMainWindow):
         selections = []
         for i, (start, end) in enumerate(ranges):
             selection = QtWidgets.QTextEdit.ExtraSelection()
-            color = self._FIND_CURRENT_COLOR if i == current \
-                else self._FIND_ALL_COLOR
+            color = self._find_current_color if i == current \
+                else self._find_all_color
             selection.format.setBackground(color)
+            selection.format.setProperty(self._FIND_PROP, True)
             cursor = QtGui.QTextCursor(document)
             cursor.setPosition(start)
             cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
@@ -616,13 +692,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _current_extra_selections(self):
         """Selections not owned by find (e.g. the current-line highlight)."""
-        keep = []
-        for selection in self.editor.extraSelections():
-            background = selection.format.background()
-            if background != self._FIND_ALL_COLOR \
-                    and background != self._FIND_CURRENT_COLOR:
-                keep.append(selection)
-        return keep
+        return [s for s in self.editor.extraSelections()
+                if not s.format.property(self._FIND_PROP)]
 
     def _clear_find_highlights(self):
         self.editor.setExtraSelections(self._current_extra_selections())
@@ -717,6 +788,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._problems_button.setText('')
         self._open_current_in_lsp()
         self._update_title()
+        self._schedule_preview()
 
     def _new_document(self):
         if not self._maybe_save():
@@ -881,6 +953,15 @@ class MainWindow(QtWidgets.QMainWindow):
         view_menu = self.menuBar().addMenu('&View')
         view_menu.addAction(self._outline_dock.toggleViewAction())
         view_menu.addAction(self._problems_dock.toggleViewAction())
+        preview_action = self._preview_dock.toggleViewAction()
+        preview_action.setShortcut('Ctrl+Shift+V')
+        preview_action.setStatusTip('Show or hide the live PDF preview')
+        view_menu.addAction(preview_action)
+        self._theme_action = view_menu.addAction('Dark Mode')
+        self._theme_action.setCheckable(True)
+        self._theme_action.setShortcut('Ctrl+Shift+D')
+        self._theme_action.setStatusTip('Switch between light and dark mode')
+        self._theme_action.triggered.connect(self._toggle_theme)
         view_menu.addSeparator()
         palette_action = view_menu.addAction('Command &Palette…')
         palette_action.setShortcut('Ctrl+Shift+P')
@@ -905,6 +986,10 @@ class MainWindow(QtWidgets.QMainWindow):
         compile_action.setShortcut('Ctrl+B')
         compile_action.setStatusTip('Compile the document to PDF')
         compile_action.triggered.connect(self._compile)
+        refresh_action = build_menu.addAction('&Refresh Preview')
+        refresh_action.setShortcut('F5')
+        refresh_action.setStatusTip('Re-render the live preview now')
+        refresh_action.triggered.connect(self._refresh_preview_now)
         build_menu.addSeparator()
         restart_action = build_menu.addAction('&Restart Language Server')
         restart_action.setStatusTip(
@@ -943,6 +1028,45 @@ class MainWindow(QtWidgets.QMainWindow):
     def _zoom_reset(self):
         self._set_editor_font_size(self._default_font_size)
 
+    # ------------------------------------------------------------------
+    # Theme (light/dark mode, persisted in QSettings)
+    # ------------------------------------------------------------------
+    def _apply_theme(self, name, save=True):
+        name = app_theme.normalize(name)
+        self._theme_name = name
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            palette = app_theme.build_palette(name)
+            if palette is not None:
+                app.setPalette(palette)
+            elif self._default_palette is not None:
+                app.setPalette(self._default_palette)
+        self.editor.set_theme(name)
+        colors = app_theme.editor_colors(name)
+        self._find_all_color = QtGui.QColor(colors['find_all'])
+        self._find_current_color = QtGui.QColor(colors['find_current'])
+        self._refresh_find_colors()
+        action = getattr(self, '_theme_action', None)
+        if action is not None:
+            action.setChecked(name == app_theme.DARK)
+        if save:
+            app_theme.save_theme_name(self._settings, name)
+
+    def _toggle_theme(self):
+        self._apply_theme(app_theme.DARK
+                          if self._theme_name != app_theme.DARK
+                          else app_theme.LIGHT)
+
+    def _refresh_find_colors(self):
+        """Re-paint active find highlights without moving the cursor."""
+        ranges = getattr(self, '_find_ranges', None)
+        if not ranges:
+            self._clear_find_highlights()
+            return
+        self._clear_find_highlights()
+        self._highlight_find_ranges(
+            ranges, getattr(self, '_find_current_index', 0))
+
     def _connect_editor(self):
         self.editor.cursorMoved.connect(self._on_cursor_moved)
         self.editor.textChanged.connect(self._on_text_changed)
@@ -956,8 +1080,93 @@ class MainWindow(QtWidgets.QMainWindow):
         self._cursor_label.setText(f'Ln {line + 1}  Col {col + 1}')
 
     def _on_text_changed(self):
-        if self.lsp.is_connected() and self._lsp_open:
+        lsp = getattr(self, 'lsp', None)
+        if lsp is not None and lsp.is_connected() and self._lsp_open:
             self._change_timer.start()
+        self._schedule_preview()
+
+    # ------------------------------------------------------------------
+    # Live preview (debounced, background compile, stale results dropped)
+    # ------------------------------------------------------------------
+    def _preview_visible_and_auto(self):
+        return self._preview_dock.isVisible() and self._preview_auto
+
+    def _schedule_preview(self):
+        self._preview_version += 1
+        if not self._preview_auto:
+            return
+        if not self._preview_dock.isVisible():
+            return
+        self._preview_timer.start()
+
+    def _refresh_preview_now(self):
+        if not self._preview_dock.isVisible():
+            self._preview_dock.show()
+            self._preview_dock.raise_()
+        self._preview_version += 1
+        self._preview_timer.stop()
+        self._on_preview_timeout()
+
+    def _on_preview_visibility(self, _visible):
+        # Opening the dock renders immediately; hiding cancels pending work
+        # (a running compile still finishes but its result is dropped).
+        if self._preview_dock.isVisible() and self._preview_auto:
+            self._preview_version += 1
+            self._on_preview_timeout()
+        else:
+            self._preview_timer.stop()
+
+    def _on_preview_auto(self, enabled):
+        self._preview_auto = bool(enabled)
+        if self._preview_auto:
+            self._schedule_preview()
+        else:
+            self._preview_timer.stop()
+
+    def _on_preview_timeout(self):
+        if not self._preview_auto or not self._preview_dock.isVisible():
+            return
+        version = self._preview_version
+        self.preview.show_loading()
+        self._preview_request.emit(
+            version, self.editor.toPlainText(), self._preview_workdir)
+
+    def _on_preview_finished(self, version, result):
+        if version != self._preview_version:
+            return  # stale: user kept typing while compiling
+        if not isinstance(result, dict):
+            return
+        if result.get('ok') and result.get('pdf'):
+            self.preview.show_pdf(result['pdf'])
+            return
+        log = (result.get('log') or '').strip()
+        self.preview.show_error(
+            log[-2000:] if log else
+            'Preview failed. Save and use Build → Compile for details.')
+
+    def _open_preview_externally(self):
+        pdf = getattr(self.preview, 'pdf_path', None)
+        if not pdf:
+            self.statusBar().showMessage('No preview PDF yet', 3000)
+            return
+        QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl.fromLocalFile(pdf))
+
+    def _shutdown_preview(self):
+        if getattr(self, '_preview_shutdown', False):
+            return
+        self._preview_shutdown = True
+        try:
+            self._preview_timer.stop()
+        except RuntimeError:
+            pass
+        thread = getattr(self, '_preview_thread', None)
+        if thread is not None:
+            thread.quit()
+            thread.wait(3000)
+        workdir = getattr(self, '_preview_workdir', None)
+        if workdir:
+            shutil.rmtree(workdir, ignore_errors=True)
 
     def open_path(self, path):
         """Open a file (used for a launch argument)."""
@@ -973,6 +1182,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         if self._closing:
             # Second pass: shutdown completed (or was forced).
+            self._shutdown_preview()
             event.accept()
             return
         if not self._maybe_save():
@@ -981,11 +1191,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self._restart_pending = False
         self._reopen_after_connect = False
         self._change_timer.stop()
+        self._preview_timer.stop()
         self._close_current_in_lsp()
         if self._build_process is not None:
             self._build_process.kill()
             self._build_process = None
         if self.lsp.state == 'stopped':
+            self._shutdown_preview()
             event.accept()
             return
         # The LSP shutdown handshake (shutdown -> response -> exit ->

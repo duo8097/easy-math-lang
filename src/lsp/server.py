@@ -13,7 +13,7 @@ logger = logging.getLogger('easy-math-lsp')
 
 SERVER_NAME = 'easy-math-lsp'
 # Installed version; the literal is a frozen-build fallback only.
-SERVER_VERSION = '1.1.0'
+SERVER_VERSION = '1.1.1'
 try:
     from importlib.metadata import version as _dist_version
 
