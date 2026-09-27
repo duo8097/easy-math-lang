@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.scripts]
-easy-math-lang = "compiler:main"
-ezmath = "compiler:main"
+easy-math-lang = "compiler.pipeline:main"
+ezmath = "compiler.pipeline:main"
 easy-math-lsp = "lsp.server:main"
 easy-math-editor = "editor.app:main"
 

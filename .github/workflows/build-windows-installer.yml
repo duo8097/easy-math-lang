@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repo
@@ -25,7 +25,10 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Install project + build dependencies
-        run: uv sync
+        run: uv sync --frozen
+
+      - name: Run test suite (gate releases)
+        run: uv run --frozen pytest tests/ --ignore=tests/test_packaged_build -q
 
       # --- Entry-point shims -------------------------------------------------
       - name: Write entry-point scripts
@@ -71,6 +74,7 @@ jobs:
           --onefile
           --collect-all pygls
           --collect-all typst
+          --collect-all numpy
           --noconfirm
 
       - name: Build editor (GUI, onedir)
@@ -81,6 +85,7 @@ jobs:
           --windowed
           --collect-all PySide6
           --collect-all typst
+          --collect-all numpy
           --noconfirm
 
       # --- Inno Setup --------------------------------------------------------

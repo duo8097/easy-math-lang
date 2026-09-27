@@ -29,11 +29,32 @@ def escape_typst_outside_math(content, escape_dollar=False):
                 # out by leaving this False.
                 token = token.replace('$', r'\$')
             tokens[i] = token
-    return ''.join(tokens)
+    out = ''.join(tokens)
+    # Neutralize line-leading Typst block markup (= headings, - / + lists,
+    # 1. enumerations): bare words are normal text per spec, so escape the
+    # marker to keep it literal.
+    lines = out.split('\n')
+    for li, ln in enumerate(lines):
+        m = re.match(r'^(\s*)(=|-|\+)(\s)', ln)
+        if m:
+            lines[li] = f"{m.group(1)}\\{m.group(2)}{m.group(3)}{ln[m.end():]}"
+            continue
+        if re.match(r'^\s*\d+\.\s', ln):
+            idx = len(ln) - len(ln.lstrip())
+            lines[li] = ln[:idx] + '\\' + ln[idx:]
+    return '\n'.join(lines)
 
 
 def merge_math(t):
-    t = re.sub(r'\$([^\$]+)\$', lambda m: '$' + m.group(1).replace('$', '') + '$', t)
+    """Merge directly adjacent math spans ($a$$b$ / $a$ $b$) into one.
+
+    Repeatedly collapses `$...$` pairs separated only by whitespace.
+    Non-adjacent spans are left untouched.
+    """
+    prev = None
+    while prev != t:
+        prev = t
+        t = re.sub(r'\$([^\$]+)\$\s*\$([^\$]+)\$', r'$\1 \2$', t)
     return t
 
 

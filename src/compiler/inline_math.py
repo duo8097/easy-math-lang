@@ -15,7 +15,7 @@ Structural scanner (not a global string replace). Rules:
 import re
 import sys
 
-BS_PLACEHOLDER = '\x00BS\x00'
+BS_PLACEHOLDER = '\x0600\x06'
 
 
 def mask_escaped(text):
@@ -95,11 +95,17 @@ def process_math_inner(ctx, inner_raw, line_no=None):
 
     inner = inner_raw.strip()
     if not inner:
-        print(
-            f'[WARNING] Line {line_no}: empty math expression '
-            f'\\ \\ — emitting nothing.',
-            file=sys.stderr,
-        ) if line_no else None
+        if line_no is not None:
+            print(
+                f'[WARNING] Line {line_no}: empty math expression '
+                f'\\ \\ — emitting nothing.',
+                file=sys.stderr,
+            )
+        else:
+            print(
+                '[WARNING] empty math expression \\ \\ — emitting nothing.',
+                file=sys.stderr,
+            )
         return ''
     # Protect literal \\ so it never toggles math and survives Typst.
     inner = inner.replace('\\\\', BS_PLACEHOLDER)
@@ -115,5 +121,14 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     # '$pi$' inside becomes 'pi' inside the final '$...$'.
     inner = inner.replace('$pi$', 'pi').replace('$infinity$', 'infinity')
     inner = replace_symbol_shortcuts(inner)
-    inner = inner.replace(BS_PLACEHOLDER, '\\\\')
+    # Apply custom multiplication symbol inside math for consistency
+    # with text mode (text '2 * 3' -> '2 . 3' must match '\ 2 * 3 \').
+    if ctx.mult_sym != '*':
+        inner = inner.replace('*', ctx.mult_sym)
+    # Literal \\ inside math must not emit Typst '\\' (line break).
+    # Emit a quoted backslash string so it renders as a backslash.
+    inner = inner.replace(BS_PLACEHOLDER, '"\\\\"')
+    # Math-call formatters already return $...$; unwrap nested wrappers
+    # so \ *frac(1;2) \ becomes $frac(1, 2)$, not $$frac(1, 2)$$.
+    inner = re.sub(r'\$([^$]+)\$', r'\1', inner)
     return f'${inner}$'

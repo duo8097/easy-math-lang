@@ -71,11 +71,17 @@ class LspClient(QtCore.QObject):
         try:
             process = QtCore.QProcess(self)
             process.readyReadStandardOutput.connect(self._on_ready_read)
+            try:
+                process.readyReadStandardError.connect(self._on_ready_read)
+            except (AttributeError, RuntimeError):
+                pass
             process.started.connect(self._on_started)
             process.finished.connect(self._on_finished)
             process.errorOccurred.connect(self._on_process_error)
             self._process = process
             self._state = 'starting'
+            if not self._command:
+                raise IndexError('empty LSP command')
             process.start(self._command[0], self._command[1:])
         except Exception as e:  # noqa: BLE001 - report, don't crash
             self._process = None
@@ -263,8 +269,15 @@ class LspClient(QtCore.QObject):
     def _send(self, payload):
         if self._process is None:
             return False
-        # QProcess.write returns -1 (never raises) on a broken pipe.
-        return self._process.write(protocol.encode_message(payload)) != -1
+        if not self._command:
+            return False
+        data = protocol.encode_message(payload)
+        # Non-blocking: QProcess buffers internally; never wait on the GUI
+        # thread (waitForBytesWritten would freeze the UI on large docs).
+        try:
+            return self._process.write(data) != -1
+        except Exception:  # noqa: BLE001 - broken pipe, report failure
+            return False
 
     def _pop_pending(self, request_id):
         entry = self._pending.pop(request_id, None)
@@ -324,7 +337,21 @@ class LspClient(QtCore.QObject):
 
     def _on_ready_read(self):
         if self._process is not None:
-            self.on_data_received(bytes(self._process.readAllStandardOutput()))
+            try:
+                self.on_data_received(bytes(self._process.readAllStandardOutput()))
+            except Exception as e:  # noqa: BLE001 - never crash on I/O
+                self.protocol_error.emit(f'LSP read failed: {e}')
+            # Drain stderr so a chatty server cannot grow the buffer
+            # unboundedly; surface it for debugging.
+            try:
+                err = bytes(self._process.readAllStandardError())
+                if err:
+                    try:
+                        sys.stderr.write(err.decode('utf-8', errors='replace'))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
     def _on_started(self):
         self.server_started.emit()

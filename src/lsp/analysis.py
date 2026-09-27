@@ -162,6 +162,8 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
         out = parse_draw_block(block_text)
     seen = set()
     anchor_end = len(lines[start_line]) if start_line < len(lines) else 0
+    # Span the whole block so "go to error" lands on the block, not just
+    # the opener; per-line mapping requires threaded offsets (future).
     for source in (cap.getvalue().splitlines(), out.splitlines()):
         for raw in source:
             m = re.match(r'(?://\s*)?\[(GeometryError|GeometryWarning)\]\s*(.*)', raw.strip())
@@ -169,7 +171,7 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
                 continue
             severity = 'error' if m.group(1) == 'GeometryError' else 'warning'
             message = m.group(2).strip() or m.group(1)
-            key = (severity, message)
+            key = (severity, message, start_line, end_line)
             if key in seen:
                 continue
             seen.add(key)
@@ -181,6 +183,24 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
 def analyze_text(text):
     """Analyze a document; never raises on malformed input."""
     analysis = Analysis()
+    try:
+        if not isinstance(text, str):
+            analysis.diagnostics.append(
+                Diag(0, 0, 0, 'error', 'Invalid document text')
+            )
+            return analysis
+        return _analyze_text_inner(text, analysis)
+    except Exception as e:
+        try:
+            analysis.diagnostics.append(
+                Diag(0, 0, 0, 'error', f'Analysis failed: {e}')
+            )
+        except Exception:
+            pass
+        return analysis
+
+
+def _analyze_text_inner(text, analysis):
     ctx = CompileContext()
     raw_lines = text.splitlines()
     lines = strip_comments(text).splitlines()
@@ -206,25 +226,29 @@ def analyze_text(text):
 
             # Control lines suspended while multiline math is open
             # (mirrors compiler/pipeline.py: tail after the closer is
-            # still processed as normal text).
+            # still processed as normal text). Buffered math lines still
+            # get text checks below (undefined vars/calc), matching the
+            # compiler which validates the joined math body.
+            math_buffered = False
             if in_math:
                 masked = _mask_p_segments(code)
                 _bs_close = _unescaped_bs_positions(masked)
                 if not _bs_close:
-                    continue
-                # Mirror the compiler (compiler/pipeline.py): the first
-                # unescaped backslash closes multiline math; the tail
-                # after it is normal text (it may open new math pairs,
-                # handled by the single-line tracking below).
-                in_math = False
-                first = _bs_close[0]
-                code = code[first + 1:]
-                s = code.strip()
-                if not s:
-                    continue
+                    math_buffered = True
+                else:
+                    # Mirror the compiler (compiler/pipeline.py): the first
+                    # unescaped backslash closes multiline math; the tail
+                    # after it is normal text (it may open new math pairs,
+                    # handled by the single-line tracking below).
+                    in_math = False
+                    first = _bs_close[0]
+                    code = code[first + 1:]
+                    s = code.strip()
+                    if not s:
+                        continue
 
-            # *define(...) / define(...)
-            if (s.startswith('*define(') or s.startswith('define(')) and s.endswith(')'):
+            # *define(...) / define(...) — suspended inside math buffer.
+            if not math_buffered and (s.startswith('*define(') or s.startswith('define(')) and s.endswith(')'):
                 prefix_len = 8 if s.startswith('*define(') else 7
                 inner = s[prefix_len:-1]
                 before = _snapshot(ctx)
@@ -232,8 +256,8 @@ def analyze_text(text):
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
-            # Single-line *draw(...)
-            if s.startswith('*draw(') and s.endswith(')'):
+            # Single-line *draw(...) — suspended inside math buffer.
+            if not math_buffered and s.startswith('*draw(') and s.endswith(')'):
                 inner = s[6:-1]
                 inner = replace_vars(ctx, inner)
                 inner = replace_defines(ctx, inner)
@@ -247,15 +271,15 @@ def analyze_text(text):
                 _analyze_draw(inner, lines, idx, idx, analysis)
                 continue
 
-            # Single-line *f(...)
-            if s.startswith('*f(') and s.endswith(')'):
+            # Single-line *f(...) — suspended inside math buffer.
+            if not math_buffered and s.startswith('*f(') and s.endswith(')'):
                 inner = s[3:-1].strip()
                 if not (inner.startswith('frac(') or inner.startswith('root(')):
                     before = _snapshot(ctx)
                     process_assignment_or_define(ctx, inner, line_no=idx + 1)
                     _record_new(ctx, before, code, idx, analysis)
                     continue
-            elif ((s.startswith('*(') and s.endswith(')') and len(s) > 3)
+            elif not math_buffered and ((s.startswith('*(') and s.endswith(')') and len(s) > 3)
                   or (s.startswith('f(') and s.endswith(')') and len(s) > 3
                       and not s.startswith('frac('))):
                 inner = s[2:-1].strip()
@@ -265,13 +289,13 @@ def analyze_text(text):
                         process_assignment_or_define(ctx, inner, line_no=idx + 1)
                         _record_new(ctx, before, code, idx, analysis)
                         continue
-            if s in ('*(', '*f(', 'f(', '*draw('):
+            if not math_buffered and s in ('*(', '*f(', 'f(', '*draw('):
                 in_f_block = True
                 block_type = s
                 block_content = []
                 block_start = idx
                 continue
-            elif s == ')' and in_f_block:
+            elif not math_buffered and s == ')' and in_f_block:
                 if block_type == '*draw(':
                     pos = lines[block_start].index('*draw')
                     analysis.definitions.append(
@@ -289,11 +313,11 @@ def analyze_text(text):
                 in_f_block = False
                 continue
 
-            if in_f_block:
+            if in_f_block and not math_buffered:
                 block_content.append((idx, s))
                 continue
 
-            if re.match(r'^<[^<>]+>\s*=', s):
+            if not math_buffered and re.match(r'^<[^<>]+>\s*=', s):
                 before = _snapshot(ctx)
                 process_assignment_or_define(ctx, s, line_no=idx + 1)
                 _record_new(ctx, before, code, idx, analysis)
@@ -410,7 +434,7 @@ def analyze_text(text):
         analysis.diagnostics.append(Diag(
             block_start, 0,
             len(lines[block_start]) if block_start < len(lines) else 0,
-            'warning', "Unclosed block '(' — content may be silently consumed",
+            'error', "Unclosed block '(' — content may be silently consumed",
         ))
 
     for d in analysis.definitions:
@@ -424,21 +448,41 @@ def analyze_text(text):
     return analysis
 
 
+def _in_p_span(line_text, character):
+    """True when the cursor offset lies inside a balanced *p(...) span."""
+    pat = re.compile(r'\*p\(')
+    pos = 0
+    while True:
+        m = pat.search(line_text, pos)
+        if not m:
+            return False
+        close = _balanced_range(line_text, m.end() - 1)
+        if close is None:
+            return False
+        if m.start() <= character < close:
+            return True
+        pos = close
+
+
 def complete(text, line, character):
     """Completion candidates at a cursor position (client filters by prefix)."""
     analysis = analyze_text(text)
     lines = text.splitlines()
     cur = lines[line] if 0 <= line < len(lines) else ''
+    # Inside *p(...) raw spans the compiler ignores variables; suppress
+    # variable/define items there (keep symbol/function help).
+    in_p = _in_p_span(cur, max(0, character))
     head = cur[:max(0, character)]
     star = bool(re.search(r'\*(?=[A-Za-z_][A-Za-z0-9_]*$)', head))
 
     items = []
-    for name, (kind, value, _def_line) in sorted(analysis.values.items()):
-        items.append({
-            'label': name,
-            'kind': 'variable' if kind == 'variable' else 'constant',
-            'detail': f'= {value}' if value else kind,
-        })
+    if not in_p:
+        for name, (kind, value, _def_line) in sorted(analysis.values.items()):
+            items.append({
+                'label': name,
+                'kind': 'variable' if kind == 'variable' else 'constant',
+                'detail': f'= {value}' if value else kind,
+            })
     for name in sorted(builtins.MATH_DOCS):
         sig, _desc = builtins.MATH_DOCS[name]
         items.append({'label': name, 'kind': 'function', 'detail': sig})
@@ -464,6 +508,9 @@ def hover(text, line, character):
     if not (0 <= line < len(lines)):
         return None
     cur = lines[line]
+    if _in_p_span(cur, character):
+        # Raw passthrough: the compiler treats contents literally.
+        return None
     token = None
     for m in WORD_AT.finditer(cur):
         if m.start() <= character < m.end():

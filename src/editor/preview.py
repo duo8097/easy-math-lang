@@ -22,7 +22,7 @@ def ensure_workdir(workdir):
     return path
 
 
-def compile_source_to_pdf(source_text, workdir):
+def compile_source_to_pdf(source_text, workdir, version=None):
     """Compile *source_text* to a preview PDF inside *workdir*.
 
     Writes ``preview.ezmath`` then reuses
@@ -37,8 +37,12 @@ def compile_source_to_pdf(source_text, workdir):
     from compiler.pipeline import compile_ezmath
 
     directory = ensure_workdir(workdir)
+    # Versioned PDF name: the GUI may hold the previous PDF open in
+    # QPdfDocument, and on Windows overwriting an open file fails with
+    # a sharing violation. Each render gets its own file.
+    suffix = f'-{int(version)}' if version is not None else ''
     src_path = os.path.join(directory, PREVIEW_SOURCE_NAME)
-    pdf_path = os.path.join(directory, PREVIEW_PDF_NAME)
+    pdf_path = os.path.join(directory, f'preview{suffix}.pdf' if suffix else PREVIEW_PDF_NAME)
     typ_path = os.path.join(directory, PREVIEW_TYP_NAME)
     with open(src_path, 'w', encoding='utf-8') as handle:
         handle.write(source_text)
@@ -50,7 +54,7 @@ def compile_source_to_pdf(source_text, workdir):
             contextlib.redirect_stderr(stderr_buf):
         try:
             ok = bool(compile_ezmath(src_path, pdf_path))
-        except Exception as exc:  # never let preview crash the editor
+        except BaseException as exc:  # never let preview wedge the panel
             print(f'[ERROR] Preview failed: {exc}')
             ok = False
     log = (stdout_buf.getvalue() + stderr_buf.getvalue()).strip()

@@ -3,12 +3,11 @@
 import hashlib
 import math
 import re
-import sys
 
 import numpy as np
 
 from .errors import GeometryError, GeometryWarning
-from .vectors import _cross2d, _norm
+from .vectors import _norm
 
 
 class GeometrySolver:
@@ -20,6 +19,10 @@ class GeometrySolver:
         self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
 
     def add_point(self, name, x=None, y=None):
+        if (x is None) != (y is None):
+            raise GeometryError(
+                f"point '{name}': both coordinates required, got x={x!r} y={y!r}"
+            )
         if x is not None and y is not None:
             import math as _math
 
@@ -45,12 +48,14 @@ class GeometrySolver:
             self.points[name] = new_pt
             self.fixed.add(name)
         elif name not in self.points:
-            # Deterministic layout (no RNG): spread points on a circle
-            # based on a stable hash of the name so repeated runs
-            # (including across processes) are identical.
-            h = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16) % 360
-            r = 3.0
-            ang = math.radians(h)
+            # Deterministic layout (no RNG): spread points on a golden-angle
+            # spiral keyed by a stable hash so repeated runs (including
+            # across processes) are identical and collisions are rare.
+            digest = hashlib.md5(name.encode('utf-8')).hexdigest()
+            h = int(digest[:8], 16)
+            h2 = int(digest[8:16], 16)
+            ang = math.radians(h % 360) + (h2 % 100) * 0.01
+            r = 3.0 + (h2 % 200) * 0.02
             self.points[name] = np.array([r * math.cos(ang), r * math.sin(ang)])
 
     def add_constraint(self, label, fn):
@@ -58,9 +63,19 @@ class GeometrySolver:
 
     def validate(self):
         """Check for undefined points before solving."""
+        # Arity for point-position args; anything past is malformed and
+        # reported by codegen, not as a misleading 'undefined point'.
+        _arity = {
+            'triangle': 3, 'line': 2, 'ray': 2, 'circle': 2,
+            'right-angle': 3, 'arc': 3, 'length': 2, 'angle-value': 3,
+            'label': 1, 'angle': 3, 'equal-angle': 6,
+        }
         for cmd, args in self.draw_commands:
+            max_pts = _arity.get(cmd)
             for i, arg in enumerate(args):
                 arg = arg.strip()
+                if max_pts is not None and i >= max_pts:
+                    continue
                 if arg.lower() == 'infinite':
                     continue
                 if cmd == 'triangle' and i == 3 and arg.lower() == 'labels':
@@ -192,6 +207,18 @@ class GeometrySolver:
                     f"constraint conflict — these constraints cannot be satisfied simultaneously: {labels}"
                 )
             else:
+                worst = max([r for _, r in residuals] or [final_cost])
+                # Gross single-constraint miss (orders of magnitude off) is
+                # a hard error, not a silent warning with an authoritative
+                # diagram.
+                if worst > 1e9:
+                    lbl = conflicting[0][0] if conflicting else (
+                        max(residuals, key=lambda t: t[1])[0] if residuals else "unknown"
+                    )
+                    raise GeometryError(
+                        f"solver failed near constraint '{lbl}' (residual={worst:.2e}) — "
+                        f"diagram would be incorrect"
+                    )
                 if conflicting:
                     label = conflicting[0][0]
                 elif residuals:

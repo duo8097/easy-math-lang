@@ -1,6 +1,7 @@
 [Setup]
 AppName=Easy Math Lang
 AppVersion=1.1.1
+PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLangSetup
@@ -33,9 +34,19 @@ Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Tasks: addtopath; Check: NeedsAddPath('{app}\bin')
 
 [Code]
+function RemoveBackslash(S: string): string;
+var
+  T: string;
+begin
+  T := S;
+  while (Length(T) > 0) and (T[Length(T)] = '\') do
+    Delete(T, Length(T), 1);
+  Result := T;
+end;
+
 function NeedsAddPath(Param: string): boolean;
 var
-  OrigPath: string;
+  OrigPath, Hay, Needle, NeedleSlash: string;
 begin
   // Must read the same hive the [Registry] entry writes (HKCU user PATH).
   if not RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then
@@ -43,5 +54,36 @@ begin
     Result := True;
     exit;
   end;
-  Result := Pos(';' + Param + ';', ';' + OrigPath + ';') = 0;
+  // Case-insensitive, trailing-backslash tolerant: Windows paths are
+  // case-insensitive, so 'C:\X\Bin' must match 'c:\x\bin\'.
+  Hay := ';' + LowerCase(OrigPath) + ';';
+  // Normalize '\;' (trailing slash before separator) to ';' for matching.
+  StringChangeEx(Hay, '\;', ';', True);
+  Needle := ';' + LowerCase(RemoveBackslash(Param)) + ';';
+  NeedleSlash := ';' + LowerCase(RemoveBackslash(Param)) + '\;';
+  Result := (Pos(Needle, Hay) = 0) and (Pos(NeedleSlash, Hay) = 0);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  OrigPath, Cleaned, Entry: string;
+begin
+  // Strip the '{app}\bin' entry we appended, so uninstall does not leave
+  // a stale dead dir on the user's PATH.
+  if CurUninstallStep = usUninstall then
+  begin
+    if RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then
+    begin
+      Entry := ExpandConstant('{app}\bin');
+      Cleaned := OrigPath;
+      StringChangeEx(Cleaned, ';' + Entry, '', True);
+      StringChangeEx(Cleaned, Entry + ';', '', True);
+      StringChangeEx(Cleaned, Entry, '', True);
+      // Collapse accidental ';;' leftovers.
+      while Pos(';;', Cleaned) > 0 do
+        StringChangeEx(Cleaned, ';;', ';', True);
+      if Cleaned <> OrigPath then
+        RegWriteExpandStringValue(HKCU, 'Environment', 'Path', Cleaned);
+    end;
+  end;
 end;

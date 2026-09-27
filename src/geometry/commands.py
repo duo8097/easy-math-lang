@@ -77,6 +77,26 @@ def _process_command(solver, cmd, args):
         solver.add_point(B)
         if A == B and d > 1e-9:
             raise GeometryError(f"*distance({A} ; {B} ; {d}): same point cannot have non-zero distance")
+        # Seed a good initial guess so huge (but legal) distances do not
+        # require the solver to travel ~1e6 units from the default r=3
+        # circle (max ~5000 steps * 1.0 clip). If exactly one endpoint is
+        # fixed, place the free one at distance d; if both are free,
+        # separate them along +x.
+        try:
+            a_fixed = A in solver.fixed
+            b_fixed = B in solver.fixed
+            if d > 1e-9:
+                if a_fixed and not b_fixed:
+                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                    solver.points[B] = np.array([ax + d, ay])
+                elif b_fixed and not a_fixed:
+                    bx, by = float(solver.points[B][0]), float(solver.points[B][1])
+                    solver.points[A] = np.array([bx - d, by])
+                elif not a_fixed and not b_fixed:
+                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                    solver.points[B] = np.array([ax + d, ay])
+        except Exception:
+            pass
         solver.add_constraint(
             f"distance({A},{B}={d})",
             lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2
@@ -88,13 +108,23 @@ def _process_command(solver, cmd, args):
             for pt in [A, B, C, D]:
                 _check_point_name(pt)
                 solver.add_point(pt)
+
+            def _perp_cost_4(P, a=A, b=B, c=C, d=D):
+                v1 = P[b] - P[a]
+                v2 = P[d] - P[c]
+                n1, n2 = float(_norm(v1)), float(_norm(v2))
+                if n1 < 1e-9 or n2 < 1e-9:
+                    return 1.0
+                cosang = float(np.dot(v1, v2)) / (n1 * n2)
+                return cosang * cosang
+
             solver.add_constraint(
                 f"perp({A}{B},{C}{D})",
                 lambda P, a=A, b=B, c=C, d=D: _seg_cost(
                     P, a, b,
                     lambda: _seg_cost(
                         P, c, d,
-                        lambda: np.dot(P[b] - P[a], P[d] - P[c]) ** 2,
+                        lambda: _perp_cost_4(P, a, b, c, d),
                     ),
                 )
             )
@@ -103,13 +133,23 @@ def _process_command(solver, cmd, args):
             for pt in [A, B, C]:
                 _check_point_name(pt)
                 solver.add_point(pt)
+
+            def _perp_cost_3(P, a=A, b=B, c=C):
+                v1 = P[b] - P[a]
+                v2 = P[c] - P[b]
+                n1, n2 = float(_norm(v1)), float(_norm(v2))
+                if n1 < 1e-9 or n2 < 1e-9:
+                    return 1.0
+                cosang = float(np.dot(v1, v2)) / (n1 * n2)
+                return cosang * cosang
+
             solver.add_constraint(
                 f"perp({A}{B},{B}{C})",
                 lambda P, a=A, b=B, c=C: _seg_cost(
                     P, a, b,
                     lambda: _seg_cost(
                         P, b, c,
-                        lambda: np.dot(P[b] - P[a], P[c] - P[b]) ** 2,
+                        lambda: _perp_cost_3(P, a, b, c),
                     ),
                 )
             )
@@ -123,13 +163,23 @@ def _process_command(solver, cmd, args):
         for pt in [A, B, C, D]:
             _check_point_name(pt)
             solver.add_point(pt)
+
+        def _parallel_cost(P, a=A, b=B, c=C, d=D):
+            v1 = P[b] - P[a]
+            v2 = P[d] - P[c]
+            n1, n2 = float(_norm(v1)), float(_norm(v2))
+            if n1 < 1e-9 or n2 < 1e-9:
+                return 1.0
+            sinang = float(_cross2d(v1, v2)) / (n1 * n2)
+            return sinang * sinang
+
         solver.add_constraint(
             f"parallel({A}{B},{C}{D})",
             lambda P, a=A, b=B, c=C, d=D: _seg_cost(
                 P, a, b,
                 lambda: _seg_cost(
                     P, c, d,
-                    lambda: _cross2d(P[b] - P[a], P[d] - P[c]) ** 2,
+                    lambda: _parallel_cost(P, a, b, c, d),
                 ),
             )
         )
@@ -141,11 +191,20 @@ def _process_command(solver, cmd, args):
         for pt in [A, B, C]:
             _check_point_name(pt)
             solver.add_point(pt)
+
+        def _online_cost(P, a=A, b=B, c=C):
+            v1 = P[b] - P[a]
+            n1 = float(_norm(v1))
+            if n1 < 1e-9:
+                return 1.0
+            # Distance from C to line AB (absolute units, not L^4).
+            return (float(_cross2d(v1, P[c] - P[a])) / n1) ** 2
+
         solver.add_constraint(
             f"on-line({C} on {A}{B})",
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
-                lambda: _cross2d(P[b] - P[a], P[c] - P[a]) ** 2,
+                lambda: _online_cost(P, a, b, c),
             )
         )
 
@@ -219,24 +278,43 @@ def _process_command(solver, cmd, args):
         D, E = _parse_line_arg(args[2])
         for pt in [A, B, C, D, E]:
             solver.add_point(pt)
+
+        def _inter_cost_1(P, a=A, b=B, c=C):
+            v = P[b] - P[a]
+            n = float(_norm(v))
+            if n < 1e-9:
+                return 1.0
+            return (float(_cross2d(v, P[c] - P[a])) / n) ** 2
+
+        def _inter_cost_2(P, d=D, e=E, c=C):
+            v = P[e] - P[d]
+            n = float(_norm(v))
+            if n < 1e-9:
+                return 1.0
+            return (float(_cross2d(v, P[c] - P[d])) / n) ** 2
+
         solver.add_constraint(
             f"intersection({C} on {A}{B})",
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
-                lambda: _cross2d(P[b] - P[a], P[c] - P[a]) ** 2,
+                lambda: _inter_cost_1(P, a, b, c),
             )
         )
         solver.add_constraint(
             f"intersection({C} on {D}{E})",
             lambda P, d=D, e=E, c=C: _seg_cost(
                 P, d, e,
-                lambda: _cross2d(P[e] - P[d], P[c] - P[d]) ** 2,
+                lambda: _inter_cost_2(P, d, e, c),
             )
         )
 
     # Draw-only commands — just register for the draw pass
     elif cmd in ('line', 'ray', 'triangle', 'circle', 'right-angle', 'angle',
                  'equal-angle', 'arc', 'label', 'length', 'angle-value'):
+        if cmd == 'equal-angle' and len(args) != 6:
+            raise GeometryError(
+                f"*equal-angle requires 6 arguments: A ; B ; C ; D ; E ; F (got {len(args)})"
+            )
         # Auto-create referenced points so simple drawings work without
         # explicit *point() (per spec: coordinates are optional).
         for i, arg in enumerate(args):
@@ -265,6 +343,8 @@ def _process_command(solver, cmd, args):
             if cmd == 'length' and i >= 2:
                 continue
             if cmd == 'angle-value' and i >= 3:
+                continue
+            if cmd == 'equal-angle' and i >= 6:
                 continue
             # *label(P ; text): only the first arg is a point; the text
             # must never auto-create a stray point (e.g. *label(A ; hello)).

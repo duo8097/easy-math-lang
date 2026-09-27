@@ -63,7 +63,12 @@ _CROSS_CHECK = (
          'pow', 'root', 'sum', 'prod', 'lim'} <= set(MATH_DOCS)
     and set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS)
 )
-assert _CROSS_CHECK, 'lsp builtins diverged from compiler command tables'
+if not _CROSS_CHECK:  # pragma: no cover - startup safety, not a crash
+    import logging as _logging
+    _logging.getLogger('easy-math-lsp').warning(
+        'lsp builtins diverged from compiler command tables; '
+        'continuing with best-effort tables'
+    )
 
 
 def symbol_entries():

@@ -52,10 +52,13 @@ class _PreviewWorker(QtCore.QObject):
     def render(self, version, text, workdir):
         from .preview import compile_source_to_pdf
         try:
-            result = compile_source_to_pdf(text, workdir)
-        except Exception as exc:  # keep the editor alive on any failure
+            result = compile_source_to_pdf(text, workdir, version=version)
+        except BaseException as exc:  # keep the editor alive on any failure
             result = {'ok': False, 'pdf': None, 'typ': '', 'log': str(exc)}
-        self.finished.emit(version, result)
+        try:
+            self.finished.emit(version, result)
+        except BaseException:
+            pass
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -277,9 +280,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _is_lsp_document(self):
         if self._file_path is not None:
-            return self._file_path.endswith(SUPPORTED_SUFFIXES)
+            return self._file_path.lower().endswith(SUPPORTED_SUFFIXES)
         return self._doc_uri is not None and \
-            self._doc_uri.endswith(SUPPORTED_SUFFIXES)
+            self._doc_uri.lower().split('?')[0].split('#')[0].endswith(SUPPORTED_SUFFIXES)
 
     def _open_current_in_lsp(self):
         if not self.lsp.is_connected() or not self._is_lsp_document():
@@ -737,7 +740,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
             return
         self._recent.add(path)
@@ -795,18 +798,54 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._switch_document(None, '')
 
+    def _file_dialog(self, save, title):
+        """Open/Save path picker, always in light mode.
+
+        Native OS dialogs ignore Qt palettes/stylesheets, so in dark mode
+        they would pop up glaringly light while a Qt-drawn dialog would
+        follow the dark app theme. Either way the dialog would not be
+        reliably light, so in dark mode a Qt-drawn (non-native) dialog is
+        used with a forced light palette + light override stylesheet.
+        In light mode the native dialog users expect is kept. Returns
+        ``(path, selected_filter)`` like the static
+        ``QFileDialog.getOpen/SaveFileName`` helpers.
+        """
+        file_filter = 'Easy-Math-Lang (*.ezmath *.eml);;All files (*)'
+        if self._theme_name != app_theme.DARK:
+            if save:
+                return QtWidgets.QFileDialog.getSaveFileName(
+                    self, title, '', file_filter)
+            return QtWidgets.QFileDialog.getOpenFileName(
+                self, title, '', file_filter)
+        dialog = QtWidgets.QFileDialog(self, title, '', file_filter)
+        dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        try:
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                dialog.setPalette(app.style().standardPalette())
+        except Exception:
+            pass
+        dialog.setStyleSheet(app_theme.LIGHT_DIALOG_STYLESHEET)
+        if save:
+            dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+        else:
+            dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        if dialog.exec():
+            files = dialog.selectedFiles()
+            if files:
+                return files[0], dialog.selectedNameFilter()
+        return '', ''
+
     def _open_file(self):
         if not self._maybe_save():
             return
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, 'Open', '',
-            'Easy-Math-Lang (*.ezmath *.eml);;All files (*)')
+        path, _ = self._file_dialog(False, 'Open')
         if not path:
             return
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
             return
         self._recent.add(path)
@@ -816,25 +855,39 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._file_path is None:
             return self._save_as()
         try:
-            with open(self._file_path, 'w', encoding='utf-8') as handle:
-                handle.write(self.editor.toPlainText())
-        except OSError as e:
+            self._atomic_write(self._file_path, self.editor.toPlainText())
+        except (OSError, UnicodeEncodeError) as e:
             QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
             return False
         self.editor.document().setModified(False)
         self._update_title()
         return True
 
+    @staticmethod
+    def _atomic_write(path, text):
+        """Write *text* atomically via temp file + os.replace."""
+        import tempfile
+        directory = os.path.dirname(os.path.abspath(path)) or '.'
+        os.makedirs(directory, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=directory, prefix='.easymath-save-')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+                handle.write(text)
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+
     def _save_as(self):
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, 'Save As', '',
-            'Easy-Math-Lang (*.ezmath *.eml);;All files (*)')
+        path, _ = self._file_dialog(True, 'Save As')
         if not path:
             return False
         try:
-            with open(path, 'w', encoding='utf-8') as handle:
-                handle.write(self.editor.toPlainText())
-        except OSError as e:
+            self._atomic_write(path, self.editor.toPlainText())
+        except (OSError, UnicodeEncodeError) as e:
             QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
             return False
         self._recent.add(path)
@@ -875,6 +928,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage('Could not start compiler', 8000)
 
     def _on_build_finished(self, exit_code, _status):
+        if getattr(self, '_closing', False):
+            # Tearing down (kill() in closeEvent): suppress the spurious
+            # failure modal; the process was intentionally terminated.
+            proc, self._build_process = self._build_process, None
+            if proc is not None:
+                try:
+                    proc.deleteLater()
+                except RuntimeError:
+                    pass
+            return
         process, self._build_process = self._build_process, None
         output = ''
         if process is not None:
@@ -1041,6 +1104,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 app.setPalette(palette)
             elif self._default_palette is not None:
                 app.setPalette(self._default_palette)
+            try:
+                app.setStyleSheet(app_theme.stylesheet(name))
+            except Exception:
+                pass
+        # Qt-drawn menu bar honors palette/stylesheet; the native OS
+        # menu bar does not, so keep it embedded.
+        try:
+            self.menuBar().setNativeMenuBar(False)
+        except Exception:
+            pass
+        self._set_title_bar_dark(name == app_theme.DARK)
         self.editor.set_theme(name)
         colors = app_theme.editor_colors(name)
         self._find_all_color = QtGui.QColor(colors['find_all'])
@@ -1051,6 +1125,37 @@ class MainWindow(QtWidgets.QMainWindow):
             action.setChecked(name == app_theme.DARK)
         if save:
             app_theme.save_theme_name(self._settings, name)
+
+    def _set_title_bar_dark(self, dark):
+        """Match the Windows OS title bar to the theme (no-op elsewhere).
+
+        Qt cannot paint the outer title bar; on Windows 10 20H1+ the
+        DWMWA_USE_IMMERSIVE_DARK_MODE attribute switches it. Never raises:
+        headless tests and non-Windows platforms simply skip it.
+        """
+        try:
+            import os
+            if os.name != 'nt':
+                return
+            import ctypes
+            hwnd = int(self.winId())
+            if not hwnd:
+                return
+            dwmapi = ctypes.windll.dwmapi
+            value = ctypes.c_int(1 if dark else 0)
+            # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (19 on older builds;
+            # 20 works on 20H1+ and is harmless otherwise).
+            for attr in (20, 19):
+                try:
+                    if dwmapi.DwmSetWindowAttribute(
+                            hwnd, attr,
+                            ctypes.byref(value),
+                            ctypes.sizeof(value)) == 0:
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     def _toggle_theme(self):
         self._apply_theme(app_theme.DARK
@@ -1099,13 +1204,13 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._preview_timer.start()
 
-    def _refresh_preview_now(self):
+    def _refresh_preview_now(self, force=False):
         if not self._preview_dock.isVisible():
             self._preview_dock.show()
             self._preview_dock.raise_()
         self._preview_version += 1
         self._preview_timer.stop()
-        self._on_preview_timeout()
+        self._on_preview_timeout(force=True)
 
     def _on_preview_visibility(self, _visible):
         # Opening the dock renders immediately; hiding cancels pending work
@@ -1123,8 +1228,10 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self._preview_timer.stop()
 
-    def _on_preview_timeout(self):
-        if not self._preview_auto or not self._preview_dock.isVisible():
+    def _on_preview_timeout(self, force=False):
+        if not force and (not self._preview_auto or not self._preview_dock.isVisible()):
+            return
+        if not self._preview_dock.isVisible():
             return
         version = self._preview_version
         self.preview.show_loading()
@@ -1133,11 +1240,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_preview_finished(self, version, result):
         if version != self._preview_version:
+            # Stale render: clean up its versioned PDF so temp does not grow.
+            try:
+                stale_pdf = result.get('pdf') if isinstance(result, dict) else None
+                if stale_pdf and os.path.isfile(stale_pdf):
+                    os.unlink(stale_pdf)
+            except OSError:
+                pass
             return  # stale: user kept typing while compiling
         if not isinstance(result, dict):
             return
         if result.get('ok') and result.get('pdf'):
+            old_pdf = getattr(self.preview, 'pdf_path', None)
             self.preview.show_pdf(result['pdf'])
+            # Delete the previous versioned PDF now that the new one is loaded.
+            try:
+                if old_pdf and old_pdf != result['pdf'] and os.path.isfile(old_pdf):
+                    # Only clean our preview files, never user documents.
+                    if os.path.basename(old_pdf).startswith('preview'):
+                        os.unlink(old_pdf)
+            except OSError:
+                pass
             return
         log = (result.get('log') or '').strip()
         self.preview.show_error(
@@ -1161,11 +1284,25 @@ class MainWindow(QtWidgets.QMainWindow):
         except RuntimeError:
             pass
         thread = getattr(self, '_preview_thread', None)
+        worker = getattr(self, '_preview_worker', None)
         if thread is not None:
             thread.quit()
-            thread.wait(3000)
+            if not thread.wait(3000):
+                # Compile running >3s: terminate to avoid destroying a
+                # live QThread (Qt fatal), then wait briefly and abandon
+                # (never block close indefinitely).
+                try:
+                    thread.terminate()
+                except RuntimeError:
+                    pass
+                thread.wait(3000)
+            try:
+                if worker is not None:
+                    worker.deleteLater()
+            except RuntimeError:
+                pass
         workdir = getattr(self, '_preview_workdir', None)
-        if workdir:
+        if workdir and (thread is None or not thread.isRunning()):
             shutil.rmtree(workdir, ignore_errors=True)
 
     def open_path(self, path):
@@ -1173,7 +1310,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
             return
         self._recent.add(path)

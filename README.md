@@ -18,10 +18,9 @@ without fighting complex software.
 The easiest way to use easy-math-lang on Windows — no Python needed:
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
-2. Download `EasyMathLangSetup_win_x86-64.zip` from the latest release.
-3. Extract `EasyMathLangSetup_win_x86-64.zip`
-4. Run `EasyMathLangSetup.exe` and follow the setup steps.
-5. Launch **Easy Math Editor** from the Start Menu.
+2. Download `EasyMathLangSetup.exe` from the latest release.
+3. Run `EasyMathLangSetup.exe` and follow the setup steps.
+4. Launch **Easy Math Editor** from the Start Menu.
 
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).

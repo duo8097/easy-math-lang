@@ -25,15 +25,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "compiler build failed" }
 
     uv run pyinstaller entry_lsp.py --name easy-math-lsp --onefile `
-        --collect-all pygls --collect-all typst --noconfirm
+        --collect-all pygls --collect-all typst --collect-all numpy --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "lsp build failed" }
 
     uv run pyinstaller entry_editor.py --name easy-math-editor --onedir `
-        --windowed --collect-all PySide6 --collect-all typst --noconfirm
+        --windowed --collect-all PySide6 --collect-all typst --collect-all numpy --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "editor build failed" }
 
     # `ezmath` is the short CLI alias (pyproject [project.scripts]); it is
     # the same binary under another name, so copy instead of rebuilding.
+    if (-not (Test-Path dist/easy-math-lang.exe)) { throw "compiler output missing" }
     Copy-Item dist/easy-math-lang.exe dist/ezmath.exe -Force
 }
 finally {

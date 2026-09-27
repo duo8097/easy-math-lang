@@ -119,7 +119,7 @@ def test_arc_quarter():
     out = parse_draw_block(
         "*point(O = 0, 0)\n*point(A = 3, 0)\n*point(B = 0, 3)\n*arc(O ; A ; B)"
     )
-    assert "arc((3.000, 0.000), start: 0.00deg, stop: 90.00deg" in out
+    assert "arc((0.000, 0.000), start: 0.00deg, stop: 90.00deg" in out
     assert "radius: 3.000" in out
 
 

@@ -50,9 +50,9 @@ def _parse_commands(block_text):
         if star == -1:
             break
 
-        # Read command name (letters, digits, hyphens)
+        # Read command name (letters, digits, hyphens, underscores)
         j = star + 1
-        while j < len(block_text) and (block_text[j].isalnum() or block_text[j] == '-'):
+        while j < len(block_text) and (block_text[j].isalnum() or block_text[j] in '-_'):
             j += 1
 
         if j == star + 1:
@@ -86,18 +86,24 @@ def _parse_commands(block_text):
                 f"[GeometryError] unclosed parentheses in *{cmd_name}(...) — skipping",
                 file=sys.stderr,
             )
-            i = k
+            # Skip only this broken command so later valid commands
+            # in the same block are still parsed.
+            i = star + 1
             continue
 
         args_str = block_text[j + 1:k - 1]
         annot = ''
+        annot_end = k
         m = _re.match(r'[ \t]*=(?![=>])[ \t]*([^\n]*)', block_text[k:])
         if m:
             # A value never contains a new command: stop at `*name(`
             # so `= 2*3` survives but a following command does not leak in.
             annot = _re.sub(r'\*[A-Za-z][A-Za-z0-9_]*\s*\(.*$', '', m.group(1)).strip()
+            # Advance past the whole annotation so an embedded *cmd(
+            # inside it is not re-parsed as a real command.
+            annot_end = k + m.end()
         yield cmd_name, args_str, annot
-        i = k
+        i = annot_end
 
 
 def parse_draw_block(block_text):

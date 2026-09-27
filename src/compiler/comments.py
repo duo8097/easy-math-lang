@@ -42,7 +42,10 @@ def _balanced_spans(line, opener):
                 depth -= 1
             i += 1
         if depth != 0:
-            return
+            # Unclosed opener: skip it and continue so later balanced
+            # spans on the same line are still protected.
+            pos = s + pat_len
+            continue
         yield (s, i)
         pos = i
 

@@ -22,7 +22,12 @@ class RecentFiles:
         value = self._settings.value(self._key, [])
         if isinstance(value, str):
             return [value]
-        return [str(p) for p in (value or [])]
+        if not isinstance(value, (list, tuple)):
+            return []
+        try:
+            return [str(p) for p in (value or [])]
+        except TypeError:
+            return []
 
     def clear(self):
         self._settings.remove(self._key)

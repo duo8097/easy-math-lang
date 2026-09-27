@@ -4,8 +4,6 @@ import os
 import re
 import sys
 
-import geometry
-
 try:
     import typst
 except ImportError:  # pragma: no cover - degraded mode without PDF backend
@@ -134,11 +132,25 @@ def _render_text_line(ctx, raw, line_no):
         text = raw
         placeholders = {}
 
+    # Protect literal user '$' so later $...$ splits only see generated
+    # math. Without this, "cost $5 and $x" pairs into a fake math span
+    # that skips escaping (injection/bypass). Digit-only placeholders
+    # are immune to define substitution.
+    dollar_placeholders = {}
+    if '$' in text:
+        parts = text.split('$')
+        text = parts[0]
+        for k, seg in enumerate(parts[1:], start=0):
+            ph = f'\x05{k}\x05'
+            dollar_placeholders[ph] = ph
+            text += ph + seg
+        # Note: split removed the '$' chars; each becomes a placeholder.
+
     # 2. Substitute variables <var>
     text = replace_vars(ctx, text)
 
     # 3. Check for undefined variables (hard error)
-    text = check_undefined_vars(text, line_no)
+    text = check_undefined_vars(text, line_no, ctx)
 
     # 4. Substitute defines
     text = replace_defines(ctx, text)
@@ -191,9 +203,9 @@ def _render_text_line(ctx, raw, line_no):
     for i, tok in enumerate(tokens_for_index):
         if not (tok.startswith('$') and tok.endswith('$') and len(tok) >= 2):
             # Single-letter base only (A_1, x_n): avoids corrupting
-            # snake_case words like my_file.
+            # snake_case words like my_file. Chained A_1_2 is one index.
             tokens_for_index[i] = re.sub(
-                r'\b([A-Za-z])_([A-Za-z0-9]+)\b', index_replacer, tok
+                r'\b([A-Za-z])_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)\b', index_replacer, tok
             )
     text = ''.join(tokens_for_index)
 
@@ -212,8 +224,11 @@ def _render_text_line(ctx, raw, line_no):
     text = ''.join(tokens)
 
     # 13. Escape special Typst syntax characters outside math blocks
-    # (lone '$' included: anything still outside $...$ here is literal).
+    # (user '$' are placeholders here; generated $...$ are preserved).
     text = escape_typst_outside_math(text, escape_dollar=True)
+    # Restore literal dollars as escaped Typst dollars.
+    for ph in dollar_placeholders:
+        text = text.replace(ph, r'\$')
 
     for ph, raw_content in placeholders.items():
         text = text.replace(ph, raw_content)
@@ -223,10 +238,52 @@ def _render_text_line(ctx, raw, line_no):
     return text
 
 
+def _parse_draw_safe(block_text, line_no=None):
+    """Parse a draw block without ever crashing the build.
+
+    Returns Typst output; on hard failure emits a comment placeholder
+    and reports [Error] so compile_ezmath returns False upstream.
+    """
+    try:
+        import geometry
+    except ImportError as e:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} geometry support missing ({e}) — draw skipped',
+              file=sys.stderr)
+        return '// [Error] draw skipped: geometry support missing'
+    try:
+        return geometry.parse_draw_block(block_text)
+    except Exception as e:
+        loc = f' Line {line_no}:' if line_no else ''
+        print(f'[Error]{loc} invalid *draw block ({e})', file=sys.stderr)
+        return f'// [Error] invalid draw block: {e}'
+
+
+def _is_draw_error_placeholder(out_line):
+    return out_line.startswith('// [Error]')
+
+
 def _render_math_inner_multiline(ctx, full_raw, line_no):
     """Substitute vars/defines/calc then convert a multiline math body."""
+    # Protect *p(...) raw spans so they bypass math processing, mirroring
+    # the single-line path.
+    p_segs = _extract_p_segments(full_raw)
+    if any(is_raw for is_raw, _ in p_segs):
+        out_parts = []
+        for is_raw, content in p_segs:
+            if is_raw:
+                out_parts.append(escape_typst_outside_math(content))
+            elif not content.strip():
+                out_parts.append(content)
+            else:
+                sub = replace_vars(ctx, content)
+                sub = check_undefined_vars(sub, line_no, ctx)
+                sub = replace_defines(ctx, sub)
+                sub = apply_calc_in_string(ctx, sub, line_no=line_no)
+                out_parts.append(process_math_inner(ctx, sub, line_no))
+        return ' '.join(p for p in out_parts if p != '').strip()
     sub = replace_vars(ctx, full_raw)
-    sub = check_undefined_vars(sub, line_no)
+    sub = check_undefined_vars(sub, line_no, ctx)
     sub = replace_defines(ctx, sub)
     sub = apply_calc_in_string(ctx, sub, line_no=line_no)
     return process_math_inner(ctx, sub, line_no)
@@ -274,24 +331,35 @@ def compile_ezmath(input_file, output_pdf=None):
     try:
         with open(input_str, 'r', encoding='utf-8') as f:
             raw_text = f.read()
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
         return False
 
     lines = strip_comments(raw_text).splitlines()
     output_lines = []
+    draw_failed = False
     in_f_block = False
     block_type = None
     block_content = []
     in_math = False
     math_buf = []
     math_start = 0
+    in_fence = False
 
     for line_no, line in enumerate(lines, start=1):
+        stripped_fence = line.strip()
+        if stripped_fence.startswith('```'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            # Fenced code blocks are literal: no assignments, no math,
+            # no Typst structure. Force every '$' literal.
+            output_lines.append(
+                escape_typst_outside_math(line.rstrip('\n')).replace('$', r'\$')
+            )
+            continue
         line = line.strip()
         if not line:
-            continue
-        if line.startswith('```'):
             continue
 
         # --- Multiline math continuation (control lines suspended) ---
@@ -331,7 +399,10 @@ def compile_ezmath(input_file, output_pdf=None):
             inner = replace_vars(ctx, inner)
             inner = replace_defines(ctx, inner)
             inner = apply_calc_in_string(ctx, inner, line_no=line_no)
-            output_lines.append(geometry.parse_draw_block(inner))
+            drawn = _parse_draw_safe(inner, line_no=line_no)
+            output_lines.append(drawn)
+            if _is_draw_error_placeholder(drawn):
+                draw_failed = True
             continue
 
         # Multi-line blocks: *( or *f( or f( or *draw(
@@ -364,7 +435,10 @@ def compile_ezmath(input_file, output_pdf=None):
             continue
         elif line == ')' and in_f_block:
             if block_type == '*draw(':
-                output_lines.append(geometry.parse_draw_block('\n'.join(block_content)))
+                drawn = _parse_draw_safe('\n'.join(block_content), line_no=line_no)
+                output_lines.append(drawn)
+                if _is_draw_error_placeholder(drawn):
+                    draw_failed = True
             else:
                 for stmt in block_content:
                     process_assignment_or_define(ctx, stmt, line_no=line_no)
@@ -441,8 +515,13 @@ def compile_ezmath(input_file, output_pdf=None):
         if index < len(output_lines) - 1:
             typst_content.append('#v(0.65em)')
 
-    with open(typst_file, 'w', encoding='utf-8') as tf:
-        tf.write('\n'.join(typst_content) + '\n')
+    try:
+        with open(typst_file, 'w', encoding='utf-8') as tf:
+            tf.write('\n'.join(typst_content) + '\n')
+    except OSError as e:
+        print(f'\n[ERROR] Cannot write intermediate file {typst_file!r}: {e}',
+              file=sys.stderr)
+        return False
 
     print(f'Generated intermediate file: {typst_file}')
 
@@ -450,6 +529,14 @@ def compile_ezmath(input_file, output_pdf=None):
         print(
             '\n[ERROR] Build failed: unclosed block — output PDF not attempted. '
             'Add the missing \')\' and retry.',
+            file=sys.stderr,
+        )
+        return False
+
+    if draw_failed:
+        print(
+            '\n[ERROR] Build failed: invalid *draw block — output PDF not attempted. '
+            'Fix the geometry errors above and retry.',
             file=sys.stderr,
         )
         return False

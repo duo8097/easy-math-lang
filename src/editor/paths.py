@@ -28,7 +28,7 @@ import shutil
 import sys
 
 LSP_EXE_NAMES = ('easy-math-lsp',)
-COMPILER_EXE_NAMES = ('easy-math-lang',)
+COMPILER_EXE_NAMES = ('easy-math-lang', 'ezmath')
 
 LSP_MODULE = 'lsp'
 COMPILER_MODULE = 'compiler'
@@ -114,8 +114,14 @@ def _last_resort_name(basenames):
 def resolve_lsp_command():
     """QProcess-ready command starting the language server over stdio."""
     override = os.environ.get(ENV_LSP_EXE, '').strip().strip('"')
-    if override and _is_usable_file(override):
-        return [os.path.abspath(override)]
+    if override:
+        if _is_usable_file(override):
+            return [os.path.abspath(override)]
+        print(
+            f'[WARNING] {ENV_LSP_EXE}={override!r} not usable; '
+            f'falling back to bundled/PATH lookup',
+            file=sys.stderr,
+        )
     found = find_executable(LSP_EXE_NAMES)
     if found:
         return [found]
@@ -130,8 +136,14 @@ def resolve_lsp_command():
 def resolve_compiler_command(document_path):
     """QProcess-ready command compiling *document_path* to PDF."""
     override = os.environ.get(ENV_COMPILER_EXE, '').strip().strip('"')
-    if override and _is_usable_file(override):
-        return [os.path.abspath(override), document_path]
+    if override:
+        if _is_usable_file(override):
+            return [os.path.abspath(override), document_path]
+        print(
+            f'[WARNING] {ENV_COMPILER_EXE}={override!r} not usable; '
+            f'falling back to bundled/PATH lookup',
+            file=sys.stderr,
+        )
     found = find_executable(COMPILER_EXE_NAMES)
     if found:
         return [found, document_path]

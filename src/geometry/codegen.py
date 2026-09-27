@@ -6,7 +6,6 @@ import sys
 from .errors import GeometryError
 from .labels import _label_anchors
 from .vectors import (
-    _bounding_box,
     _norm,
     _normalize,
     _ray_bbox_intersect,
@@ -439,17 +438,37 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
 
         ox, oy = float(pts[O][0]), float(pts[O][1])
         ax, ay = float(pts[A][0]), float(pts[A][1])
+        bx, by = float(pts[B][0]), float(pts[B][1])
         r = _math.hypot(ax - ox, ay - oy)
         if not _math.isfinite(r) or r < 1e-9:
             raise GeometryError(f"*arc({O} ; {A} ; {B}): center and start coincide — skipping")
+        r2 = _math.hypot(bx - ox, by - oy)
+        if not _math.isfinite(r2) or r2 < 1e-9:
+            raise GeometryError(f"*arc({O} ; {A} ; {B}): center and end coincide — skipping")
         a1 = _vec_angle_deg(pts[A] - pts[O])
         a2 = _vec_angle_deg(pts[B] - pts[O])
         sweep = (a2 - a1) % 360.0
         if sweep < 0.5 or sweep > 359.5:
             raise GeometryError(f"*arc({O} ; {A} ; {B}): degenerate (zero/full-circle) sweep — skipping")
+        # Both endpoints must lie on the same circle; otherwise the drawn
+        # arc would miss B silently. Enforce strictly when all points are
+        # fixed; for free points the solver has no arc-radius constraint
+        # yet, so only warn (auto-layout may still be approximate).
+        if abs(r - r2) > max(1e-6, max(r, r2) * 1e-6):
+            fixed = getattr(solver, 'fixed', set())
+            if O in fixed and A in fixed and B in fixed:
+                raise GeometryError(
+                    f"*arc({O} ; {A} ; {B}): endpoints at different radii "
+                    f"(|OA|={r:.3f}, |OB|={r2:.3f}) — move B onto the circle"
+                )
+            else:
+                lines.append(
+                    f'  // [GeometryWarning] *arc({O} ; {A} ; {B}): '
+                    f'endpoints at different radii (|OA|={r:.3f}, |OB|={r2:.3f})'
+                )
         stop = a1 + sweep
         lines.append(
-            f'  arc(({ax:.3f}, {ay:.3f}), start: {a1:.2f}deg, '
+            f'  arc(({ox:.3f}, {oy:.3f}), start: {a1:.2f}deg, '
             f'stop: {stop:.2f}deg, radius: {r:.3f})'
         )
 
@@ -477,13 +496,13 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             a1 = (a1 + sweep) % 360.0
             sweep = 360.0 - sweep
         bx, by = float(pts[B][0]), float(pts[B][1])
-        ux, uy = float(v1[0]) / n1, float(v1[1]) / n1
-        sx, sy = bx + 0.4 * ux, by + 0.4 * uy
         if sweep < 0.5 or sweep > 359.5:
             lines.append(f'  // [GeometryWarning] *angle({A} ; {B} ; {C}) is ~0°/180°/360° — no arc drawn')
         else:
+            # CeTZ arc(pos, ...) centers on pos: the marker belongs at the
+            # vertex B, not offset along the arm.
             lines.append(
-                f'  arc(({sx:.3f}, {sy:.3f}), start: {a1:.2f}deg, '
+                f'  arc(({bx:.3f}, {by:.3f}), start: {a1:.2f}deg, '
                 f'stop: {a1 + sweep:.2f}deg, radius: 0.400)'
             )
         if len(args) == 4 and args[3].strip():
@@ -554,13 +573,11 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             a1 = (a1 + sweep) % 360.0
             sweep = 360.0 - sweep
         bx, by = float(pts[B][0]), float(pts[B][1])
-        n1 = float(_norm(v1))
-        sx, sy = bx + 0.3 * float(v1[0]) / n1, by + 0.3 * float(v1[1]) / n1
         if sweep < 0.5 or sweep > 359.5:
             lines.append(f'  // [GeometryWarning] *angle-value({A} ; {B} ; {C}) is ~0°/180°/360° — no arc drawn')
         else:
             lines.append(
-                f'  arc(({sx:.3f}, {sy:.3f}), start: {a1:.2f}deg, '
+                f'  arc(({bx:.3f}, {by:.3f}), start: {a1:.2f}deg, '
                 f'stop: {a1 + sweep:.2f}deg, radius: 0.300)'
             )
         shown = _safe_text(annot) if annot else f'{_fmt_num(deg)}°'
@@ -569,8 +586,10 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         lines.append(f'  content(({lx:.3f}, {ly:.3f}), [#"{shown}"])')
 
     elif cmd in ('equal-angle',):
-        # Planned but not yet implemented
-        lines.append(f'  // [planned] *{_safe_err(cmd)}({_safe_err("; ".join(args))}) not yet implemented')
+        raise GeometryError(
+            "*equal-angle is not yet implemented — remove it or replace "
+            "with explicit *angle markers"
+        )
 
     else:
         # Unknown — already warned during parse

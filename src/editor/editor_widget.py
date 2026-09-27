@@ -82,15 +82,32 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         theme = normalize(theme)
         self._theme = theme
         self._theme_colors = editor_colors(theme)
+        bg = self._theme_colors['editor_bg']
+        fg = self._theme_colors['editor_fg']
+        # 1) Widget palette (standard mechanism).
         palette = self.palette()
-        palette.setColor(QtGui.QPalette.Base,
-                         QtGui.QColor(self._theme_colors['editor_bg']))
-        palette.setColor(QtGui.QPalette.Text,
-                         QtGui.QColor(self._theme_colors['editor_fg']))
+        palette.setColor(QtGui.QPalette.Base, QtGui.QColor(bg))
+        palette.setColor(QtGui.QPalette.Text, QtGui.QColor(fg))
         self.setPalette(palette)
+        # 2) Viewport palette: the viewport paints the text background and
+        # does not always follow the parent widget palette on every style.
+        viewport_palette = self.viewport().palette()
+        viewport_palette.setColor(QtGui.QPalette.Base, QtGui.QColor(bg))
+        viewport_palette.setColor(QtGui.QPalette.Text, QtGui.QColor(fg))
+        self.viewport().setPalette(viewport_palette)
+        # 3) Widget stylesheet as the final authority: stylesheets beat
+        # palettes at paint time on every QStyle, so the editor background
+        # cannot get stuck on either theme. It must be set explicitly in
+        # BOTH directions — clearing it with '' leaves a stale
+        # stylesheet-resolved palette that swallows later setPalette calls.
+        self.setStyleSheet(
+            f'QPlainTextEdit {{ background-color: {bg}; color: {fg}; }}'
+        )
         self._highlighter.set_theme(theme)
         self._line_numbers.update()
         self._highlight_current_line(refresh=True)
+        self.viewport().update()
+        self.update()
 
     @property
     def theme(self):

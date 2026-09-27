@@ -52,7 +52,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
         def eval_node(node):
             if isinstance(node, ast.Expression):
                 return eval_node(node.body)
-            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            if isinstance(node, ast.Constant) and type(node.value) in (int, float):
                 return node.value
             if isinstance(node, ast.BinOp) and type(node.op) in safe_operators:
                 left = eval_node(node.left)
@@ -62,7 +62,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
                 if isinstance(node.op, ast.Pow):
                     # Guard against gigantic bigint DoS (e.g. 9 ** 9 ** 9).
                     try:
-                        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                        if type(left) in (int, float) and type(right) in (int, float):
                             if abs(right) > 1000 or (abs(left) > 10 and abs(right) > 100):
                                 raise ValueError('calc: exponent too large')
                     except ValueError:
@@ -78,8 +78,12 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
             raise ValueError('calc only supports numbers and math operators')
 
         res = eval_node(tree)
-        if isinstance(res, float) and res.is_integer():
-            res = int(res)
+        import math as _math
+        if isinstance(res, float):
+            if not _math.isfinite(res):
+                raise ValueError('calc: result is not finite (inf/nan)')
+            if res.is_integer():
+                res = int(res)
         return str(res)
     except ZeroDivisionError:
         loc = f' Line {line_no}:' if line_no else ''
@@ -103,12 +107,25 @@ def apply_calc_in_string(ctx, text, line_no=None, _depth=0):
         return text
     out = []
     pos = 0
-    pattern = re.compile(r'(?<![A-Za-z0-9_])calc\(')
+    pattern = re.compile(r'(?<![A-Za-z0-9_])\*?calc\(')
     while True:
         m = pattern.search(text, pos)
         if not m:
             out.append(text[pos:])
             break
+        matched = m.group(0)
+        if matched.startswith('*'):
+            loc = f' Line {line_no}:' if line_no else ''
+            print(
+                f'[Warning]{loc} *calc(...) — leading * ignored, treating as calc(...)',
+                file=sys.stderr,
+            )
+            out.append(text[pos:m.start()])
+            # Skip the leading '*' but keep 'calc(' for evaluation below.
+            out.append('')
+            pos = m.start() + 1
+            # Re-search from the 'calc(' just after '*'.
+            continue
         out.append(text[pos:m.start()])
         start = m.end()
         depth = 1

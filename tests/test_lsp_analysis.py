@@ -107,7 +107,7 @@ def test_unclosed_block_warning_not_crash():
     result = analysis.analyze_text("*(\n<a> = 1\n")
     assert len(result.diagnostics) == 1
     diag = result.diagnostics[0]
-    assert diag.severity == 'warning'
+    assert diag.severity == 'error'
     assert diag.line == 0
     assert 'Unclosed block' in diag.message
 

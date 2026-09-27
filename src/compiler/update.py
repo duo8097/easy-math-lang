@@ -155,6 +155,15 @@ def extract_release_info(data):
     """Return ``(version, html_url)`` from a releases API payload."""
     if not isinstance(data, dict):
         raise UpdateCheckError('invalid response from server.')
+    # GitHub returns {"message": "API rate limit exceeded", ...} on 403/429
+    # and {"message": "Not Found"} when no releases exist yet.
+    if 'tag_name' not in data and isinstance(data.get('message'), str):
+        msg = data['message'].lower()
+        if 'rate limit' in msg or 'abuse' in msg or '429' in msg:
+            raise UpdateCheckError('rate limited — try again later.')
+        if 'not found' in msg or 'no releases' in msg:
+            raise UpdateCheckError('no releases published yet.')
+        raise UpdateCheckError('missing release info in server response.')
     tag = data.get('tag_name')
     if not isinstance(tag, str) or not tag.strip():
         raise UpdateCheckError('missing release info in server response.')
