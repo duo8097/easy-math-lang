@@ -44,7 +44,7 @@ wheels = [
 
 [[package]]
 name = "easy-math-lang"
-version = "1.1.1"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
