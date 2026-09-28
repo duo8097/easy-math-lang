@@ -35,10 +35,10 @@ def test_workflow_exists():
     assert os.path.isfile(SCRIPT), "macOS build script missing"
 
 
-def test_workflow_triggers_dispatch_only(workflow_text):
+def test_workflow_triggers_on_tag_and_dispatch(workflow_text):
+    assert "v*" in workflow_text
     assert "workflow_dispatch" in workflow_text
-    assert "tags:" not in workflow_text
-    assert "softprops/action-gh-release" not in workflow_text
+    assert "softprops/action-gh-release" in workflow_text
 
 
 def test_workflow_builds_arm64_only(workflow_text):
@@ -196,19 +196,23 @@ def test_final_bundle_sign_avoids_deep(workflow_text):
         )
 
 
-def test_workflow_uploads_artifacts_without_release(workflow_text):
+def test_workflow_uploads_and_releases(workflow_text):
     assert "upload-artifact" in workflow_text
-    assert "softprops/action-gh-release" not in workflow_text
-    assert "Create GitHub Release" not in workflow_text
+    assert "softprops/action-gh-release" in workflow_text
+    assert "Create GitHub Release" in workflow_text
     assert "if-no-files-found: error" in workflow_text
     assert "retention-days: 14" in workflow_text
     assert "EasyMathLang-macOS-${{ matrix.arch }}" in workflow_text
     assert "fail-fast: false" in workflow_text
+    # Release ships the same DMG+ZIP and only runs on tag builds.
+    assert "startsWith(github.ref, 'refs/tags/')" in workflow_text
+    assert workflow_text.index("upload-artifact") < workflow_text.index(
+        "softprops/action-gh-release"
+    )
 
 
-def test_workflow_permissions_read_only(workflow_text):
-    assert "contents: read" in workflow_text
-    assert "contents: write" not in workflow_text
+def test_workflow_permissions_write(workflow_text):
+    assert "contents: write" in workflow_text
 
 
 def test_workflow_uploads_after_smoke(workflow_text):
@@ -277,15 +281,17 @@ def test_workflow_runs_smoke_on_staged_app(workflow_text):
     assert workflow_text.index("smoke_macos.sh") < workflow_text.index("hdiutil")
 
 
-def test_release_has_no_prerelease_logic(workflow_text):
-    assert "prerelease:" not in workflow_text
-    assert "contains(github.ref_name, '-')" not in workflow_text
-    assert "softprops/action-gh-release" not in workflow_text
+def test_release_marks_hyphen_tags_prerelease(workflow_text):
+    assert "prerelease:" in workflow_text
+    assert "contains(github.ref_name, '-')" in workflow_text
 
 
-def test_release_has_no_tag_version_guard(workflow_text):
-    assert "Guard tag matches pyproject version" not in workflow_text
-    assert "refs/tags/" not in workflow_text
+def test_release_guards_tag_matches_pyproject(workflow_text):
+    assert "Guard tag matches pyproject version" in workflow_text
+    assert "pyproject.toml" in workflow_text
+    # Leading "v" is stripped before comparing with the project version.
+    assert "${TAG#v}" in workflow_text
+    assert "exit 1" in workflow_text
 
 
 def test_installation_docs_cover_adhoc_first_launch():

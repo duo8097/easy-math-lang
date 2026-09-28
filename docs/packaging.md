@@ -65,11 +65,9 @@ bash scripts/build_macos.sh
 
 Both write temporary `entry_*.py` shims, run the same three PyInstaller
 commands as their CI workflow, remove the shims again, and leave the
-output in `dist/` (gitignored). Tagging a commit `v*` (or manual
-dispatch) runs the Windows steps in CI and attaches the installer to a
-GitHub Release. macOS builds are produced manually via Actions ->
-"Build macOS Installer" -> Run workflow, and the DMG/ZIP are downloaded
-from the run's Artifacts section (artifacts expire after 14 days).
+output in `dist/` (gitignored). Tagging a commit `v*` runs the steps
+in CI and attaches the installer(s) to a GitHub Release (manual
+dispatch uploads the same files as run artifacts).
 
 ---
 
@@ -77,12 +75,9 @@ from the run's Artifacts section (artifacts expire after 14 days).
 
 Same three binaries, macOS names, built by
 `.github/workflows/build-macos-installer.yml` on `macos-15` (arm64,
-Apple Silicon only, M1 or newer; does not run on Intel Macs). macOS
-builds are produced manually via Actions -> "Build macOS Installer" ->
-Run workflow, and the DMG/ZIP are downloaded from the run's Artifacts
-section (artifacts expire after 14 days). Intel Macs can still run from
-source (`uv sync`). The build is still experimental / ad-hoc signed,
-not notarized:
+Apple Silicon only, M1 or newer; does not run on Intel Macs).
+Intel Macs can still run from source (`uv sync`). The build is still
+experimental / ad-hoc signed, not notarized:
 
 | Binary | Mode | Contents |
 |---|---|---|
