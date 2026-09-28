@@ -42,12 +42,16 @@ def test_workflow_triggers_dispatch_only(workflow_text):
 
 
 def test_workflow_builds_arm64_only(workflow_text):
-    assert "macos-14" in workflow_text
+    assert "macos-15" in workflow_text
     assert "arm64" in workflow_text
     assert "arch: arm64" in workflow_text
-    # No Intel runner or x64 artifact.
+    # No Intel runner, retired images, floating runner, or x64 artifact
+    # (checked as runs-on values: the pinning comment names macos-14 and
+    # macos-latest without using them).
     assert "macos-15-intel" not in workflow_text
-    assert "macos-13" not in workflow_text
+    assert not re.search(r"runner:\s*macos-14\b", workflow_text)
+    assert not re.search(r"runner:\s*macos-13\b", workflow_text)
+    assert not re.search(r"runner:\s*macos-latest", workflow_text)
     assert "EasyMathLang-macOS-x64" not in workflow_text
     assert not re.search(r"arch:\s*x64", workflow_text)
 

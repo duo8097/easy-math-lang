@@ -76,7 +76,7 @@ from the run's Artifacts section (artifacts expire after 14 days).
 ## What gets built (macOS)
 
 Same three binaries, macOS names, built by
-`.github/workflows/build-macos-installer.yml` on `macos-14` (arm64,
+`.github/workflows/build-macos-installer.yml` on `macos-15` (arm64,
 Apple Silicon only, M1 or newer; does not run on Intel Macs). macOS
 builds are produced manually via Actions -> "Build macOS Installer" ->
 Run workflow, and the DMG/ZIP are downloaded from the run's Artifacts

@@ -12,7 +12,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          # Pinned to a concrete image on purpose; do not use macos-latest
+          # because GitHub re-points it without notice; macos-14 retires
+          # 2026-11-02.
+          - runner: macos-15
             arch: arm64
     runs-on: ${{ matrix.runner }}
 
