@@ -110,6 +110,19 @@ def normalize_friendly_calls(text):
     return text
 
 
+def escape_number_commas(s):
+    """Escape literal commas that belong to numbers for Typst math.
+
+    A bare comma inside Typst math function args is an argument
+    separator, so emitting ``$frac(100,000, 7)$`` fails with
+    "unexpected argument" (no PDF). Verified: ``$frac(100\\,000, 7)$``
+    compiles. Only a comma directly between two digits is escaped,
+    so genuine ``", "`` separators (which the formatters below always
+    emit with a trailing space) survive untouched.
+    """
+    return re.sub(r'(?<=\d),(?=\d)', r'\\,', s)
+
+
 def replace_math_call(text, name, min_args, formatter):
     """Replace *name(...) calls using depth-aware paren matching."""
     import sys
@@ -187,6 +200,9 @@ def clean_inner_math(ctx, s):
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
+    # Escape thousands commas (100,000 -> 100\,000) so Typst does not
+    # read them as argument separators. See escape_number_commas.
+    s = escape_number_commas(s)
     if ctx.mult_sym != '*':
         s = s.replace('*', ctx.mult_sym)
     return s

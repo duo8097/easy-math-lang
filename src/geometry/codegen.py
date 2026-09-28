@@ -4,6 +4,7 @@ import re
 import sys
 
 from .errors import GeometryError
+from .commands import parse_numeric_arg
 from .labels import _label_anchors
 from .vectors import (
     _norm,
@@ -356,7 +357,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             lines.append(f'  circle({_q(center)}, radius: {d:.3f})')
         else:
             try:
-                r = float(r_or_pt)
+                r = parse_numeric_arg(r_or_pt)
             except ValueError:
                 raise GeometryError(
                     f"circle radius must be numeric or an existing point name, got: {r_or_pt!r}"

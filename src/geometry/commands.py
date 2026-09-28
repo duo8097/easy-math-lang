@@ -10,6 +10,22 @@ from .vectors import _cross2d, _norm
 POINT_NAME_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
 
 
+def parse_numeric_arg(text):
+    """Parse a user-typed number, tolerating thousands commas.
+
+    ``1,000`` / ``100,000`` -> 1000.0. Only strict thousands groups
+    (1-3 leading digits, then groups of exactly 3 digits) are accepted;
+    anything else containing a comma (e.g. a decimal ``3,5``) raises
+    ValueError so callers report their usual "must be numeric" error.
+    """
+    s = text.strip()
+    if ',' in s:
+        if not re.fullmatch(r'\d{1,3}(?:,\d{3})+', s):
+            raise ValueError(f'invalid number {text!r}')
+        s = s.replace(',', '')
+    return float(s)
+
+
 def _check_point_name(name):
     if not POINT_NAME_RE.match(name):
         raise GeometryError(f"invalid point name {name!r} — use letters, digits, '_' starting with a letter")
@@ -62,7 +78,7 @@ def _process_command(solver, cmd, args):
         _check_point_name(A)
         _check_point_name(B)
         try:
-            d = float(args[2].strip())
+            d = parse_numeric_arg(args[2])
         except ValueError:
             raise GeometryError(f"distance value must be numeric, got: {args[2]!r}")
         import math as _math
@@ -215,7 +231,7 @@ def _process_command(solver, cmd, args):
         _check_point_name(O)
         _check_point_name(A)
         try:
-            r = float(r_str)
+            r = parse_numeric_arg(r_str)
         except ValueError:
             raise GeometryError(f"radius must be numeric, got: {r_str!r}")
         import math as _math2
