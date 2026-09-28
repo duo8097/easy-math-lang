@@ -159,7 +159,9 @@ jobs:
       # bundle would invalidate the bundle seal, so the final sign must not
       # use the recursive flag. No leniency anywhere here (no swallowed
       # exit codes): a broken signature must fail the job, never produce
-      # a green build with a bad signature.
+      # a green build with a bad signature. Only real Mach-O files are
+      # signed (never plain directories or scripts): Frameworks holds plain
+      # directories such as PySide6/numpy/typst that codesign rejects.
       - name: Sign bundle inside-out
         shell: bash
         run: |
@@ -169,21 +171,40 @@ jobs:
           codesign --force --sign - dist/easy-math-lang
           codesign --force --sign - dist/ezmath
           codesign --force --sign - dist/easy-math-lsp
-          # 2. Nested code inside the bundle (deepest first): libraries,
-          #    frameworks, executables — including the helpers bundled
-          #    into Contents/Resources/bin.
-          if [ -d "$APP/Contents/Frameworks" ]; then
-            find "$APP/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) \
-              -exec codesign --force --sign - {} +
-            find "$APP/Contents/Frameworks" -maxdepth 1 -mindepth 1 \
-              -exec codesign --force --sign - {} +
-          fi
-          find "$APP/Contents/MacOS" "$APP/Contents/Resources" -type f -perm +111 \
-            -exec codesign --force --sign - {} +
-          # 3. The bundle itself, last.
+          # 2. Bundled helpers must exist and be executable (the Mach-O
+          #    loop below covers signing them).
+          for h in easy-math-lang ezmath easy-math-lsp; do
+            if [ ! -x "$APP/Contents/Resources/bin/$h" ]; then
+              echo "::error::missing helper $APP/Contents/Resources/bin/$h"
+              exit 1
+            fi
+          done
+          # 3. Nested Mach-O files inside the bundle, regular files only
+          #    (find -type f skips symlinks). file(1) decides: sign only
+          #    when the output contains Mach-O.
+          COUNT=0
+          while IFS= read -r -d '' f; do
+            if file -b "$f" | grep -q "Mach-O"; then
+              echo "signing $f"
+              codesign --force --sign - "$f"
+              COUNT=$((COUNT + 1))
+            fi
+          done < <(find "$APP/Contents" -type f -print0)
+          echo "signed $COUNT Mach-O files under $APP/Contents"
+          # 4. The bundle itself, last (no --deep).
           codesign --force --sign - "$APP"
-          # 4. Verify everything; any failure fails the job.
-          codesign --verify --deep --strict --verbose=2 "$APP"
+          # 5. Verify everything; any failure fails the job. On failure
+          #    dump diagnostics before exiting non-zero.
+          if codesign --verify --deep --strict --verbose=2 "$APP"; then
+            echo "bundle verification OK"
+          else
+            echo "::error::verification failed for $APP"
+            set +e
+            codesign -dvvv "$APP"
+            find "$APP" -type l | head -50
+            set -e
+            exit 1
+          fi
           codesign --verify --strict --verbose=2 \
             dist/easy-math-lang dist/ezmath dist/easy-math-lsp
 

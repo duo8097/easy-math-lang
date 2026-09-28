@@ -134,12 +134,28 @@ def test_sign_step_fails_loudly(workflow_text):
     assert "|| true" not in workflow_text
 
 
-def test_sign_inside_out_before_bundle(workflow_text):
-    assert "Contents/Frameworks" in workflow_text
-    assert (
-        workflow_text.index("Contents/Frameworks")
-        < workflow_text.index('codesign --force --sign - "$APP"')
+def test_sign_uses_macho_check_only(workflow_text):
+    # Only real Mach-O files are signed; never plain directories.
+    assert 'file -b "$f"' in workflow_text
+    assert "Mach-O" in workflow_text
+    assert "-print0" in workflow_text
+    assert "read -r -d ''" in workflow_text
+    # Old approach signed directories and any +x file; it must be gone.
+    assert "-perm +111" not in workflow_text
+    assert "-maxdepth 1 -mindepth 1" not in workflow_text
+
+
+def test_sign_macho_loop_before_bundle(workflow_text):
+    assert workflow_text.index("Mach-O") < workflow_text.index(
+        'codesign --force --sign - "$APP"'
     )
+    # Bundled helpers are asserted executable before the loop covers them.
+    assert "Contents/Resources/bin" in workflow_text
+
+
+def test_sign_failure_prints_diagnostics(workflow_text):
+    assert 'codesign -dvvv "$APP"' in workflow_text
+    assert 'find "$APP" -type l' in workflow_text
 
 
 def test_sign_verifies_everything(workflow_text):
