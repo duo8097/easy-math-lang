@@ -37,24 +37,29 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
    or `EasyMathLang-macOS-x64.dmg` (Intel) from the
    [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
    A `.zip` with the same contents is attached alongside each `.dmg`.
-2. Open the `.dmg` and drag the `EasyMath` folder where you like
-   (e.g. `Applications`). Inside:
+2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`
+   (a shortcut to `Applications` is included in the image for this).
+   The disk image contains:
    ```
-   EasyMath/
-   ├── bin/easy-math-lang, ezmath, easy-math-lsp
-   ├── editor/easy-math-editor (+ .app bundle when present)
-   └── README.txt
+   easy-math-editor.app   (helpers live inside the bundle:
+                           Contents/Resources/bin/easy-math-lang, …)
+   README.txt
    ```
-3. Run `EasyMath/editor/easy-math-editor` (or the `.app` bundle).
+3. Run the app from `Applications`.
    On first launch macOS may warn the app is unsigned: right-click →
    **Open** to allow it once. The binaries are ad-hoc signed in CI.
-4. Optional terminal use: `export PATH="$PWD/bin:$PATH"` inside `EasyMath`,
-   then `easy-math-lang doc.ezmath` (PDF) or
+4. Optional terminal use — the helpers live inside the app bundle:
+   ```
+   BIN="/Applications/easy-math-editor.app/Contents/Resources/bin"
+   "$BIN/easy-math-lang" doc.ezmath
+   ```
+   or add it to `PATH` (`export PATH="$BIN:$PATH"`), then
+   `easy-math-lang doc.ezmath` (PDF) or
    `easy-math-lang doc.ezmath out.png --format png` (image).
    See [Export](export.md).
 
-No further setup is needed: the editor finds `bin/` next to itself
-automatically, even when `bin/` is not on `PATH`.
+No further setup is needed: the editor finds the bundled helpers
+automatically, even when nothing was added to `PATH`.
 
 ---
 

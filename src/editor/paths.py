@@ -77,9 +77,10 @@ def candidate_directories():
         _add(os.path.join(parent, 'bin'))
         _add(parent)
         _add(os.path.join(exe_dir, 'bin'))
-        # macOS .app bundle: .../Easy Math Editor.app/Contents/MacOS/easy-math-editor
-        # Helpers may live in Contents/MacOS, Contents/Resources/bin, or a
-        # sibling bin/ next to the .app (DMG layout: EasyMath/bin + app).
+        # macOS .app bundle: .../easy-math-editor.app/Contents/MacOS/easy-math-editor
+        # Helpers ship INSIDE the bundle at Contents/Resources/bin (the DMG
+        # contains only the .app, so a sibling bin/ cannot be relied on).
+        # Sibling locations stay as fallbacks for side-by-side dist/ trees.
         # Walk up looking for ".app/Contents/MacOS" and add the companions.
         parts = exe_dir.replace('\\', '/').split('/')
         for idx, part in enumerate(parts):

@@ -147,3 +147,27 @@ def test_resource_path_uses_bundle_dir_when_frozen(tmp_path, clean_sys):
     clean_sys.setattr(sys, '_MEIPASS', str(tmp_path), raising=False)
     assert paths.resource_path('data', 'x') == os.path.join(
         str(tmp_path), 'data', 'x')
+
+
+def test_frozen_macos_app_finds_helpers_in_resources_bin(tmp_path, clean_sys):
+    """macOS .app layout: helpers in Contents/Resources/bin.
+
+    The DMG ships only easy-math-editor.app, so dragging just the .app
+    to /Applications must keep working without any sibling bin/.
+    """
+    clean_sys.setattr(os, 'name', 'posix')
+    macos = tmp_path / 'easy-math-editor.app' / 'Contents' / 'MacOS'
+    res_bin = tmp_path / 'easy-math-editor.app' / 'Contents' / 'Resources' / 'bin'
+    macos.mkdir(parents=True)
+    res_bin.mkdir(parents=True)
+    lsp = res_bin / 'easy-math-lsp'
+    compiler = res_bin / 'easy-math-lang'
+    _touch(str(lsp))
+    _touch(str(compiler))
+    _touch(str(macos / 'easy-math-editor'))
+    _as_frozen(clean_sys, str(macos / 'easy-math-editor'))
+    clean_sys.setattr('shutil.which', lambda *a, **k: None)
+
+    assert paths.resolve_lsp_command() == [str(lsp)]
+    doc = str(tmp_path / 'doc.ezmath')
+    assert paths.resolve_compiler_command(doc) == [str(compiler), doc]

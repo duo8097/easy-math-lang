@@ -75,29 +75,30 @@ GitHub Release.
 
 Same three binaries, macOS names, built by
 `.github/workflows/build-macos-installer.yml` on a matrix
-(`macos-14` arm64 + `macos-13` x64):
+(`macos-14` arm64 + `macos-15-intel` x64):
 
 | Binary | Mode | Contents |
 |---|---|---|
 | `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst) |
 | `ezmath` | onefile CLI | Same compiler copy (alias) |
 | `easy-math-lsp` | onefile CLI | Language server |
-| `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (+ `.app` when emitted) |
+| `easy-math-editor.app` | GUI bundle (`--onedir --windowed`) | Desktop editor; helpers bundled in `Contents/Resources/bin/` |
 
-Staged DMG layout (so `editor/paths.py` works without `PATH`):
+Staged DMG layout (only the `.app` ships, so dragging it alone to
+`/Applications` keeps working — `editor/paths.py` finds the helpers
+inside the bundle without `PATH`):
 
 ```
-EasyMath/
-├── bin/easy-math-lang, ezmath, easy-math-lsp
-├── editor/easy-math-editor (+ support files)
-├── Easy Math Editor.app (when PyInstaller emits a bundle)
+staging/
+├── easy-math-editor.app   (Contents/Resources/bin/easy-math-lang, …)
+├── Applications -> /Applications (symlink for drag-and-drop install)
 └── README.txt
 ```
 
-`hdiutil` packs it to `EasyMathLang-macOS-<arch>.dmg` (plus a `.zip`
-via `ditto`). Binaries are ad-hoc `codesign`ed (`--deep --force --sign -`)
-so first launch only needs right-click → **Open**. Static checks live in
-`tests/test_macos_packaging.py`.
+`hdiutil` packs `staging/` to `EasyMathLang-macOS-<arch>.dmg`; the `.zip`
+is built with `ditto` from the same staged content. Binaries are ad-hoc
+`codesign`ed so first launch only needs right-click → **Open**. Static
+checks live in `tests/test_macos_packaging.py`.
 
 ---
 

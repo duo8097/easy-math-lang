@@ -6,8 +6,8 @@
 #   bash scripts/build_macos.sh
 #
 # Output: dist/easy-math-lang, dist/ezmath (alias copy),
-#         dist/easy-math-lsp, dist/easy-math-editor/easy-math-editor
-#         (plus dist/Easy Math Editor.app when PyInstaller emits a bundle)
+#         dist/easy-math-lsp, dist/easy-math-editor.app (helpers bundled
+#         into Contents/Resources/bin/, mirroring CI).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -62,10 +62,20 @@ uv run pyinstaller entry_editor.py \
 # the same binary under another name, so copy instead of rebuilding.
 test -f dist/easy-math-lang || { echo "compiler output missing" >&2; exit 1; }
 cp -f dist/easy-math-lang dist/ezmath
-chmod +x dist/ezmath dist/easy-math-lang dist/easy-math-lsp || true
+chmod +x dist/ezmath dist/easy-math-lang dist/easy-math-lsp
+
+# Bundle helpers INTO the .app so dragging just the .app works
+# (mirrors CI; fails loudly when PyInstaller emits no bundle).
+APP="dist/easy-math-editor.app"
+if [ ! -d "$APP" ]; then
+  echo "expected $APP (PyInstaller --windowed --onedir must emit a bundle)" >&2
+  exit 1
+fi
+mkdir -p "$APP/Contents/Resources/bin"
+cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp "$APP/Contents/Resources/bin/"
+chmod +x "$APP"/Contents/Resources/bin/*
 
 echo 'Build OK:'
-ls -l dist/easy-math-lang dist/ezmath dist/easy-math-lsp "dist/easy-math-editor/easy-math-editor" || true
-if [ -d "dist/easy-math-editor.app" ]; then
-  ls -ld "dist/easy-math-editor.app"
-fi
+ls -l dist/easy-math-lang dist/ezmath dist/easy-math-lsp
+ls -ld "$APP"
+ls -l "$APP/Contents/Resources/bin"

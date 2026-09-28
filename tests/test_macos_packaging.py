@@ -64,6 +64,30 @@ def test_workflow_creates_dmg_and_zip(workflow_text):
     assert ".zip" in workflow_text or "ditto" in workflow_text
 
 
+def test_workflow_bundles_helpers_into_app(workflow_text):
+    # Helpers must live inside the .app (Contents/Resources/bin) so the
+    # editor works when only the .app is dragged to /Applications.
+    assert "Contents/Resources/bin" in workflow_text
+    assert "easy-math-editor.app" in workflow_text
+    # The old EasyMath/{bin,editor} split duplicated Qt and broke the
+    # app-alone layout; it must be gone.
+    assert "staging/EasyMath" not in workflow_text
+
+
+def test_workflow_ships_only_app(workflow_text):
+    assert 'cp -R "dist/easy-math-editor.app" staging/' in workflow_text
+    assert "staging/EasyMath/editor" not in workflow_text
+
+
+def test_workflow_has_applications_symlink(workflow_text):
+    assert "ln -s /Applications" in workflow_text
+
+
+def test_workflow_zip_from_staged_content(workflow_text):
+    assert "cd staging" in workflow_text
+    assert "ditto" in workflow_text
+
+
 def test_workflow_uploads_and_releases(workflow_text):
     assert "upload-artifact" in workflow_text
     assert "softprops/action-gh-release" in workflow_text

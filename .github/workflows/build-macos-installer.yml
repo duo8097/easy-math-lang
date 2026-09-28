@@ -104,6 +104,25 @@ jobs:
           --collect-all numpy
           --noconfirm
 
+      # --- Bundle helpers INTO the .app --------------------------------------
+      # The DMG ships only easy-math-editor.app: a user may drag just the
+      # .app to /Applications, so easy-math-lang / ezmath / easy-math-lsp
+      # must live inside it. editor/paths.py already searches
+      # Contents/Resources/bin, so no PATH setup is ever needed.
+      - name: Bundle helpers into the .app
+        shell: bash
+        run: |
+          APP="dist/easy-math-editor.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::expected $APP — PyInstaller --windowed --onedir must emit a bundle"
+            find dist -maxdepth 2 | sort
+            exit 1
+          fi
+          mkdir -p "$APP/Contents/Resources/bin"
+          cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp "$APP/Contents/Resources/bin/"
+          chmod +x "$APP/Contents/Resources/bin/"*
+          ls -l "$APP/Contents/Resources/bin"
+
       - name: Ad-hoc sign bundles (Gatekeeper-friendly, no identity needed)
         shell: bash
         continue-on-error: true
@@ -120,35 +139,35 @@ jobs:
           fi
 
       # --- Stage DMG layout --------------------------------------------------
-      # Staged app mirrors the Windows installer layout so editor/paths.py
-      # finds helpers without PATH:
-      #   EasyMath/
-      #   ├── bin/easy-math-lang, ezmath, easy-math-lsp
-      #   └── editor/easy-math-editor (onedir) [+ .app bundle when present]
-      - name: Stage app folder
+      # Only the .app ships: the old EasyMath/{bin,editor} split duplicated
+      # Qt (roughly double DMG size) and broke the editor when a user
+      # dragged just the .app to /Applications. The Applications symlink
+      # makes drag-and-drop install work.
+      - name: Stage DMG folder
         shell: bash
         run: |
-          rm -rf staging/EasyMath
-          mkdir -p staging/EasyMath/bin staging/EasyMath/editor
-          cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp staging/EasyMath/bin/
-          chmod +x staging/EasyMath/bin/* || true
-          if [ -d "dist/easy-math-editor" ]; then
-            cp -R "dist/easy-math-editor/." staging/EasyMath/editor/
-          fi
-          if [ -d "dist/easy-math-editor.app" ]; then
-            cp -R "dist/easy-math-editor.app" staging/EasyMath/
-          fi
-          # Small README so DMG browsers know what to run.
-          cat > staging/EasyMath/README.txt <<'EOF'
+          rm -rf staging
+          mkdir -p staging
+          cp -R "dist/easy-math-editor.app" staging/
+          ln -s /Applications staging/Applications
+          # Small README so DMG browsers know what to do.
+          cat > staging/README.txt <<'EOF'
           Easy Math Lang (macOS)
           ======================
-          - Run "Easy Math Editor" (EasyMath/editor/easy-math-editor or the .app bundle).
-          - Optional terminal use: add EasyMath/bin to PATH:
-              export PATH="$PWD/bin:$PATH"
-            then: easy-math-lang doc.ezmath / ezmath doc.ezmath
+          - Drag "easy-math-editor.app" to the Applications folder
+            (a shortcut is included in this disk image), or run it
+            straight from here.
+          - First launch: right-click the app -> Open (ad-hoc signed,
+            not notarized — see docs/installation.md).
+          - Helpers (compiler/LSP) live inside the app bundle:
+              easy-math-editor.app/Contents/Resources/bin/
+            Terminal use:
+              BIN="$PWD/easy-math-editor.app/Contents/Resources/bin"
+              "$BIN/easy-math-lang" doc.ezmath
+            or: export PATH="$BIN:$PATH"
             Export images etc.: easy-math-lang doc.ezmath out.png --format png
           EOF
-          find staging/EasyMath -maxdepth 3 | sort
+          find staging -maxdepth 2 | sort
 
       - name: Create DMG + ZIP
         shell: bash
@@ -156,8 +175,8 @@ jobs:
           DMG="EasyMathLang-macOS-${{ matrix.arch }}.dmg"
           ZIP="EasyMathLang-macOS-${{ matrix.arch }}.zip"
           rm -f "$DMG" "$ZIP"
-          hdiutil create -volname EasyMathLang -srcfolder staging/EasyMath -ov -format UDZO "$DMG"
-          ditto -c -k --sequesterRsrc --keepParent staging/EasyMath "$ZIP"
+          hdiutil create -volname EasyMathLang -srcfolder staging -ov -format UDZO "$DMG"
+          (cd staging && ditto -c -k --sequesterRsrc . "../$ZIP")
           ls -lh "$DMG" "$ZIP"
           echo "DMG=$DMG" >> "$GITHUB_ENV"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
