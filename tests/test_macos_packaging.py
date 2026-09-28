@@ -12,6 +12,10 @@ SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "build_macos.sh"))
 SMOKE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "smoke_macos.sh"))
+INSTALL_DOC = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "docs", "installation.md"))
+README = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "README.md"))
 
 
 @pytest.fixture(scope="module")
@@ -192,3 +196,17 @@ def test_release_guards_tag_matches_pyproject(workflow_text):
     # Leading "v" is stripped before comparing with the project version.
     assert '${TAG#v}' in workflow_text
     assert "exit 1" in workflow_text
+
+
+def test_installation_docs_cover_adhoc_first_launch():
+    with open(INSTALL_DOC, encoding="utf-8") as h:
+        text = h.read()
+    assert "not notarized" in text
+    assert "xattr -dr com.apple.quarantine" in text
+    assert "Right-click" in text or "right-click" in text
+
+
+def test_readme_marks_macos_experimental():
+    with open(README, encoding="utf-8") as h:
+        text = h.read()
+    assert "experimental" in text.lower()

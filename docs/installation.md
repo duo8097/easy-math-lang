@@ -46,8 +46,13 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
    README.txt
    ```
 3. Run the app from `Applications`.
-   On first launch macOS may warn the app is unsigned: right-click →
-   **Open** to allow it once. The binaries are ad-hoc signed in CI.
+   The app is ad-hoc signed, **not notarized**, so Gatekeeper will block
+   a plain double-click on first launch. Either:
+   - right-click `easy-math-editor.app` → **Open**, then **Open** again
+     in the dialog; or
+   - remove the quarantine flag yourself:
+     `xattr -dr com.apple.quarantine /Applications/easy-math-editor.app`
+   After the first launch it opens normally.
 4. Optional terminal use — the helpers live inside the app bundle:
    ```
    BIN="/Applications/easy-math-editor.app/Contents/Resources/bin"
