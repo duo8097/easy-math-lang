@@ -141,6 +141,26 @@ calc(1 000 000 + 500)
 
 Result: `1000500`
 
+### Decimal comma (Vietnamese style)
+
+Inside `calc`, a comma between digits is a decimal separator, so
+`3,5` means three-and-a-half:
+
+```
+<a> = 3,5
+<b> = calc(<a> * 2)   // 7
+calc(0,25 * 4)        // 1
+```
+
+Thousands separators keep working: `calc(100,000 + 1)` is `100001`
+and `calc(1,000 * 2)` is `2000`.
+
+> **Ambiguity:** `3,500` matches the thousands pattern (1–3 digits,
+> then groups of exactly 3 digits), so it reads as `3500`, not `3.5`.
+> To disambiguate, write decimals with a dot (`3.5`), put a space
+> after the comma, or use `;` to separate function arguments
+> (`*frac(3,5)` is two arguments `3` and `5`, never `3.5`).
+
 ---
 
 ## The multiplication dot

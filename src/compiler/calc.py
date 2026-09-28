@@ -46,6 +46,13 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
         else:
             eval_expr = expression.strip()
         eval_expr = re.sub(r'(?<=\d)\s+(?=\d{3}\b)', '', eval_expr)
+        # Vietnamese decimal comma: 3,5 -> 3.5. Thousands are stripped
+        # first (100,000 / 1,000 -> plain digits); a comma that remains
+        # between two digits is a decimal separator. Note 3,500 matches
+        # the thousands pattern, so it reads as 3500 — see
+        # docs/algebra.md for the ambiguity and how to disambiguate.
+        eval_expr = re.sub(r'(?<=\d),(?=\d{3}\b)', '', eval_expr)
+        eval_expr = re.sub(r'(?<=\d),(?=\d)', '.', eval_expr)
         eval_expr = eval_expr.replace('^', '**')
         tree = ast.parse(eval_expr, mode='eval')
 
