@@ -123,20 +123,38 @@ jobs:
           chmod +x "$APP/Contents/Resources/bin/"*
           ls -l "$APP/Contents/Resources/bin"
 
-      - name: Ad-hoc sign bundles (Gatekeeper-friendly, no identity needed)
+      # --- Sign (inside-out, fails loudly) -----------------------------------
+      # Nested code first, the .app bundle last: signing contents after the
+      # bundle would invalidate the bundle seal, so the final sign must not
+      # use the recursive flag. No leniency anywhere here (no swallowed
+      # exit codes): a broken signature must fail the job, never produce
+      # a green build with a bad signature.
+      - name: Sign bundle inside-out
         shell: bash
-        continue-on-error: true
         run: |
-          chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp || true
-          codesign --deep --force --sign - dist/easy-math-lang || true
-          codesign --deep --force --sign - dist/ezmath || true
-          codesign --deep --force --sign - dist/easy-math-lsp || true
-          if [ -d "dist/easy-math-editor.app" ]; then
-            codesign --deep --force --sign - "dist/easy-math-editor.app" || true
+          set -euo pipefail
+          APP="dist/easy-math-editor.app"
+          # 1. Standalone CLI binaries in dist/.
+          codesign --force --sign - dist/easy-math-lang
+          codesign --force --sign - dist/ezmath
+          codesign --force --sign - dist/easy-math-lsp
+          # 2. Nested code inside the bundle (deepest first): libraries,
+          #    frameworks, executables — including the helpers bundled
+          #    into Contents/Resources/bin.
+          if [ -d "$APP/Contents/Frameworks" ]; then
+            find "$APP/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) \
+              -exec codesign --force --sign - {} +
+            find "$APP/Contents/Frameworks" -maxdepth 1 -mindepth 1 \
+              -exec codesign --force --sign - {} +
           fi
-          if [ -d "dist/easy-math-editor" ]; then
-            codesign --deep --force --sign - "dist/easy-math-editor/easy-math-editor" || true
-          fi
+          find "$APP/Contents/MacOS" "$APP/Contents/Resources" -type f -perm +111 \
+            -exec codesign --force --sign - {} +
+          # 3. The bundle itself, last.
+          codesign --force --sign - "$APP"
+          # 4. Verify everything; any failure fails the job.
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --verify --strict --verbose=2 \
+            dist/easy-math-lang dist/ezmath dist/easy-math-lsp
 
       # --- Stage DMG layout --------------------------------------------------
       # Only the .app ships: the old EasyMath/{bin,editor} split duplicated

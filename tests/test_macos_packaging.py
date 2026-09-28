@@ -88,6 +88,39 @@ def test_workflow_zip_from_staged_content(workflow_text):
     assert "ditto" in workflow_text
 
 
+def test_sign_step_fails_loudly(workflow_text):
+    assert "continue-on-error" not in workflow_text
+    assert "|| true" not in workflow_text
+
+
+def test_sign_inside_out_before_bundle(workflow_text):
+    assert "Contents/Frameworks" in workflow_text
+    assert (
+        workflow_text.index("Contents/Frameworks")
+        < workflow_text.index('codesign --force --sign - "$APP"')
+    )
+
+
+def test_sign_verifies_everything(workflow_text):
+    assert "codesign --verify --deep --strict" in workflow_text
+    assert "codesign --verify --strict" in workflow_text
+
+
+def test_final_bundle_sign_avoids_deep(workflow_text):
+    hits = [
+        line
+        for line in workflow_text.splitlines()
+        if line.strip().startswith("codesign")
+        and "--verify" not in line
+        and (".app" in line or "$APP" in line)
+    ]
+    assert hits, "expected an explicit final .app signing invocation"
+    for line in hits:
+        assert "--deep" not in line, (
+            f"must not use --deep for the final bundle: {line}"
+        )
+
+
 def test_workflow_uploads_and_releases(workflow_text):
     assert "upload-artifact" in workflow_text
     assert "softprops/action-gh-release" in workflow_text

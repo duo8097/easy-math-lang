@@ -96,9 +96,12 @@ staging/
 ```
 
 `hdiutil` packs `staging/` to `EasyMathLang-macOS-<arch>.dmg`; the `.zip`
-is built with `ditto` from the same staged content. Binaries are ad-hoc
-`codesign`ed so first launch only needs right-click → **Open**. Static
-checks live in `tests/test_macos_packaging.py`.
+is built with `ditto` from the same staged content. Signing is inside-out
+(nested code, then the bundle — never recursive for the final sign) with
+`codesign --verify --deep --strict` afterwards, and the step has no
+leniency: a bad signature fails the job. Ad-hoc means first launch still
+needs right-click → **Open**. Static checks live in
+`tests/test_macos_packaging.py`.
 
 ---
 
