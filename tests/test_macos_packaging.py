@@ -179,3 +179,16 @@ def test_workflow_runs_smoke_on_staged_app(workflow_text):
     # bundle never ships.
     assert workflow_text.index("smoke_macos.sh") > workflow_text.index("Stage DMG")
     assert workflow_text.index("smoke_macos.sh") < workflow_text.index("hdiutil")
+
+
+def test_release_marks_hyphen_tags_prerelease(workflow_text):
+    assert "prerelease:" in workflow_text
+    assert "contains(github.ref_name, '-')" in workflow_text
+
+
+def test_release_guards_tag_matches_pyproject(workflow_text):
+    assert "Guard tag matches pyproject version" in workflow_text
+    assert "pyproject.toml" in workflow_text
+    # Leading "v" is stripped before comparing with the project version.
+    assert '${TAG#v}' in workflow_text
+    assert "exit 1" in workflow_text

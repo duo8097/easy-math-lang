@@ -40,6 +40,25 @@ jobs:
       - name: Install project + build dependencies
         run: uv sync --frozen
 
+      # --- Tag/version guard -------------------------------------------------
+      # A tag build must release exactly what pyproject.toml declares:
+      # fail fast when vX.Y.Z(-suffix) does not match the project version.
+      - name: Guard tag matches pyproject version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+            TAG="${TAG#v}"
+            VER="$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+            if [ "$TAG" != "$VER" ]; then
+              echo "::error::tag '${{ github.ref_name }}' does not match pyproject version '$VER'"
+              exit 1
+            fi
+            echo "tag matches pyproject version $VER"
+          else
+            echo "not a tag build; skipping version guard"
+          fi
+
       - name: Run test suite (gate releases)
         run: uv run --frozen pytest tests/ --ignore=tests/test_packaged_build -q
 
@@ -226,5 +245,6 @@ jobs:
             EasyMathLang-macOS-${{ matrix.arch }}.dmg
             EasyMathLang-macOS-${{ matrix.arch }}.zip
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
