@@ -11,7 +11,8 @@ even if you have never set up a programming tool before.
 > "Build macOS Installer" -> Run workflow, and the DMG/ZIP are downloaded
 > from the run's Artifacts section (artifacts expire after 14 days) —
 > see [Option A2](#option-a2--macos-disk-image-easiest) below.
-> No Python needed (Apple Silicon `arm64` and Intel `x64` builds).
+> No Python needed (Apple Silicon only, M1 or newer; does not run on
+> Intel Macs).
 
 ---
 
@@ -35,11 +36,12 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
 
 ## Option A2 — macOS disk image (easiest)
 
+Apple Silicon only (M1 or newer); does not run on Intel Macs.
+
 1. Go to Actions -> "Build macOS Installer" -> Run workflow and download
-   `EasyMathLang-macOS-arm64.dmg` (Apple Silicon, M1+) or
-   `EasyMathLang-macOS-x64.dmg` (Intel) from the run's Artifacts section
+   `EasyMathLang-macOS-arm64.dmg` from the run's Artifacts section
    (artifacts expire after 14 days).
-   A `.zip` with the same contents is attached alongside each `.dmg`.
+   A `.zip` with the same contents is attached alongside.
 2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`
    (a shortcut to `Applications` is included in the image for this).
    The disk image contains:

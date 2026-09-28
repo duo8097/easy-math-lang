@@ -41,14 +41,28 @@ def test_workflow_triggers_dispatch_only(workflow_text):
     assert "softprops/action-gh-release" not in workflow_text
 
 
-def test_workflow_builds_both_arches(workflow_text):
+def test_workflow_builds_arm64_only(workflow_text):
     assert "macos-14" in workflow_text
-    # The previous Intel image was retired by GitHub on 2025-12-04;
-    # Intel builds must target macos-15-intel (the last Intel image).
-    assert "macos-15-intel" in workflow_text
-    assert not re.search(r"runner:\s*macos-13\b", workflow_text)
     assert "arm64" in workflow_text
-    assert "x64" in workflow_text or "x86_64" in workflow_text or "intel" in workflow_text.lower()
+    assert "arch: arm64" in workflow_text
+    # No Intel runner or x64 artifact.
+    assert "macos-15-intel" not in workflow_text
+    assert "macos-13" not in workflow_text
+    assert "EasyMathLang-macOS-x64" not in workflow_text
+    assert not re.search(r"arch:\s*x64", workflow_text)
+
+
+def test_docs_are_arm64_only():
+    for path in (INSTALL_DOC, README):
+        with open(path, encoding="utf-8") as h:
+            text = h.read()
+        assert "EasyMathLang-macOS-x64" not in text
+    with open(os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "docs",
+                         "packaging.md")), encoding="utf-8") as h:
+        packaging = h.read()
+    assert "EasyMathLang-macOS-x64" not in packaging
+    assert "macos-15-intel" not in packaging
 
 
 def test_workflow_runs_tests_before_build(workflow_text):
@@ -206,6 +220,11 @@ def test_script_mirrors_workflow(script_text, workflow_text):
                   "entry_compiler.py", "pyinstaller"):
         assert token in script_text, f"script missing {token}"
     assert "ezmath" in script_text
+
+
+def test_build_script_requires_arm64(script_text):
+    assert 'uname -m' in script_text
+    assert "This build targets Apple Silicon (arm64) only" in script_text
 
 
 def test_script_is_executable_bash():

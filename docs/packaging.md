@@ -76,11 +76,12 @@ from the run's Artifacts section (artifacts expire after 14 days).
 ## What gets built (macOS)
 
 Same three binaries, macOS names, built by
-`.github/workflows/build-macos-installer.yml` on a matrix
-(`macos-14` arm64 + `macos-15-intel` x64). macOS builds are produced
-manually via Actions -> "Build macOS Installer" -> Run workflow, and the
-DMG/ZIP are downloaded from the run's Artifacts section (artifacts expire
-after 14 days). The build is still experimental / ad-hoc signed,
+`.github/workflows/build-macos-installer.yml` on `macos-14` (arm64,
+Apple Silicon only, M1 or newer; does not run on Intel Macs). macOS
+builds are produced manually via Actions -> "Build macOS Installer" ->
+Run workflow, and the DMG/ZIP are downloaded from the run's Artifacts
+section (artifacts expire after 14 days). Intel Macs can still run from
+source (`uv sync`). The build is still experimental / ad-hoc signed,
 not notarized:
 
 | Binary | Mode | Contents |
@@ -101,7 +102,7 @@ staging/
 └── README.txt
 ```
 
-`hdiutil` packs `staging/` to `EasyMathLang-macOS-<arch>.dmg`; the `.zip`
+`hdiutil` packs `staging/` to `EasyMathLang-macOS-arm64.dmg`; the `.zip`
 is built with `ditto` from the same staged content. Signing is inside-out
 (nested code, then the bundle — never recursive for the final sign) with
 `codesign --verify --deep --strict` afterwards, and the step has no

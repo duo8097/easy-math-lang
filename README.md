@@ -24,12 +24,12 @@ The easiest way to use easy-math-lang — no Python needed:
 3. Run `EasyMathLangSetup.exe` and follow the setup steps.
 4. Launch **Easy Math Editor** from the Start Menu.
 
-**macOS (Apple Silicon `arm64` + Intel `x64`) — experimental until confirmed on real hardware:**
+**macOS (Apple Silicon only, M1 or newer) — experimental until confirmed on real hardware:**
 
 1. Go to Actions -> "Build macOS Installer" -> Run workflow and download
-   `EasyMathLang-macOS-arm64.dmg` (M1+) or `EasyMathLang-macOS-x64.dmg`
-   (Intel) from the run's Artifacts section (artifacts expire after
-   14 days) — a `.zip` with the same contents is attached alongside.
+   `EasyMathLang-macOS-arm64.dmg` from the run's Artifacts section
+   (artifacts expire after 14 days) — a `.zip` with the same contents is
+   attached alongside. Does not run on Intel Macs.
 2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`,
    then run it (right-click → **Open** on first launch — the app is
    ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).

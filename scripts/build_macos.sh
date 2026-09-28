@@ -11,6 +11,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+[ "$(uname -m)" = "arm64" ] || { echo "This build targets Apple Silicon (arm64) only" >&2; exit 1; }
+
 cat > entry_compiler.py <<'EOF'
 from compiler import main
 if __name__ == "__main__":
