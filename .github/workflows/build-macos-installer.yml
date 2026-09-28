@@ -97,10 +97,15 @@ jobs:
           --name easy-math-editor
           --onedir
           --windowed
-          --collect-all PySide6
+          --hidden-import PySide6.QtPdf
+          --hidden-import PySide6.QtPdfWidgets
           --collect-all typst
           --collect-all numpy
           --noconfirm
+
+      - name: Show editor bundle size
+        shell: bash
+        run: du -sh dist/easy-math-editor.app
 
       # --- Bundle helpers INTO the .app --------------------------------------
       # The DMG ships only easy-math-editor.app: a user may drag just the
@@ -120,6 +125,34 @@ jobs:
           cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp "$APP/Contents/Resources/bin/"
           chmod +x "$APP/Contents/Resources/bin/"*
           ls -l "$APP/Contents/Resources/bin"
+
+      # --- Prune nested Qt tool apps (must run before signing) -----------------
+      # PySide6 bundles Qt developer tools (Assistant, Designer, Linguist)
+      # as nested "*__dot__app" dirs with symlinked Info.plist and
+      # executables; codesign rejects those, so remove them. Helpers are
+      # already bundled at this point, signing has not started yet.
+      - name: Remove nested Qt tool apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="dist/easy-math-editor.app"
+          du -sh dist/easy-math-editor.app
+          echo "Nested __dot__app dirs under Frameworks:"
+          find "$APP/Contents/Frameworks" -name '*__dot__app' -print
+          if [ -d "$APP/Contents/Resources" ]; then
+            echo "Nested __dot__app dirs under Resources:"
+            find "$APP/Contents/Resources" -name '*__dot__app' -print
+          fi
+          find "$APP/Contents/Frameworks" -depth -name '*__dot__app' -exec rm -rf {} +
+          if [ -d "$APP/Contents/Resources" ]; then
+            find "$APP/Contents/Resources" -depth -name '*__dot__app' -exec rm -rf {} +
+          fi
+          du -sh dist/easy-math-editor.app
+          echo "Remaining __dot__app dirs (must be empty):"
+          find "$APP/Contents/Frameworks" -name '*__dot__app' -print
+          if [ -d "$APP/Contents/Resources" ]; then
+            find "$APP/Contents/Resources" -name '*__dot__app' -print
+          fi
 
       # --- Sign (inside-out, fails loudly) -----------------------------------
       # Nested code first, the .app bundle last: signing contents after the

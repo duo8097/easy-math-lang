@@ -76,6 +76,10 @@ else
   fail "easy-math-lsp exited early with code $code (log: $(cat "$TMP/lsp.log"))"
 fi
 
+echo "== Qt platform plugins (cocoa must be bundled) =="
+ls -l "$APP/Contents/Frameworks/PySide6/Qt/plugins/platforms" || fail "missing Qt platforms plugin dir $APP/Contents/Frameworks/PySide6/Qt/plugins/platforms"
+[ -f "$APP/Contents/Frameworks/PySide6/Qt/plugins/platforms/libqcocoa.dylib" ] || fail "missing libqcocoa.dylib — Qt platform plugin not bundled"
+
 echo "== editor launches headless =="
 if command -v timeout >/dev/null 2>&1; then
   # GNU timeout: 124 means "still running when killed" -> success.

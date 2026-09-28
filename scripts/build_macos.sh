@@ -53,10 +53,13 @@ uv run pyinstaller entry_editor.py \
   --name easy-math-editor \
   --onedir \
   --windowed \
-  --collect-all PySide6 \
+  --hidden-import PySide6.QtPdf \
+  --hidden-import PySide6.QtPdfWidgets \
   --collect-all typst \
   --collect-all numpy \
   --noconfirm
+
+du -sh dist/easy-math-editor.app
 
 # `ezmath` is the short CLI alias (pyproject [project.scripts]); it is
 # the same binary under another name, so copy instead of rebuilding.

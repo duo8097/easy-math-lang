@@ -95,6 +95,40 @@ def test_workflow_zip_from_staged_content(workflow_text):
     assert "ditto" in workflow_text
 
 
+def test_workflow_prunes_nested_dot_apps_before_sign(workflow_text):
+    assert "__dot__app" in workflow_text
+    assert "Remove nested Qt tool apps" in workflow_text
+    # Cleanup prints what it removes before deleting.
+    assert "-name '*__dot__app' -print" in workflow_text
+    # Cleanup runs after helpers are bundled, before signing.
+    assert workflow_text.index("Bundle helpers into the .app") < workflow_text.index(
+        "__dot__app"
+    )
+    assert workflow_text.index("__dot__app") < workflow_text.index(
+        "Sign bundle inside-out"
+    )
+    # Bundle size is logged before/after pruning and after the editor build.
+    assert "du -sh dist/easy-math-editor.app" in workflow_text
+
+
+def test_editor_build_drops_collect_all_pyside6(workflow_text, script_text):
+    assert "--collect-all PySide6" not in workflow_text
+    assert "--collect-all PySide6" not in script_text
+    for hidden in ("PySide6.QtPdf", "PySide6.QtPdfWidgets"):
+        assert hidden in workflow_text, f"workflow missing {hidden}"
+        assert hidden in script_text, f"build script missing {hidden}"
+    # Typst/numpy collection must stay.
+    assert "--collect-all typst" in workflow_text
+    assert "--collect-all numpy" in workflow_text
+
+
+def test_smoke_checks_qt_platform_plugin():
+    with open(SMOKE, encoding="utf-8") as h:
+        text = h.read()
+    assert "plugins/platforms" in text
+    assert "libqcocoa.dylib" in text
+
+
 def test_sign_step_fails_loudly(workflow_text):
     assert "continue-on-error" not in workflow_text
     assert "|| true" not in workflow_text
