@@ -36,7 +36,10 @@ def test_workflow_triggers_on_tag_and_dispatch(workflow_text):
 
 def test_workflow_builds_both_arches(workflow_text):
     assert "macos-14" in workflow_text
-    assert "macos-13" in workflow_text
+    # The previous Intel image was retired by GitHub on 2025-12-04;
+    # Intel builds must target macos-15-intel (the last Intel image).
+    assert "macos-15-intel" in workflow_text
+    assert not re.search(r"runner:\s*macos-13\b", workflow_text)
     assert "arm64" in workflow_text
     assert "x64" in workflow_text or "x86_64" in workflow_text or "intel" in workflow_text.lower()
 
