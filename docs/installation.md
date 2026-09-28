@@ -7,7 +7,9 @@ even if you have never set up a programming tool before.
 > see [Option A](#option-a--windows-installer-easiest) below.
 > No Python needed.
 >
-> **On macOS?** Download the `.dmg` / `.zip` from Releases —
+> **On macOS?** macOS builds are produced manually via Actions ->
+> "Build macOS Installer" -> Run workflow, and the DMG/ZIP are downloaded
+> from the run's Artifacts section (artifacts expire after 14 days) —
 > see [Option A2](#option-a2--macos-disk-image-easiest) below.
 > No Python needed (Apple Silicon `arm64` and Intel `x64` builds).
 
@@ -33,9 +35,10 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
 
 ## Option A2 — macOS disk image (easiest)
 
-1. Download `EasyMathLang-macOS-arm64.dmg` (Apple Silicon, M1+)
-   or `EasyMathLang-macOS-x64.dmg` (Intel) from the
-   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+1. Go to Actions -> "Build macOS Installer" -> Run workflow and download
+   `EasyMathLang-macOS-arm64.dmg` (Apple Silicon, M1+) or
+   `EasyMathLang-macOS-x64.dmg` (Intel) from the run's Artifacts section
+   (artifacts expire after 14 days).
    A `.zip` with the same contents is attached alongside each `.dmg`.
 2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`
    (a shortcut to `Applications` is included in the image for this).
