@@ -187,6 +187,14 @@ jobs:
           EOF
           find staging -maxdepth 2 | sort
 
+      # --- Smoke test the staged app (not dist/) -----------------------------
+      # Must run after staging and before DMG creation so a broken bundle
+      # never ships. See scripts/smoke_macos.sh (also runnable on a local
+      # Mac after staging).
+      - name: Smoke test staged app
+        shell: bash
+        run: bash scripts/smoke_macos.sh staging
+
       - name: Create DMG + ZIP
         shell: bash
         run: |

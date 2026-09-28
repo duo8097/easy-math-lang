@@ -10,6 +10,8 @@ WORKFLOW = os.path.abspath(
                  "workflows", "build-macos-installer.yml"))
 SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "build_macos.sh"))
+SMOKE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts", "smoke_macos.sh"))
 
 
 @pytest.fixture(scope="module")
@@ -137,3 +139,43 @@ def test_script_is_executable_bash():
     with open(SCRIPT, encoding="utf-8") as h:
         first = h.readline()
     assert first.startswith("#!") and "bash" in first
+
+
+def test_smoke_script_exists_and_is_bash():
+    assert os.path.isfile(SMOKE), "macOS smoke script missing"
+    with open(SMOKE, encoding="utf-8") as h:
+        text = h.read()
+    assert text.splitlines()[0].startswith("#!") and "bash" in text.splitlines()[0]
+
+
+def test_smoke_script_covers_compiler_exports_lsp_editor():
+    with open(SMOKE, encoding="utf-8") as h:
+        text = h.read()
+    assert "examples/example.ezmath" in text
+    assert "--format" in text
+    for token in ("png", "svg", "html"):
+        assert token in text
+    assert "easy-math-lsp" in text
+    assert "QT_QPA_PLATFORM" in text
+    # GNU timeout exit code: still running when killed -> success.
+    assert "124" in text
+    # Signature info must be logged but never fail the build.
+    assert "spctl" in text
+    assert "xattr" in text
+
+
+def test_smoke_script_tests_staged_app_not_dist():
+    with open(SMOKE, encoding="utf-8") as h:
+        text = h.read()
+    # Helpers/editor resolve through the staged .app bundle layout.
+    assert 'APP="$STAGING/easy-math-editor.app"' in text
+    assert "Contents/Resources/bin" in text
+    assert "Contents/MacOS/easy-math-editor" in text
+
+
+def test_workflow_runs_smoke_on_staged_app(workflow_text):
+    assert "scripts/smoke_macos.sh" in workflow_text
+    # Smoke runs after staging and before DMG creation so a broken
+    # bundle never ships.
+    assert workflow_text.index("smoke_macos.sh") > workflow_text.index("Stage DMG")
+    assert workflow_text.index("smoke_macos.sh") < workflow_text.index("hdiutil")
