@@ -1,4 +1,3 @@
-```text
 // Easy Math Compiler - Full Test //
 
 // Test basic define //
@@ -318,4 +317,3 @@ Diện tích: <width> . <height> = <area>
 *root(2; *pow(<width>; 2) + *pow(<height>; 2))
 
 // End of test //
-```

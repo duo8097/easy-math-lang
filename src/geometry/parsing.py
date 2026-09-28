@@ -9,7 +9,29 @@ from .solver import GeometrySolver
 
 
 def split_args(args_str):
-    """Split a semicolon-separated argument string, respecting nested ()."""
+    """Split a semicolon-separated argument string, respecting nested ().
+
+    Friendly: ',' works like ';' when no top-level ';' is present, so
+    ``*line(A, B)`` equals ``*line(A ; B)``. When ';' is present it wins
+    (so ``*point(A = 0, 0)`` — whose single arg contains a comma — never
+    splits). ``*point`` is never comma-split: its ``x, y`` coordinates
+    contain a comma by design.
+    """
+    # Decide separator set: ';' wins when present at depth 0.
+    has_semi = False
+    _depth = 0
+    for _ch in args_str:
+        if _ch == '(':
+            _depth += 1
+        elif _ch == ')':
+            if _depth > 0:
+                _depth -= 1
+            else:
+                _depth = 0
+        elif _ch == ';' and _depth == 0:
+            has_semi = True
+            break
+    seps = (';',) if has_semi else (';', ',')
     parts = []
     current = []
     depth = 0
@@ -22,13 +44,37 @@ def split_args(args_str):
                 # Unbalanced ')': do not let depth go negative and merge
                 # the rest into one confusing arg; clamp and keep splitting.
                 depth = 0
-        if char == ';' and depth == 0:
+        if char in seps and depth == 0:
             parts.append(''.join(current).strip())
             current = []
         else:
             current.append(char)
     parts.append(''.join(current).strip())
     return parts
+
+
+def split_args_for(cmd, args_str):
+    """Command-aware split: ``*point`` never splits on ',' (x, y coords)."""
+    if cmd == 'point':
+        # Point takes a single "name" or "name = x, y" arg: always ';' only.
+        parts = []
+        current = []
+        depth = 0
+        for char in args_str:
+            if char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+                if depth < 0:
+                    depth = 0
+            if char == ';' and depth == 0:
+                parts.append(''.join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        parts.append(''.join(current).strip())
+        return parts
+    return split_args(args_str)
 
 
 def _parse_commands(block_text):
@@ -98,7 +144,7 @@ def _parse_commands(block_text):
         if m:
             # A value never contains a new command: stop at `*name(`
             # so `= 2*3` survives but a following command does not leak in.
-            annot = _re.sub(r'\*[A-Za-z][A-Za-z0-9_]*\s*\(.*$', '', m.group(1)).strip()
+            annot = _re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(.*$', '', m.group(1)).strip()
             # Advance past the whole annotation so an embedded *cmd(
             # inside it is not re-parsed as a real command.
             annot_end = k + m.end()
@@ -112,7 +158,7 @@ def parse_draw_block(block_text):
 
     for cmd, args_str, annot in _parse_commands(block_text):
         try:
-            args = split_args(args_str)
+            args = split_args_for(cmd, args_str)
             _process_command(solver, cmd, args)
         except GeometryError as e:
             msg = f"[GeometryError] *{cmd}({args_str}): {e}"

@@ -90,7 +90,11 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     Returns the wrapped string, or '' for empty content (with warning).
     """
     from .diagnostics import warn_unknown_commands
-    from .math_commands import math_call_specs, replace_math_call
+    from .math_commands import (
+        math_call_specs,
+        normalize_friendly_calls,
+        replace_math_call,
+    )
     from .symbols import replace_symbol_shortcuts
 
     inner = inner_raw.strip()
@@ -109,6 +113,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         return ''
     # Protect literal \\ so it never toggles math and survives Typst.
     inner = inner.replace('\\\\', BS_PLACEHOLDER)
+    inner = normalize_friendly_calls(inner)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
     if line_no is not None:

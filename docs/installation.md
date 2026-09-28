@@ -6,6 +6,10 @@ even if you have never set up a programming tool before.
 > **On Windows?** The fastest way is the ready-made installer —
 > see [Option A](#option-a--windows-installer-easiest) below.
 > No Python needed.
+>
+> **On macOS?** Download the `.dmg` / `.zip` from Releases —
+> see [Option A2](#option-a2--macos-disk-image-easiest) below.
+> No Python needed (Apple Silicon `arm64` and Intel `x64` builds).
 
 ---
 
@@ -24,6 +28,33 @@ even if you have never set up a programming tool before.
 No further setup is needed: the editor finds its helper programs
 (`easy-math-lsp`, `easy-math-lang`) next to itself automatically —
 see [Desktop editor](editor.md#under-the-hood-helper-programs).
+
+---
+
+## Option A2 — macOS disk image (easiest)
+
+1. Download `EasyMathLang-macOS-arm64.dmg` (Apple Silicon, M1+)
+   or `EasyMathLang-macOS-x64.dmg` (Intel) from the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+   A `.zip` with the same contents is attached alongside each `.dmg`.
+2. Open the `.dmg` and drag the `EasyMath` folder where you like
+   (e.g. `Applications`). Inside:
+   ```
+   EasyMath/
+   ├── bin/easy-math-lang, ezmath, easy-math-lsp
+   ├── editor/easy-math-editor (+ .app bundle when present)
+   └── README.txt
+   ```
+3. Run `EasyMath/editor/easy-math-editor` (or the `.app` bundle).
+   On first launch macOS may warn the app is unsigned: right-click →
+   **Open** to allow it once. The binaries are ad-hoc signed in CI.
+4. Optional terminal use: `export PATH="$PWD/bin:$PATH"` inside `EasyMath`,
+   then `easy-math-lang doc.ezmath` (PDF) or
+   `easy-math-lang doc.ezmath out.png --format png` (image).
+   See [Export](export.md).
+
+No further setup is needed: the editor finds `bin/` next to itself
+automatically, even when `bin/` is not on `PATH`.
 
 ---
 

@@ -1,19 +1,19 @@
 # Packaging and releases (for developers)
 
 End users should start with the [Installation guide](installation.md).
-This page documents how the Windows installer and its binaries are built,
-how the editor finds them at runtime, and how to test all of it.
+This page documents how the Windows/macOS installers and their binaries
+are built, how the editor finds them at runtime, and how to test all of it.
 
 ---
 
-## What gets built
+## What gets built (Windows)
 
 Three PyInstaller binaries, with the exact flags used by CI
 (`.github/workflows/build-windows-installer.yml`):
 
 | Binary | Mode | Contents |
 |---|---|---|
-| `easy-math-lang.exe` | onefile CLI | Compiler (`.ezmath` → PDF via Typst) |
+| `easy-math-lang.exe` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
 | `ezmath.exe` | onefile CLI | Same compiler binary under the short alias name (file copy, not a rebuild) |
 | `easy-math-lsp.exe` | onefile CLI | Language server (compiler bundled in-process) |
 | `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (PySide6) |
@@ -57,10 +57,47 @@ From the repo root (Windows):
 powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1
 ```
 
-This writes temporary `entry_*.py` shims, runs the same three PyInstaller
-commands as CI, removes the shims again, and leaves the output in `dist/`
-(gitignored). Tagging a commit `v*` (or manual dispatch) runs the same
-steps in CI, compiles the installer, and attaches it to a GitHub Release.
+From the repo root (macOS):
+
+```
+bash scripts/build_macos.sh
+```
+
+Both write temporary `entry_*.py` shims, run the same three PyInstaller
+commands as their CI workflow, remove the shims again, and leave the
+output in `dist/` (gitignored). Tagging a commit `v*` (or manual
+dispatch) runs the same steps in CI and attaches the installer(s) to a
+GitHub Release.
+
+---
+
+## What gets built (macOS)
+
+Same three binaries, macOS names, built by
+`.github/workflows/build-macos-installer.yml` on a matrix
+(`macos-14` arm64 + `macos-13` x64):
+
+| Binary | Mode | Contents |
+|---|---|---|
+| `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst) |
+| `ezmath` | onefile CLI | Same compiler copy (alias) |
+| `easy-math-lsp` | onefile CLI | Language server |
+| `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (+ `.app` when emitted) |
+
+Staged DMG layout (so `editor/paths.py` works without `PATH`):
+
+```
+EasyMath/
+├── bin/easy-math-lang, ezmath, easy-math-lsp
+├── editor/easy-math-editor (+ support files)
+├── Easy Math Editor.app (when PyInstaller emits a bundle)
+└── README.txt
+```
+
+`hdiutil` packs it to `EasyMathLang-macOS-<arch>.dmg` (plus a `.zip`
+via `ditto`). Binaries are ad-hoc `codesign`ed (`--deep --force --sign -`)
+so first launch only needs right-click → **Open**. Static checks live in
+`tests/test_macos_packaging.py`.
 
 ---
 

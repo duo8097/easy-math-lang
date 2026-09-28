@@ -6,6 +6,14 @@ Everything you write goes in a plain text file with the `.ezmath` extension.
 You can create and edit this file with any text editor — **Notepad, TextEdit,
 VS Code**, anything.
 
+> **New? Start with the friendly shortcuts** (all optional — classic `;`
+> syntax keeps working):
+> - Commas work like `;`: `*frac(2, 3)`, `*pow(x, 2)`, `*line(A, B)`.
+> - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root).
+> - `let x = 5` / `var x = 5` / `*define x = 5` work like `<x> = 5`.
+> - `# Title`, `## Sub`, `- item`, `1. item` become headings/lists.
+> - `==` means `=` (single equals); unknown `*cmd` suggests a fix.
+
 ---
 
 ## The basic idea
@@ -185,7 +193,11 @@ Output:
 
 ## Math commands
 
-All math commands start with `*`. Arguments are separated by `;`.
+All math commands start with `*`. Arguments are separated by `;`
+— or by `,` if you prefer (`*frac(2, 3)` = `*frac(2 ; 3)`).
+When `;` is present it wins, so `*frac(100,000 ; 2)` keeps `100,000`
+as one number. Friendly aliases: `*fraction` (= `*frac`),
+`*power` (= `*pow`), `*cbrt(x)` (= `*root(3 ; x)`).
 
 ### Fractions
 
@@ -514,6 +526,25 @@ All 24 lowercase letters plus the capitals that differ from Latin:
 | `*chi` | χ | | | |
 | `*psi` | ψ | | | |
 | `*omega` | ω | | | |
+
+---
+
+## Document structure (headings, lists)
+
+Lesson plans read better with structure — no Typst needed:
+
+```
+# My Lesson
+## Goals
+- item one
+- item two
+1. first step
+2. second step
+```
+
+`#`/`##`/`###` become `=`/`==`/`===` headings; `-`/`+` stay lists;
+`1.` stays an enumeration; `= Title` also works as a heading.
+Variables, `calc`, math and symbols keep working inside them.
 
 ---
 

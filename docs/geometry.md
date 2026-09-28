@@ -33,6 +33,12 @@ The program:
 
 This draws triangle ABC where you have set the coordinates yourself.
 
+> **Friendly:** `,` works like `;` between points
+> (`*triangle(A, B, C)` = `*triangle(A ; B ; C)`,
+> `*line(A, B)`, `*intersection(C, line(A, B), line(D, E))`).
+> When `;` is present it wins. `*point(A = 0, 0)` never splits —
+> its `x, y` comma is coordinates, not a separator.
+
 ---
 
 ## Points

@@ -10,24 +10,36 @@ from compiler.symbols import WORD_REPLACEMENTS
 from geometry.commands import KNOWN_GEOMETRY_COMMANDS
 
 # name -> (signature, short description), from rule.txt.
+# Friendly aliases point at the same docs (completion shows both).
 MATH_DOCS = {
-    'frac': ('*frac(numerator ; denominator)', 'Fraction.'),
+    'frac': ('*frac(numerator ; denominator)', 'Fraction. Comma also works: *frac(2, 3).'),
+    'fraction': ('*fraction(numerator ; denominator)', 'Fraction (alias of *frac).'),
     'abs': ('*abs(expression)', 'Absolute value.'),
+    'absolute': ('*absolute(expression)', 'Absolute value (alias of *abs).'),
     'sin': ('*sin(x)', 'Sine.'),
     'cos': ('*cos(x)', 'Cosine.'),
     'tan': ('*tan(x)', 'Tangent.'),
     'sqrt': ('*sqrt(x)', 'Square root.'),
+    'squareroot': ('*squareroot(x)', 'Square root (alias of *sqrt).'),
+    'square-root': ('*square-root(x)', 'Square root (alias of *sqrt).'),
+    'cbrt': ('*cbrt(x)', 'Cube root (same as *root(3 ; x)).'),
+    'cuberoot': ('*cuberoot(x)', 'Cube root (alias of *cbrt).'),
+    'cube-root': ('*cube-root(x)', 'Cube root (alias of *cbrt).'),
     'log': ('*log(x)', 'Logarithm.'),
     'ln': ('*ln(x)', 'Natural logarithm.'),
-    'pow': ('*pow(base ; exponent)', 'Power.'),
+    'pow': ('*pow(base ; exponent)', 'Power. Comma also works: *pow(x, 2).'),
+    'power': ('*power(base ; exponent)', 'Power (alias of *pow).'),
     'root': ('*root(index ; radicand)', 'Root.'),
     'sum': ('*sum(lower ; upper ; expression)', 'Summation.'),
+    'summation': ('*summation(lower ; upper ; expression)', 'Summation (alias of *sum).'),
     'prod': ('*prod(lower ; upper ; expression)', 'Product.'),
+    'product': ('*product(lower ; upper ; expression)', 'Product (alias of *prod).'),
     'lim': ('*lim(variable -> value ; expression)', 'Limit.'),
+    'limit': ('*limit(variable -> value ; expression)', 'Limit (alias of *lim).'),
 }
 
 KEYWORD_DOCS = {
-    'define': ('*define(name = value)', 'Define a reusable value.'),
+    'define': ('*define(name = value)', 'Define a reusable value. Also: *define x = 5, let x = 5.'),
     'calc': ('calc(expression)', 'Evaluate a math expression.'),
     'p': ('*p(expression)', 'Print raw text, bypassing other rules.'),
 }
@@ -59,7 +71,7 @@ GEOMETRY_DOCS = {
 # every compiler math command must be advertised (no silent divergence).
 _CROSS_CHECK = (
     set(MATH_DOCS) <= KNOWN_COMMANDS
-    and {'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
+    and {'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'cbrt', 'log', 'ln',
          'pow', 'root', 'sum', 'prod', 'lim'} <= set(MATH_DOCS)
     and set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS)
 )

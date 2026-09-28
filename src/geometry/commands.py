@@ -264,7 +264,7 @@ def _process_command(solver, cmd, args):
         _check_point_name(C)
 
         def _parse_line_arg(s):
-            m = re.match(r'line\s*\(\s*(.*?)\s*;\s*(.*?)\s*\)\s*$', s.strip())
+            m = re.match(r'line\s*\(\s*(.*?)\s*[;,]\s*(.*?)\s*\)\s*$', s.strip())
             if not m:
                 raise GeometryError(f"expected line(P;Q), got: {s!r}")
             p, q = m.group(1).strip(), m.group(2).strip()

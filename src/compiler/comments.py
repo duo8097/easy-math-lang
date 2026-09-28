@@ -57,9 +57,9 @@ def _protected_ranges(line):
     while \\...\\ math is handled separately in strip_comments.
     """
     ranges = []
-    for opener in ('calc(', '*p('):
+    for opener in ('calc(', '*p(', '*calc('):
         ranges.extend(_balanced_spans(line, opener))
-    for m in re.finditer(r'\*[A-Za-z][A-Za-z0-9_]*\(', line):
+    for m in re.finditer(r'\*[A-Za-z][A-Za-z0-9_\-]*\(', line):
         ranges.extend(_balanced_spans(line, m.group(0)))
     return ranges
 

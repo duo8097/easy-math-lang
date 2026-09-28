@@ -69,6 +69,19 @@ use `Build → Restart Language Server`.
 
 ---
 
+## Exporting (PDF, images, HTML, Typst)
+
+- `File → Export As…` saves the current document (saved or untitled, no
+  save needed) as **PDF** (`.pdf`), **PNG** (`.png`, prompts for DPI),
+  **SVG** (`.svg`), **HTML** (`.html`) or **Typst source** (`.typ`).
+  Multi-page PNG/SVG writes `stem-1.ext`, `stem-2.ext`, … next to your
+  chosen file. The same formats work from the terminal —
+  see [Export](export.md).
+- `Build → Compile` (**Ctrl+B**) still writes a PDF next to your file
+  (saved documents only).
+
+---
+
 ## Under the hood: helper programs
 
 The live preview compiles in-process, so it needs no helper. Full

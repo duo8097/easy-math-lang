@@ -25,7 +25,10 @@ import re
 from compiler.calc import apply_calc_in_string, evaluate_calc
 from compiler.comments import strip_comments
 from compiler.diagnostics import KNOWN_COMMANDS
-from compiler.statements import process_assignment_or_define
+from compiler.statements import (
+    _normalize_friendly_statement,
+    process_assignment_or_define,
+)
 from compiler.state import CompileContext
 from compiler.variables import replace_defines, replace_vars
 from geometry.parsing import parse_draw_block
@@ -33,8 +36,8 @@ from . import builtins
 
 IDENT = r'[A-Za-z_][A-Za-z0-9_]*'
 VAR_TOKEN = re.compile(r'<([^<>]+)>')
-CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])calc\(')
-CMD_CALL = re.compile(r'\*([A-Za-z][A-Za-z0-9_]*)\s*\(')
+CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])\*?calc\(')
+CMD_CALL = re.compile(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(')
 P_LINE = re.compile(r'^\*p\((.*)\)$')
 WORD_AT = re.compile(IDENT)
 
@@ -256,6 +259,18 @@ def _analyze_text_inner(text, analysis):
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
+            # Friendly: let/var and bare *define without parens.
+            if not math_buffered:
+                _norm = _normalize_friendly_statement(s)
+                if _norm != s and (
+                    _norm.startswith('define(')
+                    or re.match(r'^<[^<>]+>\s*=', _norm)
+                ):
+                    before = _snapshot(ctx)
+                    process_assignment_or_define(ctx, _norm, line_no=idx + 1)
+                    _record_new(ctx, before, code, idx, analysis)
+                    continue
+
             # Single-line *draw(...) — suspended inside math buffer.
             if not math_buffered and s.startswith('*draw(') and s.endswith(')'):
                 inner = s[6:-1]
@@ -284,7 +299,10 @@ def _analyze_text_inner(text, analysis):
                       and not s.startswith('frac('))):
                 inner = s[2:-1].strip()
                 if inner and not inner.startswith('*'):
-                    if re.match(r'^<[^<>]+>\s*=', inner) or inner.startswith('define('):
+                    _inner_norm = _normalize_friendly_statement(inner)
+                    if (re.match(r'^<[^<>]+>\s*=', inner)
+                            or inner.startswith('define(')
+                            or _inner_norm != inner):
                         before = _snapshot(ctx)
                         process_assignment_or_define(ctx, inner, line_no=idx + 1)
                         _record_new(ctx, before, code, idx, analysis)

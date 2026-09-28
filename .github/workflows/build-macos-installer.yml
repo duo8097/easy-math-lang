@@ -1,0 +1,180 @@
+name: Build macOS Installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install project + build dependencies
+        run: uv sync --frozen
+
+      - name: Run test suite (gate releases)
+        run: uv run --frozen pytest tests/ --ignore=tests/test_packaged_build -q
+
+      # --- Entry-point shims -------------------------------------------------
+      - name: Write entry-point scripts
+        shell: bash
+        run: |
+          cat > entry_compiler.py <<'EOF'
+          from compiler import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          cat > entry_lsp.py <<'EOF'
+          from lsp.server import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          cat > entry_editor.py <<'EOF'
+          from editor.app import main
+          if __name__ == "__main__":
+              main()
+          EOF
+
+      # --- PyInstaller builds (same flags as Windows, macOS names) -----------
+      - name: Build compiler (CLI, onefile)
+        run: >
+          uv run pyinstaller entry_compiler.py
+          --name easy-math-lang
+          --onefile
+          --collect-all typst
+          --collect-all numpy
+          --noconfirm
+
+      # `ezmath` is the short CLI alias (pyproject [project.scripts]): same
+      # binary under another name, so copy instead of rebuilding.
+      - name: Provide ezmath alias binary
+        shell: bash
+        run: |
+          cp -f dist/easy-math-lang dist/ezmath
+          chmod +x dist/easy-math-lang dist/ezmath
+
+      - name: Build LSP server (CLI, onefile)
+        run: >
+          uv run pyinstaller entry_lsp.py
+          --name easy-math-lsp
+          --onefile
+          --collect-all pygls
+          --collect-all typst
+          --collect-all numpy
+          --noconfirm
+
+      - name: Build editor (GUI, onedir)
+        run: >
+          uv run pyinstaller entry_editor.py
+          --name easy-math-editor
+          --onedir
+          --windowed
+          --collect-all PySide6
+          --collect-all typst
+          --collect-all numpy
+          --noconfirm
+
+      - name: Ad-hoc sign bundles (Gatekeeper-friendly, no identity needed)
+        shell: bash
+        continue-on-error: true
+        run: |
+          chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp || true
+          codesign --deep --force --sign - dist/easy-math-lang || true
+          codesign --deep --force --sign - dist/ezmath || true
+          codesign --deep --force --sign - dist/easy-math-lsp || true
+          if [ -d "dist/easy-math-editor.app" ]; then
+            codesign --deep --force --sign - "dist/easy-math-editor.app" || true
+          fi
+          if [ -d "dist/easy-math-editor" ]; then
+            codesign --deep --force --sign - "dist/easy-math-editor/easy-math-editor" || true
+          fi
+
+      # --- Stage DMG layout --------------------------------------------------
+      # Staged app mirrors the Windows installer layout so editor/paths.py
+      # finds helpers without PATH:
+      #   EasyMath/
+      #   ├── bin/easy-math-lang, ezmath, easy-math-lsp
+      #   └── editor/easy-math-editor (onedir) [+ .app bundle when present]
+      - name: Stage app folder
+        shell: bash
+        run: |
+          rm -rf staging/EasyMath
+          mkdir -p staging/EasyMath/bin staging/EasyMath/editor
+          cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp staging/EasyMath/bin/
+          chmod +x staging/EasyMath/bin/* || true
+          if [ -d "dist/easy-math-editor" ]; then
+            cp -R "dist/easy-math-editor/." staging/EasyMath/editor/
+          fi
+          if [ -d "dist/easy-math-editor.app" ]; then
+            cp -R "dist/easy-math-editor.app" staging/EasyMath/
+          fi
+          # Small README so DMG browsers know what to run.
+          cat > staging/EasyMath/README.txt <<'EOF'
+          Easy Math Lang (macOS)
+          ======================
+          - Run "Easy Math Editor" (EasyMath/editor/easy-math-editor or the .app bundle).
+          - Optional terminal use: add EasyMath/bin to PATH:
+              export PATH="$PWD/bin:$PATH"
+            then: easy-math-lang doc.ezmath / ezmath doc.ezmath
+            Export images etc.: easy-math-lang doc.ezmath out.png --format png
+          EOF
+          find staging/EasyMath -maxdepth 3 | sort
+
+      - name: Create DMG + ZIP
+        shell: bash
+        run: |
+          DMG="EasyMathLang-macOS-${{ matrix.arch }}.dmg"
+          ZIP="EasyMathLang-macOS-${{ matrix.arch }}.zip"
+          rm -f "$DMG" "$ZIP"
+          hdiutil create -volname EasyMathLang -srcfolder staging/EasyMath -ov -format UDZO "$DMG"
+          ditto -c -k --sequesterRsrc --keepParent staging/EasyMath "$ZIP"
+          ls -lh "$DMG" "$ZIP"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      # --- Artifacts ---------------------------------------------------------
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyMathLang-macOS-${{ matrix.arch }}
+          path: |
+            EasyMathLang-macOS-${{ matrix.arch }}.dmg
+            EasyMathLang-macOS-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+      # --- GitHub Release (tag builds only) ----------------------------------
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            EasyMathLang-macOS-${{ matrix.arch }}.dmg
+            EasyMathLang-macOS-${{ matrix.arch }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

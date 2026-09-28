@@ -8,7 +8,32 @@ from .variables import replace_defines, replace_vars
 
 
 def split_top_level_args(args):
-    """Split on ';' at paren depth 0 (tracks (), {} and [])."""
+    """Split on ';' (or ',' friendly) at paren depth 0 (tracks (), {} and []).
+
+    Friendly rule: when ';' appears at depth 0, split on ';' only
+    (so ``*frac(100,000 ; 2)`` keeps ``100,000`` intact). Otherwise
+    split on ',' so ``*frac(2,3)`` works like ``*frac(2 ; 3)``.
+    """
+    # Scan for a depth-0 ';' first to decide the separator set.
+    has_semi = False
+    _dp = _db = _br = 0
+    for _ch in args:
+        if _ch == '(':
+            _dp += 1
+        elif _ch == ')' and _dp > 0:
+            _dp -= 1
+        elif _ch == '{':
+            _db += 1
+        elif _ch == '}' and _db > 0:
+            _db -= 1
+        elif _ch == '[':
+            _br += 1
+        elif _ch == ']' and _br > 0:
+            _br -= 1
+        elif _ch == ';' and _dp == 0 and _db == 0 and _br == 0:
+            has_semi = True
+            break
+    seps = (';',) if has_semi else (';', ',')
     parts = []
     current = []
     depth_paren = 0
@@ -27,7 +52,7 @@ def split_top_level_args(args):
             depth_bracket += 1
         elif char == ']' and depth_bracket > 0:
             depth_bracket -= 1
-        if (char == ';' and depth_paren == 0
+        if (char in seps and depth_paren == 0
                 and depth_brace == 0 and depth_bracket == 0):
             parts.append(''.join(current).strip())
             current = []
@@ -35,6 +60,54 @@ def split_top_level_args(args):
             current.append(char)
     parts.append(''.join(current).strip())
     return parts
+
+
+# Friendly aliases: alias -> canonical math command. Users may write
+# *fraction(...) instead of *frac(...), etc. Bare (star-less) calls
+# like frac(2 ; 3) are also accepted (see normalize_friendly_calls).
+MATH_ALIASES = {
+    'fraction': 'frac',
+    'power': 'pow',
+    'squareroot': 'sqrt',
+    'square-root': 'sqrt',
+    'cuberoot': 'cbrt',
+    'cube-root': 'cbrt',
+    'cbrt': 'cbrt',
+    'absolute': 'abs',
+    'summation': 'sum',
+    'product': 'prod',
+    'limit': 'lim',
+}
+
+_CANONICAL_MATH_NAMES = (
+    'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
+    'pow', 'root', 'sum', 'prod', 'lim', 'cbrt',
+)
+
+
+def normalize_friendly_calls(text):
+    """Rewrite friendly math spellings to canonical ``*name(...)`` form.
+
+    Only starred aliases (``*fraction(`` -> ``*frac(`` etc., see
+    MATH_ALIASES). Bare ``frac(`` without ``*`` is deliberately NOT
+    rewritten here: doing so before outer commands (e.g. ``*lim``)
+    are expanded causes nested ``$...$`` double-wrapping
+    (``*lim(x -> 0 ; sin(x)/x)`` regressed to
+    ``$lim_(...) ($sin(x)$ / x)$``). Beginners keep the ``*`` prefix;
+    friendliness comes from commas, aliases, ``let`` and blocks.
+    Idempotent and safe to call repeatedly.
+    """
+    # Starred aliases: *fraction( -> *frac(. Hyphenated aliases need
+    # re.escape (e.g. square-root). Skip identity (cbrt -> cbrt).
+    for alias, canon in MATH_ALIASES.items():
+        if alias == canon:
+            continue
+        text = re.sub(
+            r'\*' + re.escape(alias) + r'\s*\(',
+            f'*{canon}(',
+            text,
+        )
+    return text
 
 
 def replace_math_call(text, name, min_args, formatter):
@@ -97,6 +170,7 @@ def replace_math_call(text, name, min_args, formatter):
 
 def clean_inner_math(ctx, s):
     """Normalize a math argument: vars, defines, calc, nested math calls."""
+    s = normalize_friendly_calls(s.strip())
     s = replace_vars(ctx, s.strip())
     s = replace_defines(ctx, s)
     s = apply_calc_in_string(ctx, s)
@@ -109,6 +183,7 @@ def clean_inner_math(ctx, s):
     # not every literal '$': a literal dollar in args is preserved for
     # the final unwrap below.
     s = replace_symbol_shortcuts(s)
+    s = normalize_friendly_calls(s)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
@@ -127,6 +202,7 @@ def math_call_specs(ctx):
         ('cos', 1, lambda args: f"$cos({clean_inner_math(ctx, args[0])})$"),
         ('tan', 1, lambda args: f"$tan({clean_inner_math(ctx, args[0])})$"),
         ('sqrt', 1, lambda args: f"$sqrt({clean_inner_math(ctx, args[0])})$"),
+        ('cbrt', 1, lambda args: f"$root(3, {{{clean_inner_math(ctx, args[0])}}})$"),
         ('log', 1, lambda args: f"$log({clean_inner_math(ctx, args[0])})$"),
         ('ln',  1, lambda args: f"$ln({clean_inner_math(ctx, args[0])})$"),
         ('pow', 2,

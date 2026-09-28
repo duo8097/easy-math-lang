@@ -5,9 +5,29 @@ import sys
 
 KNOWN_COMMANDS = {
     'define', 'p',
-    'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
-    'pow', 'root', 'sum', 'prod', 'lim',
+    'frac', 'fraction', 'abs', 'absolute', 'sin', 'cos', 'tan',
+    'sqrt', 'squareroot', 'square-root', 'cbrt', 'cuberoot',
+    'cube-root', 'log', 'ln',
+    'pow', 'power', 'root', 'sum', 'summation', 'prod', 'product',
+    'lim', 'limit',
     # symbol shortcuts handled separately: pi, infinity, degree, ...
+}
+
+# Friendly hint for common typos / LaTeX habits.
+_SUGGESTIONS = {
+    'fraction': 'frac',
+    'power': 'pow',
+    'squareroot': 'sqrt',
+    'square-root': 'sqrt',
+    'cuberoot': 'cbrt',
+    'cube-root': 'cbrt',
+    'absolute': 'abs',
+    'summation': 'sum',
+    'product': 'prod',
+    'limit': 'lim',
+    'fracd': 'frac',
+    'squrt': 'sqrt',
+    'sqt': 'sqrt',
 }
 
 KNOWN_GEOMETRY_COMMANDS = {
@@ -20,7 +40,8 @@ KNOWN_GEOMETRY_COMMANDS = {
 
 def warn_unknown_commands(text, line_no):
     """Warn if *name(...) appears where name is not in KNOWN_COMMANDS."""
-    for m in re.finditer(r'\*([A-Za-z][A-Za-z0-9_]*)\s*\(', text):
+    import difflib
+    for m in re.finditer(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(', text):
         cmd = m.group(1)
         if cmd in KNOWN_COMMANDS:
             continue
@@ -30,7 +51,15 @@ def warn_unknown_commands(text, line_no):
                 file=sys.stderr,
             )
             continue
+        hint = _SUGGESTIONS.get(cmd)
+        if hint is None:
+            close = difflib.get_close_matches(
+                cmd, sorted(KNOWN_COMMANDS | KNOWN_GEOMETRY_COMMANDS),
+                n=1, cutoff=0.6,
+            )
+            hint = close[0] if close else None
+        extra = f" Did you mean '*{hint}(...)'?" if hint else ""
         print(
-            f'[Warning] Line {line_no}: unknown command *{cmd}(...) — treated as plain text',
+            f'[Warning] Line {line_no}: unknown command *{cmd}(...) — treated as plain text.{extra}',
             file=sys.stderr,
         )

@@ -9,8 +9,35 @@ from .variables import replace_vars
 IDENT_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 
+def _normalize_friendly_statement(statement):
+    """Rewrite friendly assignment spellings to canonical form.
+
+    - ``let <x> = 5`` / ``var <x> = 5`` -> ``<x> = 5``
+    - ``let x = 5`` / ``var x = 5`` -> ``<x> = 5``
+    - ``*define x = 5`` / ``define x = 5`` (no parens) -> ``define(x = 5)``
+    Returns the rewritten statement (or the original when no rule hits).
+    """
+    s = statement.strip()
+    m = re.match(r'^(?:let|var)\s+(.*)$', s, flags=re.IGNORECASE)
+    if m:
+        rest = m.group(1).strip()
+        if '=' in rest:
+            left, right = rest.split('=', 1)
+            left = left.strip()
+            # <x> form stays; bare x becomes <x>.
+            if left.startswith('<') and left.endswith('>'):
+                return f'{left} = {right.strip()}'
+            if IDENT_RE.match(left):
+                return f'<{left}> = {right.strip()}'
+    # *define without parens: "*define x = 5" -> "define(x = 5)".
+    m = re.match(r'^\*?define\s+([A-Za-z_][A-Za-z0-9_]*\s*=.*)$', s)
+    if m and not re.match(r'^\*?define\s*\(', s):
+        return f'define({m.group(1).strip()})'
+    return statement
+
+
 def process_assignment_or_define(ctx, statement, line_no=None):
-    statement = statement.strip()
+    statement = _normalize_friendly_statement(statement.strip())
     if not statement:
         return
     # Block content arrives raw (pipeline passes block lines unwrapped),

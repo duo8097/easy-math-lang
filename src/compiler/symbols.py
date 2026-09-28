@@ -39,6 +39,11 @@ SYMBOL_REPLACEMENTS = [
     ('**', '⋅'),
     ('<-', '←'),
     ('->', '→'),
+    # Friendly: programmers type == for equality; in math it is a single
+    # '='. Must stay LAST: longer sequences containing '==' (===, !==,
+    # <==, ==>) are replaced above first, otherwise '===' would corrupt
+    # to '=='.
+    ('==', '='),
 ]
 
 WORD_REPLACEMENTS = [

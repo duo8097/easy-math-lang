@@ -1051,3 +1051,66 @@ The system should automatically handle:
 - Basic measurements
 
 Manual coordinates should be an option, not a requirement.
+
+
+Friendly alternatives
+---------------------
+
+The classic syntax above keeps working. These shortcuts are accepted
+too (same output, less typing):
+
+Commas work like ";" (when ";" is absent, "," separates args):
+
+*frac(2, 3)  =  *frac(2 ; 3)
+*pow(x, 2)   =  *pow(x ; 2)
+*line(A, B)  =  *line(A ; B)
+
+When ";" is present it wins, so *frac(100,000 ; 2) keeps 100,000
+as one number. *point(A = 0, 0) never splits on "," (x, y coords).
+
+Aliases (starred):
+
+*fraction(...) = *frac(...)
+*power(...)    = *pow(...)
+*cbrt(x)       = *root(3 ; x)
+*absolute(...) = *abs(...)
+*summation(...) = *sum(...)
+*product(...)   = *prod(...)
+*limit(...)     = *lim(...)
+
+Assignments:
+
+let <x> = 5   =  <x> = 5
+let x = 5     =  <x> = 5
+var x = 5     =  <x> = 5
+*define x = 5 =  *define(x = 5)
+
+Document structure:
+
+# Title   ->  = Title (heading)
+## Sub    ->  == Sub
+### Sub   ->  === Sub
+- item    ->  Typst list (not escaped)
++ item    ->  Typst list
+1. item   ->  Typst enumeration
+= Title   ->  Typst heading (not escaped)
+
+Equality:
+
+a == b  ->  a = b (single equals; === and !== still map to
+their own symbols first).
+
+Unknown *command(...) suggests the closest known command.
+
+Export (CLI / editor File -> Export As):
+
+easy-math-lang doc.ezmath          -> doc.pdf
+easy-math-lang doc.ezmath out.png  -> PNG image(s)
+easy-math-lang doc.ezmath out.svg  -> SVG image(s)
+easy-math-lang doc.ezmath out.html -> HTML
+easy-math-lang doc.ezmath out.typ  -> Typst source only
+easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png
+easy-math-lang --list-formats
+
+Multi-page PNG/SVG writes stem-1.ext, stem-2.ext, ... (or {p}
+pattern when given).

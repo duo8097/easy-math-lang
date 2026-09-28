@@ -14,8 +14,12 @@ from .comments import strip_comments
 from .diagnostics import warn_unknown_commands
 from .escaping import escape_typst_outside_math, index_replacer, merge_math
 from .inline_math import find_unescaped, process_math_inner
-from .math_commands import math_call_specs, replace_math_call
-from .statements import process_assignment_or_define
+from .math_commands import (
+    math_call_specs,
+    normalize_friendly_calls,
+    replace_math_call,
+)
+from .statements import _normalize_friendly_statement, process_assignment_or_define
 from .state import CompileContext
 from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
@@ -184,7 +188,8 @@ def _render_text_line(ctx, raw, line_no):
         math_placeholders[ph] = wrapped
         text = text[:opening] + ph + tail
 
-    # 6. Math constructs
+    # 6. Math constructs (friendly aliases + bare calls first).
+    text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         text = replace_math_call(text, fn_name, fn_min, fn_fmt)
 
@@ -238,6 +243,38 @@ def _render_text_line(ctx, raw, line_no):
     return text
 
 
+def _try_friendly_block(ctx, line, line_no):
+    """Render markdown-friendly block syntax to Typst, or None.
+
+    - ``# Title`` / ``## Sub`` / ``### Subsub`` -> ``= Title`` etc.
+    - ``= Title`` / ``== Sub`` (Typst headings) stay headings.
+    - ``- item`` / ``+ item`` -> Typst lists (not escaped literals).
+    - ``1. item`` -> Typst enumeration.
+    Inner text flows through the normal text pipeline so variables,
+    calc, math and symbols keep working inside headings/lists.
+    Returns the Typst line or None when *line* is not a friendly block.
+    """
+    m = re.match(r'^(#{1,3})\s+(.*\S)\s*$', line)
+    if m:
+        level = len(m.group(1))
+        inner = _render_text_line(ctx, m.group(2), line_no)
+        return f"{'=' * level} {inner}"
+    m = re.match(r'^(=+)\s+(.*\S)\s*$', line)
+    if m:
+        inner = _render_text_line(ctx, m.group(2), line_no)
+        return f"{m.group(1)} {inner}"
+    m = re.match(r'^([-+])\s+(.*\S)\s*$', line)
+    if m:
+        inner = _render_text_line(ctx, m.group(2), line_no)
+        return f"{m.group(1)} {inner}"
+    m = re.match(r'^(\d+)\.\s+(.*\S)\s*$', line)
+    if m:
+        inner = _render_text_line(ctx, m.group(2), line_no)
+        # Preserve the original number for readability; Typst auto-numbers.
+        return f"{m.group(1)}. {inner}"
+    return None
+
+
 def _parse_draw_safe(block_text, line_no=None):
     """Parse a draw block without ever crashing the build.
 
@@ -289,8 +326,149 @@ def _render_math_inner_multiline(ctx, full_raw, line_no):
     return process_math_inner(ctx, sub, line_no)
 
 
-def compile_ezmath(input_file, output_pdf=None):
-    """Compile an .ezmath document to PDF via an intermediate Typst file.
+SUPPORTED_EXPORT_FORMATS = ('pdf', 'png', 'svg', 'html', 'typ')
+
+FORMAT_BY_EXT = {
+    '.pdf': 'pdf',
+    '.png': 'png',
+    '.svg': 'svg',
+    '.html': 'html',
+    '.htm': 'html',
+    '.typ': 'typ',
+}
+
+
+def infer_export_format(output_path, explicit=None):
+    """Return the export format for *output_path* (or None + error).
+
+    *explicit* (``--format``) wins when given; otherwise the output
+    extension decides (``out.png`` -> ``png``). Unknown extensions fall
+    back to ``pdf`` with a warning so ``out`` still produces something.
+    """
+    if explicit is not None:
+        fmt = str(explicit).strip().lower().lstrip('.')
+        if fmt in ('htm',):
+            fmt = 'html'
+        if fmt not in SUPPORTED_EXPORT_FORMATS:
+            print(
+                f"[Error] unsupported export format {explicit!r} — "
+                f"choose from {', '.join(SUPPORTED_EXPORT_FORMATS)}",
+                file=sys.stderr,
+            )
+            return None
+        return fmt
+    ext = os.path.splitext(os.fspath(output_path))[1].lower()
+    if ext in FORMAT_BY_EXT:
+        return FORMAT_BY_EXT[ext]
+    print(
+        f"[Warning] unknown output extension {ext!r} — assuming pdf. "
+        f"Use --format to pick from {', '.join(SUPPORTED_EXPORT_FORMATS)}.",
+        file=sys.stderr,
+    )
+    return 'pdf'
+
+
+def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
+    """Normalize (output_path, format, ppi) for compile_ezmath/CLI/editor.
+
+    Keeps the legacy default (``<base>.pdf``) when no output is given.
+    Returns (output_path, format, ppi) or (None, None, None) on error.
+    """
+    if output_pdf is None:
+        base, _ = os.path.splitext(input_str)
+        out_path = base + '.pdf'
+    else:
+        out_path = os.fspath(output_pdf)
+    fmt = infer_export_format(out_path, explicit_format)
+    if fmt is None:
+        return None, None, None
+    ppi = None
+    if explicit_ppi is not None:
+        try:
+            ppi = int(explicit_ppi)
+            if ppi <= 0 or ppi > 1200:
+                raise ValueError('ppi out of range')
+        except (ValueError, TypeError):
+            print(
+                f"[Error] invalid --ppi {explicit_ppi!r} — "
+                f"expected an integer 1..1200",
+                file=sys.stderr,
+            )
+            return None, None, None
+    return out_path, fmt, ppi
+
+
+def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
+    """Run typst.compile() for one export; True on success.
+
+    - ``typ``: just copy the intermediate file to *output_path*.
+    - ``pdf``/``html``: single-file compile.
+    - ``png``/``svg``: single-file when the doc fits one page; when
+      Typst reports "multiple pages", retry with a ``stem-{p}.ext``
+      pattern so every page lands on disk (Typst requires ``{p}``).
+    """
+    import shutil
+    label = {'pdf': 'PDF', 'png': 'PNG image(s)', 'svg': 'SVG image(s)',
+             'html': 'HTML', 'typ': 'Typst'} .get(fmt, fmt.upper())
+    print(f'Compiling {label} with Typst...')
+    if typst is None:
+        print(
+            '\n[ERROR] The `typst` Python package is not installed.\n'
+            'Run `uv sync` to install it, then retry.',
+            file=sys.stderr,
+        )
+        return False
+    if fmt == 'typ':
+        try:
+            parent = os.path.dirname(os.path.abspath(output_path))
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            if os.path.abspath(output_path) != os.path.abspath(typst_file):
+                shutil.copyfile(typst_file, output_path)
+            print(f'Successfully exported {input_str} to {output_path} (Typst source)!')
+            return True
+        except OSError as e:
+            print(f'\n[ERROR] Typst export failed: {e}', file=sys.stderr)
+            return False
+    try:
+        parent = os.path.dirname(os.path.abspath(output_path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        kwargs = {'ignore_system_fonts': True}
+        if fmt != 'pdf':
+            kwargs['format'] = fmt
+        if fmt == 'png' and ppi is not None:
+            kwargs['ppi'] = ppi
+        try:
+            typst.compile(typst_file, output_path, **kwargs)
+        except RuntimeError as e:
+            # Typst PNG/SVG multi-page error: retry with {p} pattern.
+            if fmt in ('png', 'svg') and 'multiple pages' in str(e).lower() \
+                    and '{p}' not in output_path:
+                stem, ext = os.path.splitext(output_path)
+                patterned = f'{stem}-{{p}}{ext}'
+                print(
+                    f'[Info] document has multiple pages — '
+                    f'writing {patterned} (one file per page)',
+                )
+                typst.compile(typst_file, patterned, **kwargs)
+                print(f'Successfully compiled {input_str} to {patterned} via Typst!')
+                return True
+            raise
+        print(f'Successfully compiled {input_str} to {output_path} via Typst!')
+        return True
+    except FileNotFoundError as e:
+        # Input .typ vanished between write and compile (I/O race).
+        print(f'\n[ERROR] Typst compilation failed (file not found): {e}', file=sys.stderr)
+        return False
+    except Exception as e:
+        # typst.TypstError (bad markup) and any other compile failure.
+        print(f'\n[ERROR] Typst compilation failed: {e}', file=sys.stderr)
+        return False
+
+
+def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None):
+    """Compile an .ezmath document via an intermediate Typst file.
 
     Actual processing order (per text line, after comment stripping):
         assignments/defines/draw-blocks (control lines)
@@ -301,13 +479,20 @@ def compile_ezmath(input_file, output_pdf=None):
           -> calc(...) evaluation
           -> inline math \\ ... \\ (multiline supported, see below)
           -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
+             (friendly: ',' works like ';', *fraction etc. are aliases)
           -> unknown *command(...) warning
           -> *pi / *infinity
           -> subscript notation (A_1, outside math only)
-          -> symbol shortcuts (outside math only)
+          -> symbol shortcuts (outside math only, incl. == -> =)
           -> multiplication-symbol replacement (outside math only)
           -> Typst escaping (outside math only)
+          -> friendly blocks (# headings, -/+ lists, 1. enums)
         Finally: Typst file generation + `typst.compile()` (PyPI package).
+
+    Export: *output* (alias *output_pdf* for backward compat) picks the
+    destination; *format* (pdf/png/svg/html/typ) defaults to the output
+    extension. ``typ`` writes only the intermediate source. ``png``honours
+    *ppi*. Multi-page PNG/SVG automatically uses ``stem-{p}.ext``.
 
     Inline math: an unescaped ``\\`` opens math mode, the next
     unescaped ``\\`` closes it. ``\\\\`` is a literal backslash.
@@ -319,12 +504,24 @@ def compile_ezmath(input_file, output_pdf=None):
     Returns True on success, False on failure (.typ is still written
     whenever parsing reaches the codegen stage).
     """
-    input_str = os.fspath(input_file)
-    if output_pdf is None:
-        base, _ = os.path.splitext(input_str)
-        output_pdf = base + '.pdf'
+    # Backward compat: compile_ezmath(src, out.pdf) still works.
+    if output is None:
+        _out_arg = output_pdf
+    elif output_pdf is None:
+        _out_arg = output
     else:
-        output_pdf = os.fspath(output_pdf)
+        # Both given (CLI passes output=..., legacy passes output_pdf=...):
+        # explicit `output=` wins.
+        _out_arg = output
+    _explicit_format = format
+    _explicit_ppi = ppi
+    if _out_arg is None:
+        # Default <base>.pdf (legacy behavior).
+        base, _ = os.path.splitext(os.fspath(input_file))
+        _out_arg = base + '.pdf'
+    else:
+        _out_arg = os.fspath(_out_arg)
+    input_str = os.fspath(input_file)
 
     ctx = CompileContext()
 
@@ -384,6 +581,17 @@ def compile_ezmath(input_file, output_pdf=None):
                 continue
             # Tail may hold further math pairs; render as text.
             output_lines.append(_render_text_line(ctx, combined, line_no))
+            continue
+
+        # Friendly: let/var and bare *define without parens.
+        # _normalize_friendly_statement rewrites e.g. "let x = 5" to
+        # "<x> = 5" and "*define x = 5" to "define(x = 5)".
+        _norm_stmt = _normalize_friendly_statement(line)
+        if _norm_stmt != line and (
+            _norm_stmt.startswith('define(')
+            or re.match(r'^<[^<>]+>\s*=', _norm_stmt)
+        ):
+            process_assignment_or_define(ctx, _norm_stmt, line_no=line_no)
             continue
 
         # Handle single-line *define(...) or define(...)
@@ -451,6 +659,12 @@ def compile_ezmath(input_file, output_pdf=None):
 
         if re.match(r'^<[^<>]+>\s*=', line):
             process_assignment_or_define(ctx, line, line_no=line_no)
+            continue
+
+        # --- Friendly blocks: # headings, - / + lists, 1. enums, = headings ---
+        _friendly = _try_friendly_block(ctx, line, line_no)
+        if _friendly is not None:
+            output_lines.append(_friendly)
             continue
 
         # --- Inline-math multiline opener detection ---
@@ -544,38 +758,40 @@ def compile_ezmath(input_file, output_pdf=None):
     # ------------------------------------------------------------------
     # Compile with Typst (PyPI `typst` package — no external binary needed)
     # ------------------------------------------------------------------
-    print('Compiling PDF with Typst...')
-    if typst is None:
-        print(
-            '\n[ERROR] The `typst` Python package is not installed.\n'
-            'Run `uv sync` to install it, then retry.',
-            file=sys.stderr,
-        )
+    # Export resolution is centralized in _resolve_export() so the CLI,
+    # the editor and direct API calls share format inference + pagination.
+    _out_path, _fmt, _ppi = _resolve_export(
+        _out_arg, _explicit_format, _explicit_ppi,
+        input_str=input_str,
+    )
+    if _out_path is None or _fmt is None:
         return False
-    try:
-        parent = os.path.dirname(os.path.abspath(output_pdf))
-        os.makedirs(parent, exist_ok=True)
-        typst.compile(typst_file, output_pdf, ignore_system_fonts=True)
-        print(f'Successfully compiled {input_str} to {output_pdf} via Typst!')
-        return True
-    except FileNotFoundError as e:
-        # Input .typ vanished between write and compile (I/O race).
-        print(f'\n[ERROR] Typst compilation failed (file not found): {e}', file=sys.stderr)
-        return False
-    except Exception as e:
-        # typst.TypstError (bad markup) and any other compile failure.
-        print(f'\n[ERROR] Typst compilation failed: {e}', file=sys.stderr)
-        return False
+    return _run_typst_export(
+        typst_file, _out_path, _fmt, _ppi, input_str=input_str,
+    )
 
 
 def _print_usage():
     print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
+    print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] <input.ezmath>')
+    print('')
+    print('Export formats: pdf, png, svg, html, typ (default: from output extension).')
+    print('  PNG/SVG multi-page documents write stem-{p}.ext (one file per page).')
+    print('  Examples:')
+    print('    easy-math-lang doc.ezmath                # doc.pdf')
+    print('    easy-math-lang doc.ezmath out.png        # PNG image(s)')
+    print('    easy-math-lang --format png doc.ezmath   # doc.png')
+    print('    easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png')
     print('')
     print('Options:')
     print('  -h, --help      Show this help and exit')
     print('  --version       Show version and exit')
     print('  --check-update  Check whether a newer EasyMath release '
           'is available')
+    print('  --format FMT    Export format: pdf, png, svg, html, typ')
+    print('  --ppi PPI       PNG resolution 1..1200 (default: Typst default)')
+    print('  -o, --output FILE  Output file (same as positional [output])')
+    print('  --list-formats  List supported export formats and exit')
     print('  --              Treat remaining arguments as file names '
           '(e.g. a file literally named --version)')
 
@@ -606,22 +822,92 @@ def main():
         from .update import APP_NAME, get_current_version
         print(f'{APP_NAME} {get_current_version()}')
         sys.exit(0)
+    if not positional_only and args[:1] == ['--list-formats']:
+        if len(args) > 1:
+            _standalone_flag_error('--list-formats')
+        print(', '.join(SUPPORTED_EXPORT_FORMATS))
+        sys.exit(0)
     if not args or (not positional_only and args[0] in ('-h', '--help')):
         _print_usage()
         sys.exit(0 if args and not positional_only else 1)
-    if len(args) > 2:
-        print(f'error: too many arguments: {" ".join(args[2:])}',
+
+    # Extract export options (--format/--ppi/-o) anywhere in the args
+    # (except in positional-only `--` mode). Unknown --flags after a
+    # filename (e.g. `doc.ezmath --check-update`) stay positionals so
+    # the legacy "trailing flag is an output file" test keeps passing.
+    exp_format = None
+    exp_ppi = None
+    exp_output = None
+    positionals = []
+    if not positional_only:
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a in ('--format', '--ppi', '--output', '-o'):
+                if i + 1 >= len(args):
+                    print(f'error: {a} needs a value', file=sys.stderr)
+                    _print_usage()
+                    sys.exit(2)
+                val = args[i + 1]
+                if a == '--format':
+                    exp_format = val
+                elif a == '--ppi':
+                    exp_ppi = val
+                else:
+                    if exp_output is not None:
+                        print('error: multiple --output/-o given',
+                              file=sys.stderr)
+                        _print_usage()
+                        sys.exit(2)
+                    exp_output = val
+                i += 2
+                continue
+            if a.startswith('--format='):
+                exp_format = a.split('=', 1)[1]
+                i += 1
+                continue
+            if a.startswith('--ppi='):
+                exp_ppi = a.split('=', 1)[1]
+                i += 1
+                continue
+            if a.startswith('--output='):
+                if exp_output is not None:
+                    print('error: multiple --output/-o given',
+                          file=sys.stderr)
+                    _print_usage()
+                    sys.exit(2)
+                exp_output = a.split('=', 1)[1]
+                i += 1
+                continue
+            positionals.append(a)
+            i += 1
+    else:
+        positionals = list(args)
+
+    if len(positionals) > 2:
+        print(f'error: too many arguments: {" ".join(positionals[2:])}',
               file=sys.stderr)
         _print_usage()
         sys.exit(2)
+    if not positionals:
+        _print_usage()
+        sys.exit(1)
 
-    input_file = args[0]
-    if len(args) > 1:
-        output_file = args[1]
+    input_file = positionals[0]
+    if exp_output is not None and len(positionals) > 1:
+        print('error: output given twice (-o/--output and positional)',
+              file=sys.stderr)
+        _print_usage()
+        sys.exit(2)
+    if len(positionals) > 1:
+        output_file = positionals[1]
+    elif exp_output is not None:
+        output_file = exp_output
     else:
         base, _ = os.path.splitext(os.fspath(input_file))
         output_file = base + '.pdf'
-    ok = compile_ezmath(input_file, output_file)
+    ok = compile_ezmath(input_file, output_file,
+                        format=exp_format, ppi=exp_ppi)
     sys.exit(0 if ok else 1)
 
 

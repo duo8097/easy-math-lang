@@ -15,12 +15,23 @@ without fighting complex software.
 
 ## Download and install
 
-The easiest way to use easy-math-lang on Windows — no Python needed:
+The easiest way to use easy-math-lang — no Python needed:
+
+**Windows:**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLangSetup.exe` from the latest release.
 3. Run `EasyMathLangSetup.exe` and follow the setup steps.
 4. Launch **Easy Math Editor** from the Start Menu.
+
+**macOS (Apple Silicon `arm64` + Intel `x64`):**
+
+1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
+2. Download `EasyMathLang-macOS-arm64.dmg` (M1+) or
+   `EasyMathLang-macOS-x64.dmg` (Intel) — a `.zip` with the same
+   contents is attached alongside.
+3. Open the `.dmg` and run `EasyMath/editor/easy-math-editor`
+   (right-click → **Open** once to allow the unsigned app).
 
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).
@@ -72,6 +83,18 @@ uv run easy-math-lang examples/draw_test.ezmath
 Each command creates a `.typ` file (intermediate, you can ignore it) and a
 `.pdf` file (your finished document) next to the input file.
 
+Friendly shortcuts work everywhere: `*frac(2, 3)`, `*fraction(2 ; 3)`,
+`let x = 5`, `# Title`, `- item`, `==` for `=`.
+
+Export images and more (see [Export](docs/export.md)):
+
+```
+uv run easy-math-lang examples/example.ezmath out.png
+uv run easy-math-lang --format svg --ppi 300 examples/example.ezmath -o hi.svg
+```
+
+Or in the desktop editor: **File → Export As…** (PDF/PNG/SVG/HTML/Typst).
+
 ---
 
 ## Editor support (autocompletion, error checking)
@@ -101,16 +124,16 @@ Project layout:
 
 ```
 src/
-├── compiler/     # .ezmath → Typst compiler (text pipeline)
+├── compiler/     # .ezmath → Typst compiler (text pipeline, multi-format export)
 ├── geometry/     # constraint solver + CeTZ drawing output
 ├── lsp/          # language server (reuses the compiler)
 └── editor/       # desktop editor (PySide6 + LSP client, incl. paths.py
                    # which locates the helper binaries in every install type)
 tests/            # pytest suite (compiler, geometry, LSP, editor, packaging)
 examples/         # sample .ezmath documents with expected output
-docs/             # user guides
+docs/             # user guides (incl. export.md for PDF/PNG/SVG/HTML/Typst)
 installer/        # Inno Setup script for the Windows installer
-scripts/          # local packaging helpers (build_local.ps1)
+scripts/          # local packaging helpers (build_local.ps1, build_macos.sh)
 ```
 
 Packaged-binary tests are opt-in (they need a real build in `dist/`):
@@ -130,12 +153,13 @@ installer-layout, and runtime-resolution picture.
 
 If you have never used a terminal or installed programs before, start here:
 
-1. 📦 [Installation guide](docs/installation.md) — setup, step by step (Windows installer or from source)
-2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols
+1. 📦 [Installation guide](docs/installation.md) — setup, step by step (Windows/macOS installers or from source)
+2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols (incl. friendly shortcuts)
 3. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
-4. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
-5. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor
-6. 📦 [Packaging and releases](docs/packaging.md) — building the binaries and installer (developers)
+4. 🖼️ [Export](docs/export.md) — PDF, PNG/SVG images, HTML and Typst source
+5. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
+6. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor (incl. Export As…)
+7. 📦 [Packaging and releases](docs/packaging.md) — building the binaries and installers (developers)
 
 ---
 

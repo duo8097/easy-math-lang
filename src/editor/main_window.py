@@ -585,6 +585,16 @@ class MainWindow(QtWidgets.QMainWindow):
              self._refresh_preview_now),
             ('build.restartLSP', 'Build: Restart Language Server', '',
              self._restart_lsp),
+            ('file.exportPdf', 'File: Export as PDF', '',
+             lambda: self._export_as('pdf')),
+            ('file.exportPng', 'File: Export as PNG Image', '',
+             lambda: self._export_as('png')),
+            ('file.exportSvg', 'File: Export as SVG Image', '',
+             lambda: self._export_as('svg')),
+            ('file.exportHtml', 'File: Export as HTML', '',
+             lambda: self._export_as('html')),
+            ('file.exportTyp', 'File: Export as Typst Source', '',
+             lambda: self._export_as('typ')),
         ]
 
     def _show_palette(self):
@@ -953,6 +963,58 @@ class MainWindow(QtWidgets.QMainWindow):
                 self, 'Compilation failed', output.strip()[-2000:] or
                 f'Compiler exited with code {exit_code}')
 
+    def _export_as(self, fmt):
+        """Export the current document to *fmt* (pdf/png/svg/html/typ).
+
+        Works for saved and untitled documents: the editor text is
+        exported in-process via :mod:`editor.preview` (same compiler as
+        preview/Build), so no save is required. PNG uses 150 DPI by
+        default; multi-page PNG/SVG writes ``stem-1.ext`` … next to the
+        chosen file.
+        """
+        fmt = str(fmt or 'pdf').strip().lower()
+        filters = {
+            'pdf': 'PDF (*.pdf)',
+            'png': 'PNG Image (*.png)',
+            'svg': 'SVG Image (*.svg)',
+            'html': 'HTML (*.html)',
+            'typ': 'Typst Source (*.typ)',
+        }
+        filt = filters.get(fmt, 'All files (*)')
+        base = ''
+        if self._file_path:
+            base, _ = os.path.splitext(self._file_path)
+            base = f'{base}.{fmt}'
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, f'Export as {fmt.upper()}', base, filt)
+        if not path:
+            return
+        ppi = None
+        if fmt == 'png':
+            ppi, ok = QtWidgets.QInputDialog.getInt(
+                self, 'PNG resolution',
+                'Resolution (DPI, 72–600):', 150, 72, 600, 10)
+            if not ok:
+                return
+        try:
+            from .preview import export_source_to_file
+            res = export_source_to_file(
+                self.editor.toPlainText(), path, format=fmt, ppi=ppi)
+        except Exception as exc:  # never crash the editor on export
+            QtWidgets.QMessageBox.critical(
+                self, 'Export failed', f'Export failed: {exc}')
+            return
+        out = res.get('output') if isinstance(res, dict) else None
+        outs = res.get('outputs') if isinstance(res, dict) else None
+        if out and (os.path.isfile(out) or outs):
+            shown = ', '.join(outs) if outs else out
+            self.statusBar().showMessage(f'Exported to {shown}', 8000)
+        else:
+            log = (res.get('log') or '').strip() if isinstance(res, dict) else ''
+            QtWidgets.QMessageBox.critical(
+                self, 'Export failed',
+                log[-2000:] if log else 'Export failed (see Problems panel).')
+
     # ------------------------------------------------------------------
     # Wiring: menus, editor signals, close
     # ------------------------------------------------------------------
@@ -977,6 +1039,19 @@ class MainWindow(QtWidgets.QMainWindow):
         save_as_action.setShortcut(QtGui.QKeySequence.SaveAs)
         save_as_action.setStatusTip('Save under a new name')
         save_as_action.triggered.connect(self._save_as)
+        export_menu = file_menu.addMenu('&Export As…')
+        export_menu.setStatusTip('Export the document to PDF, image, HTML or Typst')
+        for _fmt, _label in (
+            ('pdf', '&PDF (.pdf)'),
+            ('png', 'PNG &Image (.png)'),
+            ('svg', '&SVG Image (.svg)'),
+            ('html', '&HTML (.html)'),
+            ('typ', '&Typst Source (.typ)'),
+        ):
+            _act = export_menu.addAction(_label)
+            _act.setStatusTip(f'Export the document as {_fmt.upper()}')
+            _act.triggered.connect(
+                lambda _checked=False, f=_fmt: self._export_as(f))
         file_menu.addSeparator()
         exit_action = file_menu.addAction('E&xit')
         exit_action.setShortcut(QtGui.QKeySequence.Quit)

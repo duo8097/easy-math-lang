@@ -77,6 +77,26 @@ def candidate_directories():
         _add(os.path.join(parent, 'bin'))
         _add(parent)
         _add(os.path.join(exe_dir, 'bin'))
+        # macOS .app bundle: .../Easy Math Editor.app/Contents/MacOS/easy-math-editor
+        # Helpers may live in Contents/MacOS, Contents/Resources/bin, or a
+        # sibling bin/ next to the .app (DMG layout: EasyMath/bin + app).
+        # Walk up looking for ".app/Contents/MacOS" and add the companions.
+        parts = exe_dir.replace('\\', '/').split('/')
+        for idx, part in enumerate(parts):
+            if part.endswith('.app') and idx + 2 < len(parts) \
+                    and parts[idx + 1] == 'Contents' \
+                    and parts[idx + 2] == 'MacOS':
+                app_dir = '/'.join(parts[:idx + 1])
+                contents = '/'.join(parts[:idx + 2])
+                _add(os.path.join(contents, 'MacOS'))
+                _add(os.path.join(contents, 'Resources'))
+                _add(os.path.join(contents, 'Resources', 'bin'))
+                _add(os.path.join(os.path.dirname(app_dir), 'bin'))
+                _add(os.path.dirname(app_dir))
+                break
+        # macOS DMG staging: dist/EasyMath/{bin,editor} or Applications dir.
+        _add('/Applications/EasyMath/bin')
+        _add('/Applications/EasyMathLang/bin')
     argv0 = sys.argv[0] if sys.argv else ''
     if argv0:
         _add(os.path.dirname(os.path.abspath(argv0)))
