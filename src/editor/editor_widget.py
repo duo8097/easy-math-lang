@@ -229,6 +229,10 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         super().leaveEvent(event)
         self._hover_timer.stop()
         self._hover_pos = None
+        try:
+            QtWidgets.QToolTip.hideText()
+        except (RuntimeError, AttributeError):
+            pass
 
     def _on_hover_timeout(self):
         if self._hover_pos is not None:

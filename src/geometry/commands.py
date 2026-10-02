@@ -62,8 +62,12 @@ def _process_command(solver, cmd, args):
             name = name.strip()
             _check_point_name(name)
             try:
-                x_str, y_str = coords.split(',', 1)
-                solver.add_point(name, float(x_str.strip()), float(y_str.strip()))
+                # Split on the LAST comma: x may itself use thousands
+                # separators ("1,000, 0" -> x=1,000 y=0), consistent
+                # with parse_numeric_arg used by distance/circle.
+                x_str, y_str = coords.rsplit(',', 1)
+                solver.add_point(name, parse_numeric_arg(x_str),
+                                 parse_numeric_arg(y_str))
             except (ValueError, TypeError) as e:
                 raise GeometryError(f"invalid coordinates: {e}")
         else:

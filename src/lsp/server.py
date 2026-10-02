@@ -203,12 +203,17 @@ def create_server():
             return
         if params.content_changes:
             # Full-sync only: drop any incremental (range) edit instead
-            # of replacing the whole document with a fragment.
+            # of replacing the whole document with a fragment, but still
+            # republish so the client never waits on stale diagnostics.
             last = params.content_changes[-1]
             if getattr(last, 'range', None) is not None or getattr(
                 last, 'rangeLength', None
             ) is not None:
                 logger.warning('ignoring incremental edit for %s (full sync)', uri)
+                supported = _support_cache.get(uri, is_supported(uri))
+                _support_cache[uri] = supported
+                if supported:
+                    analyze_and_publish(ls, store, uri)
                 return
             new_text = last.text
             if isinstance(new_text, str):

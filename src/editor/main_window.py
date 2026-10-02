@@ -12,6 +12,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from .command_palette import CommandPalette
 from .editor_widget import EditorWidget
 from .find_bar import FindBar
+from .symbol_bar import SymbolBar
+from .symbol_dialog import SymbolDialog
+from .symbol_registry import build_source, cursor_offset_for_insert, get_symbol
 from .lsp_client import LspClient, default_server_command
 from .outline_panel import OutlinePanel
 from .paths import resolve_compiler_command
@@ -90,6 +93,9 @@ class MainWindow(QtWidgets.QMainWindow):
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
         central_layout.addWidget(self._find_bar)
+        self._symbol_bar = SymbolBar(self)
+        self._symbol_bar.symbolChosen.connect(self._on_symbol_activated)
+        central_layout.addWidget(self._symbol_bar)
         central_layout.addWidget(self.editor, 1)
         self.setCentralWidget(central)
 
@@ -412,6 +418,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except (TypeError, ValueError):
             return
         self.editor.goto_position(line, character)
+        self.editor.setFocus()
 
     def _goto_range(self, line, start, end):
         try:
@@ -477,12 +484,25 @@ class MainWindow(QtWidgets.QMainWindow):
         """Show the highlighted candidate's signature in the status bar."""
         _kind, detail = self._completion_info.get(text, ('', ''))
         if detail:
-            self.statusBar().showMessage(detail)
+            self.statusBar().showMessage(detail, 5000)
 
     def _char_after(self, pos):
-        """Document character at absolute offset ('' when out of range)."""
-        text = self.editor.toPlainText()
-        return text[pos] if 0 <= pos < len(text) else ''
+        """Document character at Qt offset ('' when out of range).
+
+        Uses ``QTextDocument.characterAt`` so offsets stay in Qt's
+        native UTF-16 units even next to astral characters; callers
+        only compare against BMP sentinels (``*``, ``(``), which a
+        lone surrogate can never equal.
+        """
+        try:
+            if pos is None or int(pos) < 0:
+                return ''
+            c = self.editor.document().characterAt(int(pos))
+            if not c or c == '\x00':
+                return ''
+            return c
+        except (RuntimeError, ValueError, TypeError, IndexError):
+            return ''
 
     def _insert_completion(self, text):
         kind, detail = self._completion_info.get(text, ('', ''))
@@ -541,6 +561,65 @@ class MainWindow(QtWidgets.QMainWindow):
                                             self.editor)
 
         self.lsp.request_hover(uri, line, col, _done)
+
+    # ------------------------------------------------------------------
+    # Symbol Bar / Smart Symbol Palette
+    # ------------------------------------------------------------------
+    def _on_symbol_activated(self, name):
+        """Insert a toolbar symbol: direct text or a parameter dialog."""
+        try:
+            symbol = get_symbol(name)
+        except KeyError:
+            return
+        if not symbol.requires_dialog:
+            self._insert_symbol_text(
+                symbol.insert_text or '',
+                cursor_offset_for_insert(symbol, symbol.insert_text or ''))
+            return
+        # Prefill the first field from the current selection when it
+        # makes sense (e.g. selected "2+3" -> calc/frac numerator).
+        initial: dict[str, str] = {}
+        cursor = self.editor.textCursor()
+        if cursor.hasSelection():
+            selected = cursor.selectedText().replace('\u2029', '\n').strip()
+            if selected and symbol.fields:
+                initial[symbol.fields[0].key] = selected
+        ok, values = SymbolDialog.get_values(symbol, self, initial=initial)
+        if not ok:
+            self.editor.setFocus()
+            return
+        try:
+            text = build_source(symbol, values)
+        except ValueError as exc:
+            self.statusBar().showMessage(str(exc), 5000)
+            self.editor.setFocus()
+            return
+        self._insert_symbol_text(text)
+
+    def _insert_symbol_text(self, text, cursor_offset=None):
+        """Insert *text* at the cursor, replacing any selection.
+
+        *cursor_offset* places the caret inside the inserted text
+        (used by the draw skeleton so follow-up typing stays inside
+        ``*draw(...)``); None means "right after the inserted text".
+        """
+        if not text:
+            return
+        cursor = self.editor.textCursor()
+        # QTextCursor.insertText() replaces the selection when one
+        # exists and otherwise inserts at the cursor — this preserves
+        # middle/begin/end-of-line and multiline behavior.
+        start = min(cursor.selectionStart(), cursor.selectionEnd())
+        cursor.insertText(text)
+        if cursor_offset is not None:
+            try:
+                off = max(0, min(int(cursor_offset), len(text)))
+            except (TypeError, ValueError):
+                off = len(text)
+            cursor.setPosition(start + off)
+        self.editor.setTextCursor(cursor)
+        self.editor.ensureCursorVisible()
+        self.editor.setFocus()
 
     # ------------------------------------------------------------------
     # Friendly extras: palette, find, go-to-line, recent files
@@ -614,6 +693,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _toggle_find(self):
         if self._find_bar.isVisible():
             self._find_bar.hide_bar()
+            self._clear_find_highlights()
             self.editor.setFocus()
             return
         selected = self.editor.textCursor().selectedText()
@@ -629,14 +709,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self._do_find(text, direction)
 
     def _find_all_ranges(self, text):
-        """Absolute (start, end) offsets of every case-insensitive match."""
+        """Qt-native (start, end) offsets of every case-insensitive match.
+
+        Uses ``QTextDocument.find`` so offsets are already in Qt's UTF-16
+        units (Python ``re`` counts astral characters as one unit and
+        would drift ``setPosition`` by one per preceding surrogate pair).
+        """
         if not text:
             return []
-        import re as _re
-        doc = self.editor.toPlainText()
+        pattern = QtCore.QRegularExpression(
+            QtCore.QRegularExpression.escape(text))
+        pattern.setPatternOptions(
+            QtCore.QRegularExpression.CaseInsensitiveOption)
+        doc = self.editor.document()
         ranges = []
-        for m in _re.finditer(_re.escape(text), doc, flags=_re.IGNORECASE):
-            ranges.append((m.start(), m.end()))
+        cursor = QtGui.QTextCursor(doc)
+        cursor.setPosition(0)
+        while True:
+            cursor = doc.find(pattern, cursor)
+            if cursor.isNull():
+                break
+            ranges.append((cursor.selectionStart(), cursor.selectionEnd()))
             if len(ranges) >= self._MAX_FIND_MATCHES:
                 break
         return ranges
@@ -879,10 +972,19 @@ class MainWindow(QtWidgets.QMainWindow):
         import tempfile
         directory = os.path.dirname(os.path.abspath(path)) or '.'
         os.makedirs(directory, exist_ok=True)
+        try:
+            original_mode = os.stat(path).st_mode & 0o777
+        except OSError:
+            original_mode = None
         fd, tmp = tempfile.mkstemp(dir=directory, prefix='.easymath-save-')
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as handle:
                 handle.write(text)
+            if original_mode is not None:
+                try:
+                    os.chmod(tmp, original_mode)
+                except OSError:
+                    pass
             os.replace(tmp, path)
         except BaseException:
             try:
@@ -901,7 +1003,15 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
             return False
         self._recent.add(path)
+        cursor_pos = self.editor.textCursor().position()
         self._switch_document(path, self.editor.toPlainText())
+        try:
+            restored = self.editor.textCursor()
+            restored.setPosition(max(0, min(cursor_pos, len(self.editor.toPlainText()))))
+            self.editor.setTextCursor(restored)
+            self.editor.setFocus()
+        except (RuntimeError, ValueError):
+            pass
         return True
 
     # ------------------------------------------------------------------

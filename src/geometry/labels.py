@@ -69,7 +69,8 @@ def _label_anchors(solver):
                 r = _norm(pts[a[1]] - pts[a[0]])
             else:
                 try:
-                    r = float(a[1])
+                    from .commands import parse_numeric_arg as _parse_num
+                    r = _parse_num(a[1])
                 except ValueError:
                     r = None
             if r is not None and r > 1e-9:

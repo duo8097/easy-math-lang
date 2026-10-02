@@ -96,8 +96,11 @@ def candidate_directories():
                 _add(os.path.dirname(app_dir))
                 break
         # macOS DMG staging: dist/EasyMath/{bin,editor} or Applications dir.
-        _add('/Applications/EasyMath/bin')
-        _add('/Applications/EasyMathLang/bin')
+        # Only probed on macOS; elsewhere these absolute paths can never
+        # exist and would only pollute candidate search order.
+        if sys.platform == 'darwin':
+            _add('/Applications/EasyMath/bin')
+            _add('/Applications/EasyMathLang/bin')
     argv0 = sys.argv[0] if sys.argv else ''
     if argv0:
         _add(os.path.dirname(os.path.abspath(argv0)))

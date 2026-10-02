@@ -510,6 +510,12 @@ def complete(text, line, character):
     for name in sorted(builtins.GEOMETRY_DOCS):
         sig, _desc = builtins.GEOMETRY_DOCS[name]
         items.append({'label': name, 'kind': 'function', 'detail': f'geometry: {sig}'})
+    if not in_p and 'draw' not in builtins.GEOMETRY_DOCS:
+        # *draw(...) is the geometry wrapper itself (not an inner solver
+        # command, so it stays out of GEOMETRY_DOCS on purpose); suggest
+        # it explicitly so typing *dr completes.
+        items.append({'label': 'draw', 'kind': 'function',
+                      'detail': 'geometry: *draw(...)'})
     if star:
         for word, glyph in builtins.symbol_entries():
             items.append({
