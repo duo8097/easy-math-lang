@@ -84,30 +84,15 @@ def replace_vars(ctx, text, _visited=None):
 
 
 def replace_defines(ctx, text):
-    """Expand bare-word defines, recursively (up to 10 passes)."""
-    seen = {text}
-    for _ in range(10):
-        changed = False
-        for k, v in ctx.defines.items():
-            # Never rewrite *command names (e.g. a define named 'pi'
-            # must not turn *pi into *3). Bare words only.
-            # NOTE: replacement via function so backslashes/group refs
-            # (e.g. Windows paths, \1) in the value are inserted
-            # literally instead of being parsed as re.sub escapes.
-            new_text = re.sub(rf'(?<!\*)\b{re.escape(k)}\b', lambda _m, _v=v: _v, text)
-            if new_text != text:
-                changed = True
-                text = new_text
-        if not changed:
-            break
-        if text in seen:
-            print(
-                '[WARNING] Circular define reference detected. '
-                'Leaving unexpanded.',
-                file=sys.stderr,
-            )
-            break
-        seen.add(text)
+    """Brackets-only rule: bare words are text, never expanded.
+
+    Only ``<name>`` references expand (handled by :func:`replace_vars`,
+    since defines are also stored in ``ctx.variables``). Bare words
+    without ``<>`` stay literal text, so ordinary prose like
+    "the width is large" is never corrupted by a define named
+    ``width``. Kept as a no-op for backward compatibility with
+    callers; all expansion flows through ``replace_vars``.
+    """
     return text
 
 

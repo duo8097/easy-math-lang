@@ -123,6 +123,56 @@ def escape_number_commas(s):
     return re.sub(r'(?<=\d),(?=\d)', r'\\,', s)
 
 
+# Typst math identifiers that must survive space_out_bare_identifiers().
+# Everything else that looks like a bare multi-letter word (MD, ABC, MBC)
+# is an "unknown variable" in Typst and aborts the whole PDF build, so we
+# split it into implicit products (M D, A B C) which always compile.
+_TYPST_MATH_KEEP = frozenset({
+    'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'cbrt', 'root',
+    'sum', 'product', 'prod', 'lim', 'display',
+    'pi', 'infinity',
+    'upright', 'bracket', 'lr', 'mid',
+})
+
+
+def space_out_bare_identifiers(s):
+    """Split bare multi-letter words so Typst math compiles.
+
+    ``$frac(MD, AD)$`` fails with "unknown variable: MD" because Typst
+    reads ``MD`` as one variable name. ``$frac(M D, A D)$`` (implicit
+    product) compiles and renders as math italic, which is the right
+    look for segment/triangle names (MD, ABC, MBC, ...).
+
+    Kept intact: quoted strings ("MD"), Typst functions/constants in
+    _TYPST_MATH_KEEP, function calls (word followed by '('), and
+    single letters/digits. Idempotent: already-spaced output is stable.
+    """
+    # Split out "..." quoted spans so we never touch string contents.
+    parts = re.split(r'("[^"]*")', s)
+    for idx in range(0, len(parts), 2):
+        seg = parts[idx]
+
+        def _repl(m):
+            word = m.group(1)
+            if len(word) < 2:
+                return word
+            if word in _TYPST_MATH_KEEP:
+                return word
+            # Function call: name directly followed by '(' stays whole.
+            # Look ahead past whitespace in the original segment.
+            after = seg[m.end():]
+            if re.match(r'\s*\(', after):
+                return word
+            return ' '.join(word)
+
+        parts[idx] = re.sub(
+            r'(?<![A-Za-z0-9_])([A-Za-z][A-Za-z0-9]*)(?![A-Za-z0-9_])',
+            _repl,
+            seg,
+        )
+    return ''.join(parts)
+
+
 def replace_math_call(text, name, min_args, formatter):
     """Replace *name(...) calls using depth-aware paren matching."""
     import sys
@@ -203,6 +253,9 @@ def clean_inner_math(ctx, s):
     # Escape thousands commas (100,000 -> 100\,000) so Typst does not
     # read them as argument separators. See escape_number_commas.
     s = escape_number_commas(s)
+    # Split bare multi-letter identifiers (MD -> M D) so Typst does not
+    # abort with "unknown variable: MD". See space_out_bare_identifiers.
+    s = space_out_bare_identifiers(s)
     if ctx.mult_sym != '*':
         s = s.replace('*', ctx.mult_sym)
     return s

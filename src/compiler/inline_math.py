@@ -94,6 +94,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         math_call_specs,
         normalize_friendly_calls,
         replace_math_call,
+        space_out_bare_identifiers,
     )
     from .symbols import replace_symbol_shortcuts
 
@@ -136,4 +137,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     # Math-call formatters already return $...$; unwrap nested wrappers
     # so \ *frac(1;2) \ becomes $frac(1, 2)$, not $$frac(1, 2)$$.
     inner = re.sub(r'\$([^$]+)\$', r'\1', inner)
+    # Bare multi-letter words (MD, ABC) are unknown variables in Typst
+    # and abort the build; split to implicit products (M D, A B C).
+    inner = space_out_bare_identifiers(inner)
     return f'${inner}$'

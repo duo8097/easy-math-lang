@@ -8,7 +8,7 @@
 // ========================================
 
 *define(tmp1 = 100 000 000)
-tmp1
+<tmp1>
 
 // ========================================
 // 2. Variables and calculation //
@@ -18,7 +18,7 @@ tmp1
 <tmp2> = 3
 <tmp3> = <tmp1> * <tmp2>
 
-Diện tích HCN là: <tmp1> . <tmp2> = calc(<tmp3>)
+Rectangle area: <tmp1> . <tmp2> = calc(<tmp3>)
 
 // ========================================
 // 3. Define using variables //
@@ -28,24 +28,24 @@ Diện tích HCN là: <tmp1> . <tmp2> = calc(<tmp3>)
 <tmp5> = 20
 *define(tmp6 = <tmp4> * <tmp5>)
 
-Giá trị tmp6: <tmp6>
+Value tmp6: <tmp6>
 
 // ========================================
 // 4. Calculation //
 // ========================================
 
 <tmp7> = calc(<tmp1> + <tmp2>)
-Tổng của <tmp1> và <tmp2> là: <tmp7>
+Sum of <tmp1> and <tmp2>: <tmp7>
 
 <tmp8> = calc(<tmp4> + <tmp5>)
-Tổng mới là: <tmp8>
+New sum: <tmp8>
 
 // ========================================
 // 5. Variable is printed as text //
 // ========================================
 
 *define(number = 2 + 3)
-number
+<number>
 
 // number must NOT be calculated when printed directly //
 
@@ -215,7 +215,7 @@ A *degree
 // 20. Symbols inside normal text //
 // ========================================
 
-Nếu x => y thì y => z.
+If x => y then y => z.
 
 A <=> B.
 
@@ -231,23 +231,23 @@ a != b.
 // 21. Mixed expressions //
 // ========================================
 
-Diện tích hình chữ nhật:
+Rectangle area:
 
 <tmp1> . <tmp2> = calc(<tmp3>)
 
-Căn bậc ba của x + 1:
+Cube root of x + 1:
 
 *root(3; x + 1)
 
-Giới hạn:
+Limit:
 
 *lim(x -> 0; sin(x) / x)
 
-Tổng:
+Sum:
 
 *sum(i = 1; n; i)
 
-Tích:
+Product:
 
 *prod(i = 1; n; i)
 
@@ -259,11 +259,11 @@ Tích:
 <height> = 3
 <area> = calc(<width> * <height>)
 
-Chiều rộng: <width>
+Width: <width>
 
-Chiều cao: <height>
+Height: <height>
 
-Diện tích: <width> . <height> = <area>
+Area: <width> . <height> = <area>
 
 // ========================================
 // 23. Multiple calculations //
@@ -275,7 +275,7 @@ Diện tích: <width> . <height> = <area>
 <d> = calc(<c> * 2)
 <e> = calc(<d> - 5)
 
-Kết quả:
+Result:
 
 <a> + <b> = <c>
 
@@ -304,15 +304,15 @@ Kết quả:
 
 <area> = calc(<width> * <height>)
 
-Hình chữ nhật có:
+Rectangle has:
 
-Chiều dài: <width>
+Length: <width>
 
-Chiều rộng: <height>
+Width: <height>
 
-Diện tích: <width> . <height> = <area>
+Area: <width> . <height> = <area>
 
-Đường chéo:
+Diagonal:
 
 *root(2; *pow(<width>; 2) + *pow(<height>; 2))
 

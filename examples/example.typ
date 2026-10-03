@@ -4,13 +4,13 @@
 
 100 000 000 \
 #v(0.65em)
-Diện tích HCN là: 2 . 3 = 6 \
+Rectangle area: 2 . 3 = 6 \
 #v(0.65em)
-Giá trị 10 . 20: 10 . 20 \
+Value tmp6: 10 . 20 \
 #v(0.65em)
-Tổng của 2 và 3 là: 5 \
+Sum of 2 and 3: 5 \
 #v(0.65em)
-Tổng mới là: 30 \
+New sum: 30 \
 #v(0.65em)
 2 + 3 \
 #v(0.65em)
@@ -122,7 +122,7 @@ A ° \
 #v(0.65em)
 \/ \
 #v(0.65em)
-Nếu x ⇒ y thì y ⇒ z. \
+If x ⇒ y then y ⇒ z. \
 #v(0.65em)
 A ⇔ B. \
 #v(0.65em)
@@ -134,33 +134,33 @@ x ≤ 20. \
 #v(0.65em)
 a ≠ b. \
 #v(0.65em)
-Diện tích hình chữ nhật: \
+Rectangle area: \
 #v(0.65em)
 2 . 3 = 6 \
 #v(0.65em)
-Căn bậc ba của x + 1: \
+Cube root of x + 1: \
 #v(0.65em)
 $root(3, {x + 1})$ \
 #v(0.65em)
-Giới hạn: \
+Limit: \
 #v(0.65em)
 $lim_(x → 0) (sin(x) / x)$ \
 #v(0.65em)
-Tổng: \
+Sum: \
 #v(0.65em)
 $display(sum_(i = 1)^(n) (i))$ \
 #v(0.65em)
-Tích: \
+Product: \
 #v(0.65em)
 $display(product_(i = 1)^(n) (i))$ \
 #v(0.65em)
-Chiều rộng: 2 \
+Width: 2 \
 #v(0.65em)
-Chiều cao: 3 \
+Height: 3 \
 #v(0.65em)
-Diện tích: 2 . 3 = 6 \
+Area: 2 . 3 = 6 \
 #v(0.65em)
-Kết quả: \
+Result: \
 #v(0.65em)
 10 + 20 = 30 \
 #v(0.65em)
@@ -176,14 +176,14 @@ $root(2, {x^(2)})$ \
 #v(0.65em)
 $sin(frac(pi, 2))$ \
 #v(0.65em)
-Hình chữ nhật có: \
+Rectangle has: \
 #v(0.65em)
-Chiều dài: 12 \
+Length: 12 \
 #v(0.65em)
-Chiều rộng: 5 \
+Width: 5 \
 #v(0.65em)
-Diện tích: 12 . 5 = 60 \
+Area: 12 . 5 = 60 \
 #v(0.65em)
-Đường chéo: \
+Diagonal: \
 #v(0.65em)
 $root(2, {12^(2) + 5^(2)})$ \

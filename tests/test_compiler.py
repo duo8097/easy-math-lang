@@ -37,9 +37,19 @@ def compile_text(tmp_path, monkeypatch, capsys, text):
 def test_basic_define(tmp_path, monkeypatch, capsys):
     typ, _ = compile_text(
         tmp_path, monkeypatch, capsys,
-        "*define(tmp1 = 100 000 000)\ntmp1\n",
+        "*define(tmp1 = 100 000 000)\n<tmp1>\n",
     )
     assert "100 000 000" in typ
+
+
+def test_bare_word_is_text_not_define(tmp_path, monkeypatch, capsys):
+    # Brackets-only rule: bare words never expand; only <name> does.
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*define(tmp1 = 100 000 000)\ntmp1\n",
+    )
+    assert "tmp1" in typ
+    assert "100 000 000" not in typ
 
 
 def test_variable_substitution(tmp_path, monkeypatch, capsys):
@@ -303,26 +313,27 @@ def test_error_locations_for_undefined_and_calc(
 
 def test_define_with_backslash_value_no_crash(tmp_path, monkeypatch, capsys):
     # Define values are literal text: backslashes, Windows paths and
-    # regex-looking sequences (e.g. \1) must be substituted literally —
-    # re.sub must not parse them as group references/escapes (used to
-    # raise re.error and crash the build).
+    # regex-looking sequences (e.g. \1) must be substituted literally.
+    # Brackets-only rule: only <FOO> expands; bare FOO stays text.
     from compiler.state import CompileContext
-    from compiler.variables import replace_defines
+    from compiler.variables import replace_defines, replace_vars
     ctx = CompileContext()
     for value in ("\\1", "C:\\path\\to", "foo\\", "\\g<0>", "a\\\\b", "\\"):
         ctx.defines["FOO"] = value
-        assert replace_defines(ctx, "hello FOO world") == f"hello {value} world"
+        ctx.variables["FOO"] = value
+        assert replace_defines(ctx, "hello FOO world") == "hello FOO world"
+        assert replace_vars(ctx, "hello <FOO> world") == f"hello {value} world"
     # End-to-end: such defines must not crash the build either.
     # (Note: a lone backslash is the math delimiter, so substituted
     # values containing odd backslashes render as math — that is
     # intended language behavior; the point here is no exception.)
     compile_text(
         tmp_path, monkeypatch, capsys,
-        "*define(gag = \\1)\nhello gag world\n",
+        "*define(gag = \\1)\nhello <gag> world\n",
     )
     compile_text(
         tmp_path, monkeypatch, capsys,
-        "*define(pp = C:\\path\\to)\nhello pp world\n",
+        "*define(pp = C:\\path\\to)\nhello <pp> world\n",
     )
 
 

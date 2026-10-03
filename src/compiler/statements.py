@@ -94,12 +94,6 @@ def process_assignment_or_define(ctx, statement, line_no=None):
                 file=sys.stderr,
             )
             return
-        if len(k) == 1:
-            print(
-                f"[WARNING] Line {line_no}: Single-character define name '{k}' "
-                f"may corrupt plain text.",
-                file=sys.stderr,
-            )
         v = replace_vars(ctx, v)
         v = apply_calc_in_string(ctx, v, line_no=line_no)
         ctx.defines[k] = v

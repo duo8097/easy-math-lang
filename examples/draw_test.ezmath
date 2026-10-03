@@ -1,7 +1,7 @@
-// Test vẽ hình: tam giác vuông + tam giác cân + đường tròn tiếp tuyến
+// Drawing test: right triangle + isosceles triangle + tangent circle
 
 *draw(
-    // --- Tam giác vuông tại A (constraint solver tự đặt C) ---
+    // --- Right triangle at A (constraint solver places C automatically) ---
     *point(A = 0, 0)
     *point(B = 4, 0)
     *point(C)
@@ -16,7 +16,7 @@
 )
 
 *draw(
-    // --- Tam giác cân, AC = BC ---
+    // --- Isosceles triangle, AC = BC ---
     *point(D = 0, 0)
     *point(E = 6, 0)
     *point(F)
@@ -29,7 +29,7 @@
 )
 
 *draw(
-    // --- Đường tròn với tiếp tuyến ---
+    // --- Circle with tangent ---
     *point(O = 0, 0)
     *circle(O ; 3)
 

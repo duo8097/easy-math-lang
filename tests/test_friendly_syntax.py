@@ -35,7 +35,7 @@ def test_comma_separator_pow_sum(tmp_path, monkeypatch, capsys):
 def test_semicolon_wins_over_comma_for_thousands(tmp_path, monkeypatch, capsys):
     # 100,000 must stay one number when ';' is present.
     typ, _ = compile_text(
-        tmp_path, monkeypatch, capsys, "*define(big = 100,000)\nbig\n"
+        tmp_path, monkeypatch, capsys, "*define(big = 100,000)\n<big>\n"
     )
     assert "100,000" in typ
 
@@ -67,7 +67,7 @@ def test_var_assignment_bare_name(tmp_path, monkeypatch, capsys):
 
 def test_define_without_parens(tmp_path, monkeypatch, capsys):
     typ, _ = compile_text(
-        tmp_path, monkeypatch, capsys, "*define zed = 42\nVal zed\n"
+        tmp_path, monkeypatch, capsys, "*define zed = 42\nVal <zed>\n"
     )
     assert "Val 42" in typ
 
