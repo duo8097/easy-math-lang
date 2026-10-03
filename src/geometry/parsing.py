@@ -15,12 +15,19 @@ def split_args(args_str):
     ``*line(A, B)`` equals ``*line(A ; B)``. When ';' is present it wins
     (so ``*point(A = 0, 0)`` — whose single arg contains a comma — never
     splits). ``*point`` is never comma-split: its ``x, y`` coordinates
-    contain a comma by design.
+    contain a comma by design. Separators inside "..." are ignored so
+    ``*label(A ; "a;b")`` keeps the label intact.
     """
-    # Decide separator set: ';' wins when present at depth 0.
+    # Decide separator set: ';' wins when present at depth 0 (outside quotes).
     has_semi = False
     _depth = 0
+    _q = False
     for _ch in args_str:
+        if _ch == '"':
+            _q = not _q
+            continue
+        if _q:
+            continue
         if _ch == '(':
             _depth += 1
         elif _ch == ')':
@@ -35,7 +42,15 @@ def split_args(args_str):
     parts = []
     current = []
     depth = 0
+    in_q = False
     for char in args_str:
+        if char == '"':
+            in_q = not in_q
+            current.append(char)
+            continue
+        if in_q:
+            current.append(char)
+            continue
         if char == '(':
             depth += 1
         elif char == ')':

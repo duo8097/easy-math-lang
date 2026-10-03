@@ -13,33 +13,55 @@ def split_top_level_args(args):
     Friendly rule: when ';' appears at depth 0, split on ';' only
     (so ``*frac(100,000 ; 2)`` keeps ``100,000`` intact). Otherwise
     split on ',' so ``*frac(2,3)`` works like ``*frac(2 ; 3)``.
+    Separators inside double-quoted strings are ignored so
+    ``*frac("a;b" ; c)`` keeps ``"a;b"`` intact.
     """
     # Scan for a depth-0 ';' first to decide the separator set.
-    has_semi = False
-    _dp = _db = _br = 0
-    for _ch in args:
-        if _ch == '(':
-            _dp += 1
-        elif _ch == ')' and _dp > 0:
-            _dp -= 1
-        elif _ch == '{':
-            _db += 1
-        elif _ch == '}' and _db > 0:
-            _db -= 1
-        elif _ch == '[':
-            _br += 1
-        elif _ch == ']' and _br > 0:
-            _br -= 1
-        elif _ch == ';' and _dp == 0 and _db == 0 and _br == 0:
-            has_semi = True
-            break
+    # Quote-aware: separators inside "..." never count.
+    def _has_top_semi(s):
+        _dp = _db = _br = 0
+        _q = False
+        for _ch in s:
+            if _ch == '"' and not _q:
+                _q = True
+                continue
+            if _ch == '"' and _q:
+                _q = False
+                continue
+            if _q:
+                continue
+            if _ch == '(':
+                _dp += 1
+            elif _ch == ')' and _dp > 0:
+                _dp -= 1
+            elif _ch == '{':
+                _db += 1
+            elif _ch == '}' and _db > 0:
+                _db -= 1
+            elif _ch == '[':
+                _br += 1
+            elif _ch == ']' and _br > 0:
+                _br -= 1
+            elif _ch == ';' and _dp == 0 and _db == 0 and _br == 0:
+                return True
+        return False
+
+    has_semi = _has_top_semi(args)
     seps = (';',) if has_semi else (';', ',')
     parts = []
     current = []
     depth_paren = 0
     depth_brace = 0
     depth_bracket = 0
+    in_quote = False
     for char in args:
+        if char == '"':
+            in_quote = not in_quote
+            current.append(char)
+            continue
+        if in_quote:
+            current.append(char)
+            continue
         if char == '(':
             depth_paren += 1
         elif char == ')' and depth_paren > 0:
@@ -257,7 +279,19 @@ def clean_inner_math(ctx, s):
     # abort with "unknown variable: MD". See space_out_bare_identifiers.
     s = space_out_bare_identifiers(s)
     if ctx.mult_sym != '*':
-        s = s.replace('*', ctx.mult_sym)
+        # Protect *command( (unknown commands left as text) and space the
+        # operator: 2*3 -> '2 . 3', not '2.3'.
+        _prot = {}
+
+        def _pm(m):
+            ph = f'\x03{len(_prot)}\x04'
+            _prot[ph] = m.group(0)
+            return ph
+
+        s = re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(', _pm, s)
+        s = re.sub(r'\s*\*\s*', f' {ctx.mult_sym} ', s)
+        for ph, orig in _prot.items():
+            s = s.replace(ph, orig)
     return s
 
 

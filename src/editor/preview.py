@@ -52,7 +52,10 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     from compiler.pipeline import compile_ezmath
 
     directory = ensure_workdir(workdir)
-    suffix = f'-{int(version)}' if version is not None else ''
+    try:
+        suffix = f'-{int(version)}' if version is not None else ''
+    except (TypeError, ValueError):
+        suffix = ''
     fmt = str(format or 'pdf').strip().lower().lstrip('.')
     if fmt == 'htm':
         fmt = 'html'

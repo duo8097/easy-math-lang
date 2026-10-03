@@ -24,7 +24,7 @@ import re
 
 from compiler.calc import apply_calc_in_string, evaluate_calc
 from compiler.comments import strip_comments
-from compiler.diagnostics import KNOWN_COMMANDS
+from compiler.diagnostics import KNOWN_COMMANDS, KNOWN_GEOMETRY_COMMANDS
 from compiler.statements import (
     _normalize_friendly_statement,
     process_assignment_or_define,
@@ -415,11 +415,19 @@ def _analyze_text_inner(text, analysis):
                     _math_masked[:_o[0]] + ' ' * (_o[1] + 1 - _o[0]) + _math_masked[_o[1] + 1:]
                 )
             for m in CMD_CALL.finditer(_math_masked):
-                if m.group(1) not in KNOWN_COMMANDS:
+                cmd = m.group(1)
+                if cmd in KNOWN_COMMANDS:
+                    continue
+                if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), m.end(), 'warning',
-                        f"Unknown command *{m.group(1)}(...) — treated as plain text",
+                        f"*{cmd}(...) is only valid inside *draw(...) — treated as plain text",
                     ))
+                    continue
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), m.end(), 'warning',
+                    f"Unknown command *{cmd}(...) — treated as plain text",
+                ))
 
             sub_all = replace_defines(ctx, substituted)
             for m in CALC_OPEN.finditer(check_code):

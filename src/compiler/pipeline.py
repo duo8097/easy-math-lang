@@ -223,10 +223,29 @@ def _render_text_line(ctx, raw, line_no):
 
     # 12. Apply multiplication symbol outside math blocks
     tokens = re.split(r'(\$.*?\$)', text)
-    for i, token in enumerate(tokens):
-        if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
-            tokens[i] = token.replace('*', ctx.mult_sym)
-    text = ''.join(tokens)
+    if ctx.mult_sym != '*':
+        # Protect *command( spans (unknown/geometry outside draw) so their
+        # leading '*' is not corrupted into the multiplication glyph.
+        _cmd_prot = {}
+
+        def _protect_cmd(m):
+            ph = f'\x03{len(_cmd_prot)}\x04'
+            _cmd_prot[ph] = m.group(0)
+            return ph
+
+        for i, token in enumerate(tokens):
+            if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
+                tokens[i] = re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(', _protect_cmd, token)
+        for i, token in enumerate(tokens):
+            if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
+                # Spaced replacement: 2*3 -> '2 . 3' (not '2.5'-style
+                # corruption to '2.3'), 2 * 3 stays '2 . 3'.
+                tokens[i] = re.sub(r'\s*\*\s*', f' {ctx.mult_sym} ', token)
+        text = ''.join(tokens)
+        for ph, orig in _cmd_prot.items():
+            text = text.replace(ph, orig)
+    else:
+        text = ''.join(tokens)
 
     # 13. Escape special Typst syntax characters outside math blocks
     # (user '$' are placeholders here; generated $...$ are preserved).
@@ -572,15 +591,21 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             wrapped = _render_math_inner_multiline(ctx, full_raw, math_start)
             in_math = False
             math_buf = []
-            combined = (wrapped + ' ' + tail).strip() if tail.strip() else wrapped
-            if not combined:
-                continue
             if not tail.strip():
                 if wrapped:
                     output_lines.append(wrapped)
                 continue
-            # Tail may hold further math pairs; render as text.
-            output_lines.append(_render_text_line(ctx, combined, line_no))
+            # Tail is normal text that may hold further math pairs.
+            # Wrapped is already $...$ — never re-run it through
+            # _render_text_line (its dollars would be escaped to \$).
+            rendered_tail = _render_text_line(ctx, tail, line_no)
+            if wrapped:
+                combined = (wrapped + ' ' + rendered_tail).strip()
+                if combined:
+                    output_lines.append(combined)
+            else:
+                if rendered_tail:
+                    output_lines.append(rendered_tail)
             continue
 
         # Friendly: let/var and bare *define without parens.
@@ -632,8 +657,14 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             if inner and not inner.startswith('*'):
                 # Heuristic: only treat as a silent block when it looks
                 # like an assignment/define, otherwise fall through to
-                # normal text (e.g. math grouping).
-                if re.match(r'^<[^<>]+>\s*=', inner) or inner.startswith('define('):
+                # normal text (e.g. math grouping). Friendly let/var
+                # (let x = 5 -> <x> = 5) counts as an assignment so
+                # single-line *(let x = 5) matches the LSP and the
+                # multi-line block path (which normalizes inside
+                # process_assignment_or_define).
+                _inner_norm = _normalize_friendly_statement(inner)
+                if (re.match(r'^<[^<>]+>\s*=', inner) or inner.startswith('define(')
+                        or _inner_norm != inner):
                     process_assignment_or_define(ctx, inner, line_no=line_no)
                     continue
         if line in ('*(', '*f(', 'f(', '*draw('):

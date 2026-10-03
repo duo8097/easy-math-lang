@@ -130,7 +130,17 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     # Apply custom multiplication symbol inside math for consistency
     # with text mode (text '2 * 3' -> '2 . 3' must match '\ 2 * 3 \').
     if ctx.mult_sym != '*':
-        inner = inner.replace('*', ctx.mult_sym)
+        _prot = {}
+
+        def _pm(m):
+            ph = f'\x03{len(_prot)}\x04'
+            _prot[ph] = m.group(0)
+            return ph
+
+        inner = re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(', _pm, inner)
+        inner = re.sub(r'\s*\*\s*', f' {ctx.mult_sym} ', inner)
+        for ph, orig in _prot.items():
+            inner = inner.replace(ph, orig)
     # Literal \\ inside math must not emit Typst '\\' (line break).
     # Emit a quoted backslash string so it renders as a backslash.
     inner = inner.replace(BS_PLACEHOLDER, '"\\\\"')
