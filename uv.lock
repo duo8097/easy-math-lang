@@ -49,13 +49,13 @@ source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pygls" },
-    { name = "pyinstaller" },
     { name = "pyside6" },
     { name = "typst" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "pyinstaller" },
     { name = "pytest" },
 ]
 
@@ -63,13 +63,15 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "pygls", specifier = ">=2.1.1" },
-    { name = "pyinstaller", specifier = ">=6.22.3" },
     { name = "pyside6", specifier = ">=6.11.2" },
     { name = "typst", specifier = ">=0.15.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.1.1" }]
+dev = [
+    { name = "pyinstaller", specifier = ">=6.22.3" },
+    { name = "pytest", specifier = ">=9.1.1" },
+]
 
 [[package]]
 name = "iniconfig"

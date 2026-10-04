@@ -1,0 +1,110 @@
+# Maintainer: duo8097 <Imanoob8097@gmail.com>
+pkgname=easy-math-lang-git
+pkgver=3.0.0.r2.g0ffcd1c
+pkgrel=1
+pkgdesc='Plain-text math documents to PDF, images, HTML and Typst (compiler, language server and desktop editor)'
+arch=('x86_64')
+url='https://github.com/duo8097/easy-math-lang'
+license=('MIT')
+depends=()
+makedepends=('git' 'uv')
+optdepends=('libgl: hardware-accelerated rendering in the desktop editor'
+            'fontconfig: font discovery in the desktop editor')
+provides=('easy-math-lang')
+conflicts=('easy-math-lang')
+# Do not strip: the onefile binaries carry a payload archive after the
+# ELF image, which `strip` would corrupt.
+options=('!strip')
+source=('easy-math-lang::git+https://github.com/duo8097/easy-math-lang.git')
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/easy-math-lang"
+  git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+build() {
+  cd "$srcdir/easy-math-lang"
+
+  # `uv sync` installs the project editable, so the shims below can
+  # `from compiler/editor/lsp import main` (same as CI).
+  uv sync --frozen
+
+  cat > entry_compiler.py <<'EOF'
+from compiler import main
+if __name__ == "__main__":
+    main()
+EOF
+
+  cat > entry_lsp.py <<'EOF'
+from lsp.server import main
+if __name__ == "__main__":
+    main()
+EOF
+
+  cat > entry_editor.py <<'EOF'
+from editor.app import main
+if __name__ == "__main__":
+    main()
+EOF
+
+  cleanup() {
+    rm -f entry_compiler.py entry_lsp.py entry_editor.py
+  }
+  trap cleanup EXIT
+
+  uv run --frozen pyinstaller entry_compiler.py \
+    --name easy-math-lang \
+    --onefile \
+    --collect-all typst \
+    --collect-all numpy \
+    --noconfirm
+
+  # `ezmath` is the short CLI alias (pyproject [project.scripts]): the
+  # same binary under another name, so copy instead of rebuilding.
+  cp -f dist/easy-math-lang dist/ezmath
+
+  uv run --frozen pyinstaller entry_lsp.py \
+    --name easy-math-lsp \
+    --onefile \
+    --collect-all pygls \
+    --collect-all typst \
+    --collect-all numpy \
+    --noconfirm
+
+  uv run --frozen pyinstaller entry_editor.py \
+    --name easy-math-editor \
+    --onedir \
+    --windowed \
+    --hidden-import PySide6.QtPdf \
+    --hidden-import PySide6.QtPdfWidgets \
+    --collect-all PySide6 \
+    --collect-all typst \
+    --collect-all numpy \
+    --noconfirm
+
+  chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp
+  test -x dist/easy-math-editor/easy-math-editor
+}
+
+package() {
+  cd "$srcdir/easy-math-lang"
+
+  # Self-contained PyInstaller binaries: no Python runtime needed.
+  install -Dm755 dist/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
+  install -Dm755 dist/ezmath "$pkgdir/usr/bin/ezmath"
+  install -Dm755 dist/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
+
+  # Onedir GUI bundle; the editor finds the /usr/bin helpers via PATH
+  # (see src/editor/paths.py), so no wrapper script is needed.
+  mkdir -p "$pkgdir/usr/lib/easy-math-lang"
+  cp -a dist/easy-math-editor "$pkgdir/usr/lib/easy-math-lang/"
+  chmod +x "$pkgdir/usr/lib/easy-math-lang/easy-math-editor/easy-math-editor"
+  ln -s /usr/lib/easy-math-lang/easy-math-editor/easy-math-editor \
+    "$pkgdir/usr/bin/easy-math-editor"
+
+  install -Dm644 installer/easy-math-editor.desktop \
+    "$pkgdir/usr/share/applications/easy-math-editor.desktop"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Easy Math Editor
+GenericName=Math Editor
+Comment=Write math documents in plain text (.ezmath)
+Exec=/usr/bin/easy-math-editor %F
+Terminal=false
+Categories=Education;Math;
+Keywords=math;typst;editor;ezmath;
+StartupWMClass=easy-math-editor
