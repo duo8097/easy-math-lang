@@ -51,7 +51,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
         # between two digits is a decimal separator. Note 3,500 matches
         # the thousands pattern, so it reads as 3500 — see
         # docs/algebra.md for the ambiguity and how to disambiguate.
-        eval_expr = re.sub(r'(?<=\d),(?=\d{3}\b)', '', eval_expr)
+        eval_expr = re.sub(r'(?<=\d),(?=\d{3}(?:,\d{3})*(?!\d))', '', eval_expr)
         eval_expr = re.sub(r'(?<=\d),(?=\d)', '.', eval_expr)
         eval_expr = eval_expr.replace('^', '**')
         tree = ast.parse(eval_expr, mode='eval')
@@ -77,7 +77,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
                     except TypeError:
                         pass
                 result = safe_operators[type(node.op)](left, right)
-                if isinstance(result, int) and abs(result) > 10 ** 4000:
+                if isinstance(result, int) and abs(result) >= 10 ** 4000:
                     raise ValueError('calc: result too large')
                 return result
             if isinstance(node, ast.UnaryOp) and type(node.op) in safe_operators:

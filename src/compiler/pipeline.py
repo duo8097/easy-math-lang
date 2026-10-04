@@ -302,11 +302,14 @@ def _parse_draw_safe(block_text, line_no=None):
     """
     try:
         import geometry
-    except ImportError as e:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} geometry support missing ({e}) — draw skipped',
-              file=sys.stderr)
-        return '// [Error] draw skipped: geometry support missing'
+    except ImportError:
+        try:
+            from .. import geometry
+        except ImportError as e:
+            loc = f' Line {line_no}:' if line_no else ''
+            print(f'[Error]{loc} geometry support missing ({e}) — draw skipped',
+                  file=sys.stderr)
+            return '// [Error] draw skipped: geometry support missing'
     try:
         return geometry.parse_draw_block(block_text)
     except Exception as e:
@@ -534,20 +537,24 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         _out_arg = output
     _explicit_format = format
     _explicit_ppi = ppi
-    if _out_arg is None:
-        # Default <base>.pdf (legacy behavior).
-        base, _ = os.path.splitext(os.fspath(input_file))
-        _out_arg = base + '.pdf'
-    else:
-        _out_arg = os.fspath(_out_arg)
-    input_str = os.fspath(input_file)
+    try:
+        if _out_arg is None:
+            # Default <base>.pdf (legacy behavior).
+            base, _ = os.path.splitext(os.fspath(input_file))
+            _out_arg = base + '.pdf'
+        else:
+            _out_arg = os.fspath(_out_arg)
+        input_str = os.fspath(input_file)
+    except (TypeError, ValueError) as e:
+        print(f'[Error] Invalid input/output path: {e}', file=sys.stderr)
+        return False
 
     ctx = CompileContext()
 
     try:
         with open(input_str, 'r', encoding='utf-8') as f:
             raw_text = f.read()
-    except (OSError, UnicodeDecodeError) as e:
+    except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
         print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
         return False
 
@@ -619,10 +626,10 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             process_assignment_or_define(ctx, _norm_stmt, line_no=line_no)
             continue
 
-        # Handle single-line *define(...) or define(...)
-        if (line.startswith('*define(') or line.startswith('define(')) and line.endswith(')'):
-            prefix_len = 8 if line.startswith('*define(') else 7
-            inner_stmt = line[prefix_len:-1]
+        # Handle single-line *define(...) or define(...) (space-tolerant).
+        _m_def = re.match(r'^(\*?define)\s*\((.*)\)\s*$', line)
+        if _m_def and _m_def.group(2) is not None:
+            inner_stmt = _m_def.group(2)
             process_assignment_or_define(ctx, 'define(' + inner_stmt + ')', line_no=line_no)
             continue
 
@@ -652,7 +659,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                   and len(line) > 3 and not line.startswith('frac('))):
             if line.startswith('*('):
                 inner = line[2:-1].strip()
-            else:
+            else:  # f(...)
                 inner = line[2:-1].strip()
             if inner and not inner.startswith('*'):
                 # Heuristic: only treat as a silent block when it looks
@@ -835,11 +842,20 @@ def _standalone_flag_error(flag):
 
 def main():
     args = sys.argv[1:]
-    # `--` escape hatch: everything after it is a file operand, so files
-    # with flag-like names (e.g. `--version`) stay compilable.
-    positional_only = args[:1] == ['--']
-    if positional_only:
-        args = args[1:]
+    # `--` escape hatch: everything after the first `--` is a file
+    # operand, so files with flag-like names (e.g. `--version`) stay
+    # compilable. Leading `--` keeps legacy behavior (args become the
+    # file list, no option parsing).
+    positional_only = False
+    dashdash = []
+    if '--' in args:
+        cut = args.index('--')
+        if cut == 0:
+            args = args[1:]
+            positional_only = True
+        else:
+            dashdash = args[cut + 1:]
+            args = args[:cut]
     # Standalone flags are only honored in flag position (args[0]); a
     # trailing flag after a filename must not hijack the compile job.
     if not positional_only and args[:1] == ['--check-update']:
@@ -912,8 +928,9 @@ def main():
                 continue
             positionals.append(a)
             i += 1
+        positionals.extend(dashdash)
     else:
-        positionals = list(args)
+        positionals = list(args) + list(dashdash)
 
     if len(positionals) > 2:
         print(f'error: too many arguments: {" ".join(positionals[2:])}',

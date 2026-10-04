@@ -737,11 +737,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def _do_find(self, text, direction):
         self._clear_find_highlights()
         ranges = self._find_all_ranges(text)
+        prev_ranges = getattr(self, '_find_ranges', None)
+        prev_index = getattr(self, '_find_current_index', None)
         self._find_ranges = ranges
         if not ranges:
             self._find_bar.set_match_count(0, 0)
             return
-        pos = self.editor.textCursor().position()
+        cursor = self.editor.textCursor()
+        pos = cursor.position()
+        has_selection = cursor.hasSelection()
+        sel_start = cursor.selectionStart() if has_selection else None
         inside = next((i for i, (s, e) in enumerate(ranges) if s <= pos < e), None)
         if direction == 0:
             index = inside if inside is not None else next(
@@ -761,7 +766,33 @@ class MainWindow(QtWidgets.QMainWindow):
                 # excludes it, so the generic formula would skip one.
             else:
                 at_or_before = [i for i, (_s, e) in enumerate(ranges) if e <= pos]
-                index = len(ranges) - 1 if not at_or_before else (at_or_before[-1] - 1) % len(ranges)
+                if not at_or_before:
+                    index = len(ranges) - 1
+                else:
+                    # Navigating: cursor sits at end of current match, so
+                    # at_or_before includes it and we step one back.
+                    # Fresh search (e.g. cursor at EOF): at_or_before's
+                    # last entry IS the target, don't skip it.
+                    # Disambiguate via active selection: _show_find_match
+                    # leaves a selection; a fresh EOF cursor has none.
+                    try:
+                        cur = int(prev_index) if prev_index is not None else None
+                    except (TypeError, ValueError):
+                        cur = None
+                    navigating = (
+                        has_selection
+                        and cur is not None
+                        and prev_ranges is not None
+                        and len(prev_ranges) == len(ranges)
+                        and 0 <= cur < len(ranges)
+                        and ranges[cur][1] == pos
+                        and sel_start == ranges[cur][0]
+                        and at_or_before[-1] == cur
+                    )
+                    if navigating:
+                        index = (cur - 1) % len(ranges)
+                    else:
+                        index = at_or_before[-1]
                 # NOTE: after _show_find_match the cursor sits at the end
                 # of the shown match (e == pos), so at_or_before includes
                 # the current match and -1 steps to the previous one,
@@ -821,6 +852,7 @@ class MainWindow(QtWidgets.QMainWindow):
             empty = self._recent_menu.addAction('(No recent files)')
             empty.setEnabled(False)
             return
+        shown = 0
         for path in paths:
             if not os.path.exists(path):
                 continue
@@ -830,6 +862,11 @@ class MainWindow(QtWidgets.QMainWindow):
             action.setData(path)
             action.triggered.connect(
                 lambda _checked=False, p=path: self._open_recent(p))
+            shown += 1
+        if shown == 0:
+            empty = self._recent_menu.addAction('(No recent files)')
+            empty.setEnabled(False)
+            return
         self._recent_menu.addSeparator()
         clear_action = self._recent_menu.addAction('Clear Menu')
         clear_action.triggered.connect(self._recent.clear)
@@ -902,14 +939,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._switch_document(None, '')
 
     def _file_dialog(self, save, title):
-        """Open/Save path picker, always in light mode.
+        """Open/Save path picker that follows the app theme.
 
-        Native OS dialogs ignore Qt palettes/stylesheets, so in dark mode
-        they would pop up glaringly light while a Qt-drawn dialog would
-        follow the dark app theme. Either way the dialog would not be
-        reliably light, so in dark mode a Qt-drawn (non-native) dialog is
-        used with a forced light palette + light override stylesheet.
-        In light mode the native dialog users expect is kept. Returns
+        Native OS dialogs ignore Qt palettes/stylesheets (the Windows
+        one can never be dark), so in dark mode a Qt-drawn dialog is
+        used and simply inherits the app palette + stylesheet. In light
+        mode the native dialog users expect is kept. Returns
         ``(path, selected_filter)`` like the static
         ``QFileDialog.getOpen/SaveFileName`` helpers.
         """
@@ -922,13 +957,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 self, title, '', file_filter)
         dialog = QtWidgets.QFileDialog(self, title, '', file_filter)
         dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
-        try:
-            app = QtWidgets.QApplication.instance()
-            if app is not None:
-                dialog.setPalette(app.style().standardPalette())
-        except Exception:
-            pass
-        dialog.setStyleSheet(app_theme.LIGHT_DIALOG_STYLESHEET)
         if save:
             dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         else:
@@ -1095,10 +1123,22 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._file_path:
             base, _ = os.path.splitext(self._file_path)
             base = f'{base}.{fmt}'
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, f'Export as {fmt.upper()}', base, filt)
-        if not path:
-            return
+        if self._theme_name == app_theme.DARK:
+            dialog = QtWidgets.QFileDialog(
+                self, f'Export as {fmt.upper()}', base, filt)
+            dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+            dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+            if not dialog.exec():
+                return
+            files = dialog.selectedFiles()
+            if not files:
+                return
+            path = files[0]
+        else:
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, f'Export as {fmt.upper()}', base, filt)
+            if not path:
+                return
         ppi = None
         if fmt == 'png':
             ppi, ok = QtWidgets.QInputDialog.getInt(
@@ -1312,35 +1352,32 @@ class MainWindow(QtWidgets.QMainWindow):
             app_theme.save_theme_name(self._settings, name)
 
     def _set_title_bar_dark(self, dark):
-        """Match the Windows OS title bar to the theme (no-op elsewhere).
+        """Dark/light OS title bar for the main window AND every dialog.
 
-        Qt cannot paint the outer title bar; on Windows 10 20H1+ the
-        DWMWA_USE_IMMERSIVE_DARK_MODE attribute switches it. Never raises:
-        headless tests and non-Windows platforms simply skip it.
+        The app-wide filter covers windows shown later (QMessageBox,
+        QInputDialog, file dialogs, ...); set_dark() also refreshes
+        windows that are already visible.
         """
-        try:
-            import os
-            if os.name != 'nt':
-                return
-            import ctypes
-            hwnd = int(self.winId())
-            if not hwnd:
-                return
-            dwmapi = ctypes.windll.dwmapi
-            value = ctypes.c_int(1 if dark else 0)
-            # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (19 on older builds;
-            # 20 works on 20H1+ and is harmless otherwise).
-            for attr in (20, 19):
+        app = QtWidgets.QApplication.instance()
+        themer = None
+        if app is not None:
+            themer = getattr(app, '_title_themer', None)
+        if themer is None:
+            themer = app_theme.TitleBarThemer(dark, parent=app)
+            if app is not None:
                 try:
-                    if dwmapi.DwmSetWindowAttribute(
-                            hwnd, attr,
-                            ctypes.byref(value),
-                            ctypes.sizeof(value)) == 0:
-                        break
-                except Exception:
-                    continue
-        except Exception:
+                    app.installEventFilter(themer)
+                except RuntimeError:
+                    pass
+                app._title_themer = themer
+            self._title_themer = themer
+        else:
+            self._title_themer = themer
+        try:
+            themer.set_dark(dark)
+        except RuntimeError:
             pass
+        app_theme.set_title_bar_dark(self, dark)
 
     def _toggle_theme(self):
         self._apply_theme(app_theme.DARK
@@ -1353,9 +1390,36 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ranges:
             self._clear_find_highlights()
             return
+        try:
+            doc_len = self.editor.document().characterCount()
+        except Exception:
+            doc_len = None
+        safe = []
+        for s, e in ranges:
+            try:
+                s, e = int(s), int(e)
+            except (TypeError, ValueError):
+                continue
+            if doc_len is not None:
+                s = max(0, min(s, doc_len))
+                e = max(0, min(e, doc_len))
+            if e < s:
+                s, e = e, s
+            safe.append((s, e))
+        if not safe:
+            self._clear_find_highlights()
+            return
+        self._find_ranges = safe
+        current = getattr(self, '_find_current_index', 0)
+        try:
+            current = int(current)
+        except (TypeError, ValueError):
+            current = 0
+        current = max(0, min(current, len(safe) - 1))
+        self._find_current_index = current
         self._clear_find_highlights()
         self._highlight_find_ranges(
-            ranges, getattr(self, '_find_current_index', 0))
+            safe, current)
 
     def _connect_editor(self):
         self.editor.cursorMoved.connect(self._on_cursor_moved)
@@ -1487,7 +1551,7 @@ class MainWindow(QtWidgets.QMainWindow):
             except RuntimeError:
                 pass
         workdir = getattr(self, '_preview_workdir', None)
-        if workdir and (thread is None or not thread.isRunning()):
+        if workdir:
             shutil.rmtree(workdir, ignore_errors=True)
 
     def open_path(self, path):
@@ -1510,13 +1574,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self._maybe_save():
             event.ignore()
             return
+        # Mark closing FIRST so any queued build/preview finished
+        # signals are suppressed instead of popping a modal on a
+        # tearing-down window.
+        self._closing = True
         self._restart_pending = False
         self._reopen_after_connect = False
         self._change_timer.stop()
         self._preview_timer.stop()
         self._close_current_in_lsp()
         if self._build_process is not None:
-            self._build_process.kill()
+            try:
+                self._build_process.finished.disconnect(self._on_build_finished)
+            except (RuntimeError, TypeError):
+                pass
+            try:
+                self._build_process.kill()
+            except RuntimeError:
+                pass
             self._build_process = None
         if self.lsp.state == 'stopped':
             self._shutdown_preview()
@@ -1526,9 +1601,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # process exit) is asynchronous: defer the close until the process
         # is gone so Qt never destroys a live QProcess.  A watchdog
         # forces the close if shutdown hangs.
-        self._closing = True
         self.statusBar().showMessage('Shutting down language server…')
-        QtCore.QTimer.singleShot(5000, self._force_close)
+        watchdog = QtCore.QTimer(self)
+        watchdog.setSingleShot(True)
+        watchdog.timeout.connect(self._force_close)
+        watchdog.start(5000)
+        self._watchdog = watchdog
         self.lsp.stop()
         event.ignore()
 

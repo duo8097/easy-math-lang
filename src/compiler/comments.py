@@ -35,11 +35,16 @@ def _balanced_spans(line, opener):
             continue
         depth = 1
         i = s + pat_len
+        in_quote = False
         while i < len(line) and depth > 0:
-            if line[i] == '(':
-                depth += 1
-            elif line[i] == ')':
-                depth -= 1
+            ch = line[i]
+            if ch == '"' and (i == 0 or line[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
             i += 1
         if depth != 0:
             # Unclosed opener: skip it and continue so later balanced

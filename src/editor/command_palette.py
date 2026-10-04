@@ -78,6 +78,8 @@ class CommandPalette(QtWidgets.QDialog):
 
     def _accept_item(self, item):
         cmd_id = item.data(QtCore.Qt.UserRole)
+        if not cmd_id or not isinstance(cmd_id, str):
+            return
         self.accept()
         self.commandChosen.emit(cmd_id)
 

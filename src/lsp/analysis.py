@@ -165,8 +165,8 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
         out = parse_draw_block(block_text)
     seen = set()
     anchor_end = len(lines[start_line]) if start_line < len(lines) else 0
-    # Span the whole block so "go to error" lands on the block, not just
-    # the opener; per-line mapping requires threaded offsets (future).
+    # Single-line anchor on the block opener (Diag is single-line);
+    # the message names the failing command for precise location.
     for source in (cap.getvalue().splitlines(), out.splitlines()):
         for raw in source:
             m = re.match(r'(?://\s*)?\[(GeometryError|GeometryWarning)\]\s*(.*)', raw.strip())
@@ -220,11 +220,15 @@ def _analyze_text_inner(text, analysis):
     math_start_char = 0
 
     with _quiet():
+        in_fence = False
         for idx, code in enumerate(lines):
             s = code.strip()
             if not s:
                 continue
             if s.startswith('```'):
+                in_fence = not in_fence
+                continue
+            if in_fence:
                 continue
 
             # Control lines suspended while multiline math is open
@@ -429,7 +433,6 @@ def _analyze_text_inner(text, analysis):
                     f"Unknown command *{cmd}(...) — treated as plain text",
                 ))
 
-            sub_all = replace_defines(ctx, substituted)
             for m in CALC_OPEN.finditer(check_code):
                 close = _balanced_range(check_code, m.end() - 1)
                 if close is None:

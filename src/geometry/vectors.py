@@ -21,7 +21,10 @@ def _normalize(v):
         raise ValueError("cannot normalize vector with non-numeric length")
     if not _math.isfinite(n_f) or n_f < 1e-9:
         raise ValueError("cannot normalize zero-length or non-finite vector")
-    return v / n
+    try:
+        return np.asarray(v, dtype=float) / n_f
+    except (TypeError, ValueError):
+        return v / n_f
 
 
 def _bounding_box(points_dict):
@@ -70,6 +73,6 @@ def _ray_bbox_intersect(origin, direction, xmin, ymin, xmax, ymax, margin=0.5):
 
     diag = _math.hypot(xmax - xmin, ymax - ymin)
     if _math.isfinite(diag):
-        t_max = min(t_max, diag + margin)
+        t_max = min(t_max, diag)
 
     return t_max

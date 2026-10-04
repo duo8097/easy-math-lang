@@ -135,11 +135,16 @@ def _parse_commands(block_text):
         # j now points to '('
         depth = 1
         k = j + 1
+        in_quote = False
         while k < len(block_text) and depth > 0:
-            if block_text[k] == '(':
-                depth += 1
-            elif block_text[k] == ')':
-                depth -= 1
+            ch = block_text[k]
+            if ch == '"' and (k == 0 or block_text[k - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
             k += 1
 
         if depth != 0:

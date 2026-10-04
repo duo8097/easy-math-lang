@@ -501,7 +501,9 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             lines.append(f'  // [GeometryWarning] *angle({A} ; {B} ; {C}) is ~0°/180°/360° — no arc drawn')
         else:
             # CeTZ arc(pos, ...) centers on pos: the marker belongs at the
-            # vertex B, not offset along the arm.
+            # vertex B, not offset along the arm. stop may exceed 360
+            # (e.g. start 350 + sweep 90 = 440): CeTZ needs that to keep
+            # the counterclockwise sweep — do NOT wrap with % 360.
             lines.append(
                 f'  arc(({bx:.3f}, {by:.3f}), start: {a1:.2f}deg, '
                 f'stop: {a1 + sweep:.2f}deg, radius: 0.400)'
@@ -577,6 +579,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         if sweep < 0.5 or sweep > 359.5:
             lines.append(f'  // [GeometryWarning] *angle-value({A} ; {B} ; {C}) is ~0°/180°/360° — no arc drawn')
         else:
+            # stop may exceed 360 to preserve CCW sweep (see above).
             lines.append(
                 f'  arc(({bx:.3f}, {by:.3f}), start: {a1:.2f}deg, '
                 f'stop: {a1 + sweep:.2f}deg, radius: 0.300)'

@@ -19,10 +19,12 @@ def parse_numeric_arg(text):
     ValueError so callers report their usual "must be numeric" error.
     """
     s = text.strip()
+    # Tolerate sign and decimals: -1,000, 1,000.5
     if ',' in s:
-        if not re.fullmatch(r'\d{1,3}(?:,\d{3})+', s):
+        t = s.lstrip('+-')
+        if not re.fullmatch(r'\d{1,3}(?:,\d{3})+(?:\.\d+)?', t):
             raise ValueError(f'invalid number {text!r}')
-        s = s.replace(',', '')
+        s = ('-' if s.startswith('-') else '+' if s.startswith('+') else '') + t.replace(',', '')
     return float(s)
 
 
@@ -106,15 +108,17 @@ def _process_command(solver, cmd, args):
             a_fixed = A in solver.fixed
             b_fixed = B in solver.fixed
             if d > 1e-9:
+                def _clamp(v):
+                    return max(-1e6, min(1e6, float(v)))
                 if a_fixed and not b_fixed:
                     ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([ax + d, ay])
+                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
                 elif b_fixed and not a_fixed:
                     bx, by = float(solver.points[B][0]), float(solver.points[B][1])
-                    solver.points[A] = np.array([bx - d, by])
+                    solver.points[A] = np.array([_clamp(bx - d), _clamp(by)])
                 elif not a_fixed and not b_fixed:
                     ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([ax + d, ay])
+                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
         except Exception:
             pass
         solver.add_constraint(

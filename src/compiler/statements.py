@@ -49,33 +49,45 @@ def process_assignment_or_define(ctx, statement, line_no=None):
         statement = re.sub(r'^define\s*\(', 'define(', statement, count=1)
 
     if statement.startswith('define(write_type.multiplication'):
-        clean_stmt = statement[:-1] if statement.endswith(')') else statement
-        # Value is after the FIRST '=' following the known prefix.
-        # Legacy double-'=' form ('= * = .') is unwrapped to '.'.
-        prefix = 'define(write_type.multiplication'
-        rest = clean_stmt[len(prefix):].lstrip()
-        if rest.startswith('='):
-            rest = rest[1:].lstrip()
-            # Legacy: '= * = .' -> strip leading '* =' to get real value.
-            if rest.startswith('*'):
-                after_star = rest[1:].lstrip()
-                if after_star.startswith('='):
-                    rest = after_star[1:].lstrip()
+        # Require exact key: 'define(write_type.multiplication' followed
+        # by '=', ' ', ')' or end — reject '...multiplicationX='.
+        rest_key = statement[len('define(write_type.multiplication'):]
+        if rest_key[:1] not in ('', '=', ' ', '\t', ')', '('):
+            pass  # fall through to generic define handling
         else:
-            eq = rest.find('=')
-            rest = rest[eq + 1:].lstrip() if eq != -1 else ''
-        val = rest.strip()
-        # Whitelist safe single glyphs; reject Typst-significant chars
-        # ($, \, <, >, #, @, `) that would inject math/escapes downstream.
-        allowed = {'.', ',', '·', '×', 'x', '*', '⋅', ':'}
-        if not val or val not in allowed:
-            print(
-                f"[WARNING] Line {line_no}: invalid multiplication symbol {val!r} — ignored",
-                file=sys.stderr,
-            )
-        else:
-            ctx.mult_sym = val
-        return
+            if not statement.endswith(')'):
+                print(
+                    f"[WARNING] Line {line_no}: unclosed define(write_type.multiplication...) — ignored: {statement!r}",
+                    file=sys.stderr,
+                )
+                return
+            clean_stmt = statement[:-1]
+            # Value is after the FIRST '=' following the known prefix.
+            # Legacy double-'=' form ('= * = .') is unwrapped to '.'.
+            prefix = 'define(write_type.multiplication'
+            rest = clean_stmt[len(prefix):].lstrip()
+            if rest.startswith('='):
+                rest = rest[1:].lstrip()
+                # Legacy: '= * = .' -> strip leading '* =' to get real value.
+                if rest.startswith('*'):
+                    after_star = rest[1:].lstrip()
+                    if after_star.startswith('='):
+                        rest = after_star[1:].lstrip()
+            else:
+                eq = rest.find('=')
+                rest = rest[eq + 1:].lstrip() if eq != -1 else ''
+            val = rest.strip()
+            # Whitelist safe single glyphs; reject Typst-significant chars
+            # ($, \, <, >, #, @, `) that would inject math/escapes downstream.
+            allowed = {'.', ',', '·', '×', 'x', '*', '⋅', ':'}
+            if not val or val not in allowed:
+                print(
+                    f"[WARNING] Line {line_no}: invalid multiplication symbol {val!r} — ignored",
+                    file=sys.stderr,
+                )
+            else:
+                ctx.mult_sym = val
+            return
 
     if statement.startswith('define(') and statement.endswith(')'):
         inner = statement[7:-1].strip()

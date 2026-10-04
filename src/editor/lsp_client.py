@@ -123,8 +123,14 @@ class LspClient(QtCore.QObject):
                     {'jsonrpc': '2.0', 'method': 'exit', 'params': None}))
             except Exception:  # noqa: BLE001 - already going away
                 pass
-            QtCore.QTimer.singleShot(
-                2000, lambda: self._ensure_reaped(process))
+            try:
+                timer = QtCore.QTimer(self)
+                timer.setSingleShot(True)
+                timer.timeout.connect(lambda: self._ensure_reaped(process))
+                timer.start(2000)
+            except RuntimeError:
+                # Owner already deleted; reap synchronously.
+                self._ensure_reaped(process)
         else:
             self._state = 'stopped'
 
@@ -347,7 +353,16 @@ class LspClient(QtCore.QObject):
                 err = bytes(self._process.readAllStandardError())
                 if err:
                     try:
-                        sys.stderr.write(err.decode('utf-8', errors='replace'))
+                        from .preview import COMPILE_LOCK
+                    except ImportError:
+                        COMPILE_LOCK = None
+                    text = err.decode('utf-8', errors='replace')
+                    try:
+                        if COMPILE_LOCK is not None:
+                            with COMPILE_LOCK:
+                                sys.stderr.write(text)
+                        else:
+                            sys.stderr.write(text)
                     except Exception:
                         pass
             except Exception:
@@ -380,7 +395,18 @@ class LspClient(QtCore.QObject):
         }
         message = names.get(error, str(error))
         self.process_error.emit(f'LSP process error: {message}')
-        sys.stderr.write(f'[easy-math-editor] LSP process error: {message}\n')
+        try:
+            from .preview import COMPILE_LOCK
+        except ImportError:
+            COMPILE_LOCK = None
+        try:
+            if COMPILE_LOCK is not None:
+                with COMPILE_LOCK:
+                    sys.stderr.write(f'[easy-math-editor] LSP process error: {message}\n')
+            else:
+                sys.stderr.write(f'[easy-math-editor] LSP process error: {message}\n')
+        except Exception:
+            pass
 
 
 def default_server_command():

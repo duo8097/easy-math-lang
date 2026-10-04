@@ -21,12 +21,9 @@ def split_top_level_args(args):
     def _has_top_semi(s):
         _dp = _db = _br = 0
         _q = False
-        for _ch in s:
-            if _ch == '"' and not _q:
-                _q = True
-                continue
-            if _ch == '"' and _q:
-                _q = False
+        for _i, _ch in enumerate(s):
+            if _ch == '"' and (_i == 0 or s[_i - 1] != '\\'):
+                _q = not _q
                 continue
             if _q:
                 continue
@@ -54,13 +51,16 @@ def split_top_level_args(args):
     depth_brace = 0
     depth_bracket = 0
     in_quote = False
+    idx = 0
     for char in args:
-        if char == '"':
+        if char == '"' and (idx == 0 or args[idx - 1] != '\\'):
             in_quote = not in_quote
             current.append(char)
+            idx += 1
             continue
         if in_quote:
             current.append(char)
+            idx += 1
             continue
         if char == '(':
             depth_paren += 1
@@ -80,6 +80,7 @@ def split_top_level_args(args):
             current = []
         else:
             current.append(char)
+        idx += 1
     parts.append(''.join(current).strip())
     return parts
 
@@ -181,9 +182,10 @@ def space_out_bare_identifiers(s):
             if word in _TYPST_MATH_KEEP:
                 return word
             # Function call: name directly followed by '(' stays whole.
-            # Look ahead past whitespace in the original segment.
+            # Whitespace before '(' is NOT a call (e.g. 'AB (x)'): split
+            # it so Typst doesn't abort on unknown variable 'AB'.
             after = seg[m.end():]
-            if re.match(r'\s*\(', after):
+            if after.startswith('('):
                 return word
             return ' '.join(word)
 
@@ -195,9 +197,24 @@ def space_out_bare_identifiers(s):
     return ''.join(parts)
 
 
-def replace_math_call(text, name, min_args, formatter):
+def replace_math_call(text, name, min_args, formatter, _depth=0):
     """Replace *name(...) calls using depth-aware paren matching."""
     import sys
+    if _depth > 20:
+        print(f'[Warning] *{name}(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    try:
+        return _replace_math_call(text, name, min_args, formatter, _depth)
+    except RecursionError:
+        print(f'[Warning] *{name}(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+
+
+def _replace_math_call(text, name, min_args, formatter, _depth=0):
+    import sys
+    import re
     pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
     pos = 0
     out = []
@@ -210,11 +227,16 @@ def replace_math_call(text, name, min_args, formatter):
         start = match.end()
         depth = 1
         i = start
+        in_quote = False
         while i < len(text) and depth > 0:
-            if text[i] == '(':
-                depth += 1
-            elif text[i] == ')':
-                depth -= 1
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
             i += 1
         if depth != 0:
             print(
@@ -253,8 +275,22 @@ def replace_math_call(text, name, min_args, formatter):
     return ''.join(out)
 
 
-def clean_inner_math(ctx, s):
+def clean_inner_math(ctx, s, _depth=0):
     """Normalize a math argument: vars, defines, calc, nested math calls."""
+    import sys
+    if _depth > 20:
+        print('[Warning] math nesting too deep — leaving as-is',
+              file=sys.stderr)
+        return s
+    try:
+        return _clean_inner_math(ctx, s, _depth)
+    except RecursionError:
+        print('[Warning] math nesting too deep — leaving as-is',
+              file=sys.stderr)
+        return s
+
+
+def _clean_inner_math(ctx, s, _depth=0):
     s = normalize_friendly_calls(s.strip())
     s = replace_vars(ctx, s.strip())
     s = replace_defines(ctx, s)
@@ -279,8 +315,8 @@ def clean_inner_math(ctx, s):
     # abort with "unknown variable: MD". See space_out_bare_identifiers.
     s = space_out_bare_identifiers(s)
     if ctx.mult_sym != '*':
-        # Protect *command( (unknown commands left as text) and space the
-        # operator: 2*3 -> '2 . 3', not '2.3'.
+        # Protect quoted strings and *command( (unknown commands left as
+        # text) so '"a*b"' survives; space the operator: 2*3 -> '2 . 3'.
         _prot = {}
 
         def _pm(m):
@@ -288,6 +324,7 @@ def clean_inner_math(ctx, s):
             _prot[ph] = m.group(0)
             return ph
 
+        s = re.sub(r'"[^"]*"', _pm, s)
         s = re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(', _pm, s)
         s = re.sub(r'\s*\*\s*', f' {ctx.mult_sym} ', s)
         for ph, orig in _prot.items():

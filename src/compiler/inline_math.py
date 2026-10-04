@@ -137,6 +137,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
             _prot[ph] = m.group(0)
             return ph
 
+        inner = re.sub(r'"[^"]*"', _pm, inner)
         inner = re.sub(r'\*[A-Za-z][A-Za-z0-9_\-]*\s*\(', _pm, inner)
         inner = re.sub(r'\s*\*\s*', f' {ctx.mult_sym} ', inner)
         for ph, orig in _prot.items():

@@ -25,7 +25,11 @@ class ProblemsPanel(QtWidgets.QWidget):
 
         ``severity`` is ``'error'`` or anything else (shown as warning).
         """
-        self._diagnostics = list(diagnostics or [])
+        safe = []
+        for diag in (diagnostics or []):
+            if isinstance(diag, dict):
+                safe.append(diag)
+        self._diagnostics = safe
         self._list.clear()
         for index, diag in enumerate(self._diagnostics):
             line = diag.get('line', 0)
@@ -47,6 +51,8 @@ class ProblemsPanel(QtWidgets.QWidget):
         try:
             diag = self._diagnostics[index]
         except (IndexError, TypeError):
+            return
+        if not isinstance(diag, dict):
             return
         self.diagnosticActivated.emit(diag.get('line', 0),
                                       diag.get('start', 0),

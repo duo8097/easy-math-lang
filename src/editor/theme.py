@@ -5,7 +5,9 @@ highlighter, and the find highlights switch together. The choice is
 persisted in QSettings under ``theme`` (``'light'``/``'dark'``).
 """
 
-from PySide6 import QtGui
+import os
+
+from PySide6 import QtCore, QtGui, QtWidgets
 
 THEME_KEY = 'theme'
 LIGHT = 'light'
@@ -156,6 +158,21 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: #
 /* PDF pages stay white (they are documents); darken the margin around them. */
 QPdfView { background-color: #252526; }
 QToolTip { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555; }
+QPushButton { background-color: #444444; color: #d4d4d4; border: 1px solid #5a5a5a; padding: 4px 12px; }
+QPushButton:hover { background-color: #505050; border: 1px solid #264f78; }
+QPushButton:pressed { background-color: #264f78; }
+QPushButton:disabled { color: #808080; background-color: #353535; }
+QLineEdit, QComboBox { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #5a5a5a; selection-background-color: #264f78; selection-color: #ffffff; }
+QComboBox QAbstractItemView { background-color: #1e1e1e; color: #d4d4d4; selection-background-color: #264f78; selection-color: #ffffff; }
+QListView, QTreeView { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #5a5a5a; }
+QListView::item:selected, QTreeView::item:selected { background-color: #264f78; color: #ffffff; }
+QHeaderView::section { background-color: #353535; color: #d4d4d4; border: 1px solid #555555; padding: 2px 4px; }
+QToolButton { background-color: transparent; color: #d4d4d4; border: 1px solid transparent; }
+QToolButton:hover { background-color: #444444; border: 1px solid #5a5a5a; }
+QToolButton:pressed { background-color: #264f78; }
+QDialog, QMessageBox { background-color: #353535; color: #d4d4d4; }
+QLabel { color: #d4d4d4; }
+QCheckBox { color: #d4d4d4; }
 """
 
 
@@ -164,46 +181,58 @@ def stylesheet(name):
     return DARK_STYLESHEET if normalize(name) == DARK else ""
 
 
-# Forced-light dialog styling: file dialogs must stay light even when the
-# app is dark. While ANY app-level stylesheet is active, Qt's stylesheet
-# style bypasses per-widget setPalette() calls, so the dialog needs a
-# comprehensive widget-level sheet (widget rules beat app rules) covering
-# every visible part. Palette-driven parts are additionally given the
-# style's standard (light) palette as a fallback.
-LIGHT_DIALOG_STYLESHEET = """
-QFileDialog { background-color: #f0f0f0; color: #000000; }
-QLabel { color: #000000; }
-QPushButton { background-color: #e1e1e1; color: #000000; border: 1px solid #adadad; padding: 4px 12px; }
-QPushButton:hover { background-color: #e5f1fb; border: 1px solid #0078d7; }
-QPushButton:pressed { background-color: #cce4f7; }
-QPushButton:disabled { color: #808080; background-color: #f0f0f0; }
-QLineEdit { background-color: #ffffff; color: #000000; border: 1px solid #7a7a7a; selection-background-color: #0078d7; selection-color: #ffffff; }
-QComboBox { background-color: #ffffff; color: #000000; border: 1px solid #7a7a7a; }
-QComboBox QAbstractItemView { background-color: #ffffff; color: #000000; selection-background-color: #0078d7; selection-color: #ffffff; }
-QListView, QTreeView { background-color: #ffffff; color: #000000; border: 1px solid #7a7a7a; }
-QListView::item:selected, QTreeView::item:selected { background-color: #0078d7; color: #ffffff; }
-QListView::item:selected:!active, QTreeView::item:selected:!active { background-color: #e5e5e5; color: #000000; }
-QHeaderView::section { background-color: #f0f0f0; color: #000000; border: 1px solid #d0d0d0; }
-QToolButton { background-color: transparent; color: #000000; border: 1px solid transparent; }
-QToolButton:hover { background-color: #e5f1fb; border: 1px solid #99d1fb; }
-QToolButton:pressed { background-color: #cce4f7; border: 1px solid #0078d7; }
-QToolButton:disabled { color: #808080; }
-QSplitter::handle { background-color: #f0f0f0; }
-QSplitter::handle:horizontal { width: 4px; }
-QSplitter::handle:vertical { height: 4px; }
-QCheckBox { color: #000000; }
-QMenu { background-color: #ffffff; color: #000000; border: 1px solid #cccccc; }
-QMenu::item:selected { background-color: #0078d7; color: #ffffff; }
-QMenu::separator { background-color: #cccccc; height: 1px; }
-QScrollBar:vertical { background: #f0f0f0; width: 12px; margin: 0px; }
-QScrollBar::handle:vertical { background: #c1c1c1; min-height: 24px; border-radius: 3px; }
-QScrollBar::handle:vertical:hover { background: #a6a6a6; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { background: #f0f0f0; height: 0px; }
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #f0f0f0; }
-QScrollBar:horizontal { background: #f0f0f0; height: 12px; margin: 0px; }
-QScrollBar::handle:horizontal { background: #c1c1c1; min-width: 24px; border-radius: 3px; }
-QScrollBar::handle:horizontal:hover { background: #a6a6a6; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { background: #f0f0f0; width: 0px; }
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: #f0f0f0; }
-QToolTip { background-color: #ffffdc; color: #000000; border: 1px solid #767676; }
-"""
+def set_title_bar_dark(widget, dark):
+    """Switch the Windows OS title bar of *widget* (a top-level window).
+
+    Qt cannot paint the outer title bar; on Windows 10 20H1+ the
+    DWMWA_USE_IMMERSIVE_DARK_MODE attribute does. No-op on other
+    platforms and never raises (headless tests just skip it).
+    """
+    try:
+        if os.name != 'nt':
+            return
+        import ctypes
+        hwnd = int(widget.winId())
+        if not hwnd:
+            return
+        dwmapi = ctypes.windll.dwmapi
+        value = ctypes.c_int(1 if dark else 0)
+        # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (19 on older builds).
+        for attr in (20, 19):
+            try:
+                if dwmapi.DwmSetWindowAttribute(
+                        hwnd, attr, ctypes.byref(value),
+                        ctypes.sizeof(value)) == 0:
+                    break
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+
+class TitleBarThemer(QtCore.QObject):
+    """App-wide event filter: dark title bar for EVERY top-level window.
+
+    Each dialog (QMessageBox, QInputDialog, QFileDialog, SymbolDialog,
+    CommandPalette...) owns its own HWND, so styling only the main
+    window leaves all dialogs with a bright Windows title bar.
+    """
+
+    def __init__(self, dark=False, parent=None):
+        super().__init__(parent)
+        self._dark = bool(dark)
+
+    def set_dark(self, dark):
+        self._dark = bool(dark)
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            for w in app.topLevelWidgets():
+                if w.isVisible():
+                    set_title_bar_dark(w, self._dark)
+
+    def eventFilter(self, obj, event):
+        if (event.type() == QtCore.QEvent.Show
+                and isinstance(obj, QtWidgets.QWidget)
+                and obj.isWindow()):
+            set_title_bar_dark(obj, self._dark)
+        return False

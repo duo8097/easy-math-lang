@@ -143,6 +143,12 @@ def analyze_and_publish(ls, store, uri):
                     ] if lines is not None else []
     except Exception:
         logger.exception('analyze_and_publish failed for %s', uri)
+        try:
+            ls.text_document_publish_diagnostics(
+                lsp.PublishDiagnosticsParams(uri=uri, diagnostics=[])
+            )
+        except Exception:
+            logger.exception('publish empty diagnostics failed for %s', uri)
         return
     try:
         if ver is None:
@@ -184,9 +190,12 @@ def create_server():
         if supported:
             analyze_and_publish(ls, store, doc.uri)
         else:
-            ls.text_document_publish_diagnostics(
-                lsp.PublishDiagnosticsParams(uri=doc.uri, diagnostics=[])
-            )
+            try:
+                ls.text_document_publish_diagnostics(
+                    lsp.PublishDiagnosticsParams(uri=doc.uri, diagnostics=[])
+                )
+            except Exception:
+                logger.exception('publish empty diagnostics failed for %s', doc.uri)
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls, params: lsp.DidChangeTextDocumentParams):
@@ -229,9 +238,12 @@ def create_server():
         uri = params.text_document.uri
         store.close(uri)
         _support_cache.pop(uri, None)
-        ls.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=uri, diagnostics=[])
-        )
+        try:
+            ls.text_document_publish_diagnostics(
+                lsp.PublishDiagnosticsParams(uri=uri, diagnostics=[])
+            )
+        except Exception:
+            logger.exception('publish empty diagnostics failed for %s', uri)
 
     @server.feature(
         lsp.TEXT_DOCUMENT_COMPLETION,

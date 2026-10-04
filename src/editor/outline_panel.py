@@ -32,5 +32,12 @@ class OutlinePanel(QtWidgets.QWidget):
         self.set_symbols([])
 
     def _on_item_clicked(self, item):
-        line, start = item.data(QtCore.Qt.UserRole) or (0, 0)
+        data = item.data(QtCore.Qt.UserRole)
+        try:
+            line, start = (tuple(data) if isinstance(data, (list, tuple)) else (None, None))
+            if line is None or start is None:
+                return
+            line, start = int(line), int(start)
+        except (TypeError, ValueError):
+            return
         self.symbolActivated.emit(line, start)

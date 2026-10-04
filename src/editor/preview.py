@@ -7,8 +7,15 @@ dependency so it stays unit-testable without a display.
 import contextlib
 import io
 import os
+import threading
 
 PREVIEW_DEBOUNCE_MS = 800
+
+# Serializes concurrent compile_source_to_format calls (live preview
+# thread + export) so process-global redirect_stdout/stderr captures
+# don't interleave. GUI threads writing to sys.stderr should also hold
+# this lock (see editor.lsp_client) to avoid bleeding into preview logs.
+COMPILE_LOCK = threading.Lock()
 
 PREVIEW_SOURCE_NAME = 'preview.ezmath'
 PREVIEW_PDF_NAME = 'preview.pdf'
@@ -70,7 +77,8 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
     ok = False
-    with contextlib.redirect_stdout(stdout_buf), \
+    with COMPILE_LOCK, \
+            contextlib.redirect_stdout(stdout_buf), \
             contextlib.redirect_stderr(stderr_buf):
         try:
             ok = bool(compile_ezmath(src_path, out_path,

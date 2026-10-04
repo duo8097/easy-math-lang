@@ -491,7 +491,8 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
     sym = get_symbol(symbol) if isinstance(symbol, str) else symbol
     vals = dict(values or {})
     if not sym.requires_dialog:
-        assert sym.insert_text is not None
+        if sym.insert_text is None:
+            raise ValueError(f'symbol {sym.name!r} has no insert text')
         return sym.insert_text
     errors = validate_fields(sym, vals)
     if errors:

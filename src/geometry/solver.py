@@ -70,13 +70,41 @@ class GeometrySolver:
             'right-angle': 3, 'arc': 3, 'length': 2, 'angle-value': 3,
             'label': 1, 'angle': 3, 'equal-angle': 6,
         }
+        _keywords = {
+            'infinite', 'labels', 'line', 'ray', 'circle', 'point',
+            'triangle', 'arc', 'distance', 'midpoint', 'intersection',
+        }
         for cmd, args in self.draw_commands:
             max_pts = _arity.get(cmd)
             for i, arg in enumerate(args):
                 arg = arg.strip()
                 if max_pts is not None and i >= max_pts:
                     continue
-                if arg.lower() == 'infinite':
+                if arg.lower() in _keywords:
+                    continue
+                # Nested refs like line(A;B) / line(D;Typo): validate the
+                # inner identifiers so typos don't become phantom points.
+                if '(' in arg or ';' in arg:
+                    for tok in re.findall(r'[A-Za-z][A-Za-z0-9_]*', arg):
+                        if tok.lower() in _keywords:
+                            continue
+                        if tok not in self.points:
+                            try:
+                                float(tok)
+                                continue
+                            except ValueError:
+                                pass
+                            point_using_cmds = {
+                                'line', 'ray', 'triangle', 'circle', 'right-angle',
+                                'angle', 'equal-length', 'parallel', 'perp',
+                                'on-line', 'on-circle', 'distance', 'midpoint',
+                                'intersection', 'equal-angle', 'arc', 'label',
+                                'length', 'angle-value',
+                            }
+                            if cmd in point_using_cmds:
+                                raise GeometryError(
+                                    f"undefined point '{tok}' referenced in *{cmd}({'; '.join(args)})"
+                                )
                     continue
                 if cmd == 'triangle' and i == 3 and arg.lower() == 'labels':
                     continue
