@@ -350,3 +350,36 @@ def test_unclosed_block_fails_build(tmp_path, monkeypatch, capsys):
     assert "Unclosed block" in err
     # The intermediate .typ is still written for inspection.
     assert (tmp_path / "case.typ").exists()
+
+
+def test_space_out_digit_prefixed_identifiers():
+    # 4ac / 2xy / 3abc must not survive as "unknown variable: ac".
+    # The digit stays glued to the first letter (Typst reads "4a"
+    # as implicit product and compiles fine).
+    import sys as _sys
+
+    import os as _os
+
+    _sys.path.insert(
+        0, _os.path.join(_os.path.dirname(__file__), "..", "src")
+    )
+    from compiler.math_commands import space_out_bare_identifiers
+
+    assert space_out_bare_identifiers("4ac") == "4a c"
+    assert space_out_bare_identifiers("2xy") == "2x y"
+    assert space_out_bare_identifiers("3abc") == "3a b c"
+    assert space_out_bare_identifiers("b^2 - 4ac") == "b^2 - 4a c"
+    # Pre-existing behavior stays intact.
+    assert space_out_bare_identifiers("MD") == "M D"
+    assert space_out_bare_identifiers("ABC") == "A B C"
+
+
+def test_sqrt_discriminant_no_unknown_variable(
+    tmp_path, monkeypatch, capsys
+):
+    # Quadratic discriminant: *sqrt(b^2 - 4ac) must not emit bare "ac".
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys, "*sqrt(b^2 - 4ac)\n"
+    )
+    assert "$sqrt(b^2 - 4a c)$" in typ
+    assert "4ac" not in typ

@@ -169,6 +169,11 @@ def space_out_bare_identifiers(s):
     Kept intact: quoted strings ("MD"), Typst functions/constants in
     _TYPST_MATH_KEEP, function calls (word followed by '('), and
     single letters/digits. Idempotent: already-spaced output is stable.
+
+    Letters directly after a digit also split (4ac -> 4a c, 2xy -> 2x y)
+    so the quadratic discriminant b^2 - 4ac does not abort Typst with
+    "unknown variable: ac". The digit stays glued to the first letter
+    (4a), which Typst reads as implicit product and compiles fine.
     """
     # Split out "..." quoted spans so we never touch string contents.
     parts = re.split(r'("[^"]*")', s)
@@ -190,7 +195,7 @@ def space_out_bare_identifiers(s):
             return ' '.join(word)
 
         parts[idx] = re.sub(
-            r'(?<![A-Za-z0-9_])([A-Za-z][A-Za-z0-9]*)(?![A-Za-z0-9_])',
+            r'(?<![A-Za-z_])([A-Za-z][A-Za-z0-9]*)(?![A-Za-z0-9_])',
             _repl,
             seg,
         )
