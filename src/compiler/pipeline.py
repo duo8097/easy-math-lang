@@ -15,6 +15,7 @@ from .diagnostics import warn_unknown_commands
 from .escaping import escape_typst_outside_math, index_replacer, merge_math
 from .inline_math import find_unescaped, process_math_inner
 from .math_commands import (
+    clean_inner_math,
     math_call_specs,
     normalize_friendly_calls,
     replace_math_call,
@@ -23,6 +24,7 @@ from .statements import _normalize_friendly_statement, process_assignment_or_def
 from .state import CompileContext
 from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
+from . import tables as _tables
 
 
 def _extract_p_segments(text):
@@ -100,7 +102,95 @@ def _detection_text(raw):
     return ''.join(chars)
 
 
-def _render_text_line(ctx, raw, line_no):
+def _expand_tables_and_matrices(ctx, text, line_no, depth):
+    """Expand *table/*matrix/*mat calls to Typst, protected by placeholders.
+
+    Runs AFTER vars/calc/inline-math (like math commands) so variables
+    holding tables still expand; per-cell rendering re-applies the full
+    pipeline (tables) or math cleaning (matrices) so variables inside
+    cells work too. Returns (new_text, {placeholder: typst}).
+    """
+    placeholders = {}
+    idx = 0
+    pos = 0
+    out = []
+    while True:
+        found = _tables.find_next_call(text, pos)
+        if not found:
+            out.append(text[pos:])
+            break
+        if found[0] == 'unclosed':
+            _, name, call_start, inner_start, _, _ = found
+            print(
+                f'[Warning] Line {line_no}: unclosed *{name}(... — '
+                f'missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[pos:inner_start])
+            pos = inner_start
+            continue
+        name, call_start, _inner_start, call_end, inner_raw = found
+        out.append(text[pos:call_start])
+        if _tables.is_table_call(name):
+            grid_raw = _tables.parse_grid(inner_raw)
+            norm = _tables.normalize_grid(grid_raw, line_no, 'table')
+            if norm is None:
+                out.append(text[call_start:call_end])
+                pos = call_end
+                continue
+            rendered = []
+            for row in norm:
+                r_out = []
+                for cell_raw in row:
+                    if not cell_raw.strip():
+                        r_out.append('')
+                        continue
+                    # Full text pipeline per cell (nested tables OK).
+                    r_out.append(
+                        _render_text_line(
+                            ctx, cell_raw, line_no, _table_depth=depth + 1
+                        )
+                    )
+                rendered.append(r_out)
+            typ = _tables.build_table_typst(rendered)
+            ph = f'\x07{idx}\x07'
+            idx += 1
+            placeholders[ph] = typ
+            out.append(ph)
+            pos = call_end
+        else:
+            grid_raw = _tables.parse_grid(inner_raw)
+            norm = _tables.normalize_grid(grid_raw, line_no, 'matrix')
+            if norm is None:
+                out.append(text[call_start:call_end])
+                pos = call_end
+                continue
+            rendered = []
+            for row in norm:
+                r_out = []
+                for cell_raw in row:
+                    if not cell_raw.strip():
+                        r_out.append('')
+                        continue
+                    if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
+                        print(
+                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                            f'contains a nested table/matrix — only math '
+                            f'commands are supported inside matrices',
+                            file=sys.stderr,
+                        )
+                    r_out.append(clean_inner_math(ctx, cell_raw))
+                rendered.append(r_out)
+            typ = f'${_tables.build_matrix_math_inner(rendered)}$'
+            ph = f'\x07{idx}\x07'
+            idx += 1
+            placeholders[ph] = typ
+            out.append(ph)
+            pos = call_end
+    return ''.join(out), placeholders
+
+
+def _render_text_line(ctx, raw, line_no, _table_depth=0):
     """Run the text pipeline for one logical (single-line) text unit.
 
     Handles ``*p(...)`` raw segments and balanced ``\\ ... \\`` inline
@@ -108,6 +198,13 @@ def _render_text_line(ctx, raw, line_no):
     A lone unescaped ``\\`` produces an unclosed-math diagnostic and is
     left for Typst escaping.
     """
+    if _table_depth > 20:
+        print(
+            f'[Warning] Line {line_no}: table/matrix nested too deep — '
+            f'leaving as-is',
+            file=sys.stderr,
+        )
+        return raw
     # --- 1. *p(...): raw passthrough segments (balanced parens, multiple
     # per line allowed). Raw parts bypass all later rules; surrounding
     # text flows through the normal pipeline. Bare p(...) is text.
@@ -188,6 +285,15 @@ def _render_text_line(ctx, raw, line_no):
         math_placeholders[ph] = wrapped
         text = text[:opening] + ph + tail
 
+    # 5c. Tables and matrices (*table / *matrix / *mat). Runs after
+    # vars/calc/inline-math (like math commands) so <vars> holding
+    # tables still expand; cells re-render via the full pipeline.
+    table_placeholders = {}
+    if _table_depth <= 20:
+        text, table_placeholders = _expand_tables_and_matrices(
+            ctx, text, line_no, _table_depth
+        )
+
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
@@ -250,6 +356,10 @@ def _render_text_line(ctx, raw, line_no):
     # 13. Escape special Typst syntax characters outside math blocks
     # (user '$' are placeholders here; generated $...$ are preserved).
     text = escape_typst_outside_math(text, escape_dollar=True)
+    # Restore tables/matrices first so inner $/math placeholders kept
+    # inside them are still restored by the steps below.
+    for ph, typ in table_placeholders.items():
+        text = text.replace(ph, typ)
     # Restore literal dollars as escaped Typst dollars.
     for ph in dollar_placeholders:
         text = text.replace(ph, r'\$')
@@ -500,6 +610,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
           -> define (bare-word) substitution
           -> calc(...) evaluation
           -> inline math \\ ... \\ (multiline supported, see below)
+          -> tables/matrices (*table / *matrix / *mat, | rows, ;/, cells)
           -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
              (friendly: ',' works like ';', *fraction etc. are aliases)
           -> unknown *command(...) warning
@@ -674,7 +785,8 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                         or _inner_norm != inner):
                     process_assignment_or_define(ctx, inner, line_no=line_no)
                     continue
-        if line in ('*(', '*f(', 'f(', '*draw('):
+        if line in ('*(', '*f(', 'f(', '*draw(',
+                      '*table(', '*matrix(', '*mat('):
             in_f_block = True
             block_type = line
             block_content = []
@@ -685,6 +797,13 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 output_lines.append(drawn)
                 if _is_draw_error_placeholder(drawn):
                     draw_failed = True
+            elif block_type in ('*table(', '*matrix(', '*mat('):
+                cmd_name = block_type[1:-1]
+                joined = _tables.join_block_lines(block_content)
+                single = f'*{cmd_name}({joined})'
+                output_lines.append(
+                    _render_text_line(ctx, single, line_no)
+                )
             else:
                 for stmt in block_content:
                     process_assignment_or_define(ctx, stmt, line_no=line_no)

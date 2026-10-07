@@ -91,12 +91,14 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     """
     from .diagnostics import warn_unknown_commands
     from .math_commands import (
+        clean_inner_math,
         math_call_specs,
         normalize_friendly_calls,
         replace_math_call,
         space_out_bare_identifiers,
     )
     from .symbols import replace_symbol_shortcuts
+    from . import tables as _tables
 
     inner = inner_raw.strip()
     if not inner:
@@ -114,6 +116,15 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         return ''
     # Protect literal \\ so it never toggles math and survives Typst.
     inner = inner.replace('\\\\', BS_PLACEHOLDER)
+    # Matrices work inside \ ... \ too (tables do not — text mode only).
+    if re.search(r'\*(matrix|mat)\s*\(', inner):
+        inner = _expand_matrices_in_math(ctx, inner, line_no)
+    if re.search(r'\*table\s*\(', inner):
+        print(
+            f'[Warning] Line {line_no}: *table(...) is text mode and '
+            f'cannot be used inside math \\ ... \\ — leaving as-is',
+            file=sys.stderr,
+        )
     inner = normalize_friendly_calls(inner)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
@@ -152,3 +163,56 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     # and abort the build; split to implicit products (M D, A B C).
     inner = space_out_bare_identifiers(inner)
     return f'${inner}$'
+
+
+def _expand_matrices_in_math(ctx, text, line_no):
+    """Expand *matrix/*mat inside \\ ... \\ to Typst mat(...) (no $)."""
+    from .math_commands import clean_inner_math
+    from . import tables as _tables
+
+    pos = 0
+    out = []
+    while True:
+        found = _tables.find_next_call(text, pos)
+        if not found:
+            out.append(text[pos:])
+            break
+        if found[0] == 'unclosed':
+            _, name, call_start, inner_start, _, _ = found
+            # Only matrices are expanded here; tables warn upstream.
+            if name in ('matrix', 'mat'):
+                print(
+                    f'[Warning] Line {line_no}: unclosed *{name}(... — '
+                    f'missing closing parenthesis',
+                    file=sys.stderr,
+                )
+            out.append(text[pos:inner_start])
+            pos = inner_start
+            continue
+        name, call_start, _s, call_end, inner_raw = found
+        if name not in ('matrix', 'mat'):
+            # Leave tables/other calls for the caller (tables warn).
+            out.append(text[pos:call_end])
+            pos = call_end
+            continue
+        out.append(text[pos:call_start])
+        grid_raw = _tables.parse_grid(inner_raw)
+        norm = _tables.normalize_grid(grid_raw, line_no, 'matrix')
+        if norm is None:
+            out.append(text[call_start:call_end])
+            pos = call_end
+            continue
+        rendered = []
+        for row in norm:
+            r_out = []
+            for cell_raw in row:
+                if not cell_raw.strip():
+                    r_out.append('')
+                    continue
+                r_out.append(clean_inner_math(ctx, cell_raw))
+            rendered.append(r_out)
+        # No $ wrapper: process_math_inner unwraps $...$ later and adds
+        # its own outer $...$, so emit bare mat(...) here.
+        out.append(_tables.build_matrix_math_inner(rendered))
+        pos = call_end
+    return ''.join(out)

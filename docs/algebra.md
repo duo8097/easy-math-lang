@@ -568,6 +568,45 @@ Variables, `calc`, math and symbols keep working inside them.
 
 ---
 
+## Tables and matrices
+
+Rows are separated by `|`, cells by `;` (or `,` when a row has no `;`
+— same friendly rule as `*frac`). `*mat` is an alias of `*matrix`.
+Variables, `calc`, math commands and symbols work inside cells.
+
+```
+*table(Name ; Age | Alice ; 20 | Bob ; 22)
+
+*matrix(1 ; 2 | 3 ; 4)
+*mat(a ; b | c ; d)
+```
+
+Large tables read better one row per line:
+
+```
+*table(
+    Name ; Age
+    Alice ; 20
+    Bob ; 22
+)
+*matrix(
+    1 ; 2
+    3 ; 4
+)
+```
+
+Notes:
+
+* Every row should have the same number of cells — short rows are
+  padded (with a warning): empty table cells become `[]`, empty
+  matrix cells become `0` so the PDF still builds.
+* `100,000`-style numbers stay intact when `;` is present.
+* `||`, `|-`, `-|`, `|->` never split rows — use `*mid` for a literal
+  `|` inside a cell.
+* Matrices also work inside `\ ... \` math; tables are text mode only.
+
+---
+
 ## Full example
 
 Here is a complete document for a rectangle problem:

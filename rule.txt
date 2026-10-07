@@ -1102,6 +1102,22 @@ their own symbols first).
 
 Unknown *command(...) suggests the closest known command.
 
+Tables and matrices
+-------------------
+
+*table(cell ; cell | cell ; cell)
+*matrix(1 ; 2 | 3 ; 4)
+*mat(...) = *matrix(...)
+
+Rows split on "|" (top-level only, not inside ()/ {}/[]/"...").
+"||", "|-", "-|", "|->" never split (use *mid for literal |).
+Cells split on ";" (or "," when no ";" in that row, same as *frac).
+Variables, calc, math commands and symbols work inside cells.
+*table -> Typst #table (text mode), *matrix -> $mat(...) (math mode).
+Multiline blocks (*table( ... ) / *matrix( ... )) join lines with "|";
+empty rows are ignored, ragged rows warn and pad ([] for tables,
+0 for matrices). Matrices work inside \ ... \; tables do not.
+
 Export (CLI / editor File -> Export As):
 
 easy-math-lang doc.ezmath          -> doc.pdf

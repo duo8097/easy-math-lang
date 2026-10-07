@@ -10,6 +10,7 @@ KNOWN_COMMANDS = {
     'cube-root', 'log', 'ln',
     'pow', 'power', 'root', 'sum', 'summation', 'prod', 'product',
     'lim', 'limit',
+    'table', 'matrix', 'mat',
     # symbol shortcuts handled separately: pi, infinity, degree, ...
 }
 
@@ -28,6 +29,12 @@ _SUGGESTIONS = {
     'fracd': 'frac',
     'squrt': 'sqrt',
     'sqt': 'sqrt',
+    'tabl': 'table',
+    'tabel': 'table',
+    'tabble': 'table',
+    'matrx': 'matrix',
+    'matix': 'matrix',
+    'martix': 'matrix',
 }
 
 KNOWN_GEOMETRY_COMMANDS = {

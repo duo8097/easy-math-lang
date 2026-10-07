@@ -118,6 +118,12 @@ def check_undefined_vars(text, line_no, ctx=None):
             continue
         if match.end() < len(original) and original[match.end()] == '>':
             continue
+        # Idempotency for nested pipelines (e.g. table cells re-run
+        # the full text pipeline): <name> inside an already-emitted
+        # [UNDEFINED: <name>] placeholder must not warn twice.
+        if match.start() >= 12 and original[match.start() - 12:match.start()] == '[UNDEFINED: ':
+            if match.end() < len(original) and original[match.end()] == ']':
+                continue
         stripped = name.strip()
         # Defined (even if circular and left unexpanded) is not undefined.
         if ctx is not None and stripped in ctx.variables:

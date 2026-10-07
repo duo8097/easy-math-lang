@@ -386,6 +386,181 @@ def test_palette_stays_curated_not_exhaustive():
 
 
 # ----------------------------------------------------------------------
+# Dynamic table/matrix grids (Add row / Add cell)
+# ----------------------------------------------------------------------
+
+def _open_grid_dialog(qapp, name):
+    from editor.symbol_dialog import SymbolDialog
+    dlg = SymbolDialog(get_symbol(name), None)
+    return dlg
+
+
+def _click(dlg, object_name):
+    from PySide6 import QtWidgets
+    btn = dlg.findChild(QtWidgets.QPushButton, object_name)
+    assert btn is not None, f'missing button {object_name}'
+    btn.click()
+    return btn
+
+
+def test_table_dialog_starts_2x2(qapp):
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        assert sorted(dlg._edits) == ['r1c1', 'r1c2', 'r2c1', 'r2c2']
+        assert dlg._shape_label.text() == '2 rows × 2 columns'
+        assert dlg._edits['r1c1'].placeholderText() == 'Name'
+        assert dlg._edits['r2c2'].placeholderText() == '20'
+    finally:
+        dlg.close()
+
+
+def test_table_dialog_add_row(qapp):
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        dlg._edits['r1c1'].setText('Keep')
+        _click(dlg, 'symbol-add-row')
+        assert sorted(dlg._edits) == [
+            'r1c1', 'r1c2', 'r2c1', 'r2c2', 'r3c1', 'r3c2']
+        assert dlg._shape_label.text() == '3 rows × 2 columns'
+        # Typed values preserved, new row hinted.
+        assert dlg._edits['r1c1'].text() == 'Keep'
+        assert dlg._edits['r3c1'].placeholderText() == 'R3C1'
+        assert dlg._edits['r3c2'].placeholderText() == 'R3C2'
+    finally:
+        dlg.close()
+
+
+def test_matrix_dialog_add_cell(qapp):
+    dlg = _open_grid_dialog(qapp, 'matrix')
+    try:
+        dlg._edits['r1c1'].setText('9')
+        _click(dlg, 'symbol-add-cell')
+        assert sorted(dlg._edits) == [
+            'r1c1', 'r1c2', 'r1c3', 'r2c1', 'r2c2', 'r2c3']
+        assert dlg._shape_label.text() == '2 rows × 3 columns'
+        assert dlg._edits['r1c1'].text() == '9'
+        assert dlg._edits['r1c3'].placeholderText() == '5'
+        assert dlg._edits['r2c3'].placeholderText() == '6'
+    finally:
+        dlg.close()
+
+
+def test_grid_dialog_multi_ops(qapp):
+    # Row, row, cell from 2x2 -> 4x3.
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        _click(dlg, 'symbol-add-row')
+        _click(dlg, 'symbol-add-row')
+        _click(dlg, 'symbol-add-cell')
+        assert len(dlg._edits) == 12
+        assert dlg._shape_label.text() == '4 rows × 3 columns'
+        assert 'r4c3' in dlg._edits
+        assert dlg._edits['r4c3'].placeholderText() == 'R4C3'
+    finally:
+        dlg.close()
+
+
+def test_table_dialog_accept_extended(qapp):
+    from PySide6 import QtWidgets as _QW
+    from editor.symbol_registry import build_source
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        _click(dlg, 'symbol-add-row')
+        for key, edit in dlg._edits.items():
+            edit.setText('v-' + key)
+        dlg._on_accept()
+        assert dlg.result() == _QW.QDialog.Accepted
+        assert dlg._error.text() == ''
+        src = build_source(get_symbol('table'), dlg.values())
+        assert src == '*table(v-r1c1 ; v-r1c2 | v-r2c1 ; v-r2c2 | v-r3c1 ; v-r3c2)'
+    finally:
+        dlg.close()
+
+
+def test_matrix_dialog_accept_extended(qapp):
+    from PySide6 import QtWidgets as _QW
+    from editor.symbol_registry import build_source
+    dlg = _open_grid_dialog(qapp, 'matrix')
+    try:
+        _click(dlg, 'symbol-add-cell')
+        for key, edit in dlg._edits.items():
+            edit.setText('7')
+        dlg._on_accept()
+        assert dlg.result() == _QW.QDialog.Accepted
+        assert build_source(get_symbol('matrix'), dlg.values()) == \
+            '*matrix(7 ; 7 ; 7 | 7 ; 7 ; 7)'
+    finally:
+        dlg.close()
+
+
+def test_grid_dialog_blocks_empty_new_cell(qapp):
+    from PySide6 import QtWidgets as _QW
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        _click(dlg, 'symbol-add-row')
+        for key, edit in dlg._edits.items():
+            edit.setText('x')
+        dlg._edits['r3c2'].setText('   ')
+        dlg._on_accept()  # required-cell validation must hold
+        assert dlg.result() != _QW.QDialog.Accepted
+        assert 'Row 3 Col 2' in dlg._error.text()
+    finally:
+        dlg.close()
+
+
+def test_nongrid_dialog_has_no_grid_buttons(qapp):
+    dlg = _open_grid_dialog(qapp, 'frac')
+    try:
+        from PySide6 import QtWidgets
+        assert dlg.findChild(QtWidgets.QPushButton, 'symbol-add-row') is None
+        assert dlg.findChild(QtWidgets.QPushButton, 'symbol-add-cell') is None
+        assert dlg._shape_label is None
+    finally:
+        dlg.close()
+
+
+def test_grid_dialog_layout_autofits_contents(qapp):
+    from PySide6 import QtWidgets
+    for name in ('table', 'matrix'):
+        dlg = _open_grid_dialog(qapp, name)
+        try:
+            assert dlg.layout().sizeConstraint() == \
+                QtWidgets.QLayout.SetFixedSize
+        finally:
+            dlg.close()
+
+
+def test_grid_dialog_window_tracks_growth(qapp):
+    # Repeated Add row/cell used to leave the window at its stale smaller
+    # geometry while the layout minimum kept growing — the condition the
+    # Windows plugin reported as "Unable to set geometry" warnings.
+    # (Top-level geometry settles via the event loop by Qt design, so the
+    # size assertions below run after processing events; the dialog state
+    # itself — edits, shape label — is asserted synchronously.)
+    dlg = _open_grid_dialog(qapp, 'table')
+    try:
+        dlg.show()
+        qapp.processEvents()
+        assert dlg.height() >= dlg.minimumHeight()
+        h0 = dlg.height()
+        _click(dlg, 'symbol-add-row')
+        _click(dlg, 'symbol-add-row')
+        _click(dlg, 'symbol-add-cell')
+        # Dialog state updates synchronously.
+        assert dlg._shape_label.text() == '4 rows × 3 columns'
+        assert len(dlg._edits) == 12
+        # No ghost rows left behind by the growth path.
+        assert dlg._form.rowCount() == len(dlg._edits)
+        qapp.processEvents()
+        # The window must honor the grown layout minimum.
+        assert dlg.height() > h0
+        assert dlg.height() >= dlg.minimumHeight()
+        assert dlg.width() >= dlg.minimumWidth()
+    finally:
+        dlg.close()
+
+
+# ----------------------------------------------------------------------
 # Geometry cursor placement (inside *draw, no snippet engine)
 # ----------------------------------------------------------------------
 

@@ -186,6 +186,88 @@ def _math_dialog(name, display, cmd, fields):
                    command=cmd, wrap_draw=False)
 
 
+# ----------------------------------------------------------------------
+# Dynamic grids (table / matrix dialogs grow via Add row / Add cell)
+# ----------------------------------------------------------------------
+
+#: Palette ids whose dialogs edit an NxM grid of ``r{row}c{col}`` cells.
+GRID_SYMBOLS = frozenset({'table', 'matrix'})
+
+#: Preserved 2x2 placeholders (Add row/cell must not change these).
+TABLE_BASE_CELLS = {
+    (1, 1): 'Name', (1, 2): 'Age',
+    (2, 1): 'Alice', (2, 2): '20',
+}
+MATRIX_BASE_CELLS = {
+    (1, 1): '1', (1, 2): '2',
+    (2, 1): '3', (2, 2): '4',
+}
+
+_GRID_KEY_RE = re.compile(r'^r(\d+)c(\d+)$')
+
+
+def is_grid_symbol(symbol: Symbol | str) -> bool:
+    """True when *symbol* (or palette id) edits a table/matrix grid."""
+    name = symbol.name if isinstance(symbol, Symbol) else symbol
+    return name in GRID_SYMBOLS
+
+
+def _grid_shape_of_keys(keys) -> tuple[int, int]:
+    rows, cols = 0, 0
+    for key in keys:
+        m = _GRID_KEY_RE.match(key)
+        if m:
+            rows = max(rows, int(m.group(1)))
+            cols = max(cols, int(m.group(2)))
+    return rows, cols
+
+
+def grid_shape_of_fields(fields) -> tuple[int, int]:
+    """(rows, cols) inferred from ``r{row}c{col}`` field keys."""
+    return _grid_shape_of_keys(f.key for f in fields)
+
+
+def grid_shape_of_values(values: dict | None) -> tuple[int, int]:
+    """(rows, cols) inferred from ``r{row}c{col}`` value keys."""
+    return _grid_shape_of_keys((values or {}).keys())
+
+
+def make_grid_fields(name: str, rows: int, cols: int) -> list[SymbolField]:
+    """Field list for an RxC table/matrix grid (row-major order).
+
+    The default 2x2 placeholders are preserved (Name/Age/Alice/20 for
+    tables, 1/2/3/4 for matrices); extra table cells hint ``R{r}C{c}``,
+    extra matrix cells continue numbering from 5. All fields required.
+    """
+    rows, cols = int(rows), int(cols)
+    if rows < 1 or cols < 1:
+        raise ValueError('Grid dimensions must be at least 1x1')
+    if name == 'table':
+        base = TABLE_BASE_CELLS
+    elif name == 'matrix':
+        base = MATRIX_BASE_CELLS
+    else:
+        raise ValueError(f'not a grid symbol: {name!r}')
+    extra = sorted(
+        (r, c)
+        for r in range(1, rows + 1)
+        for c in range(1, cols + 1)
+        if (r, c) not in base
+    )
+    numbering = {pos: str(5 + i) for i, pos in enumerate(extra)}
+    fields: list[SymbolField] = []
+    for r in range(1, rows + 1):
+        for c in range(1, cols + 1):
+            if (r, c) in base:
+                placeholder = base[(r, c)]
+            elif name == 'table':
+                placeholder = f'R{r}C{c}'
+            else:
+                placeholder = numbering[(r, c)]
+            fields.append(_req(f'r{r}c{c}', f'Row {r} Col {c}', placeholder))
+    return fields
+
+
 def _geo_dialog(name, display, cmd, fields):
     """Curated geometry command; syntax/docs derived from GEOMETRY_DOCS."""
     sig, desc = _geo_sig_desc(cmd)
@@ -265,6 +347,10 @@ def _build_symbols() -> list[Symbol]:
                 [_req('expression', 'Expression', 'x - 5')]),
         _math_dialog('cbrt', '∛', 'cbrt',
                 [_req('expression', 'Expression', '27')]),
+        _math_dialog('table', 'Table', 'table',
+                make_grid_fields('table', 2, 2)),
+        _math_dialog('matrix', 'Matrix', 'matrix',
+                make_grid_fields('matrix', 2, 2)),
 
         # -- Variables / definitions --
         _dialog('var-def', '<x> =', '<name> = value', 'Variables',
@@ -443,6 +529,38 @@ def _generic_args(sym: Symbol, vals: dict) -> list[str]:
     return args
 
 
+def _build_grid_source(command: str, vals: dict) -> str:
+    """Build ``*table``/``*matrix`` source for an arbitrary RxC grid.
+
+    Shape is inferred from ``r{row}c{col}`` value keys (shared by table
+    and matrix): ``;`` separates cells, ``|`` separates rows. Every cell
+    in the rectangle must be present and non-empty (required-cell
+    validation), matching the dialog's required fields.
+    """
+    cells: dict[tuple[int, int], str] = {}
+    for key in (vals or {}):
+        m = _GRID_KEY_RE.match(key)
+        if m:
+            cells[(int(m.group(1)), int(m.group(2)))] = _v(vals, key)
+    if not cells:
+        raise ValueError(f'no grid cells for *{command}')
+    rows = max(r for r, _ in cells)
+    cols = max(c for _, c in cells)
+    missing = [
+        f'Row {r} Col {c} is required.'
+        for r in range(1, rows + 1)
+        for c in range(1, cols + 1)
+        if not cells.get((r, c), '')
+    ]
+    if missing:
+        raise ValueError('; '.join(missing))
+    row_strs = [
+        ' ; '.join(cells[(r, c)] for c in range(1, cols + 1))
+        for r in range(1, rows + 1)
+    ]
+    return f"*{command}({' | '.join(row_strs)})"
+
+
 def _generic_build(sym: Symbol, vals: dict) -> str:
     """Build ``*cmd(a ; b)`` (optionally ``*draw``-wrapped) from metadata.
 
@@ -461,6 +579,7 @@ def _generic_build(sym: Symbol, vals: dict) -> str:
 _CUSTOM_SYMBOLS = frozenset({
     'calc', 'var-def', 'define', 'inline-math', 'heading', 'list-item',
     'raw-p', 'geo-point', 'geo-length', 'geo-angle-value',
+    'table', 'matrix',
 })
 
 
@@ -515,6 +634,10 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
         return f"- {_v(vals, 'text')}"
     if n == 'raw-p':
         return f"*p({_v(vals, 'content')})"
+    if n == 'table':
+        return _build_grid_source('table', vals)
+    if n == 'matrix':
+        return _build_grid_source('matrix', vals)
     # -- geometry: always wrapped in *draw(...) --
     if n == 'geo-point':
         name = _v(vals, 'name')

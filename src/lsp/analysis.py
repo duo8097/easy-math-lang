@@ -30,6 +30,7 @@ from compiler.statements import (
     process_assignment_or_define,
 )
 from compiler.state import CompileContext
+from compiler import tables as _tables
 from compiler.variables import replace_defines, replace_vars
 from geometry.parsing import parse_draw_block
 from . import builtins
@@ -183,6 +184,74 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
             )
 
 
+def _table_shape_message(inner, kind):
+    """Return a warning string when a table/matrix grid is ragged/empty."""
+    try:
+        grid = _tables.parse_grid(inner)
+    except Exception:
+        return None
+    kept = [r for r in grid if any(c.strip() for c in r)]
+    if not kept:
+        return f'*{kind}(...) is empty'
+    widths = sorted({len(r) for r in kept})
+    if len(widths) != 1:
+        return (
+            f'*{kind}(...) rows have different lengths '
+            f'{sorted(len(r) for r in kept)} — short rows are padded'
+        )
+    return None
+
+
+def _validate_table_calls(line_text, idx, analysis, *, in_math_pairs):
+    """Emit shape warnings for single-line *table/*matrix calls."""
+    pos = 0
+    while True:
+        try:
+            found = _tables.find_next_call(line_text, pos)
+        except Exception:
+            return
+        if not found:
+            return
+        if found[0] == 'unclosed':
+            _, name, call_start, inner_start, _, _ = found
+            analysis.diagnostics.append(Diag(
+                idx, call_start, inner_start, 'warning',
+                f'Unclosed *{name}(... — missing closing parenthesis',
+            ))
+            pos = inner_start
+            continue
+        name, call_start, _s, call_end, inner_raw = found
+        if name == 'table' and in_math_pairs:
+            # Tables are text mode; the compiler warns too.
+            analysis.diagnostics.append(Diag(
+                idx, call_start, call_end, 'warning',
+                '*table(...) cannot be used inside math \\ ... \\',
+            ))
+            pos = call_end
+            continue
+        msg = _table_shape_message(inner_raw, name)
+        if msg:
+            analysis.diagnostics.append(Diag(
+                idx, call_start, call_end, 'warning', msg,
+            ))
+        pos = call_end
+
+
+def _validate_table_block(block_type, block_content, lines,
+                           start_line, end_line, analysis):
+    """Shape diagnostics for a multiline *table/*matrix/*mat block."""
+    kind = block_type[1:-1]
+    joined = _tables.join_block_lines(
+        [stmt for _, stmt in block_content]
+    )
+    msg = _table_shape_message(joined, kind)
+    anchor_end = len(lines[start_line]) if start_line < len(lines) else 0
+    if msg:
+        analysis.diagnostics.append(
+            Diag(start_line, 0, anchor_end, 'warning', msg)
+        )
+
+
 def analyze_text(text):
     """Analyze a document; never raises on malformed input."""
     analysis = Analysis()
@@ -215,6 +284,10 @@ def _analyze_text_inner(text, analysis):
     block_type = None
     block_content = []
     block_start = 0
+    in_table_block = False
+    table_type = None
+    table_content = []
+    table_start = 0
     in_math = False
     math_start = 0
     math_start_char = 0
@@ -335,11 +408,37 @@ def _analyze_text_inner(text, analysis):
                 in_f_block = False
                 continue
 
+            # Multiline *table/*matrix/*mat blocks: buffer rows for shape
+            # validation, but inner lines still get normal text checks
+            # below (variables/calc inside cells must resolve).
+            if not math_buffered and not in_f_block and s in (
+                '*table(', '*matrix(', '*mat(',
+            ):
+                in_table_block = True
+                table_type = s
+                table_content = []
+                table_start = idx
+                continue
+            if not math_buffered and s == ')' and in_table_block:
+                _validate_table_block(
+                    table_type, table_content, lines,
+                    table_start, idx, analysis,
+                )
+                in_table_block = False
+                table_type = None
+                table_content = []
+                continue
+
             if in_f_block and not math_buffered:
                 block_content.append((idx, s))
                 continue
+            if in_table_block and not math_buffered:
+                table_content.append((idx, s))
+                # Fall through to text checks so cell contents validate.
+                # Assignments are NOT processed here (mirrors the compiler:
+                # table blocks hold rows, not definitions).
 
-            if not math_buffered and re.match(r'^<[^<>]+>\s*=', s):
+            if not math_buffered and not in_table_block and re.match(r'^<[^<>]+>\s*=', s):
                 before = _snapshot(ctx)
                 process_assignment_or_define(ctx, s, line_no=idx + 1)
                 _record_new(ctx, before, code, idx, analysis)
@@ -433,6 +532,29 @@ def _analyze_text_inner(text, analysis):
                     f"Unknown command *{cmd}(...) — treated as plain text",
                 ))
 
+            # Table/matrix shape checks (text mode). Matrices also work
+            # inside \ ... \ math, so validate them on the unmasked line;
+            # tables inside math get their own warning.
+            _validate_table_calls(
+                _math_masked, idx, analysis, in_math_pairs=False,
+            )
+            if _math_masked != check_code:
+                # Only the insides of \ ... \ pairs (offsets preserved):
+                # tables are invalid there, matrices get shape checks.
+                _starts = _unescaped_bs_positions(check_code)
+                _chars = list(check_code)
+                _in_pair = [False] * len(_chars)
+                for _k in range(0, len(_starts) - 1, 2):
+                    for _j in range(_starts[_k], _starts[_k + 1] + 1):
+                        _in_pair[_j] = True
+                _math_only = ''.join(
+                    c if _in_pair[_j] else ' '
+                    for _j, c in enumerate(_chars)
+                )
+                _validate_table_calls(
+                    _math_only, idx, analysis, in_math_pairs=True,
+                )
+
             for m in CALC_OPEN.finditer(check_code):
                 close = _balanced_range(check_code, m.end() - 1)
                 if close is None:
@@ -463,6 +585,13 @@ def _analyze_text_inner(text, analysis):
         analysis.diagnostics.append(Diag(
             block_start, 0,
             len(lines[block_start]) if block_start < len(lines) else 0,
+            'error', "Unclosed block '(' — content may be silently consumed",
+        ))
+
+    if in_table_block:
+        analysis.diagnostics.append(Diag(
+            table_start, 0,
+            len(lines[table_start]) if table_start < len(lines) else 0,
             'error', "Unclosed block '(' — content may be silently consumed",
         ))
 

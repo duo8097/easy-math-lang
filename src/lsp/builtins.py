@@ -36,6 +36,9 @@ MATH_DOCS = {
     'product': ('*product(lower ; upper ; expression)', 'Product (alias of *prod).'),
     'lim': ('*lim(variable -> value ; expression)', 'Limit.'),
     'limit': ('*limit(variable -> value ; expression)', 'Limit (alias of *lim).'),
+    'table': ('*table(cell ; cell | cell ; cell)', 'Table. Rows split on |, cells on ; (comma works when no ;).'),
+    'matrix': ('*matrix(1 ; 2 | 3 ; 4)', 'Matrix (Typst mat). Rows split on |, cells on ;.'),
+    'mat': ('*mat(1 ; 2 | 3 ; 4)', 'Matrix (alias of *matrix).'),
 }
 
 KEYWORD_DOCS = {
