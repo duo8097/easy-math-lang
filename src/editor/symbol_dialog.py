@@ -138,6 +138,7 @@ class SymbolDialog(QtWidgets.QDialog):
         return edit
 
     def _focus_first_empty(self):
+        first_key = None
         first = None
         for f in self._fields:
             edit = self._edits.get(f.key)
@@ -145,15 +146,55 @@ class SymbolDialog(QtWidgets.QDialog):
                 continue
             if f.required and not edit.text().strip():
                 first = edit
+                first_key = f.key
                 break
         if first is None and self._fields:
-            first = self._edits.get(self._fields[0].key)
-        if first is not None:
-            QtCore.QTimer.singleShot(0, first.setFocus)
+            first_key = self._fields[0].key
+            first = self._edits.get(first_key)
+        if first is not None and first_key is not None:
+            # Deferred focus via key lookup (not a bound widget method):
+            # earlier QTimer.singleShot(0, first.setFocus) kept firing
+            # after the dialog/edits were deleted (test suite showed
+            # "Internal C++ object already deleted" spam), because the
+            # timer held a raw bound method to a dead C++ object.
+            QtCore.QTimer.singleShot(
+                0, lambda _k=first_key: self._focus_edit_safe(_k))
             try:
                 first.selectAll()
             except Exception:
                 pass
+
+    def _focus_edit_safe(self, key: str):
+        """Deferred-focus target that tolerates dialog teardown.
+
+        The single-shot timer may fire after the dialog was closed and
+        its C++ children deleted — in that case do nothing instead of
+        touching a dead wrapper (previously spammed RuntimeError).
+        """
+        try:
+            from shiboken6 import isValid as _is_valid
+        except Exception:  # pragma: no cover - PySide always ships it
+            _is_valid = lambda _o: True  # noqa: E731
+        try:
+            target = self._edits.get(key)
+        except Exception:
+            return
+        if target is None:
+            return
+        try:
+            if not _is_valid(target):
+                return
+        except Exception:
+            return
+        try:
+            target.setFocus()
+        except RuntimeError:
+            # Wrapper outlived its C++ object (dialog already torn down).
+            return
+        try:
+            target.selectAll()
+        except Exception:
+            pass
 
     def _update_shape_label(self):
         if self._shape_label is None:
@@ -177,7 +218,16 @@ class SymbolDialog(QtWidgets.QDialog):
     def _focus_edit(self, key: str):
         target = self._edits.get(key)
         if target is not None:
-            target.setFocus()
+            try:
+                from shiboken6 import isValid as _is_valid
+                if not _is_valid(target):
+                    return
+            except Exception:
+                pass
+            try:
+                target.setFocus()
+            except RuntimeError:
+                return
             try:
                 target.selectAll()
             except Exception:

@@ -19,12 +19,14 @@ from .math_commands import (
     math_call_specs,
     normalize_friendly_calls,
     replace_math_call,
+    split_top_level_args,
 )
 from .statements import _normalize_friendly_statement, process_assignment_or_define
 from .state import CompileContext
 from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
 from . import tables as _tables
+from . import plots as _plots
 
 
 def _extract_p_segments(text):
@@ -190,6 +192,89 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
     return ''.join(out), placeholders
 
 
+def _expand_plots(ctx, text, line_no):
+    """Expand ``*plot(expression ; xmin ; xmax)`` to ``#image(...)``.
+
+    Each plot is rendered to ``<stem>-plot-<n>.svg`` next to the
+    intermediate ``.typ`` file (see ``ctx.plot_dir``/``ctx.plot_stem``)
+    and referenced by basename so the Typst build stays relocatable.
+    Failures never abort the build: a ``[Plot Error: ...]`` literal is
+    emitted and reported on stderr, mirroring ``calc()`` error UX.
+    Returns (new_text, {placeholder: typst}).
+    """
+    placeholders = {}
+    idx = 0
+    pos = 0
+    out = []
+    while True:
+        found = _plots.find_next_plot_call(text, pos)
+        if not found:
+            out.append(text[pos:])
+            break
+        if found[0] == 'unclosed':
+            _, call_start, inner_start, _, _ = found
+            print(
+                f'[Warning] Line {line_no}: unclosed *plot(... — '
+                f'missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[pos:inner_start])
+            pos = inner_start
+            continue
+        _call_start, _inner_start, call_end, inner_raw = found
+        out.append(text[pos:_call_start])
+        args = split_top_level_args(inner_raw)
+        err = None
+        if len(args) != 3:
+            err = (f'*plot(...) needs 3 arguments: expression ; xmin ; xmax '
+                   f'(got {len(args)})')
+        elif not args[0].strip():
+            err = '*plot(...) needs an expression to plot'
+        elif not args[1].strip() or not args[2].strip():
+            err = '*plot(...) needs xmin and xmax bounds'
+        if err is None:
+            try:
+                xmin = _plots.evaluate_bound(ctx, args[1])
+                xmax = _plots.evaluate_bound(ctx, args[2])
+            except ValueError as e:
+                err = f'*plot(...) invalid bounds: {e}'
+                xmin = xmax = None
+            else:
+                if xmin >= xmax:
+                    err = (f'*plot(...) needs xmin < xmax '
+                           f'(got {xmin} >= {xmax})')
+        if err is not None:
+            print(f'[Error] Line {line_no}: {err}', file=sys.stderr)
+            out.append(f'[Plot Error: {err}]')
+            pos = call_end
+            continue
+        ctx.plot_index = int(getattr(ctx, 'plot_index', 0) or 0) + 1
+        plot_dir = getattr(ctx, 'plot_dir', None) or os.getcwd()
+        plot_stem = getattr(ctx, 'plot_stem', None) or 'doc'
+        fname = _plots.plot_filename(plot_stem, ctx.plot_index)
+        fpath = os.path.join(plot_dir, fname)
+        try:
+            _plots.render_plot_svg(ctx, args[0], xmin, xmax, fpath)
+        except ValueError as e:
+            print(f'[Error] Line {line_no}: *plot(...) {e}',
+                  file=sys.stderr)
+            out.append(f'[Plot Error: {e}]')
+            pos = call_end
+            continue
+        except Exception as e:
+            print(f'[Error] Line {line_no}: *plot(...) failed: {e}',
+                  file=sys.stderr)
+            out.append(f'[Plot Error: {e}]')
+            pos = call_end
+            continue
+        ph = f'\x06{idx}\x06'
+        idx += 1
+        placeholders[ph] = f'#image("{fname}", width: 80%)'
+        out.append(ph)
+        pos = call_end
+    return ''.join(out), placeholders
+
+
 def _render_text_line(ctx, raw, line_no, _table_depth=0):
     """Run the text pipeline for one logical (single-line) text unit.
 
@@ -294,6 +379,13 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
             ctx, text, line_no, _table_depth
         )
 
+    # 5d. Function plots (*plot). Same placeholder discipline as
+    # tables: the SVGs are written next to the .typ file and only the
+    # basename is embedded, so the Typst build stays relocatable.
+    plot_placeholders = {}
+    if _table_depth <= 20:
+        text, plot_placeholders = _expand_plots(ctx, text, line_no)
+
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
@@ -359,6 +451,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     # Restore tables/matrices first so inner $/math placeholders kept
     # inside them are still restored by the steps below.
     for ph, typ in table_placeholders.items():
+        text = text.replace(ph, typ)
+    for ph, typ in plot_placeholders.items():
         text = text.replace(ph, typ)
     # Restore literal dollars as escaped Typst dollars.
     for ph in dollar_placeholders:
@@ -543,6 +637,31 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
     label = {'pdf': 'PDF', 'png': 'PNG image(s)', 'svg': 'SVG image(s)',
              'html': 'HTML', 'typ': 'Typst'} .get(fmt, fmt.upper())
     print(f'Compiling {label} with Typst...')
+
+    def _copy_plot_sidecars(dst_dir):
+        """Copy ``<stem>-plot-*.svg`` next to *dst_dir* for typ/html.
+
+        PDF/PNG/SVG embeds the images; raw Typst source and HTML keep
+        external ``#image("...")`` references, so the SVGs must travel
+        with the exported file when it lands in another directory.
+        """
+        import glob as _glob
+        try:
+            tdir = os.path.dirname(os.path.abspath(typst_file))
+            tstem = os.path.splitext(os.path.basename(typst_file))[0]
+            ddir = os.path.abspath(dst_dir) if dst_dir else os.getcwd()
+            if os.path.abspath(tdir) == os.path.abspath(ddir):
+                return
+            os.makedirs(ddir, exist_ok=True)
+            for svg in sorted(
+                    _glob.glob(os.path.join(tdir, f'{tstem}-plot-*.svg'))):
+                try:
+                    shutil.copyfile(
+                        svg, os.path.join(ddir, os.path.basename(svg)))
+                except OSError:
+                    pass
+        except Exception:
+            pass
     if typst is None:
         print(
             '\n[ERROR] The `typst` Python package is not installed.\n'
@@ -557,11 +676,17 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                 os.makedirs(parent, exist_ok=True)
             if os.path.abspath(output_path) != os.path.abspath(typst_file):
                 shutil.copyfile(typst_file, output_path)
+            _copy_plot_sidecars(parent)
             print(f'Successfully exported {input_str} to {output_path} (Typst source)!')
             return True
         except OSError as e:
             print(f'\n[ERROR] Typst export failed: {e}', file=sys.stderr)
             return False
+    if ppi is not None and fmt != 'png':
+        print(
+            f'[Warning] --ppi {ppi} only affects PNG export — ignoring for {fmt}',
+            file=sys.stderr,
+        )
     try:
         parent = os.path.dirname(os.path.abspath(output_path))
         if parent:
@@ -587,6 +712,8 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                 print(f'Successfully compiled {input_str} to {patterned} via Typst!')
                 return True
             raise
+        if fmt == 'html':
+            _copy_plot_sidecars(os.path.dirname(os.path.abspath(output_path)))
         print(f'Successfully compiled {input_str} to {output_path} via Typst!')
         return True
     except FileNotFoundError as e:
@@ -611,6 +738,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
           -> calc(...) evaluation
           -> inline math \\ ... \\ (multiline supported, see below)
           -> tables/matrices (*table / *matrix / *mat, | rows, ;/, cells)
+          -> function plots (*plot(expression ; xmin ; xmax) -> SVG #image)
           -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
              (friendly: ',' works like ';', *fraction etc. are aliases)
           -> unknown *command(...) warning
@@ -661,6 +789,14 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         return False
 
     ctx = CompileContext()
+    # Plot SVGs live next to the intermediate .typ file; the Typst
+    # output only embeds basenames so the build stays relocatable.
+    _typ_base, _ = os.path.splitext(input_str)
+    _typ_file_early = _typ_base + '.typ'
+    ctx.plot_dir = os.path.dirname(os.path.abspath(_typ_file_early)) or '.'
+    ctx.plot_stem = os.path.splitext(
+        os.path.basename(_typ_file_early))[0] or 'doc'
+    ctx.plot_index = 0
 
     try:
         with open(input_str, 'r', encoding='utf-8') as f:
@@ -873,6 +1009,15 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # ------------------------------------------------------------------
     base, _ = os.path.splitext(input_str)
     typst_file = base + '.typ'
+    if os.path.abspath(typst_file) == os.path.abspath(input_str):
+        # Input already ends with .typ: writing the intermediate back
+        # would destroy the source. Fail loudly instead.
+        print(
+            f"[ERROR] Input file {input_str!r} would be overwritten by the "
+            f"intermediate Typst output — rename it to .ezmath and retry.",
+            file=sys.stderr,
+        )
+        return False
 
     typst_content = [
         '#set text(size: 12pt)',

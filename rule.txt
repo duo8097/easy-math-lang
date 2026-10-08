@@ -1118,6 +1118,23 @@ Multiline blocks (*table( ... ) / *matrix( ... )) join lines with "|";
 empty rows are ignored, ragged rows warn and pad ([] for tables,
 0 for matrices). Matrices work inside \ ... \; tables do not.
 
+Function plots
+-------------
+
+*plot(expression ; xmin ; xmax)
+
+*plot(x^2 ; -5 ; 5)
+*plot(sin(x) ; -10 ; 10)
+*plot(1/x ; -10 ; 10)
+
+Numerically evaluated (1000 samples, NumPy) and rendered with
+Matplotlib to <stem>-plot-<n>.svg, embedded as
+#image("...svg", width: 80%). calc-style syntax: + - * / % ^,
+x, pi/e, sin cos tan sqrt cbrt log (base 10) ln abs exp.
+Non-finite values skipped; curves break across large jumps so
+1/x draws no vertical line. Errors emit [Plot Error: ...] inline
+and never abort the build.
+
 Export (CLI / editor File -> Export As):
 
 easy-math-lang doc.ezmath          -> doc.pdf

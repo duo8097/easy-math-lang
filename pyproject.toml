@@ -1,6 +1,6 @@
 [project]
 name = "easy-math-lang"
-version = "3.1.0"
+version = "4.0.0"
 description = "target to help new people easier to write math with code, maybe include more symbol for science"
 readme = "README.md"
 authors = [
@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "pygls>=2.1.1",
     "pyside6>=6.11.2",

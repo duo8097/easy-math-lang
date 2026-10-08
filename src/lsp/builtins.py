@@ -39,6 +39,7 @@ MATH_DOCS = {
     'table': ('*table(cell ; cell | cell ; cell)', 'Table. Rows split on |, cells on ; (comma works when no ;).'),
     'matrix': ('*matrix(1 ; 2 | 3 ; 4)', 'Matrix (Typst mat). Rows split on |, cells on ;.'),
     'mat': ('*mat(1 ; 2 | 3 ; 4)', 'Matrix (alias of *matrix).'),
+    'plot': ('*plot(expression ; xmin ; xmax)', 'Plot y=f(x) as SVG (numerical, 1000 samples).'),
 }
 
 KEYWORD_DOCS = {

@@ -66,6 +66,10 @@ class LspClient(QtCore.QObject):
                     alive = False
                 if alive:
                     return True
+                try:
+                    self._process.deleteLater()
+                except RuntimeError:
+                    pass
             self._process = None
             self._state = 'stopped'
         try:

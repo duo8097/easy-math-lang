@@ -310,6 +310,52 @@ Means: the limit of sin(x)/x as x approaches 0.
 
 ---
 
+## Function plots — drawing graphs with `*plot`
+
+Plot a function `y = f(x)` over an interval:
+
+```
+*plot(x^2; -5; 5)
+*plot(sin(x); -10; 10)
+*plot(1/x; -10; 10)
+```
+
+The syntax is:
+
+```
+*plot(expression ; xmin ; xmax)
+```
+
+Commas work too: `*plot(x^2, -5, 5)`.
+
+Each plot becomes an SVG image next to your document
+(`yourdoc-plot-1.svg`, `yourdoc-plot-2.svg`, …) and is embedded in
+the PDF automatically. Bounds accept the same numbers and
+expressions as `calc` (including variables: `*plot(x; -<a>; <a>)`).
+
+The expression uses `calc`-style syntax: `+ - * / % ^` (`^` is
+power), parentheses, the variable `x`, the constants `pi`/`e`, and
+the functions `sin cos tan sqrt cbrt log ln abs exp`
+(`log` is base-10 like Typst's `log`; `ln` is the natural log).
+Math-command spellings such as `*sin(x)` also work inside plots.
+
+> **Note:** plots are generated **numerically** (1000 samples by
+> default). Values that are not finite are skipped, and the curve is
+> broken across large jumps so discontinuities like `1/x` do not draw
+> a misleading vertical line. Very steep regions may show tiny gaps
+> where the curve was split — this is expected.
+
+Limitations:
+
+* Only single-variable functions of `x` are supported (no `ymin`,
+  `ymax`, multiple functions, or custom labels yet).
+* Write multiplication explicitly (`2*x`, not `2x`).
+* A plot whose expression has no finite values on the interval
+  (e.g. `*plot(sqrt(x); -10; -1)`) emits a `[Plot Error: ...]`
+  message instead of an image — the rest of the document still builds.
+
+---
+
 ## Inline math mode — `\ ... \`
 
 Wrap an expression in backslashes to get Typst math typography:

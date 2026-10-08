@@ -88,6 +88,7 @@ jobs:
           --onefile
           --collect-all typst
           --collect-all numpy
+          --collect-all matplotlib
           --noconfirm
 
       # `ezmath` is the short CLI alias (pyproject [project.scripts]): same
@@ -118,6 +119,7 @@ jobs:
           --hidden-import PySide6.QtPdfWidgets
           --collect-all typst
           --collect-all numpy
+          --collect-all matplotlib
           --noconfirm
 
       - name: Show editor bundle size

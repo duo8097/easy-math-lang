@@ -41,6 +41,7 @@ uv run pyinstaller entry_compiler.py \
   --onefile \
   --collect-all typst \
   --collect-all numpy \
+  --collect-all matplotlib \
   --noconfirm
 
 uv run pyinstaller entry_lsp.py \
@@ -59,6 +60,7 @@ uv run pyinstaller entry_editor.py \
   --hidden-import PySide6.QtPdfWidgets \
   --collect-all typst \
   --collect-all numpy \
+  --collect-all matplotlib \
   --noconfirm
 
 du -sh dist/easy-math-editor.app

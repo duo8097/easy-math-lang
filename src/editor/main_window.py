@@ -1066,13 +1066,20 @@ class MainWindow(QtWidgets.QMainWindow):
         process.setProcessChannelMode(QtCore.QProcess.MergedChannels)
         process.finished.connect(self._on_build_finished)
         process.errorOccurred.connect(self._on_build_error)
-        process.start(cmd[0], cmd[1:])
+        # '--' separator so a file literally named '--format' etc.
+        # is treated as an operand (pipeline.main supports it).
+        process.start(cmd[0], cmd[1:-1] + ['--', cmd[-1]] if len(cmd) > 1 else [])
         self._build_process = process
         self.statusBar().showMessage('Compiling…')
 
     def _on_build_error(self, error):
         if error == QtCore.QProcess.ProcessError.FailedToStart:
-            self._build_process = None
+            proc, self._build_process = self._build_process, None
+            if proc is not None:
+                try:
+                    proc.deleteLater()
+                except RuntimeError:
+                    pass
             self.statusBar().showMessage('Could not start compiler', 8000)
 
     def _on_build_finished(self, exit_code, _status):

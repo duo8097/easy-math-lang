@@ -60,6 +60,7 @@ jobs:
           --onefile
           --collect-all typst
           --collect-all numpy
+          --collect-all matplotlib
           --noconfirm
 
       # `ezmath` is the short CLI alias (pyproject [project.scripts]): same
@@ -86,6 +87,7 @@ jobs:
           --collect-all PySide6
           --collect-all typst
           --collect-all numpy
+          --collect-all matplotlib
           --noconfirm
 
       # --- Inno Setup --------------------------------------------------------

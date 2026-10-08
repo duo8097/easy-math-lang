@@ -328,9 +328,12 @@ def _analyze_text_inner(text, analysis):
                         continue
 
             # *define(...) / define(...) — suspended inside math buffer.
-            if not math_buffered and (s.startswith('*define(') or s.startswith('define(')) and s.endswith(')'):
-                prefix_len = 8 if s.startswith('*define(') else 7
-                inner = s[prefix_len:-1]
+            # Space-tolerant like the compiler
+            # (pipeline.py accepts '*define (x = 1)').
+            _m_def = re.match(r'^(\*?define)\s*\((.*)\)\s*$', s)
+            if not math_buffered and _m_def and _m_def.group(2) is not None:
+                prefix_len = len(_m_def.group(1)) + 1  # name + '('
+                inner = s[_m_def.start(2):_m_def.end(2)]
                 before = _snapshot(ctx)
                 process_assignment_or_define(ctx, 'define(' + inner + ')', line_no=idx + 1)
                 _record_new(ctx, before, code, idx, analysis)

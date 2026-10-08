@@ -1,0 +1,211 @@
+// example_3: full symbol and syntax tour //
+
+# Full syntax tour
+
+*define(write_type.multiplication = .)
+
+## 1. Defines, variables and calc
+
+*define(school = Nguyen Trai High School)
+*define(tmp1 = 100 000 000)
+
+<tmp1>
+
+*(
+    <width> = 5
+    <height> = 3
+    <area> = <width> * <height>
+)
+
+The school is <school>.
+The rectangle is <width> cm wide and <height> cm tall.
+Its area is: <width> . <height> = calc(<area>) cm²
+
+let <a> = 10
+var b = 20
+<c> = calc(<a> + <b> * 2)
+
+Sum: <a> + <b> = <c>
+
+## 2. Raw print
+
+*p(f())
+*p(sin(x))
+
+## 3. Fractions, roots, powers
+
+*frac(2 ; 3)
+*fraction(4 ; 5)
+*frac(2, 3)
+
+*root(3 ; x + 1)
+*root(2 ; x)
+*sqrt(16)
+*cbrt(27)
+
+*pow(x ; 2)
+*power(x ; 3)
+*pow(A ; *degree)
+
+A_1
+x_n
+
+*abs(x - 2)
+*absolute(x - 5)
+
+## 4. Trigonometry and logarithms
+
+*sin(x)
+*cos(x)
+*tan(x)
+
+*log(10)
+*ln(2.718)
+
+## 5. Sums, products, limits
+
+*sum(i = 1 ; n ; i)
+*summation(i = 1 ; n ; i^2)
+*prod(i = 1 ; n ; i)
+*product(k = 1 ; n ; k + 1)
+*lim(x -> 0 ; sin(x) / x)
+*limit(n -> infinity ; 1 / n)
+
+## 6. Constants
+
+*pi
+*infinity
+
+## 7. Automatic ASCII symbols
+
+a => b
+a <=> b
+a <== b
+a ==> b
+x -> 0
+x <- 1
+a <-> b
+f |-> y
+a <= b
+a >= b
+a << b
+a >> b
+a != b
+a !== b
+a === b
+p && q
+p || q
+h |- c
+c -| h
+a +- b
+a -+ b
+a ~= b
+a ~=~ b
+wait ...
+
+a == b
+
+## 8. Symbol keywords
+
+*le *leq *ge *geq *ne *neq *equiv
+*sim *simeq *asymp *doteq *ll *gg
+*prec *succ *preceq *succeq *approx *cong
+*pm *mp *prop *propto *mid *ni
+
+*times *xx *cdot *div *oplus *otimes
+*circ *bullet *star *dagger
+*cap *cup *setminus *sqrt *surd *cbrt
+
+*deg *degree *angle *triangle *square *diamond
+*parallel *perp *top *bot *vdash *dashv *bowtie *prime
+
+*infty *forall *exists *notin *isin
+*subset *superset *subseteq *superseteq
+*union *intersect *intersection *emptyset *empty
+
+*land *lor *lnot *therefore *because
+
+*to *rightarrow *gets *leftarrow
+*implies *Rightarrow *impliedby *Leftarrow
+*leftrightarrow *iff
+*uparrow *downarrow *updownarrow *mapsto
+
+*ldots *cdots *vdots *ddots
+*langle *rangle *lfloor *rfloor *lceil *rceil
+
+*partial *nabla *aleph *hbar *ell *Re *Im *wp
+
+## 9. Greek letters
+
+*alpha *beta *gamma *delta *epsilon *zeta *eta *theta
+*iota *kappa *lambda *mu *nu *xi *omicron *pi
+*rho *sigma *tau *upsilon *phi *chi *psi *omega
+
+*Gamma *Delta *Theta *Lambda *Xi *Pi
+*Sigma *Upsilon *Phi *Psi *Omega
+
+## 10. Inline math
+
+The solution is \ x = 2 \.
+Pythagoras: \ a^2 + b^2 = c^2 \.
+Comparison: \ x <= y \ and limit \ x -> infinity \.
+
+## 11. Document structure
+
+### Sub heading
+
+- first item
+- second item
++ third item
+1. first step
+2. second step
+
+= Typst-style heading
+== Typst-style sub heading
+
+## 12. Tables and matrices
+
+*table(Name ; Age | Alice ; 20 | Bob ; 22)
+
+*matrix(1 ; 2 | 3 ; 4)
+*mat(a ; b | c ; d)
+
+*table(
+    Name ; Age
+    Alice ; 20
+    Bob ; 22
+)
+
+## 13. Function plots
+
+*plot(x^2; -5; 5)
+*plot(sin(x); -10; 10)
+*plot(1/x; -10; 10)
+
+## 14. Geometry drawing
+
+*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)
+
+    *distance(A ; C ; 3)
+    *perp(A ; B ; A ; C)
+
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+    *angle(A ; B ; C)
+    *length(A ; B) = 4
+)
+
+*draw(
+    *point(O = 0, 0)
+    *circle(O ; 3)
+
+    *point(P)
+    *on-circle(O ; 3 ; P)
+    *line(O ; P)
+    *label(P ; P)
+)
+
+// End of tour //

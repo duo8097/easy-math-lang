@@ -4,8 +4,15 @@ import re
 import sys
 
 
-def _expand_single_var(ctx, name, _stack):
+def _expand_single_var(ctx, name, _stack, _depth=0):
     """Recursively expand one variable value; None on cycle."""
+    if _depth > 100:
+        print(
+            f'[WARNING] Variable expansion too deep (possible long chain): <{name}>. '
+            f'Leaving unexpanded.',
+            file=sys.stderr,
+        )
+        return None
     if name in _stack:
         print(
             f'[WARNING] Circular variable reference detected: <{name}>. '
@@ -32,7 +39,7 @@ def _expand_single_var(ctx, name, _stack):
                 return m.group(0)
             if inner not in ctx.variables:
                 return m.group(0)
-            expanded = _expand_single_var(ctx, inner, _stack)
+            expanded = _expand_single_var(ctx, inner, _stack, _depth + 1)
             return expanded if expanded is not None else m.group(0)
 
         # Guard << >> operator adjacency inside values as well.

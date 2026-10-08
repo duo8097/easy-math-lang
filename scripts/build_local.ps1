@@ -21,7 +21,7 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 try {
     uv run pyinstaller entry_compiler.py --name easy-math-lang --onefile `
-        --collect-all typst --collect-all numpy --noconfirm
+        --collect-all typst --collect-all numpy --collect-all matplotlib --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "compiler build failed" }
 
     uv run pyinstaller entry_lsp.py --name easy-math-lsp --onefile `
@@ -29,7 +29,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "lsp build failed" }
 
     uv run pyinstaller entry_editor.py --name easy-math-editor --onedir `
-        --windowed --collect-all PySide6 --collect-all typst --collect-all numpy --noconfirm
+        --windowed --collect-all PySide6 --collect-all typst --collect-all numpy --collect-all matplotlib --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "editor build failed" }
 
     # `ezmath` is the short CLI alias (pyproject [project.scripts]); it is

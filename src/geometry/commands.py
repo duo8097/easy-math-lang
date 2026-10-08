@@ -34,9 +34,23 @@ def _check_point_name(name):
     return name
 
 
+def _bad_len(n):
+    """True when a segment length is unusable (non-finite or degenerate).
+
+    Plain ``n < 1e-9`` is False for NaN, letting diverged coordinates
+    slip through to ``dot/(n1*n2)`` and poison costs with NaN.
+    """
+    import math as _m
+    try:
+        f = float(n)
+    except (TypeError, ValueError):
+        return True
+    return (not _m.isfinite(f)) or f < 1e-9
+
+
 def _seg_cost(P, A, B, fn):
     """Cost with degenerate-segment guard: coincident points cost 1.0."""
-    if _norm(P[B] - P[A]) < 1e-9:
+    if _bad_len(_norm(P[B] - P[A])):
         return 1.0
     return fn()
 
@@ -137,7 +151,7 @@ def _process_command(solver, cmd, args):
                 v1 = P[b] - P[a]
                 v2 = P[d] - P[c]
                 n1, n2 = float(_norm(v1)), float(_norm(v2))
-                if n1 < 1e-9 or n2 < 1e-9:
+                if _bad_len(n1) or _bad_len(n2):
                     return 1.0
                 cosang = float(np.dot(v1, v2)) / (n1 * n2)
                 return cosang * cosang
@@ -162,7 +176,7 @@ def _process_command(solver, cmd, args):
                 v1 = P[b] - P[a]
                 v2 = P[c] - P[b]
                 n1, n2 = float(_norm(v1)), float(_norm(v2))
-                if n1 < 1e-9 or n2 < 1e-9:
+                if _bad_len(n1) or _bad_len(n2):
                     return 1.0
                 cosang = float(np.dot(v1, v2)) / (n1 * n2)
                 return cosang * cosang
@@ -192,7 +206,7 @@ def _process_command(solver, cmd, args):
             v1 = P[b] - P[a]
             v2 = P[d] - P[c]
             n1, n2 = float(_norm(v1)), float(_norm(v2))
-            if n1 < 1e-9 or n2 < 1e-9:
+            if _bad_len(n1) or _bad_len(n2):
                 return 1.0
             sinang = float(_cross2d(v1, v2)) / (n1 * n2)
             return sinang * sinang
@@ -219,7 +233,7 @@ def _process_command(solver, cmd, args):
         def _online_cost(P, a=A, b=B, c=C):
             v1 = P[b] - P[a]
             n1 = float(_norm(v1))
-            if n1 < 1e-9:
+            if _bad_len(n1):
                 return 1.0
             # Distance from C to line AB (absolute units, not L^4).
             return (float(_cross2d(v1, P[c] - P[a])) / n1) ** 2
@@ -306,14 +320,14 @@ def _process_command(solver, cmd, args):
         def _inter_cost_1(P, a=A, b=B, c=C):
             v = P[b] - P[a]
             n = float(_norm(v))
-            if n < 1e-9:
+            if _bad_len(n):
                 return 1.0
             return (float(_cross2d(v, P[c] - P[a])) / n) ** 2
 
         def _inter_cost_2(P, d=D, e=E, c=C):
             v = P[e] - P[d]
             n = float(_norm(v))
-            if n < 1e-9:
+            if _bad_len(n):
                 return 1.0
             return (float(_cross2d(v, P[c] - P[d])) / n) ** 2
 

@@ -66,6 +66,10 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     fmt = str(format or 'pdf').strip().lower().lstrip('.')
     if fmt == 'htm':
         fmt = 'html'
+    # Allowlist: fmt feeds preview.{fmt} inside workdir — a raw fmt
+    # like '../evil' would escape via os.path.join.
+    if fmt not in ('pdf', 'png', 'svg', 'html', 'typ'):
+        fmt = 'pdf'
     src_path = os.path.join(directory, PREVIEW_SOURCE_NAME)
     out_name = (f'preview{suffix}.{fmt}' if suffix
                 else f'preview.{fmt}')
@@ -127,6 +131,8 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
     fmt = (str(fmt or 'pdf').strip().lower().lstrip('.') or 'pdf')
     if fmt == 'htm':
         fmt = 'html'
+    if fmt not in ('pdf', 'png', 'svg', 'html', 'typ'):
+        fmt = 'pdf'
     workdir = tempfile.mkdtemp(prefix='easymath-export-')
     try:
         res = compile_source_to_format(source_text, workdir,

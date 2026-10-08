@@ -11,6 +11,7 @@ KNOWN_COMMANDS = {
     'pow', 'power', 'root', 'sum', 'summation', 'prod', 'product',
     'lim', 'limit',
     'table', 'matrix', 'mat',
+    'plot',
     # symbol shortcuts handled separately: pi, infinity, degree, ...
 }
 
@@ -51,6 +52,16 @@ def warn_unknown_commands(text, line_no):
     for m in re.finditer(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(', text):
         cmd = m.group(1)
         if cmd in KNOWN_COMMANDS:
+            continue
+        if cmd == 'draw':
+            # Top-level *draw(...) is valid (pipeline handles single-line
+            # and block forms); a leftover here is unclosed/malformed,
+            # not "inside *draw".
+            hint = None
+            print(
+                f'[Warning] Line {line_no}: unclosed or malformed *draw(...) — treated as plain text',
+                file=sys.stderr,
+            )
             continue
         if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
             print(
