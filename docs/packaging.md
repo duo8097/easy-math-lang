@@ -107,6 +107,49 @@ needs right-click → **Open**. Static checks live in
 
 ---
 
+## What gets built (Linux)
+
+Same three binaries, Linux names, built by
+`.github/workflows/build-linux-installers.yml` on `ubuntu-24.04`
+(x86_64 only) via `installer/build_linux.sh`:
+
+| Binary | Mode | Contents |
+|---|---|---|
+| `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
+| `ezmath` | onefile CLI | Same compiler copy (alias) |
+| `easy-math-lsp` | onefile CLI | Language server |
+| `easy-math-editor/` | onedir GUI | Desktop editor (PySide6) |
+
+Both packages install the same FHS layout (mirroring
+`installer/PKGBUILD` for Arch):
+
+```
+usr/
+├── bin/
+│   ├── easy-math-lang
+│   ├── ezmath
+│   ├── easy-math-lsp
+│   └── easy-math-editor -> /usr/lib/easy-math-lang/easy-math-editor/easy-math-editor
+├── lib/easy-math-lang/easy-math-editor/   (onedir GUI bundle)
+├── share/applications/easy-math-editor.desktop
+├── share/doc/easymath/                    (README, copyright)
+└── share/licenses/easymath/               (LICENSE)
+```
+
+- `installer/build_linux.sh` (run from the repo root on Linux) writes
+  `dist/easymath_<ver>_amd64.deb` and `dist/easymath-<ver>-1.x86_64.rpm`
+  plus stable `dist/EasyMathLang-Linux-amd64.deb/.rpm` copies for the
+  GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
+- The `.deb` is assembled with `dpkg-deb` (required); the `.rpm` needs
+  `rpmbuild` and is skipped with a warning when it is missing
+  (CI installs the `rpm` package first).
+- CI smoke-tests the installed `.deb` (`dpkg -i`, `--version`, compile
+  of `examples/example.ezmath`) and inspects the `.rpm` payload
+  (`rpm -qip` / `rpm -qlp`) before uploading artifacts. Static checks
+  live in `tests/test_linux_packaging.py`.
+
+---
+
 ## How the editor finds its helpers at runtime
 
 All resolution lives in `src/editor/paths.py` (stdlib only, so it bundles

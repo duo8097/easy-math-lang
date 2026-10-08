@@ -12,6 +12,12 @@ even if you have never set up a programming tool before.
 > see [Option A2](#option-a2--macos-disk-image-easiest) below.
 > No Python needed (Apple Silicon only, M1 or newer; does not run on
 > Intel Macs).
+>
+> **On Linux?** Download the `.deb` (Debian/Ubuntu) or `.rpm`
+> (Fedora/RHEL/openSUSE) from the
+> [Releases page](https://github.com/duo8097/easy-math-lang/releases) —
+> see [Option A3](#option-a3--linux-packages-easiest) below.
+> No Python needed (x86_64).
 
 ---
 
@@ -68,6 +74,31 @@ Apple Silicon only (M1 or newer); does not run on Intel Macs.
 
 No further setup is needed: the editor finds the bundled helpers
 automatically, even when nothing was added to `PATH`.
+
+---
+
+## Option A3 — Linux packages (easiest)
+
+x86_64 only.
+
+1. Download `EasyMathLang-Linux-amd64.deb` (Debian/Ubuntu) or
+   `EasyMathLang-Linux-amd64.rpm` (Fedora/RHEL/openSUSE) from the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+2. Install it:
+   ```
+   sudo dpkg -i EasyMathLang-Linux-amd64.deb       # Debian/Ubuntu
+   ```
+   ```
+   sudo rpm -i EasyMathLang-Linux-amd64.rpm        # Fedora/RHEL/openSUSE
+   ```
+   (On Debian/Ubuntu, if `dpkg` complains about missing dependencies,
+   run `sudo apt-get install -f` afterwards.)
+3. Launch **Easy Math Editor** from your applications menu, or run
+   `easy-math-lang doc.ezmath` in a terminal.
+
+No further setup is needed: the programs install to the standard
+locations (`/usr/bin`, `/usr/lib/easy-math-lang`), so the editor
+finds its helper programs automatically.
 
 ---
 

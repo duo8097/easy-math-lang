@@ -58,6 +58,7 @@ EOF
     --onefile \
     --collect-all typst \
     --collect-all numpy \
+    --collect-all matplotlib \
     --noconfirm
 
   # `ezmath` is the short CLI alias (pyproject [project.scripts]): the
@@ -81,6 +82,7 @@ EOF
     --collect-all PySide6 \
     --collect-all typst \
     --collect-all numpy \
+    --collect-all matplotlib \
     --noconfirm
 
   chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp

@@ -33,6 +33,15 @@ The easiest way to use easy-math-lang — no Python needed:
    then run it (right-click → **Open** on first launch — the app is
    ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
 
+**Linux (x86_64):**
+
+1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
+2. Download `EasyMathLang-Linux-amd64.deb` (Debian/Ubuntu) or
+   `EasyMathLang-Linux-amd64.rpm` (Fedora/RHEL/openSUSE).
+3. Install it (`sudo dpkg -i EasyMathLang-Linux-amd64.deb` or
+   `sudo rpm -i EasyMathLang-Linux-amd64.rpm`) and launch
+   **Easy Math Editor** from your applications menu.
+
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).
 
