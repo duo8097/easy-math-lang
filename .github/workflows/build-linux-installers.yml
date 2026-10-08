@@ -35,8 +35,8 @@ jobs:
       - name: Install project + build dependencies
         run: uv sync --frozen
 
-      - name: Install package tooling (dpkg-deb, rpmbuild)
-        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Install system dependencies (Qt libs, package tooling)
+        run: sudo apt-get update && sudo apt-get install -y rpm libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
 
       # --- Tag/version guard -------------------------------------------------
       # A tag build must release exactly what pyproject.toml declares:
