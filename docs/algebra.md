@@ -612,6 +612,19 @@ Lesson plans read better with structure — no Typst needed:
 `1.` stays an enumeration; `= Title` also works as a heading.
 Variables, `calc`, math and symbols keep working inside them.
 
+### Document title
+
+Set the document title (centered heading + PDF metadata):
+
+```
+*doc_title(My Lesson Plan)
+```
+
+Aliases `*doc-title`, `*doctitle` and `*title` work the same.
+The line is consumed (not shown as body text); the last one wins.
+Variables, `calc`, math and symbols work inside the title.
+Without it, the title defaults to `Easy Math Document`.
+
 ---
 
 ## Tables and matrices

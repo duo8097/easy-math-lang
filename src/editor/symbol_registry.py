@@ -463,6 +463,9 @@ def _build_symbols() -> list[Symbol]:
         _dialog('heading', '# H', '# Title', 'Text',
                 'Heading block.',
                 [_req('title', 'Title', 'My heading')]),
+        _dialog('doc-title', 'DocTitle', '*doc_title(title)', 'Text',
+                KEYWORD_DOCS.get('doc_title', ('*doc_title(title)', 'Document title.'))[1],
+                [_req('title', 'Title', 'My document')]),
         _dialog('list-item', '- item', '- item', 'Text',
                 'Bullet list item.',
                 [_req('text', 'Item text', 'First item')]),
@@ -584,7 +587,8 @@ def _generic_build(sym: Symbol, vals: dict) -> str:
 
 # Palette ids with bespoke syntax (not a plain ``*cmd(args)`` shape).
 _CUSTOM_SYMBOLS = frozenset({
-    'calc', 'var-def', 'define', 'inline-math', 'heading', 'list-item',
+    'calc', 'var-def', 'define', 'inline-math', 'heading', 'doc-title',
+    'list-item',
     'raw-p', 'geo-point', 'geo-length', 'geo-angle-value',
     'table', 'matrix',
 })
@@ -637,6 +641,8 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
         return f"\\ {_v(vals, 'expression')} \\"
     if n == 'heading':
         return f"# {_v(vals, 'title')}"
+    if n == 'doc-title':
+        return f"*doc_title({_v(vals, 'title')})"
     if n == 'list-item':
         return f"- {_v(vals, 'text')}"
     if n == 'raw-p':

@@ -22,6 +22,7 @@ from .math_commands import (
     split_top_level_args,
 )
 from .statements import _normalize_friendly_statement, process_assignment_or_define
+from .source_map import SourcePosition, SourceSpan, TypstSourceMap, default_map_path
 from .state import CompileContext
 from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
@@ -273,6 +274,105 @@ def _expand_plots(ctx, text, line_no):
         out.append(ph)
         pos = call_end
     return ''.join(out), placeholders
+
+
+DOC_TITLE_NAMES = ('doc_title', 'doc-title', 'doctitle', 'title')
+
+_DOC_TITLE_OPEN_RE = re.compile(r'^\*(doc_title|doc-title|doctitle|title)\s*\(')
+
+
+def _match_doc_title(line):
+    """Match a top-level ``*doc_title(...)`` control line.
+
+    Returns None when *line* is not a doc-title opener, otherwise
+    ('ok', name, inner_raw) or ('unclosed', name). The whole line must
+    be a single call (trailing whitespace allowed) so titles containing
+    parentheses still parse via depth-aware matching.
+    """
+    m = _DOC_TITLE_OPEN_RE.match(line)
+    if not m:
+        return None
+    name = m.group(1)
+    open_paren = m.end() - 1
+    depth = 0
+    in_quote = False
+    for i in range(open_paren, len(line)):
+        ch = line[i]
+        if ch == '"' and (i == 0 or line[i - 1] != '\\'):
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth == 0:
+                inner_raw = line[open_paren + 1:i]
+                tail = line[i + 1:].strip()
+                if tail:
+                    return None
+                return ('ok', name, inner_raw)
+    return ('unclosed', name)
+
+
+def _doc_title_plain(ctx, raw):
+    """Plain-text title for ``#set document(title: ...)`` metadata.
+
+    Expands variables/defines/calc and symbol shortcuts so the PDF
+    properties show readable text (``*alpha`` -> ``α``), then strips
+    Typst math wrappers. Falls back to the default title when empty.
+    """
+    from .symbols import replace_symbol_shortcuts
+
+    s = replace_vars(ctx, raw)
+    s = replace_defines(ctx, s)
+    s = apply_calc_in_string(ctx, s)
+    s = replace_symbol_shortcuts(s)
+    s = s.replace('$', '').strip()
+    s = re.sub(r'\s+', ' ', s)
+    return s or 'Easy Math Document'
+
+
+def _escape_doc_title_brackets(rendered):
+    """Escape ``[``/``]`` outside ``$...$`` so a title stays inside ``[...]``."""
+    parts = re.split(r'(\$.*?\$)', rendered)
+    for i, tok in enumerate(parts):
+        if not (tok.startswith('$') and tok.endswith('$') and len(tok) >= 2):
+            parts[i] = tok.replace('[', r'\[').replace(']', r'\]')
+    return ''.join(parts)
+
+
+def _eml_line_span(source_file, start_1based, end_1based, raw_lines):
+    """Whole-line ``.eml`` span (0-based, code-point columns).
+
+    Uses the original (pre-comment-strip) *raw_lines* for column widths
+    so editor navigation lands on the visible line. Empty/missing lines
+    map to a zero-width start-of-line span (still resolvable by line).
+    """
+    try:
+        s = max(1, int(start_1based)) - 1
+    except (TypeError, ValueError):
+        s = 0
+    try:
+        e = max(1, int(end_1based)) - 1
+    except (TypeError, ValueError):
+        e = s
+    if e < s:
+        s, e = e, s
+    def _width(idx):
+        try:
+            text = raw_lines[idx]
+        except (IndexError, TypeError):
+            return 0
+        if not isinstance(text, str):
+            return 0
+        return len(text)
+    return SourceSpan(
+        source_file=source_file,
+        start=SourcePosition(s, 0),
+        end=SourcePosition(e, _width(e)),
+    )
 
 
 def _render_text_line(ctx, raw, line_no, _table_depth=0):
@@ -726,7 +826,9 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
         return False
 
 
-def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None):
+def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None,
+                   source_map=True, source_map_path=None,
+                   embed_source_comments=False):
     """Compile an .ezmath document via an intermediate Typst file.
 
     Actual processing order (per text line, after comment stripping):
@@ -761,6 +863,14 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     following lines until its closer (control lines are suspended
     while math is open). Content inside is processed with the same
     math-command/symbol pipeline as the rest of the document.
+
+    Source map: when *source_map* is true (default) a sidecar JSON file
+    mapping generated ``.typ`` ranges back to ``.eml`` spans is written
+    next to the intermediate ``.typ`` file (``<base>.smap.json``, or
+    *source_map_path* when given). Pass ``source_map=False`` to skip it.
+    When *embed_source_comments* is true, ``// eml: ...`` comment lines
+    are also emitted into the ``.typ`` (robust Typst comments, ignored
+    in the PDF); defaults to off so ``.typ`` output stays unchanged.
 
     Returns True on success, False on failure (.typ is still written
     whenever parsing reaches the codegen stage).
@@ -806,15 +916,31 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         return False
 
     lines = strip_comments(raw_text).splitlines()
-    output_lines = []
+    raw_source_lines = raw_text.splitlines()
+    # Parallel to output_lines: original .eml span for each entry (None
+    # for consumed control lines, which produce no output).
+    output_lines: list[str] = []
+    output_spans: list[SourceSpan | None] = []
+    # Absolute source id stored in spans (preview uses a temp copy; the
+    # editor maps it back to the live document by line/col).
+    _src_id = os.path.abspath(input_str)
+    ctx.source_file = _src_id
     draw_failed = False
     in_f_block = False
     block_type = None
-    block_content = []
+    block_content: list[str] = []
+    block_start_line = 0
     in_math = False
     math_buf = []
     math_start = 0
     in_fence = False
+
+    def _append_output(text: str, start_1: int, end_1: int):
+        output_lines.append(text)
+        try:
+            output_spans.append(_eml_line_span(_src_id, start_1, end_1, raw_source_lines))
+        except Exception:
+            output_spans.append(None)
 
     for line_no, line in enumerate(lines, start=1):
         stripped_fence = line.strip()
@@ -824,8 +950,9 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         if in_fence:
             # Fenced code blocks are literal: no assignments, no math,
             # no Typst structure. Force every '$' literal.
-            output_lines.append(
-                escape_typst_outside_math(line.rstrip('\n')).replace('$', r'\$')
+            _append_output(
+                escape_typst_outside_math(line.rstrip('\n')).replace('$', r'\$'),
+                line_no, line_no,
             )
             continue
         line = line.strip()
@@ -847,7 +974,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             math_buf = []
             if not tail.strip():
                 if wrapped:
-                    output_lines.append(wrapped)
+                    _append_output(wrapped, math_start, line_no)
                 continue
             # Tail is normal text that may hold further math pairs.
             # Wrapped is already $...$ — never re-run it through
@@ -856,10 +983,10 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             if wrapped:
                 combined = (wrapped + ' ' + rendered_tail).strip()
                 if combined:
-                    output_lines.append(combined)
+                    _append_output(combined, math_start, line_no)
             else:
                 if rendered_tail:
-                    output_lines.append(rendered_tail)
+                    _append_output(rendered_tail, line_no, line_no)
             continue
 
         # Friendly: let/var and bare *define without parens.
@@ -887,7 +1014,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             inner = replace_defines(ctx, inner)
             inner = apply_calc_in_string(ctx, inner, line_no=line_no)
             drawn = _parse_draw_safe(inner, line_no=line_no)
-            output_lines.append(drawn)
+            _append_output(drawn, line_no, line_no)
             if _is_draw_error_placeholder(drawn):
                 draw_failed = True
             continue
@@ -926,19 +1053,21 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             in_f_block = True
             block_type = line
             block_content = []
+            block_start_line = line_no
             continue
         elif line == ')' and in_f_block:
             if block_type == '*draw(':
                 drawn = _parse_draw_safe('\n'.join(block_content), line_no=line_no)
-                output_lines.append(drawn)
+                _append_output(drawn, block_start_line, line_no)
                 if _is_draw_error_placeholder(drawn):
                     draw_failed = True
             elif block_type in ('*table(', '*matrix(', '*mat('):
                 cmd_name = block_type[1:-1]
                 joined = _tables.join_block_lines(block_content)
                 single = f'*{cmd_name}({joined})'
-                output_lines.append(
-                    _render_text_line(ctx, single, line_no)
+                _append_output(
+                    _render_text_line(ctx, single, line_no),
+                    block_start_line, line_no,
                 )
             else:
                 for stmt in block_content:
@@ -954,10 +1083,41 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             process_assignment_or_define(ctx, line, line_no=line_no)
             continue
 
+        # --- Document title: *doc_title(...) is a control line (consumed) ---
+        _doc = _match_doc_title(line)
+        if _doc is not None:
+            if _doc[0] == 'unclosed':
+                print(
+                    f'[Warning] Line {line_no}: unclosed *{_doc[1]}(... — '
+                    f'missing closing parenthesis',
+                    file=sys.stderr,
+                )
+            else:
+                _, _name, _inner = _doc
+                if not _inner.strip():
+                    print(
+                        f'[Warning] Line {line_no}: *{_name}(...) is empty — '
+                        f'using default title',
+                        file=sys.stderr,
+                    )
+                    continue
+                else:
+                    if ctx.doc_title_raw is not None:
+                        print(
+                            f'[Warning] Line {line_no}: multiple *doc_title(...) — '
+                            f'using last one',
+                            file=sys.stderr,
+                        )
+                    ctx.doc_title_raw = _inner.strip()
+                    ctx.doc_title_line = line_no
+                    continue
+                # Unclosed titles fall through to normal text so the
+                # user still sees the line instead of silent loss.
+
         # --- Friendly blocks: # headings, - / + lists, 1. enums, = headings ---
         _friendly = _try_friendly_block(ctx, line, line_no)
         if _friendly is not None:
-            output_lines.append(_friendly)
+            _append_output(_friendly, line_no, line_no)
             continue
 
         # --- Inline-math multiline opener detection ---
@@ -973,14 +1133,14 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             head, rest = line[:opening], line[opening + 1:]
             # Render any balanced pairs inside head normally.
             if head.strip():
-                output_lines.append(_render_text_line(ctx, head, line_no))
+                _append_output(_render_text_line(ctx, head, line_no), line_no, line_no)
             math_buf = [rest]
             math_start = line_no
             in_math = True
             continue
 
         # --- Normal single-line text ---
-        output_lines.append(_render_text_line(ctx, line, line_no))
+        _append_output(_render_text_line(ctx, line, line_no), line_no, line_no)
 
     if in_math:
         print(
@@ -991,7 +1151,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         )
         leftover = ' '.join(p for p in math_buf if p != '').strip()
         if leftover:
-            output_lines.append(_render_text_line(ctx, leftover, math_start))
+            _append_output(_render_text_line(ctx, leftover, math_start), math_start, math_start)
 
     # Warn if a block was never closed.
     # An unclosed block silently swallows its buffered lines, so fail
@@ -1019,17 +1179,81 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         )
         return False
 
-    typst_content = [
+    typst_content: list[str] = [
         '#set text(size: 12pt)',
         '#set page(paper: "a4", margin: 2cm)',
-        '#align(center)[= Easy Math Document]',
-        '',
     ]
+    # Parallel to typst_content: .eml span for mapped lines, None for
+    # generated-only lines (headers without source, blank, separators,
+    # source comments). Used to build the sidecar source map below.
+    _typ_span_for_line: list[SourceSpan | None] = [None, None]
+    _title_span_meta: SourceSpan | None = None
+    _title_span_head: SourceSpan | None = None
+    if ctx.doc_title_raw is not None and ctx.doc_title_line:
+        try:
+            _title_span_meta = _eml_line_span(
+                _src_id, ctx.doc_title_line, ctx.doc_title_line,
+                raw_source_lines,
+            )
+            _title_span_head = _eml_line_span(
+                _src_id, ctx.doc_title_line, ctx.doc_title_line,
+                raw_source_lines,
+            )
+        except Exception:
+            _title_span_meta = _title_span_head = None
+    if ctx.doc_title_raw is not None:
+        _rendered_title = _escape_doc_title_brackets(
+            _render_text_line(
+                ctx, ctx.doc_title_raw, ctx.doc_title_line or 1
+            )
+        )
+        _plain_title = _doc_title_plain(ctx, ctx.doc_title_raw)
+        _escaped_meta = _plain_title.replace('\\', '\\\\').replace('"', '\\"')
+        typst_content.append(f'#set document(title: "{_escaped_meta}")')
+        _typ_span_for_line.append(_title_span_meta)
+        typst_content.append(f'#align(center)[= {_rendered_title}]')
+        _typ_span_for_line.append(_title_span_head)
+    else:
+        typst_content.append('#set document(title: "Easy Math Document")')
+        _typ_span_for_line.append(None)
+        typst_content.append('#align(center)[= Easy Math Document]')
+        _typ_span_for_line.append(None)
+    typst_content.append('')
+    _typ_span_for_line.append(None)
+
+    def _eml_comment_for(span: SourceSpan | None) -> str | None:
+        if span is None:
+            return None
+        try:
+            return (
+                f"// eml:{span.source_file}:"
+                f"{span.start.line + 1}:{span.start.column + 1}-"
+                f"{span.end.line + 1}:{span.end.column + 1}"
+            )
+        except Exception:
+            return None
 
     for index, out_line in enumerate(output_lines):
-        typst_content.append(out_line + ' \\')
+        span: SourceSpan | None = None
+        try:
+            span = output_spans[index] if index < len(output_spans) else None
+        except Exception:
+            span = None
+        if embed_source_comments:
+            comment = _eml_comment_for(span)
+            if comment is not None:
+                typst_content.append(comment)
+                _typ_span_for_line.append(None)
+        sublines = str(out_line).split('\n')
+        for si, sub in enumerate(sublines):
+            if si < len(sublines) - 1:
+                typst_content.append(sub)
+            else:
+                typst_content.append(sub + ' \\')
+            _typ_span_for_line.append(span)
         if index < len(output_lines) - 1:
             typst_content.append('#v(0.65em)')
+            _typ_span_for_line.append(None)
 
     try:
         with open(typst_file, 'w', encoding='utf-8') as tf:
@@ -1038,6 +1262,62 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         print(f'\n[ERROR] Cannot write intermediate file {typst_file!r}: {e}',
               file=sys.stderr)
         return False
+
+    # --- Sidecar source map (additive; never breaks the build) ---
+    try:
+        _map_path: str | None = None
+        if source_map_path is not None:
+            _map_path = os.fspath(source_map_path)
+        elif source_map:
+            _map_path = default_map_path(typst_file)
+        if _map_path:
+            _smap = TypstSourceMap(
+                source_file=_src_id,
+                typ_file=os.path.abspath(typst_file),
+            )
+            # Coalesce consecutive typ lines sharing the same span object
+            # into one range entry (multi-line draw -> one .eml span).
+            # Distinct output entries keep distinct entries even when spans
+            # are equal by value (one .eml -> multiple typ regions, e.g.
+            # the two title lines above stay separate).
+            _run_span: SourceSpan | None = None
+            _run_start = 0
+            for _ti, _sp in enumerate(_typ_span_for_line):
+                if _sp is None:
+                    if _run_span is not None:
+                        _end_line = _ti - 1
+                        _smap.add(
+                            SourcePosition(_run_start, 0),
+                            SourcePosition(
+                                _end_line, len(typst_content[_end_line])),
+                            _run_span,
+                        )
+                        _run_span = None
+                    continue
+                if _run_span is None:
+                    _run_span = _sp
+                    _run_start = _ti
+                elif _sp is not _run_span:
+                    _end_line = _ti - 1
+                    _smap.add(
+                        SourcePosition(_run_start, 0),
+                        SourcePosition(
+                            _end_line, len(typst_content[_end_line])),
+                        _run_span,
+                    )
+                    _run_span = _sp
+                    _run_start = _ti
+                # else: same object -> extend run
+            if _run_span is not None:
+                _end_line = len(_typ_span_for_line) - 1
+                _smap.add(
+                    SourcePosition(_run_start, 0),
+                    SourcePosition(_end_line, len(typst_content[_end_line])),
+                    _run_span,
+                )
+            _smap.save(_map_path)
+    except Exception as exc:  # additive only: log and continue
+        print(f'[Warning] could not write source map: {exc}', file=sys.stderr)
 
     print(f'Generated intermediate file: {typst_file}')
 

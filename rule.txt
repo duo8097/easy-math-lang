@@ -1095,6 +1095,13 @@ Document structure:
 1. item   ->  Typst enumeration
 = Title   ->  Typst heading (not escaped)
 
+Document title:
+
+*doc_title(My Lesson) sets the centered title + PDF metadata.
+Aliases: *doc-title, *doctitle, *title. Control line (consumed,
+last wins). Variables, calc, math and symbols work inside.
+Default when absent: Easy Math Document.
+
 Equality:
 
 a == b  ->  a = b (single equals; === and !== still map to

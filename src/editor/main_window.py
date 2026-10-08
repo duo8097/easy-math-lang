@@ -437,6 +437,114 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editor.centerCursor()
         self.editor.setFocus()
 
+    def open_source_location(self, file, line, column,
+                             end_line=None, end_column=None):
+        """Open an ``.eml`` location from a resolved source map span.
+
+        *file* is the ``SourceSpan.source_file`` (absolute path, or the
+        preview temp copy ``preview.ezmath``); *line*/*column* are 0-based
+        with code-point columns (see :mod:`compiler.source_map`). The
+        cursor uses Qt/LSP-native UTF-16 columns, converted via
+        :mod:`editor.positions`. Navigates the current document when
+        *file* is ``None``, matches the open file, or is the preview temp
+        copy; otherwise opens *file* from disk (honouring unsaved-changes
+        prompt). Returns ``True`` when navigation happened.
+        """
+        try:
+            line = int(line)
+        except (TypeError, ValueError):
+            line = 0
+        try:
+            column = int(column)
+        except (TypeError, ValueError):
+            column = 0
+        line = max(0, line)
+        column = max(0, column)
+        if end_line is not None:
+            try:
+                end_line = max(0, int(end_line))
+            except (TypeError, ValueError):
+                end_line = None
+        if end_column is not None:
+            try:
+                end_column = max(0, int(end_column))
+            except (TypeError, ValueError):
+                end_column = None
+
+        target = None
+        try:
+            target = os.path.abspath(str(file)) if file else None
+        except (TypeError, ValueError, OSError):
+            target = None
+        current = None
+        try:
+            if self._file_path:
+                current = os.path.abspath(self._file_path)
+        except (TypeError, ValueError, OSError):
+            current = None
+
+        def _is_preview_copy(path):
+            try:
+                return os.path.basename(str(path)) == 'preview.ezmath'
+            except Exception:
+                return False
+
+        if target is not None and target != current and not _is_preview_copy(target):
+            # Different real file: open it (prompt on unsaved changes).
+            try:
+                if not os.path.isfile(target):
+                    return False
+            except (TypeError, ValueError, OSError):
+                return False
+            if not self._maybe_save():
+                return False
+            try:
+                with open(target, 'r', encoding='utf-8') as handle:
+                    text = handle.read()
+            except (OSError, UnicodeDecodeError):
+                return False
+            try:
+                self._recent.add(target)
+            except Exception:
+                pass
+            self._switch_document(target, text)
+        # Convert code-point column -> Qt UTF-16 using the live line text.
+        try:
+            from .positions import to_lsp_offset as _to_lsp
+            block = self.editor.document().findBlockByNumber(max(0, line))
+            line_text = block.text() if block.isValid() else ''
+            character = int(_to_lsp(line_text, column))
+        except Exception:
+            character = column
+        if end_line is not None and end_column is not None and end_line == line:
+            try:
+                from .positions import to_lsp_offset as _to_lsp_end
+                block = self.editor.document().findBlockByNumber(max(0, line))
+                line_text = block.text() if block.isValid() else ''
+                end_char = int(_to_lsp_end(line_text, end_column))
+            except Exception:
+                end_char = end_column
+            self._goto_range(line, character, end_char)
+        else:
+            self._goto(line, character)
+        return True
+
+    def open_source_span(self, span):
+        """Convenience wrapper accepting a ``SourceSpan`` (or dict)."""
+        try:
+            if isinstance(span, dict):
+                from compiler.source_map import SourceSpan as _SS
+                span = _SS.from_dict(span)
+            return bool(self.open_source_location(
+                getattr(span, 'source_file', None),
+                getattr(getattr(span, 'start', None), 'line', 0),
+                getattr(getattr(span, 'start', None), 'column', 0),
+                getattr(getattr(span, 'end', None), 'line', None),
+                getattr(getattr(span, 'end', None), 'column', None),
+            ))
+        except Exception:
+            return False
+
     # ------------------------------------------------------------------
     # Completion + hover
     # ------------------------------------------------------------------
@@ -1509,6 +1617,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if result.get('ok') and result.get('pdf'):
             old_pdf = getattr(self.preview, 'pdf_path', None)
             self.preview.show_pdf(result['pdf'])
+            try:
+                self.preview.set_source_map(result.get('smap'))
+            except Exception:
+                pass
             # Delete the previous versioned PDF now that the new one is loaded.
             try:
                 if old_pdf and old_pdf != result['pdf'] and os.path.isfile(old_pdf):

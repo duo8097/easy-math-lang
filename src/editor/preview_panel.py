@@ -18,7 +18,20 @@ def pdf_available():
 
 
 class PreviewPanel(QtWidgets.QWidget):
-    """Right-hand preview: toolbar + PDF view (or error/empty message)."""
+    """Right-hand preview: toolbar + PDF view (or error/empty message).
+
+    Source navigation: the compiler writes a sidecar source map
+    (``preview.smap.json``) mapping generated ``.typ`` ranges back to the
+    original ``.eml`` spans. Use :meth:`set_source_map` after each build
+    and :meth:`typ_location_to_eml` to resolve a generated-Typ location.
+
+    Missing link (not faked): ``QPdfView``/``QPdfDocument`` expose no
+    inverse-search / source-position API and ``typst.compile()`` emits no
+    SyncTeX, so a PDF click cannot currently yield a ``.typ`` location.
+    Once a PDF->Typ mechanism exists, feed its result into
+    :meth:`typ_location_to_eml` and then
+    ``MainWindow.open_source_location``.
+    """
 
     refreshRequested = QtCore.Signal()
     autoToggled = QtCore.Signal(bool)
@@ -75,6 +88,7 @@ class PreviewPanel(QtWidgets.QWidget):
         self._document = None
         self._view = None
         self._pdf_path = None
+        self._smap_path = None
         if _PDF_AVAILABLE:
             self._document = QPdfDocument(self)
             self._view = QPdfView(self)
@@ -231,6 +245,36 @@ class PreviewPanel(QtWidgets.QWidget):
     @property
     def pdf_path(self):
         return self._pdf_path
+
+    @property
+    def smap_path(self):
+        """Current sidecar source-map path (or None)."""
+        return self._smap_path
+
+    def set_source_map(self, smap_path):
+        """Remember the sidecar map for the currently shown PDF."""
+        try:
+            import os as _os
+            if smap_path and _os.path.isfile(str(smap_path)):
+                self._smap_path = str(smap_path)
+                return
+        except Exception:
+            pass
+        self._smap_path = None
+
+    def typ_location_to_eml(self, typ_line, typ_column):
+        """Resolve a generated-Typ location (0-based) to an .eml span.
+
+        Returns a ``SourceSpan`` (0-based code-point columns) or ``None``
+        when unmapped / map missing. Qt-free resolution lives in
+        ``editor.preview.resolve_typ_to_eml``; this is a thin wrapper
+        using the panel's current map.
+        """
+        try:
+            from .preview import resolve_typ_to_eml
+        except Exception:
+            return None
+        return resolve_typ_to_eml(self._smap_path, typ_line, typ_column)
 
     @property
     def auto_enabled(self):

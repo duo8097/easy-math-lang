@@ -447,6 +447,52 @@ def _analyze_text_inner(text, analysis):
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
+            # --- Document title: *doc_title(...) is a control line ---
+            if not math_buffered and not in_f_block and not in_table_block:
+                _dm = re.match(r'^\*(doc_title|doc-title|doctitle|title)\s*\(', s)
+                if _dm:
+                    _dname = _dm.group(1)
+                    _open = _dm.end() - 1
+                    _depth = 0
+                    _in_q = False
+                    _close = None
+                    for _i in range(_open, len(s)):
+                        _ch = s[_i]
+                        if _ch == '"' and (_i == 0 or s[_i - 1] != '\\'):
+                            _in_q = not _in_q
+                            continue
+                        if _in_q:
+                            continue
+                        if _ch == '(':
+                            _depth += 1
+                        elif _ch == ')':
+                            _depth -= 1
+                            if _depth == 0:
+                                _close = _i
+                                break
+                    if _close is None:
+                        analysis.diagnostics.append(Diag(
+                            idx, code.index('*' + _dname) if ('*' + _dname) in code else 0,
+                            len(code), 'warning',
+                            f'Unclosed *{_dname}(... — missing closing parenthesis',
+                        ))
+                    elif s[_close + 1:].strip():
+                        pass  # trailing content: not a pure control line
+                    else:
+                        _inner = s[_open + 1:_close]
+                        if not _inner.strip():
+                            analysis.diagnostics.append(Diag(
+                                idx, code.index('*' + _dname) if ('*' + _dname) in code else 0,
+                                len(code), 'warning',
+                                f'*{_dname}(...) is empty — using default title',
+                            ))
+                            continue
+                        # Consumed control line: the compiler renders the
+                        # title at codegen with final variables, so forward
+                        # references are valid — skip per-line undefined
+                        # checks here to avoid false positives.
+                        continue
+
             # --- Text line checks (positions refer to the source line) ---
             # *p(...) raw spans are masked so their contents bypass checks.
             check_code = _mask_p_segments(code)
