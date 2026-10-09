@@ -72,6 +72,62 @@ def test_cases_block_form(tmp_path, monkeypatch, capsys):
     assert "$cases(x + y = 3, x - y = 1)$" in typ
 
 
+def test_cases_semicolon_cells_piecewise(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys,
+        "*cases(x ; x > 0 | 0 ; x <= 0)\n",
+    )
+    assert ok is True
+    assert "$cases(x & x > 0, 0 & x ≤ 0)$" in typ
+    assert "unknown command" not in err.lower()
+
+
+def test_cases_cells_comma_friendly(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys,
+        "*cases(x, x > 0 | 0, x <= 0)\n",
+    )
+    assert ok is True
+    assert "$cases(x & x > 0, 0 & x ≤ 0)$" in typ
+
+
+def test_cases_mixed_single_and_double_cells(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys,
+        "*cases(x ; x > 0 | 0)\n",
+    )
+    assert ok is True
+    assert "$cases(x & x > 0, 0)$" in typ
+
+
+def test_cases_block_form_with_cells(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys,
+        "*cases(\n    x ; x > 0\n    0 ; x <= 0\n)\n",
+    )
+    assert ok is True
+    assert "$cases(x & x > 0, 0 & x ≤ 0)$" in typ
+
+
+def test_cases_piecewise_real_pdf():
+    """Real Typst compile for the piecewise repro (no stub)."""
+    import pytest as _pytest
+    _pytest.importorskip("typst")
+    import shutil
+    import tempfile
+    from compiler.pipeline import compile_ezmath
+    work = tempfile.mkdtemp(prefix="easymath-cases-")
+    try:
+        src = os.path.join(work, "pw.ezmath")
+        out = os.path.join(work, "pw.pdf")
+        with open(src, "w", encoding="utf-8") as f:
+            f.write("*cases(x ; x > 0 | 0 ; x <= 0)\n")
+        assert compile_ezmath(src, out) is True
+        assert os.path.isfile(out)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def test_vec_arrow_not_column(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(AB)\n")
     assert ok is True

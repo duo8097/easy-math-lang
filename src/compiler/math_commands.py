@@ -503,9 +503,14 @@ def replace_cases_call(text, ctx, _depth=0):
     """Expand *cases(row1 | row2 | ...) to Typst cases(...).
 
     Rows split on top-level ``|`` with the same quote/nesting rules as
-    *matrix rows (via tables.split_rows_top_level). Each row is cleaned
-    with clean_inner_math and joined with ``, ``. Empty rows are dropped
-    (like tables); fully-empty calls warn and stay as-is.
+    *matrix rows (via tables.split_rows_top_level). Inside a row, a
+    depth-0 ``;`` (same rules as *matrix cells, via
+    tables.split_cells_top_level, friendly ``,`` when no ``;``) splits
+    value/condition cells, emitted with Typst ``&`` alignment
+    (``$cases(x & x > 0, 0 & x <= 0)$``). Single-cell rows emit as-is,
+    so the existing ``|``-only and block forms are unchanged. Empty
+    rows are dropped (like tables); empty cells or fully-empty calls
+    warn and stay as-is.
     """
     import sys
     from . import tables as _tables
@@ -563,8 +568,24 @@ def replace_cases_call(text, ctx, _depth=0):
             out.append(text[match.start():i])
             pos = i
             continue
-        cleaned = [clean_inner_math(ctx, r) for r in rows]
-        out.append(f"$cases({', '.join(cleaned)})$")
+        rendered = []
+        broken = False
+        for r in rows:
+            cells = _tables.split_cells_top_level(r)
+            if any(c == '' for c in cells):
+                print(
+                    '[Warning] *cases(...) has empty cell(s) — leaving as-is',
+                    file=sys.stderr,
+                )
+                out.append(text[match.start():i])
+                broken = True
+                break
+            cleaned_cells = [clean_inner_math(ctx, c) for c in cells]
+            rendered.append(' & '.join(cleaned_cells))
+        if broken:
+            pos = i
+            continue
+        out.append(f"$cases({', '.join(rendered)})$")
         pos = i
     return ''.join(out)
 

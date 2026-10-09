@@ -22,6 +22,10 @@ Contour: *oint(C ; F ; l)
     x - y = 1
 )
 
+Piecewise function:
+
+*cases(x ; x > 0 | 0 ; x <= 0)
+
 # Vectors and binomials
 
 Vector AB: *vec(AB)

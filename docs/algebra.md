@@ -306,12 +306,25 @@ Variables and `calc()` work inside every argument.
 ```
 
 Rows split on `|` (same quote/nesting rules as `*matrix` rows).
-Multiline block form works too:
+Inside a row, a depth-0 `;` (same rules as `*matrix` cells; `,` works
+when the row has no `;`) separates value/condition cells, aligned with
+Typst `&` (conditions line up across rows — a fixed `quad` gap would
+not align). Piecewise example:
+
+```
+*cases(x ; x > 0 | 0 ; x <= 0)
+```
+
+Multiline block form works too (cells work per line as well):
 
 ```
 *cases(
     x + y = 3
     x - y = 1
+)
+*cases(
+    x ; x > 0
+    0 ; x <= 0
 )
 ```
 

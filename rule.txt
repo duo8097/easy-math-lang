@@ -282,6 +282,12 @@ Example:
 *cases(x + y = 3 | x - y = 1)
 
 Rows split on "|" (same quote/nesting rules as *matrix rows).
+Inside a row, a depth-0 ";" (same rules as *matrix cells; "," works
+when the row has no ";") separates value/condition cells, emitted
+with Typst "&" alignment. Piecewise example:
+
+*cases(x ; x > 0 | 0 ; x <= 0)
+
 Multiline block form works too:
 
 *cases(
