@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest is the required minimum. windows-latest is included
+        # because the suite passes on Windows (verified locally).
+        # macos-latest is omitted until Qt/offscreen stability is confirmed
+        # on real macOS runners.
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install system dependencies (Qt libs, Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 libdbus-1-3 libfontconfig1
+
+      - name: Install project dependencies
+        run: uv sync --frozen
+
+      - name: Run test suite (excluding opt-in packaged-build tests)
+        run: uv run --frozen pytest tests/ --ignore=tests/test_packaged_build.py -q
