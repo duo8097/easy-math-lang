@@ -1,0 +1,111 @@
+// Math workout: one document exercising every compiler feature.
+// It must compile with zero errors (check the final status line).
+*doc_title(Math Workout)
+
+# Variables and calc
+
+<w> = 12
+<h> = 5
+<area> = calc(<w> * <h>)
+A rectangle is <w> cm wide and <h> cm tall. Area: <w> . <h> = <area> cm².
+
+<half> = 3,5
+Double of <half> is calc(<half> * 2).
+Thousands still work: calc(100,000 + 1).
+
+# Fractions, roots, powers
+
+*frac(2 ; 3)
+*frac(x + 1 ; x - 1)
+*pow(x ; 2)
+*pow(x + 1 ; n)
+*root(2 ; x)
+*root(3 ; x + 1)
+*cbrt(27)
+*sqrt(16)
+*abs(x - 5)
+
+Nested: *frac(*sqrt(4) ; *pow(2 ; 3))
+
+# Trigonometry and logarithms
+
+*sin(x)
+*cos(x)
+*tan(x)
+*cot(x)
+*sec(x)
+*csc(x)
+*arcsin(x)
+*arccos(x)
+*arctan(x)
+*sinh(x)
+*cosh(x)
+*tanh(x)
+*coth(x)
+*log(10)
+*ln(2.718)
+
+# Sums, products, limits
+
+*sum(i = 1 ; n ; i)
+*prod(i = 1 ; n ; i)
+*lim(x -> 0 ; sin(x) / x)
+
+# Integrals
+
+*int(x^2)
+*int(x^2 ; x)
+*int(0 ; 1 ; x^2)
+*int(0 ; 1 ; x^2 ; x)
+*oint(C ; F ; l)
+*integral(0 ; 1 ; x^2)
+
+# Piecewise functions and equation systems
+
+*cases(x + y = 3 | x - y = 1)
+
+*cases(x ; x > 0 | 0 ; x <= 0)
+
+*cases(
+    x ; x > 0
+    0 ; x <= 0
+)
+
+# Vectors and binomials
+
+*vec(AB)
+*binom(n ; k)
+*binom(5 ; 2)
+
+# Matrices and tables
+
+*matrix(1 ; 2 | 3 ; 4)
+*mat(a ; b | c ; d)
+
+*table(Name ; Age | Alice ; 20 | Bob ; 22)
+
+# Inline math and subscripts
+
+The solution is \ x = 2 \.
+
+Discriminant: \ b^2 - 4ac \
+
+Corners A_1 and x_n, vector *vec(AB).
+
+# Spacing and symbols
+
+a *quad b *qquad c *thin d *med e
+
+*alpha *beta *gamma *pi *infinity
+
+If x >= 0 and x <= 10 then x != 5 => done.
+
+# Plots
+
+*plot(x^2 ; -5 ; 5)
+*plot(sin(x) ; -10 ; 10)
+
+# Everything combined
+
+<k> = 3
+*frac(*int(0 ; <k> ; x^2) ; *binom(calc(<k> + 1) ; 2))
