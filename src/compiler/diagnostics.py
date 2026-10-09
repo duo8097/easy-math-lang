@@ -33,6 +33,7 @@ _SUGGESTIONS = {
     'product': 'prod',
     'limit': 'lim',
     'fracd': 'frac',
+    'frcc': 'frac',
     'squrt': 'sqrt',
     'sqt': 'sqrt',
     'tabl': 'table',
@@ -49,6 +50,24 @@ KNOWN_GEOMETRY_COMMANDS = {
     'distance', 'midpoint', 'intersection', 'arc', 'label',
     'length', 'angle-value', 'draw',
 }
+
+
+def _levenshtein(a, b):
+    """Small edit distance for suggestion gating (stdlib only)."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, start=1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1,
+                         prev[j - 1] + (ca != cb))
+        prev = cur
+    return prev[len(b)]
 
 
 def warn_unknown_commands(text, line_no):
@@ -78,9 +97,12 @@ def warn_unknown_commands(text, line_no):
         if hint is None:
             close = difflib.get_close_matches(
                 cmd, sorted(KNOWN_COMMANDS | KNOWN_GEOMETRY_COMMANDS),
-                n=1, cutoff=0.6,
+                n=1, cutoff=0.8,
             )
-            hint = close[0] if close else None
+            if close and _levenshtein(cmd, close[0]) <= 2:
+                hint = close[0]
+            else:
+                hint = None
         extra = f" Did you mean '*{hint}(...)'?" if hint else ""
         print(
             f'[Warning] Line {line_no}: unknown command *{cmd}(...) — treated as plain text.{extra}',
