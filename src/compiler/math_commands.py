@@ -160,6 +160,7 @@ _TYPST_MATH_KEEP = frozenset({
     'integral', 'cont', 'dif', 'cases', 'arrow', 'binom',
     'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh', 'coth',
+    'quad', 'thin', 'med',
     'pi', 'infinity',
     'upright', 'bracket', 'lr', 'mid',
 })

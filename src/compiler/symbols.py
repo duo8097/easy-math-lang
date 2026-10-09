@@ -85,6 +85,11 @@ WORD_REPLACEMENTS = [
     ('mapsto', '↦'),
     # Dots and ellipsis.
     ('ldots', '…'), ('cdots', '⋯'), ('vdots', '⋮'), ('ddots', '⋱'),
+    # Spacing (Typst spacing functions; work in text and math, incl.
+    # *cases/*matrix cells and inline \ ... \ math). *qquad is a double
+    # quad (Typst has no bare qquad); *thin/*med verified to exist.
+    ('quad', 'quad'), ('qquad', 'quad quad'),
+    ('thin', 'thin'), ('med', 'med'),
     # Delimiters.
     ('langle', '⟨'), ('rangle', '⟩'),
     ('lfloor', '⌊'), ('rfloor', '⌋'),

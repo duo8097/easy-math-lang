@@ -566,6 +566,11 @@ Math symbols can also be written using "*" commands.
 *lceil       → ⌈
 *rceil       → ⌉
 
+*quad        → 1em space (Typst quad; text and math)
+*qquad       → double quad space (quad quad; Typst has no bare qquad)
+*thin        → thin space (Typst thin)
+*med         → medium space (Typst med)
+
 *partial     → ∂
 *nabla       → ∇
 *aleph       → ℵ

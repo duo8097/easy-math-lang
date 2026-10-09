@@ -612,6 +612,15 @@ You can also type symbols using `*` + a word:
 | `*lfloor` / `*rfloor` | ⌊ ⌋ |
 | `*lceil` / `*rceil` | ⌈ ⌉ |
 
+### Spacing (work in text and math, incl. `*cases`/`*matrix` cells and `\ ... \` math)
+
+| Type | Gets |
+|---|---|
+| `*quad` | 1em space (Typst `quad`) |
+| `*qquad` | double quad space (`quad quad`; Typst has no bare `qquad`) |
+| `*thin` | thin space (Typst `thin`) |
+| `*med` | medium space (Typst `med`) |
+
 ### Misc symbols
 
 | Type | Gets |

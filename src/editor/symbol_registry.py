@@ -306,6 +306,10 @@ def _build_symbols() -> list[Symbol]:
         _direct_word('cap', 'cap', 'Basic', 'Intersection'),
         _direct_word('emptyset', 'emptyset', 'Basic', 'Empty set'),
         _direct_word('partial', 'partial', 'Basic', 'Partial'),
+        _direct_word('quad-sym', 'quad', 'Basic', 'Quad space (1em, text and math)'),
+        _direct_word('qquad-sym', 'qquad', 'Basic', 'Double quad space'),
+        _direct_word('thin-sym', 'thin', 'Basic', 'Thin space'),
+        _direct_word('med-sym', 'med', 'Basic', 'Medium space'),
 
         # -- Math / calculation (dialogs; syntax/docs derived from MATH_DOCS) --
         _dialog('calc', 'calc()', 'calc(expression)', 'Math',

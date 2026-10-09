@@ -383,3 +383,58 @@ def test_sqrt_discriminant_no_unknown_variable(
     )
     assert "$sqrt(b^2 - 4a c)$" in typ
     assert "4ac" not in typ
+
+
+def test_spacing_keywords_in_text(tmp_path, monkeypatch, capsys):
+    typ, err = compile_text(
+        tmp_path, monkeypatch, capsys, "a *quad b *qquad c *thin d *med e\n"
+    )
+    assert "a quad b quad quad c thin d med e" in typ
+    assert "*quad" not in typ
+    assert "unknown command" not in err.lower()
+
+
+def test_spacing_keywords_inside_math(tmp_path, monkeypatch, capsys):
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys,
+        "\\ x *quad y \\\n*frac(a *quad b ; c)\n",
+    )
+    assert "$x quad y$" in typ
+    assert "$frac(a quad b, c)$" in typ
+
+
+def test_spacing_keywords_in_matrix_and_cases(tmp_path, monkeypatch, capsys):
+    typ, _ = compile_text(
+        tmp_path, monkeypatch, capsys,
+        "*matrix(a *quad b ; 2)\n*cases(x *quad ; x > 0 | 0)\n",
+    )
+    assert "$mat(a quad b, 2)$" in typ
+    assert "$cases(x quad & x > 0, 0)$" in typ
+
+
+def test_spacing_words_survive_identifier_splitting():
+    from compiler.math_commands import space_out_bare_identifiers
+
+    assert space_out_bare_identifiers("quad") == "quad"
+    assert space_out_bare_identifiers("thin") == "thin"
+    assert space_out_bare_identifiers("med") == "med"
+
+
+def test_spacing_real_pdf_compile(tmp_path):
+    """Real Typst compile with spacing in text and math (no stub)."""
+    import pytest as _pytest
+
+    _pytest.importorskip("typst")
+    import shutil
+    import tempfile
+    from compiler.pipeline import compile_ezmath
+    work = tempfile.mkdtemp(prefix="easymath-spacing-")
+    try:
+        src = os.path.join(work, "sp.ezmath")
+        out = os.path.join(work, "sp.pdf")
+        with open(src, "w", encoding="utf-8") as f:
+            f.write("a *quad b\n\\ x *thin y \\\n*cases(x ; x > 0 | 0)\n")
+        assert compile_ezmath(src, out) is True
+        assert os.path.isfile(out)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
