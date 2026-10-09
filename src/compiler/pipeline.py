@@ -35,6 +35,8 @@ from .math_commands import (
     clean_inner_math,
     math_call_specs,
     normalize_friendly_calls,
+    replace_cases_call,
+    replace_int_calls,
     replace_math_call,
     split_top_level_args,
 )
@@ -684,6 +686,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         text = replace_math_call(text, fn_name, fn_min, fn_fmt)
+    text = replace_int_calls(text, ctx)
+    text = replace_cases_call(text, ctx)
 
     # 7. Warn about unknown *command(...)
     warn_unknown_commands(text, line_no)
@@ -1268,7 +1272,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                     process_assignment_or_define(ctx, inner, line_no=line_no)
                     continue
         if line in ('*(', '*f(', 'f(', '*draw(',
-                      '*table(', '*matrix(', '*mat('):
+                      '*table(', '*matrix(', '*mat(', '*cases('):
             in_f_block = True
             block_type = line
             block_content = []
@@ -1280,7 +1284,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 _append_output(drawn, block_start_line, line_no)
                 if _is_draw_error_placeholder(drawn):
                     draw_failed = True
-            elif block_type in ('*table(', '*matrix(', '*mat('):
+            elif block_type in ('*table(', '*matrix(', '*mat(', '*cases('):
                 cmd_name = block_type[1:-1]
                 joined = _tables.join_block_lines(block_content)
                 single = f'*{cmd_name}({joined})'

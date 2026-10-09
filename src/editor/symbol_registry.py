@@ -339,6 +339,42 @@ def _build_symbols() -> list[Symbol]:
                 [_req('expression', 'Expression', 'x')]),
         _math_dialog('tan', 'tan', 'tan',
                 [_req('expression', 'Expression', 'x')]),
+        _math_dialog('cot', 'cot', 'cot',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('sec', 'sec', 'sec',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('csc', 'csc', 'csc',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('arcsin', 'arcsin', 'arcsin',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('arccos', 'arccos', 'arccos',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('arctan', 'arctan', 'arctan',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('sinh', 'sinh', 'sinh',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('cosh', 'cosh', 'cosh',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('tanh', 'tanh', 'tanh',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('coth', 'coth', 'coth',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('int', '∫', 'int',
+                [_opt('lower', 'Lower (optional, definite only)', '0'),
+                 _opt('upper', 'Upper (optional, definite only)', '1'),
+                 _req('expression', 'Expression', 'x^2'),
+                 _opt('variable', 'Differential variable (optional)', 'x',
+                      help='e.g. x in "dif x". Leave empty for no dif.')]),
+        _math_dialog('oint', '∮', 'oint',
+                [_opt('lower', 'Lower (optional)', 'C'),
+                 _opt('upper', 'Upper (optional)', ''),
+                 _req('expression', 'Expression', 'F'),
+                 _opt('variable', 'Differential variable (optional)', 'l')]),
+        _math_dialog('vec', '→', 'vec',
+                [_req('expression', 'Expression', 'AB')]),
+        _math_dialog('binom', 'binom', 'binom',
+                [_req('n', 'Upper (n)', 'n'),
+                 _req('k', 'Lower (k)', 'k')]),
         _math_dialog('log', 'log', 'log',
                 [_req('expression', 'Expression', '10')]),
         _math_dialog('ln', 'ln', 'ln',
@@ -358,6 +394,12 @@ def _build_symbols() -> list[Symbol]:
                 make_grid_fields('table', 2, 2)),
         _math_dialog('matrix', 'Matrix', 'matrix',
                 make_grid_fields('matrix', 2, 2)),
+        _dialog('cases', '{…', _math_sig_desc('cases')[0], 'Math',
+                _math_sig_desc('cases')[1] or '*cases(row1 | row2)',
+                [_req('row1', 'Row 1', 'x + y = 3'),
+                 _req('row2', 'Row 2', 'x - y = 1'),
+                 _opt('row3', 'Row 3 (optional)', '')],
+                command='cases'),
 
         # -- Variables / definitions --
         _dialog('var-def', '<x> =', '<name> = value', 'Variables',
@@ -594,7 +636,7 @@ _CUSTOM_SYMBOLS = frozenset({
     'calc', 'var-def', 'define', 'inline-math', 'heading', 'doc-title',
     'doc-font', 'list-item',
     'raw-p', 'geo-point', 'geo-length', 'geo-angle-value',
-    'table', 'matrix',
+    'table', 'matrix', 'cases',
 })
 
 
@@ -658,6 +700,13 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
         return _build_grid_source('table', vals)
     if n == 'matrix':
         return _build_grid_source('matrix', vals)
+    if n == 'cases':
+        rows = [_v(vals, 'row1'), _v(vals, 'row2')]
+        row3 = _v(vals, 'row3')
+        if row3:
+            rows.append(row3)
+        # validate_fields already ensures row1/row2 non-empty.
+        return f"*cases({' | '.join(rows)})"
     # -- geometry: always wrapped in *draw(...) --
     if n == 'geo-point':
         name = _v(vals, 'name')

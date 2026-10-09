@@ -11,8 +11,9 @@ Expression syntax is the same family as ``calc(...)`` (see
 :mod:`compiler.calc`): ``+ - * / % ^`` (``^`` is power), parentheses,
 decimal points/commas and thousands separators. Additionally the plot
 variable ``x``, the constants ``pi``/``e`` (``*pi`` is accepted too)
-and the single-argument functions ``sin cos tan sqrt cbrt log ln abs
-exp`` are supported, where ``log`` is base-10 like Typst's ``log`` and
+and the single-argument functions ``sin cos tan cot sec csc arcsin
+arccos arctan sinh cosh tanh coth sqrt cbrt log ln abs exp`` are
+supported, where ``log`` is base-10 like Typst's ``log`` and
 ``ln`` is the natural logarithm.
 
 Plots are generated numerically (1000 samples by default). Values
@@ -53,6 +54,16 @@ def _numpy_funcs():
         'sin': _np.sin,
         'cos': _np.cos,
         'tan': _np.tan,
+        'cot': lambda x: 1.0 / _np.tan(x),
+        'sec': lambda x: 1.0 / _np.cos(x),
+        'csc': lambda x: 1.0 / _np.sin(x),
+        'arcsin': _np.arcsin,
+        'arccos': _np.arccos,
+        'arctan': _np.arctan,
+        'sinh': _np.sinh,
+        'cosh': _np.cosh,
+        'tanh': _np.tanh,
+        'coth': lambda x: 1.0 / _np.tanh(x),
         'sqrt': _np.sqrt,
         'cbrt': _np.cbrt,
         'log': _np.log10,
@@ -110,7 +121,7 @@ def _preprocess_expression(ctx, raw):
     # Accept math-command spellings (*sin(x), *sqrt(x)) inside plots:
     # single-argument functions map to their bare numpy equivalents.
     expr = re.sub(
-        r'\*(sin|cos|tan|sqrt|cbrt|log|ln|abs|exp)\s*\(', r'\1(', expr)
+        r'\*(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|coth|sqrt|cbrt|log|ln|abs|exp)\s*\(', r'\1(', expr)
     if ctx.mult_sym != '*':
         expr = re.sub(
             r'\s' + re.escape(ctx.mult_sym) + r'\s', ' * ', f' {expr} '

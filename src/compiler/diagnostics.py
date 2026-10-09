@@ -12,6 +12,9 @@ KNOWN_COMMANDS = {
     'cube-root', 'log', 'ln',
     'pow', 'power', 'root', 'sum', 'summation', 'prod', 'product',
     'lim', 'limit',
+    'int', 'integral', 'oint', 'cases', 'vec', 'binom',
+    'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
+    'sinh', 'cosh', 'tanh', 'coth',
     'table', 'matrix', 'mat',
     'plot',
     # symbol shortcuts handled separately: pi, infinity, degree, ...

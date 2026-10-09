@@ -1,0 +1,49 @@
+// New math commands: integrals, cases, vectors, binomials, trig
+*doc_title(New Math Commands)
+
+# Integrals
+
+Indefinite: *int(x^2)
+
+With differential: *int(x^2 ; x)
+
+Definite: *int(0 ; 1 ; x^2)
+
+Definite with differential: *int(0 ; 1 ; x^2 ; x)
+
+Contour: *oint(C ; F ; l)
+
+# Piecewise and systems
+
+*cases(x + y = 3 | x - y = 1)
+
+*cases(
+    x + y = 3
+    x - y = 1
+)
+
+# Vectors and binomials
+
+Vector AB: *vec(AB)
+
+Binomial: *binom(n ; k)
+
+# Trigonometry and hyperbolics
+
+*cot(x)
+*sec(x)
+*csc(x)
+*arcsin(x)
+*arccos(x)
+*arctan(x)
+*sinh(x)
+*cosh(x)
+*tanh(x)
+*coth(x)
+
+# Nesting, variables and calc
+
+<a> = 2
+*frac(*int(0 ; 1 ; x) ; 2)
+*int(0 ; <a> ; x^2)
+*binom(calc(<a> + 1) ; 2)

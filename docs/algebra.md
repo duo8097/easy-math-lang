@@ -217,7 +217,8 @@ All math commands start with `*`. Arguments are separated by `;`
 — or by `,` if you prefer (`*frac(2, 3)` = `*frac(2 ; 3)`).
 When `;` is present it wins, so `*frac(100,000 ; 2)` keeps `100,000`
 as one number. Friendly aliases: `*fraction` (= `*frac`),
-`*power` (= `*pow`), `*cbrt(x)` (= `*root(3 ; x)`).
+`*power` (= `*pow`), `*cbrt(x)` (= `*root(3 ; x)`),
+`*integral(...)` (= `*int(...)`).
 
 ### Fractions
 
@@ -270,6 +271,62 @@ x_n     → xₙ
 *sin(x)
 *cos(x)
 *tan(x)
+*cot(x)
+*sec(x)
+*csc(x)
+*arcsin(x)
+*arccos(x)
+*arctan(x)
+*sinh(x)
+*cosh(x)
+*tanh(x)
+*coth(x)
+```
+
+All take one argument, like `*sin`. They also work inside `*plot(...)`.
+
+### Integrals
+
+```
+*int(x^2)                // indefinite: ∫ x²
+*int(x^2 ; x)            // indefinite with differential: ∫ x² dif x
+*int(0 ; 1 ; x^2)        // definite: ∫₀¹ x²
+*int(0 ; 1 ; x^2 ; x)    // definite with differential: ∫₀¹ x² dif x
+*oint(C ; F ; l)         // contour integral (Typst integral.cont)
+*integral(0 ; 1 ; x^2)   // alias of *int
+```
+
+`lower ; upper` are optional; the last `; variable` adds `dif variable`.
+Variables and `calc()` work inside every argument.
+
+### Piecewise and equation systems
+
+```
+*cases(x + y = 3 | x - y = 1)
+```
+
+Rows split on `|` (same quote/nesting rules as `*matrix` rows).
+Multiline block form works too:
+
+```
+*cases(
+    x + y = 3
+    x - y = 1
+)
+```
+
+### Vectors (arrow accent)
+
+```
+*vec(AB)     // AB with an arrow over it (Typst arrow, not a column vector)
+```
+
+Column vectors stay available through `*matrix` (e.g. `*matrix(1 ; 2)`).
+
+### Binomial coefficients
+
+```
+*binom(n ; k)
 ```
 
 ### Logarithms
@@ -335,7 +392,8 @@ expressions as `calc` (including variables: `*plot(x; -<a>; <a>)`).
 
 The expression uses `calc`-style syntax: `+ - * / % ^` (`^` is
 power), parentheses, the variable `x`, the constants `pi`/`e`, and
-the functions `sin cos tan sqrt cbrt log ln abs exp`
+the functions `sin cos tan cot sec csc arcsin arccos arctan sinh
+cosh tanh coth sqrt cbrt log ln abs exp`
 (`log` is base-10 like Typst's `log`; `ln` is the natural log).
 Math-command spellings such as `*sin(x)` also work inside plots.
 

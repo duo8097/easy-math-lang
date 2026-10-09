@@ -94,6 +94,8 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         clean_inner_math,
         math_call_specs,
         normalize_friendly_calls,
+        replace_cases_call,
+        replace_int_calls,
         replace_math_call,
         space_out_bare_identifiers,
     )
@@ -128,6 +130,8 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     inner = normalize_friendly_calls(inner)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
+    inner = replace_int_calls(inner, ctx)
+    inner = replace_cases_call(inner, ctx)
     if line_no is not None:
         # Unknown *cmd(...) inside math never reaches the text-pass
         # warning (it is hidden behind a math placeholder by then).

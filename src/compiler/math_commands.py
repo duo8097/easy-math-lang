@@ -100,11 +100,15 @@ MATH_ALIASES = {
     'summation': 'sum',
     'product': 'prod',
     'limit': 'lim',
+    'integral': 'int',
 }
 
 _CANONICAL_MATH_NAMES = (
     'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
     'pow', 'root', 'sum', 'prod', 'lim', 'cbrt',
+    'int', 'oint', 'cases', 'vec', 'binom',
+    'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
+    'sinh', 'cosh', 'tanh', 'coth',
 )
 
 
@@ -153,6 +157,9 @@ def escape_number_commas(s):
 _TYPST_MATH_KEEP = frozenset({
     'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'cbrt', 'root',
     'sum', 'product', 'prod', 'lim', 'display',
+    'integral', 'cont', 'dif', 'cases', 'arrow', 'binom',
+    'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
+    'sinh', 'cosh', 'tanh', 'coth',
     'pi', 'infinity',
     'upright', 'bracket', 'lr', 'mid',
 })
@@ -312,6 +319,8 @@ def _clean_inner_math(ctx, s, _depth=0):
     s = normalize_friendly_calls(s)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt)
+    s = replace_int_calls(s, ctx, _depth)
+    s = replace_cases_call(s, ctx, _depth)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
     # Escape thousands commas (100,000 -> 100\,000) so Typst does not
     # read them as argument separators. See escape_number_commas.
@@ -366,7 +375,198 @@ def math_call_specs(ctx):
          )),
         ('lim', 2,
          lambda args: f"$lim_({clean_inner_math(ctx, args[0])}) ({clean_inner_math(ctx, args[1])})$"),
+        ('vec', 1,
+         lambda args: f"$arrow({clean_inner_math(ctx, args[0])})$"),
+        ('binom', 2,
+         lambda args: f"$binom({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
+        ('cot', 1, lambda args: f"$cot({clean_inner_math(ctx, args[0])})$"),
+        ('sec', 1, lambda args: f"$sec({clean_inner_math(ctx, args[0])})$"),
+        ('csc', 1, lambda args: f"$csc({clean_inner_math(ctx, args[0])})$"),
+        ('arcsin', 1, lambda args: f"$arcsin({clean_inner_math(ctx, args[0])})$"),
+        ('arccos', 1, lambda args: f"$arccos({clean_inner_math(ctx, args[0])})$"),
+        ('arctan', 1, lambda args: f"$arctan({clean_inner_math(ctx, args[0])})$"),
+        ('sinh', 1, lambda args: f"$sinh({clean_inner_math(ctx, args[0])})$"),
+        ('cosh', 1, lambda args: f"$cosh({clean_inner_math(ctx, args[0])})$"),
+        ('tanh', 1, lambda args: f"$tanh({clean_inner_math(ctx, args[0])})$"),
+        ('coth', 1, lambda args: f"$coth({clean_inner_math(ctx, args[0])})$"),
     ]
+
+
+def _format_int(ctx, name, args):
+    """Typst for *int/*oint (1-4 args, friendly ;/, separators).
+
+    - 1 arg: indefinite ``*int(expr)`` -> ``$integral expr$``
+    - 2 args: indefinite with differential ``*int(expr ; x)``
+    - 3 args: definite ``*int(lo ; hi ; expr)``
+    - 4 args: definite with differential ``*int(lo ; hi ; expr ; x)``
+    ``*oint`` uses ``integral.cont`` (Typst has no bare ``oint``).
+    """
+    base = 'integral.cont' if name == 'oint' else 'integral'
+    if len(args) == 1:
+        return f"${base} {clean_inner_math(ctx, args[0])}$"
+    if len(args) == 2:
+        return (f"${base} {clean_inner_math(ctx, args[0])} "
+                f"dif {clean_inner_math(ctx, args[1])}$")
+    if len(args) == 3:
+        return (f"${base}_({clean_inner_math(ctx, args[0])})^"
+                f"({clean_inner_math(ctx, args[1])}) "
+                f"{clean_inner_math(ctx, args[2])}$")
+    # len == 4 (caller caps extras to 4)
+    return (f"${base}_({clean_inner_math(ctx, args[0])})^"
+            f"({clean_inner_math(ctx, args[1])}) "
+            f"{clean_inner_math(ctx, args[2])} "
+            f"dif {clean_inner_math(ctx, args[3])}$")
+
+
+def _replace_single_int(text, ctx, name, _depth=0):
+    """Replace one of *int/*oint (variable 1-4 arity)."""
+    import sys
+    pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        args = split_top_level_args(text[start:i - 1])
+        if len(args) < 1 or any(a == '' for a in args[:1]):
+            print(
+                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+        elif len(args) == 0:
+            print(
+                f'[Warning] *{name}(...) expects 1 argument(s), got 0 — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+        elif any(a == '' for a in args):
+            print(
+                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+        else:
+            if len(args) > 4:
+                print(
+                    f'[Warning] *{name}(...) expects 4 argument(s), '
+                    f'got {len(args)} — extra arguments ignored',
+                    file=sys.stderr,
+                )
+                args = args[:4]
+            out.append(_format_int(ctx, name, args))
+        pos = i
+    return ''.join(out)
+
+
+def replace_int_calls(text, ctx, _depth=0):
+    """Expand *int/*oint (variable arity) for text/math/nested paths."""
+    import sys
+    if _depth > 20:
+        print('[Warning] *int(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    # *integral( is normalized to *int( by normalize_friendly_calls, but
+    # run it here too so direct calls without the outer pass still work.
+    text = normalize_friendly_calls(text)
+    for name in ('int', 'oint'):
+        text = _replace_single_int(text, ctx, name, _depth)
+    return text
+
+
+def replace_cases_call(text, ctx, _depth=0):
+    """Expand *cases(row1 | row2 | ...) to Typst cases(...).
+
+    Rows split on top-level ``|`` with the same quote/nesting rules as
+    *matrix rows (via tables.split_rows_top_level). Each row is cleaned
+    with clean_inner_math and joined with ``, ``. Empty rows are dropped
+    (like tables); fully-empty calls warn and stay as-is.
+    """
+    import sys
+    from . import tables as _tables
+    if _depth > 20:
+        print('[Warning] *cases(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    pattern = re.compile(r'\*cases\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                '[Warning] unclosed *cases(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        inner_raw = text[start:i - 1]
+        rows_raw = _tables.split_rows_top_level(inner_raw)
+        rows = [r.strip() for r in rows_raw if r.strip() != '']
+        if not rows:
+            print(
+                '[Warning] *cases(...) is empty — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        if any(r == '' for r in rows):
+            print(
+                '[Warning] *cases(...) has empty argument(s) — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        cleaned = [clean_inner_math(ctx, r) for r in rows]
+        out.append(f"$cases({', '.join(cleaned)})$")
+        pos = i
+    return ''.join(out)
 
 
 def group_power_base(ctx, s):

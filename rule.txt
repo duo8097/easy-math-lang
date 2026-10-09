@@ -238,6 +238,79 @@ Trigonometric functions
 *sin(x)
 *cos(x)
 *tan(x)
+*cot(x)
+*sec(x)
+*csc(x)
+*arcsin(x)
+*arccos(x)
+*arctan(x)
+*sinh(x)
+*cosh(x)
+*tanh(x)
+*coth(x)
+
+All take one argument, like *sin(x). They also work inside *plot(...).
+
+
+Integrals
+---------
+
+*int(expression)
+*int(expression ; variable)
+*int(lower ; upper ; expression)
+*int(lower ; upper ; expression ; variable)
+
+Example:
+
+*int(0 ; 1 ; x^2 ; x)
+
+Output (Typst):
+
+$integral_0^1 x^2 dif x$
+
+*oint(...) is the contour integral (Typst integral.cont) with the
+same 1-4 arguments. *integral(...) is an alias of *int(...).
+
+
+Piecewise and equation systems
+------------------------------
+
+*cases(row1 | row2 | ...)
+
+Example:
+
+*cases(x + y = 3 | x - y = 1)
+
+Rows split on "|" (same quote/nesting rules as *matrix rows).
+Multiline block form works too:
+
+*cases(
+    x + y = 3
+    x - y = 1
+)
+
+
+Vectors (arrow accent)
+----------------------
+
+*vec(AB)
+
+Arrow accent over the expression (Typst arrow, not a column vector).
+Column vectors stay available through *matrix.
+
+
+Binomial coefficients
+---------------------
+
+*binom(n ; k)
+
+Example:
+
+*binom(n ; k)
+
+Output (Typst):
+
+$binom(n, k)$
 
 
 Logarithms
@@ -1077,6 +1150,7 @@ Aliases (starred):
 *summation(...) = *sum(...)
 *product(...)   = *prod(...)
 *limit(...)     = *lim(...)
+*integral(...)  = *int(...)
 
 Assignments:
 
@@ -1146,7 +1220,8 @@ Function plots
 Numerically evaluated (1000 samples, NumPy) and rendered with
 Matplotlib to <stem>-plot-<n>.svg, embedded as
 #image("...svg", width: 80%). calc-style syntax: + - * / % ^,
-x, pi/e, sin cos tan sqrt cbrt log (base 10) ln abs exp.
+x, pi/e, sin cos tan cot sec csc arcsin arccos arctan sinh cosh
+tanh coth sqrt cbrt log (base 10) ln abs exp.
 Non-finite values skipped; curves break across large jumps so
 1/x draws no vertical line. Errors emit [Plot Error: ...] inline
 and never abort the build.
