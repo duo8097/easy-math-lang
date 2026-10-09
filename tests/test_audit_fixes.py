@@ -115,6 +115,7 @@ def test_save_as_preserves_cursor(qapp, tmp_path):
 
 
 def test_atomic_write_preserves_mode(tmp_path):
+    pytest.importorskip('PySide6')
     import stat
     from editor.main_window import MainWindow
     target = tmp_path / 'doc.ezmath'

@@ -154,6 +154,7 @@ def test_lsp_multiline_math_no_false_unclosed():
 
 
 def test_highlighter_math_spans():
+    pytest.importorskip('PySide6')
     from editor.syntax_highlighter import math_pattern, math_spans
 
     assert math_pattern().search("\\ x \\")

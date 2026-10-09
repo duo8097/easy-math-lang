@@ -125,6 +125,7 @@ def test_frozen_never_uses_python_module_mode(tmp_path, clean_sys):
 
 
 def test_default_server_command_stays_usable(clean_sys):
+    pytest.importorskip('PySide6')
     from editor.lsp_client import default_server_command
     cmd = default_server_command()
     assert isinstance(cmd, list) and cmd and all(cmd)
