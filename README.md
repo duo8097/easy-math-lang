@@ -102,6 +102,10 @@ uv run easy-math-lang examples/example.ezmath out.png
 uv run easy-math-lang --format svg --ppi 300 examples/example.ezmath -o hi.svg
 ```
 
+Builds with `[Error]` diagnostics still write the PDF and exit 0 by
+default (message: `Compiled … with N error(s), M warning(s)`); add
+`--strict` to exit non-zero on errors (handy in CI).
+
 Or in the desktop editor: **File → Export As…** (PDF/PNG/SVG/HTML/Typst).
 
 ---

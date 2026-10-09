@@ -48,6 +48,94 @@ from . import tables as _tables
 from . import plots as _plots
 
 
+class _DiagCounter:
+    """Counting stderr wrapper (forwards everything, tallies diagnostics).
+
+    Installed by the compile_ezmath decorator for the duration of one
+    compile so the final message can report honest error/warning counts.
+    Counts case-insensitive ``[error`` / ``[warning`` markers (covers
+    ``[Error]``, ``[ERROR]``, ``[Warning]``, ``[WARNING]``). Forwards all
+    writes so capsys/preview captures keep working.
+    """
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+        self.errors = 0
+        self.warnings = 0
+
+    def write(self, s):
+        try:
+            low = str(s).lower()
+            if '[error' in low:
+                self.errors += low.count('[error')
+            if '[warning' in low:
+                self.warnings += low.count('[warning')
+        except Exception:
+            pass
+        return self._wrapped.write(s)
+
+    def writelines(self, lines):
+        for line in lines:
+            self.write(line)
+
+    def flush(self):
+        try:
+            return self._wrapped.flush()
+        except Exception:
+            return None
+
+    def __getattr__(self, name):
+        return getattr(self._wrapped, name)
+
+
+_ACTIVE_COUNTER = None
+
+
+def _current_diag_counts():
+    """(errors, warnings) for the active compile, or (0, 0) outside one."""
+    try:
+        c = _ACTIVE_COUNTER
+        if c is None:
+            return (0, 0)
+        return (int(c.errors), int(c.warnings))
+    except Exception:
+        return (0, 0)
+
+
+def _with_diag_count(fn):
+    """Decorate compile_ezmath: count diagnostics, honor strict."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        global _ACTIVE_COUNTER
+        old = sys.stderr
+        ctr = _DiagCounter(old)
+        prev = _ACTIVE_COUNTER
+        _ACTIVE_COUNTER = ctr
+        sys.stderr = ctr
+        try:
+            ok = fn(*args, **kwargs)
+            strict = kwargs.get('strict', False)
+            if strict and ctr.errors > 0:
+                return False
+            return ok
+        finally:
+            sys.stderr = old
+            _ACTIVE_COUNTER = prev
+
+    return wrapper
+
+
+def _final_message(input_str, output_path):
+    """Success vs honest-error summary message for _run_typst_export."""
+    n_err, n_warn = _current_diag_counts()
+    if n_err > 0:
+        return (f'Compiled {input_str} to {output_path} '
+                f'with {n_err} error(s), {n_warn} warning(s)')
+    return None
+
+
 def _extract_p_segments(text):
     """Split text into (is_raw, content) segments for balanced *p(...).
 
@@ -884,7 +972,11 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
             if os.path.abspath(output_path) != os.path.abspath(typst_file):
                 shutil.copyfile(typst_file, output_path)
             _copy_plot_sidecars(parent)
-            print(f'Successfully exported {input_str} to {output_path} (Typst source)!')
+            _honest = _final_message(input_str, output_path)
+            if _honest is not None:
+                print(_honest)
+            else:
+                print(f'Successfully exported {input_str} to {output_path} (Typst source)!')
             return True
         except OSError as e:
             print(f'\n[ERROR] Typst export failed: {e}', file=sys.stderr)
@@ -916,12 +1008,20 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                     f'writing {patterned} (one file per page)',
                 )
                 _backend.compile(typst_file, patterned, **kwargs)
-                print(f'Successfully compiled {input_str} to {patterned} via Typst!')
+                _honest = _final_message(input_str, patterned)
+                if _honest is not None:
+                    print(_honest)
+                else:
+                    print(f'Successfully compiled {input_str} to {patterned} via Typst!')
                 return True
             raise
         if fmt == 'html':
             _copy_plot_sidecars(os.path.dirname(os.path.abspath(output_path)))
-        print(f'Successfully compiled {input_str} to {output_path} via Typst!')
+        _honest = _final_message(input_str, output_path)
+        if _honest is not None:
+            print(_honest)
+        else:
+            print(f'Successfully compiled {input_str} to {output_path} via Typst!')
         return True
     except FileNotFoundError as e:
         # Input .typ vanished between write and compile (I/O race).
@@ -933,9 +1033,11 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
         return False
 
 
+@_with_diag_count
 def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None,
                    source_map=True, source_map_path=None,
-                   embed_source_comments=False, embed_source_links=False):
+                   embed_source_comments=False, embed_source_links=False,
+                   strict=False):
     """Compile an .ezmath document via an intermediate Typst file.
 
     Actual processing order (per text line, after comment stripping):
@@ -987,7 +1089,10 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     so exports stay clean; the live preview enables it.
 
     Returns True on success, False on failure (.typ is still written
-    whenever parsing reaches the codegen stage).
+    whenever parsing reaches the codegen stage). With ``strict=True``,
+    returns False when any [Error] diagnostic was emitted (the PDF may
+    still be written); default ``strict=False`` keeps backward compat
+    (True even with errors, exit 0) for the editor and existing tests.
     """
     # Backward compat: compile_ezmath(src, out.pdf) still works.
     if output is None:
@@ -1543,7 +1648,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
 
 def _print_usage():
     print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
-    print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] <input.ezmath>')
+    print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] [--strict] <input.ezmath>')
     print('')
     print('Export formats: pdf, png, svg, html, typ (default: from output extension).')
     print('  PNG/SVG multi-page documents write stem-{p}.ext (one file per page).')
@@ -1561,6 +1666,8 @@ def _print_usage():
     print('  --format FMT    Export format: pdf, png, svg, html, typ')
     print('  --ppi PPI       PNG resolution 1..1200 (default: Typst default)')
     print('  -o, --output FILE  Output file (same as positional [output])')
+    print('  --strict        Exit non-zero when any [Error] was emitted')
+    print('                  (PDF is still written; default keeps exit 0)')
     print('  --list-formats  List supported export formats and exit')
     print('  --              Treat remaining arguments as file names '
           '(e.g. a file literally named --version)')
@@ -1617,11 +1724,16 @@ def main():
     exp_format = None
     exp_ppi = None
     exp_output = None
+    exp_strict = False
     positionals = []
     if not positional_only:
         i = 0
         while i < len(args):
             a = args[i]
+            if a == '--strict':
+                exp_strict = True
+                i += 1
+                continue
             if a in ('--format', '--ppi', '--output', '-o'):
                 if i + 1 >= len(args):
                     print(f'error: {a} needs a value', file=sys.stderr)
@@ -1687,7 +1799,8 @@ def main():
         base, _ = os.path.splitext(os.fspath(input_file))
         output_file = base + '.pdf'
     ok = compile_ezmath(input_file, output_file,
-                        format=exp_format, ppi=exp_ppi)
+                        format=exp_format, ppi=exp_ppi,
+                        strict=exp_strict)
     sys.exit(0 if ok else 1)
 
 

@@ -46,3 +46,26 @@ yourself, include `{p}` in the output name: `out-{p}.png`.
 - The `.typ` file next to your input is always rewritten, even when
   exporting images — handy for debugging layout.
 - Geometry (`*draw`) renders identically in every format (CeTZ canvas).
+
+## Honest status and --strict
+
+A document with `[Error]` diagnostics (undefined `<variable>`,
+`calc()` division by zero, …) still writes the PDF by default and
+exits 0 for backward compatibility — but the final line is honest:
+
+```
+Compiled doc.ezmath to doc.pdf with 2 error(s), 1 warning(s)
+```
+
+instead of `Successfully compiled … via Typst!` (clean builds keep
+the success message). The PDF may contain inline markers like
+`[Calc Error: …]` where evaluation failed.
+
+Pass `--strict` to turn errors into a non-zero exit (the PDF is still
+written when possible):
+
+```
+uv run easy-math-lang --strict doc.ezmath
+```
+
+Useful in CI to fail a build on typos and bad calculations.
