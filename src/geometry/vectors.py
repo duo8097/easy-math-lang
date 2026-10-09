@@ -1,9 +1,10 @@
 """Vector and bounding-box helpers for the geometry solver."""
 
-import numpy as np
-
 
 def _norm(v):
+    # Local import: keeps `import geometry` free of NumPy until the
+    # solver actually runs (editor/LSP startup stays light).
+    import numpy as np
     return np.linalg.norm(v)
 
 
@@ -13,6 +14,7 @@ def _cross2d(v1, v2):
 
 def _normalize(v):
     import math as _math
+    import numpy as np
 
     n = _norm(v)
     try:

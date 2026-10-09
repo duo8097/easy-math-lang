@@ -37,12 +37,17 @@ def ensure_workdir(workdir):
     return path
 
 
-def compile_source_to_pdf(source_text, workdir, version=None):
+def compile_source_to_pdf(source_text, workdir, version=None, source_links=False):
     """Compile *source_text* to a preview PDF inside *workdir*.
 
     Writes ``preview.ezmath`` then reuses
     :func:`compiler.pipeline.compile_ezmath` so preview output matches
     ``Build → Compile`` exactly (variables, calc, geometry, Typst).
+
+    When *source_links* is true, mapped Typst blocks are wrapped in
+    ``eml-src://`` link annotations (see :mod:`compiler.source_links`)
+    for preview click-to-source navigation; the rendered appearance is
+    unchanged. Export builds keep this off so distributed PDFs stay clean.
 
     Returns a dict: ``{'ok': bool, 'pdf': str|None, 'typ': str,
     'log': str}``. ``pdf`` is set only when compilation succeeded and
@@ -51,11 +56,12 @@ def compile_source_to_pdf(source_text, workdir, version=None):
     """
     return compile_source_to_format(
         source_text, workdir, format='pdf', version=version,
+        source_links=source_links,
     )
 
 
 def compile_source_to_format(source_text, workdir, format='pdf',
-                             version=None, ppi=None):
+                             version=None, ppi=None, source_links=False):
     """Compile *source_text* to *format* (pdf/png/svg/html/typ) in *workdir*.
 
     Headless helper shared by the live preview (pdf) and
@@ -96,7 +102,8 @@ def compile_source_to_format(source_text, workdir, format='pdf',
             contextlib.redirect_stderr(stderr_buf):
         try:
             ok = bool(compile_ezmath(src_path, out_path,
-                                     format=fmt, ppi=ppi))
+                                     format=fmt, ppi=ppi,
+                                     embed_source_links=bool(source_links)))
         except BaseException as exc:  # never let preview wedge the panel
             print(f'[ERROR] Preview failed: {exc}')
             ok = False

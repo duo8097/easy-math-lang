@@ -625,6 +625,20 @@ The line is consumed (not shown as body text); the last one wins.
 Variables, `calc`, math and symbols work inside the title.
 Without it, the title defaults to `Easy Math Document`.
 
+### Document font
+
+Set the body font family, with an optional size:
+
+```
+*doc_font(DejaVu Sans)
+*doc_font(DejaVu Sans ; 14pt)
+```
+
+Aliases `*doc-font` and `*docfont` work the same. A bare number means
+points (`; 14` = `14pt`). The line is consumed; the last one wins.
+Without it, the document uses the Typst default at `12pt`. Note: the
+build ignores system fonts, so pick a family bundled with Typst.
+
 ---
 
 ## Tables and matrices

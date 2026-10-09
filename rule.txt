@@ -1102,6 +1102,15 @@ Aliases: *doc-title, *doctitle, *title. Control line (consumed,
 last wins). Variables, calc, math and symbols work inside.
 Default when absent: Easy Math Document.
 
+Document font:
+
+*doc_font(DejaVu Sans) sets the body font family.
+*doc_font(DejaVu Sans ; 14pt) also sets the size (bare numbers
+mean points: *doc_font(DejaVu Sans ; 14)). Aliases: *doc-font,
+*docfont. Control line (consumed, last wins). Default when absent:
+Typst default at 12pt. Note: the build ignores system fonts, so use
+a family bundled with Typst.
+
 Equality:
 
 a == b  ->  a = b (single equals; === and !== still map to

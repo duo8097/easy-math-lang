@@ -2,8 +2,6 @@
 
 import re
 
-import numpy as np
-
 from .errors import GeometryError
 from .vectors import _cross2d, _norm
 
@@ -64,6 +62,9 @@ KNOWN_GEOMETRY_COMMANDS = {
 
 def _process_command(solver, cmd, args):
     """Register a geometry command into the solver."""
+    # Imported here (not at module top) so merely referencing command
+    # names — e.g. the editor symbol palette — never pulls NumPy in.
+    import numpy as np
 
     if cmd not in KNOWN_GEOMETRY_COMMANDS:
         raise GeometryError(f"unknown geometry command *{cmd} — ignored")

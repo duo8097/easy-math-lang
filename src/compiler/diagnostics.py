@@ -6,6 +6,7 @@ import sys
 KNOWN_COMMANDS = {
     'define', 'p',
     'doc_title', 'doc-title', 'doctitle', 'title',
+    'doc_font', 'doc-font', 'docfont',
     'frac', 'fraction', 'abs', 'absolute', 'sin', 'cos', 'tan',
     'sqrt', 'squareroot', 'square-root', 'cbrt', 'cuberoot',
     'cube-root', 'log', 'ln',

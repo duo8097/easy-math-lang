@@ -447,11 +447,12 @@ def _analyze_text_inner(text, analysis):
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
-            # --- Document title: *doc_title(...) is a control line ---
+            # --- Document title/font: *doc_title/*doc_font control lines ---
             if not math_buffered and not in_f_block and not in_table_block:
-                _dm = re.match(r'^\*(doc_title|doc-title|doctitle|title)\s*\(', s)
+                _dm = re.match(r'^\*(doc_title|doc-title|doctitle|title|doc_font|doc-font|docfont)\s*\(', s)
                 if _dm:
                     _dname = _dm.group(1)
+                    _is_font = _dname.replace('-', '_') == 'doc_font' or _dname == 'docfont'
                     _open = _dm.end() - 1
                     _depth = 0
                     _in_q = False
@@ -481,10 +482,12 @@ def _analyze_text_inner(text, analysis):
                     else:
                         _inner = s[_open + 1:_close]
                         if not _inner.strip():
+                            _default = ('default font (Typst default, 12pt)'
+                                        if _is_font else 'default title')
                             analysis.diagnostics.append(Diag(
                                 idx, code.index('*' + _dname) if ('*' + _dname) in code else 0,
                                 len(code), 'warning',
-                                f'*{_dname}(...) is empty — using default title',
+                                f'*{_dname}(...) is empty — using {_default}',
                             ))
                             continue
                         # Consumed control line: the compiler renders the

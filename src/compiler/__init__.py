@@ -7,6 +7,11 @@ from .pipeline import (
     infer_export_format,
     main,
 )
+from .source_links import (
+    link_prefix,
+    make_source_url,
+    parse_source_url,
+)
 from .source_map import (
     MapEntry,
     SourcePosition,
@@ -25,5 +30,8 @@ __all__ = [
     'compile_ezmath',
     'default_map_path',
     'infer_export_format',
+    'link_prefix',
     'main',
+    'make_source_url',
+    'parse_source_url',
 ]

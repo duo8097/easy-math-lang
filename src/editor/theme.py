@@ -143,6 +143,13 @@ QStatusBar { background-color: #353535; color: #d4d4d4; }
 QStatusBar::item { border: none; }
 QDockWidget::title { background-color: #353535; color: #d4d4d4; }
 QMainWindow::separator { background-color: #555555; }
+/* Tabified dock widgets (e.g. Preview + Problems stacked at the bottom)
+   use a QTabBar, which the OS style paints light without these rules. */
+QTabWidget::pane { border: 1px solid #555555; background-color: #1e1e1e; }
+QTabBar::tab { background-color: #2d2d2d; color: #d4d4d4; border: 1px solid #555555; border-bottom: none; padding: 4px 12px; }
+QTabBar::tab:selected { background-color: #1e1e1e; color: #ffffff; }
+QTabBar::tab:hover:!selected { background-color: #444444; }
+QTabBar::tab:!selected { margin-top: 2px; }
 /* Scrollbars are drawn by the OS style (light on Windows) and ignore
    QPalette, so they need explicit styling or they glow white. */
 QScrollBar:vertical { background: #2d2d2d; width: 12px; margin: 0px; }

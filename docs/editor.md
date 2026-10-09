@@ -121,6 +121,9 @@ folders together.
   between launches.
 - The editor uses a monospace font with line numbers, a highlighted
   current line, and 4-space tab stops.
+- `View → Editor Font…`: pick the editor font family and size
+  (monospace recommended). Your choice is remembered between launches.
+  Zooming stays temporary; `Reset Zoom` returns to your chosen size.
 
 ---
 

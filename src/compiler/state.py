@@ -15,6 +15,10 @@ class CompileContext:
         # variables still resolve. None means "use the default title".
         self.doc_title_raw = None
         self.doc_title_line = None
+        # Document font set via *doc_font(...) (control line, consumed).
+        # Family/size strings, or None for the Typst default (12pt).
+        self.doc_font_family = None
+        self.doc_font_size = None
         # Function-plot output (set by compile_ezmath before the line
         # loop; *_render_text_line* generates SVGs next to the .typ).
         self.plot_dir = None

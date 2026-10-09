@@ -4,8 +4,6 @@ import hashlib
 import math
 import re
 
-import numpy as np
-
 from .errors import GeometryError, GeometryWarning
 from .vectors import _norm
 
@@ -19,6 +17,10 @@ class GeometrySolver:
         self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
 
     def add_point(self, name, x=None, y=None):
+        # Local import: keeps `import geometry` free of NumPy until the
+        # solver actually runs (editor/LSP startup stays light). Kept at
+        # function top (not inside a branch) so every path below sees it.
+        import numpy as np
         if (x is None) != (y is None):
             raise GeometryError(
                 f"point '{name}': both coordinates required, got x={x!r} y={y!r}"
@@ -134,6 +136,10 @@ class GeometrySolver:
                             )
 
     def solve(self):
+        # Local import: keeps `import geometry` free of NumPy until the
+        # solver actually runs (editor/LSP startup stays light).
+        import numpy as np
+
         lr = 0.01
         momentum = 0.9
         velocity = {p: np.zeros(2) for p in self.points if p not in self.fixed}

@@ -55,7 +55,11 @@ class _PreviewWorker(QtCore.QObject):
     def render(self, version, text, workdir):
         from .preview import compile_source_to_pdf
         try:
-            result = compile_source_to_pdf(text, workdir, version=version)
+            # Live preview embeds invisible eml-src link annotations so
+            # Ctrl+Click can navigate back to the .eml source. Export
+            # builds (File -> Export As) keep links off for clean PDFs.
+            result = compile_source_to_pdf(text, workdir, version=version,
+                                           source_links=True)
         except BaseException as exc:  # keep the editor alive on any failure
             result = {'ok': False, 'pdf': None, 'typ': '', 'log': str(exc)}
         try:
@@ -171,6 +175,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._preview_version = 0
         self._preview_auto = True
         self._preview_shutdown = False
+        # Last text submitted to the worker: identical text is never
+        # recompiled (saves a full compile's CPU + transient RAM on every
+        # pause; explicit refresh still forces a rebuild).
+        self._last_preview_text = None
         self._preview_timer = QtCore.QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(PREVIEW_DEBOUNCE_MS)
@@ -185,10 +193,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.preview.refreshRequested.connect(self._refresh_preview_now)
         self.preview.autoToggled.connect(self._on_preview_auto)
         self.preview.openPdfRequested.connect(self._open_preview_externally)
+        self.preview.sourceLinkActivated.connect(self._on_preview_source_link)
 
         self._create_menus()
         self._connect_editor()
         self._apply_theme(self._theme_name, save=False)
+        self._apply_editor_font()
 
         if start_lsp:
             self._start_lsp()
@@ -766,6 +776,8 @@ class MainWindow(QtWidgets.QMainWindow):
              lambda: self._zoom(-1)),
             ('view.zoomReset', 'View: Reset Zoom', 'Ctrl+0',
              self._zoom_reset),
+            ('view.chooseFont', 'View: Choose Editor Font…', '',
+             self._choose_editor_font),
             ('build.compile', 'Build: Compile to PDF', 'Ctrl+B',
              self._compile),
             ('build.refreshPreview', 'Build: Refresh Preview', 'F5',
@@ -1383,6 +1395,9 @@ class MainWindow(QtWidgets.QMainWindow):
         zoom_reset_action.setShortcut('Ctrl+0')
         zoom_reset_action.setStatusTip('Restore the default text size')
         zoom_reset_action.triggered.connect(self._zoom_reset)
+        font_action = view_menu.addAction('Editor &Font…')
+        font_action.setStatusTip('Choose the editor font family and size')
+        font_action.triggered.connect(self._choose_editor_font)
 
         build_menu = self.menuBar().addMenu('&Build')
         compile_action = build_menu.addAction('&Compile')
@@ -1424,12 +1439,97 @@ class MainWindow(QtWidgets.QMainWindow):
         font = self.editor.font()
         font.setPointSizeF(clamped)
         self.editor.setFont(font)
+        self._refresh_tab_stops()
+
+    def _refresh_tab_stops(self):
+        """Keep tab width at 4 spaces of the current editor font."""
+        try:
+            self.editor.setTabStopDistance(
+                4 * self.editor.fontMetrics().horizontalAdvance(' '))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            pass
 
     def _zoom(self, step):
         self._set_editor_font_size(self.editor.font().pointSizeF() + step)
 
     def _zoom_reset(self):
         self._set_editor_font_size(self._default_font_size)
+
+    # ------------------------------------------------------------------
+    # Editor font family (persisted in QSettings alongside the theme)
+    # ------------------------------------------------------------------
+    _FONT_FAMILY_KEY = 'editor/fontFamily'
+    _FONT_SIZE_KEY = 'editor/fontSize'
+
+    def _apply_editor_font(self):
+        """Apply the stored editor font, if any (called once at startup)."""
+        try:
+            family = self._settings.value(self._FONT_FAMILY_KEY, '')
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return
+        try:
+            size = self._settings.value(self._FONT_SIZE_KEY, '')
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            size = ''
+        if (isinstance(family, str) and family.strip()) or size not in ('', None):
+            self._set_editor_font(family, size, save=False)
+
+    def _coerce_font_size(self, size):
+        try:
+            value = float(size)
+        except (TypeError, ValueError):
+            return None
+        if value != value or value in (float('inf'), float('-inf')):
+            return None
+        return max(self._MIN_FONT_SIZE, min(self._MAX_FONT_SIZE, value))
+
+    def _set_editor_font(self, family, size, save=True):
+        """Apply a font family/size pair; persists when *save* is true.
+
+        Blank family keeps the current family; invalid sizes are ignored
+        (at least one of the two must be usable, else nothing changes).
+        Returns True when anything was applied.
+        """
+        current = self.editor.font()
+        new_family = current.family()
+        if isinstance(family, str) and family.strip():
+            new_family = family.strip()
+        new_size = self._coerce_font_size(size)
+        if new_size is None:
+            try:
+                new_size = float(current.pointSizeF()) or self._default_font_size
+            except (TypeError, ValueError):
+                new_size = self._default_font_size
+        if new_family == current.family() and new_size == current.pointSizeF():
+            return False
+        font = QtGui.QFont(current)
+        font.setFamily(new_family)
+        font.setPointSizeF(new_size)
+        self.editor.setFont(font)
+        self._default_font_size = float(self.editor.font().pointSizeF())
+        self._refresh_tab_stops()
+        if save:
+            try:
+                self._settings.setValue(self._FONT_FAMILY_KEY, new_family)
+                self._settings.setValue(self._FONT_SIZE_KEY, new_size)
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                pass
+        return True
+
+    def _choose_editor_font(self):
+        current = self.editor.font()
+        font, ok = QtWidgets.QFontDialog.getFont(current, self, 'Editor Font')
+        if not ok:
+            return
+        try:
+            family = font.family()
+        except (AttributeError, RuntimeError):
+            return
+        try:
+            size = float(font.pointSizeF())
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            size = None
+        self._set_editor_font(family, size)
 
     # ------------------------------------------------------------------
     # Theme (light/dark mode, persisted in QSettings)
@@ -1598,9 +1698,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self._preview_dock.isVisible():
             return
         version = self._preview_version
+        text = self.editor.toPlainText()
+        if not force and text == self._last_preview_text:
+            return
+        self._last_preview_text = text
         self.preview.show_loading()
         self._preview_request.emit(
-            version, self.editor.toPlainText(), self._preview_workdir)
+            version, text, self._preview_workdir)
 
     def _on_preview_finished(self, version, result):
         if version != self._preview_version:
@@ -1634,6 +1738,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.preview.show_error(
             log[-2000:] if log else
             'Preview failed. Save and use Build → Compile for details.')
+
+    def _on_preview_source_link(self, typ_line, typ_column):
+        """Navigate from a preview source-link activation to the .eml span.
+
+        Reuses ``PreviewPanel.typ_location_to_eml`` (sidecar map) and
+        ``open_source_location`` (cursor + visibility). Unmapped/missing
+        locations show a transient status message instead of navigating.
+        """
+        try:
+            span = self.preview.typ_location_to_eml(typ_line, typ_column)
+        except Exception:
+            span = None
+        if span is None:
+            try:
+                self.statusBar().showMessage(
+                    'No source mapping for this preview location', 3000)
+            except (AttributeError, RuntimeError, TypeError):
+                pass
+            return
+        try:
+            self.open_source_span(span)
+        except Exception:
+            pass
 
     def _open_preview_externally(self):
         pdf = getattr(self.preview, 'pdf_path', None)

@@ -4,10 +4,27 @@ import os
 import re
 import sys
 
-try:
-    import typst
-except ImportError:  # pragma: no cover - degraded mode without PDF backend
-    typst = None
+# The `typst` PDF backend is imported lazily by _require_typst() on first
+# export so processes that never compile (editor startup, LSP-only runs)
+# don't pay for the native extension up front. Tests monkeypatch the
+# `typst` module attribute below with a stub, which keeps working because
+# _require_typst() returns any non-None value as-is.
+typst = None
+_typst_import_failed = False
+
+
+def _require_typst():
+    """Return the `typst` backend module, importing it on first use."""
+    global typst, _typst_import_failed
+    if typst is not None or _typst_import_failed:
+        return typst
+    try:
+        import typst as _backend
+    except ImportError:
+        _typst_import_failed = True
+        return None
+    typst = _backend
+    return typst
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
@@ -22,6 +39,7 @@ from .math_commands import (
     split_top_level_args,
 )
 from .statements import _normalize_friendly_statement, process_assignment_or_define
+from .source_links import link_prefix as _source_link_prefix
 from .source_map import SourcePosition, SourceSpan, TypstSourceMap, default_map_path
 from .state import CompileContext
 from .symbols import replace_symbol_shortcuts
@@ -341,6 +359,94 @@ def _escape_doc_title_brackets(rendered):
         if not (tok.startswith('$') and tok.endswith('$') and len(tok) >= 2):
             parts[i] = tok.replace('[', r'\[').replace(']', r'\]')
     return ''.join(parts)
+
+
+DOC_FONT_NAMES = ('doc_font', 'doc-font', 'docfont')
+
+_DOC_FONT_OPEN_RE = re.compile(r'^\*(doc_font|doc-font|docfont)\s*\(')
+
+_DOC_FONT_FAMILY_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9 _\-]*$')
+_DOC_FONT_SIZE_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*(pt|mm|cm|in|em)?$')
+
+DEFAULT_DOC_FONT_SIZE = '12pt'
+
+
+def _match_doc_font(line):
+    """Match a top-level ``*doc_font(...)`` control line.
+
+    Returns None when *line* is not a doc-font opener, otherwise
+    ('ok', name, inner_raw) or ('unclosed', name). Same depth-aware
+    matching as :func:`_match_doc_title`.
+    """
+    m = _DOC_FONT_OPEN_RE.match(line)
+    if not m:
+        return None
+    name = m.group(1)
+    open_paren = m.end() - 1
+    depth = 0
+    in_quote = False
+    for i in range(open_paren, len(line)):
+        ch = line[i]
+        if ch == '"' and (i == 0 or line[i - 1] != '\\'):
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth == 0:
+                inner_raw = line[open_paren + 1:i]
+                tail = line[i + 1:].strip()
+                if tail:
+                    return None
+                return ('ok', name, inner_raw)
+    return ('unclosed', name)
+
+
+def _parse_doc_font(inner_raw):
+    """Split ``family [; size]`` into (family, size) or (None, error).
+
+    Only a top-level ``;`` separates the arguments so commas inside
+    family names (e.g. ``DejaVu Sans``) survive. Size defaults to
+    :data:`DEFAULT_DOC_FONT_SIZE`; a bare number means points.
+    """
+    depth = 0
+    in_quote = False
+    for i, ch in enumerate(inner_raw):
+        if ch == '"' and (i == 0 or inner_raw[i - 1] != '\\'):
+            in_quote = not in_quote
+        elif not in_quote:
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth = max(0, depth - 1)
+            elif ch == ';' and depth == 0:
+                return inner_raw[:i].strip(), inner_raw[i + 1:].strip()
+    return inner_raw.strip(), ''
+
+
+def _valid_doc_font_family(family):
+    """A Typst-safe font family name, or None when invalid."""
+    text = (family or '').strip().strip('"')
+    if _DOC_FONT_FAMILY_RE.match(text):
+        return re.sub(r'\s+', ' ', text)
+    return None
+
+
+def _valid_doc_font_size(size):
+    """A Typst length like ``12pt`` (bare numbers mean points), or None."""
+    m = _DOC_FONT_SIZE_RE.match((size or '').strip())
+    if not m:
+        return None
+    number, unit = m.group(1), m.group(2) or 'pt'
+    try:
+        if float(number) <= 0:
+            return None
+    except ValueError:
+        return None
+    return f'{number}{unit}'
 
 
 def _eml_line_span(source_file, start_1based, end_1based, raw_lines):
@@ -762,13 +868,14 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                     pass
         except Exception:
             pass
-    if typst is None:
+    if _require_typst() is None:
         print(
             '\n[ERROR] The `typst` Python package is not installed.\n'
             'Run `uv sync` to install it, then retry.',
             file=sys.stderr,
         )
         return False
+    _backend = typst
     if fmt == 'typ':
         try:
             parent = os.path.dirname(os.path.abspath(output_path))
@@ -797,7 +904,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
         if fmt == 'png' and ppi is not None:
             kwargs['ppi'] = ppi
         try:
-            typst.compile(typst_file, output_path, **kwargs)
+            _backend.compile(typst_file, output_path, **kwargs)
         except RuntimeError as e:
             # Typst PNG/SVG multi-page error: retry with {p} pattern.
             if fmt in ('png', 'svg') and 'multiple pages' in str(e).lower() \
@@ -808,7 +915,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                     f'[Info] document has multiple pages — '
                     f'writing {patterned} (one file per page)',
                 )
-                typst.compile(typst_file, patterned, **kwargs)
+                _backend.compile(typst_file, patterned, **kwargs)
                 print(f'Successfully compiled {input_str} to {patterned} via Typst!')
                 return True
             raise
@@ -828,7 +935,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
 
 def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None,
                    source_map=True, source_map_path=None,
-                   embed_source_comments=False):
+                   embed_source_comments=False, embed_source_links=False):
     """Compile an .ezmath document via an intermediate Typst file.
 
     Actual processing order (per text line, after comment stripping):
@@ -871,6 +978,13 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     When *embed_source_comments* is true, ``// eml: ...`` comment lines
     are also emitted into the ``.typ`` (robust Typst comments, ignored
     in the PDF); defaults to off so ``.typ`` output stays unchanged.
+    When *embed_source_links* is true, each mapped body block is wrapped
+    in ``#link("eml-src://typ/<line>/<col>")[...]`` (see
+    :mod:`editor.preview_links`); Typst emits standard PDF ``/URI``
+    annotations without changing the rendered appearance, and the URL
+    pins the exact generated-Typ position for preview click navigation.
+    Header directive lines (``#set``) are never wrapped. Defaults to off
+    so exports stay clean; the live preview enables it.
 
     Returns True on success, False on failure (.typ is still written
     whenever parsing reaches the codegen stage).
@@ -1114,6 +1228,47 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 # Unclosed titles fall through to normal text so the
                 # user still sees the line instead of silent loss.
 
+        # --- Document font: *doc_font(...) is a control line (consumed) ---
+        _font = _match_doc_font(line)
+        if _font is not None:
+            if _font[0] == 'unclosed':
+                print(
+                    f'[Warning] Line {line_no}: unclosed *{_font[1]}(... — '
+                    f'missing closing parenthesis',
+                    file=sys.stderr,
+                )
+            else:
+                _, _fname, _finner = _font
+                if not _finner.strip():
+                    print(
+                        f'[Warning] Line {line_no}: *{_fname}(...) is empty — '
+                        f'using default font',
+                        file=sys.stderr,
+                    )
+                    continue
+                _family_raw, _size_raw = _parse_doc_font(_finner)
+                _family = _valid_doc_font_family(_family_raw)
+                _size = _valid_doc_font_size(_size_raw) if _size_raw else \
+                    DEFAULT_DOC_FONT_SIZE
+                if _family is None or (_size_raw and _size is None):
+                    print(
+                        f'[Warning] Line {line_no}: invalid *{_fname}(...) — '
+                        f'ignored: {line!r}',
+                        file=sys.stderr,
+                    )
+                    continue
+                if ctx.doc_font_family is not None:
+                    print(
+                        f'[Warning] Line {line_no}: multiple *doc_font(...) — '
+                        f'using last one',
+                        file=sys.stderr,
+                    )
+                ctx.doc_font_family = _family
+                ctx.doc_font_size = _size
+                continue
+                # Unclosed font lines fall through to normal text so the
+                # user still sees the line instead of silent loss.
+
         # --- Friendly blocks: # headings, - / + lists, 1. enums, = headings ---
         _friendly = _try_friendly_block(ctx, line, line_no)
         if _friendly is not None:
@@ -1179,8 +1334,13 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         )
         return False
 
+    if ctx.doc_font_family is not None:
+        _font_rule = (f'#set text(font: ("{ctx.doc_font_family}",), '
+                      f'size: {ctx.doc_font_size or DEFAULT_DOC_FONT_SIZE})')
+    else:
+        _font_rule = '#set text(size: 12pt)'
     typst_content: list[str] = [
-        '#set text(size: 12pt)',
+        _font_rule,
         '#set page(paper: "a4", margin: 2cm)',
     ]
     # Parallel to typst_content: .eml span for mapped lines, None for
@@ -1245,9 +1405,27 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 typst_content.append(comment)
                 _typ_span_for_line.append(None)
         sublines = str(out_line).split('\n')
+        # Source-link wrapping (preview click navigation): pin the block to
+        # its Typst start position. Inline only — no new lines, so the
+        # sidecar map stays identical. Skipped for unmapped blocks and for
+        # bodies that already contain a link (no nested #link).
+        _link_open = ''
+        if (embed_source_links and span is not None
+                and '#link(' not in str(out_line)):
+            try:
+                _link_open = _source_link_prefix(len(typst_content), 0)
+            except Exception:
+                _link_open = ''
         for si, sub in enumerate(sublines):
+            if si == 0 and _link_open:
+                sub = _link_open + sub
             if si < len(sublines) - 1:
                 typst_content.append(sub)
+            elif _link_open:
+                # Close the link BEFORE the linebreak marker: `\]`
+                # would parse as an escaped literal bracket and leave
+                # the link body unclosed.
+                typst_content.append(sub + '] \\')
             else:
                 typst_content.append(sub + ' \\')
             _typ_span_for_line.append(span)
@@ -1318,6 +1496,16 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             _smap.save(_map_path)
     except Exception as exc:  # additive only: log and continue
         print(f'[Warning] could not write source map: {exc}', file=sys.stderr)
+
+    try:
+        # Drop CPython's source-line cache (tracebacks/warnings during
+        # parsing and first-use heavy imports can leave ~10MB of module
+        # text cached here for the life of the editor process; it is only
+        # a cache and re-reads from disk on demand).
+        import linecache as _linecache
+        _linecache.clearcache()
+    except Exception:
+        pass
 
     print(f'Generated intermediate file: {typst_file}')
 

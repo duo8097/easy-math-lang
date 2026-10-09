@@ -127,6 +127,13 @@ def test_palette_lists_theme_command(window):
     assert 'view.toggleTheme' in ids
 
 
+def test_dark_stylesheet_covers_dock_tabs():
+    dark = app_theme.stylesheet('dark')
+    assert 'QTabBar::tab' in dark
+    assert '#1e1e1e' in dark
+    assert app_theme.stylesheet('light') == ""
+
+
 def test_startup_with_saved_dark_theme(qapp, monkeypatch):
     """Rehighlight during init emits textChanged before lsp exists.
 
