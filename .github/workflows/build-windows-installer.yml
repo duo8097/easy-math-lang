@@ -85,6 +85,10 @@ jobs:
           --onedir
           --windowed
           --collect-all PySide6
+          --hidden-import editor.app
+          --hidden-import editor.editor_widget
+          --hidden-import editor.lsp_client
+          --hidden-import editor.main_window
           --collect-all typst
           --collect-all numpy
           --collect-all matplotlib

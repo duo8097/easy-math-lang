@@ -81,6 +81,10 @@ uv run pyinstaller entry_editor.py \
   --windowed \
   --hidden-import PySide6.QtPdf \
   --hidden-import PySide6.QtPdfWidgets \
+  --hidden-import editor.app \
+  --hidden-import editor.editor_widget \
+  --hidden-import editor.lsp_client \
+  --hidden-import editor.main_window \
   --collect-all typst \
   --collect-all numpy \
   --collect-all matplotlib \
