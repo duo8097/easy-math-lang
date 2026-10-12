@@ -2,8 +2,7 @@ name: Build Linux Installers
 
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch: {}
+  pull_request: 
 
 permissions:
   contents: write
