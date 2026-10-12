@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local test build of the Easy Math binaries on macOS (mirrors
-# .github/workflows/build-macos-installer.yml, minus DMG creation).
+# .github/workflows/build-installers.yml, minus DMG creation).
 #
 # Usage (macOS, from the repo root):
 #   bash scripts/build_macos.sh

@@ -9,7 +9,7 @@ are built, how the editor finds them at runtime, and how to test all of it.
 ## What gets built (Windows)
 
 Three PyInstaller binaries, with the exact flags used by CI
-(`.github/workflows/build-windows-installer.yml`):
+(`.github/workflows/build-installers.yml`):
 
 | Binary | Mode | Contents |
 |---|---|---|
@@ -18,7 +18,7 @@ Three PyInstaller binaries, with the exact flags used by CI
 | `easy-math-lsp.exe` | onefile CLI | Language server (compiler bundled in-process) |
 | `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (PySide6) |
 
-Inno Setup (`installer/setup.iss`) packs them into `EasyMathLangSetup.exe`
+Inno Setup (`installer/setup.iss`) packs them into `EasyMathLang-Windows-x64-Setup.exe`
 with this installed layout:
 
 ```
@@ -76,7 +76,7 @@ requests and manual dispatch — uploads the same files as run artifacts
 ## What gets built (macOS)
 
 Same three binaries, macOS names, built by
-`.github/workflows/build-macos-installer.yml` on `macos-15` (arm64,
+`.github/workflows/build-installers.yml` on `macos-15` (arm64,
 Apple Silicon only, M1 or newer; does not run on Intel Macs).
 Intel Macs can still run from source (`uv sync`). The build is still
 experimental / ad-hoc signed, not notarized:
@@ -112,7 +112,7 @@ needs right-click → **Open**. Static checks live in
 ## What gets built (Linux)
 
 Same three binaries, Linux names, built by
-`.github/workflows/build-linux-installers.yml` on `ubuntu-24.04`
+`.github/workflows/build-installers.yml` on `ubuntu-24.04`
 (x86_64 only) via `installer/build_linux.sh`:
 
 | Binary | Mode | Contents |
@@ -140,8 +140,9 @@ usr/
 
 - `installer/build_linux.sh` (run from the repo root on Linux) writes
   `dist/easymath_<ver>_amd64.deb` and `dist/easymath-<ver>-1.x86_64.rpm`
-  plus stable `dist/EasyMathLang-Linux-amd64.deb/.rpm` copies attached
-  to the stable GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
+  plus stable `dist/EasyMathLang-Debian-amd64.deb` (Debian/Ubuntu/Mint)
+  and `dist/EasyMathLang-Fedora-amd64.rpm` (Fedora/RHEL/openSUSE) copies
+  attached to the stable GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
 - The `.deb` is assembled with `dpkg-deb` (required); the `.rpm` needs
   `rpmbuild` and is skipped with a warning when it is missing
   (CI installs the `rpm` package first).

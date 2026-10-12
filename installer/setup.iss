@@ -1,10 +1,10 @@
 [Setup]
 AppName=Easy Math Lang
-AppVersion=4.0.0
+AppVersion=4.0.1
 PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
-OutputBaseFilename=EasyMathLangSetup
+OutputBaseFilename=EasyMathLang-Windows-x64-Setup
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible

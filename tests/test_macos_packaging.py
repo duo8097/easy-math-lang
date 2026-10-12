@@ -7,7 +7,7 @@ import pytest
 
 WORKFLOW = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", ".github",
-                 "workflows", "build-macos-installer.yml"))
+                 "workflows", "build-installers.yml"))
 SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "build_macos.sh"))
 SMOKE = os.path.abspath(
@@ -28,6 +28,26 @@ def workflow_text():
 def script_text():
     with open(SCRIPT, encoding="utf-8") as h:
         return h.read()
+
+
+def job_section(workflow_text, job_id):
+    """Steps of one job in the unified build workflow."""
+    starts = [
+        m.start() for m in re.finditer(r"^  [\w-]+:", workflow_text, re.M)
+    ]
+    for i, s in enumerate(starts):
+        if workflow_text[s:].split(":", 1)[0].strip() == job_id:
+            end = starts[i + 1] if i + 1 < len(starts) else len(workflow_text)
+            return workflow_text[s:end]
+    raise AssertionError(f"job {job_id} missing from workflow")
+
+
+def test_workflow_has_all_platform_jobs(workflow_text):
+    for job_id in ("build-macos", "build-linux", "build-windows"):
+        section = job_section(workflow_text, job_id)
+        assert "upload-artifact" in section, f"{job_id} uploads no artifacts"
+    release = job_section(workflow_text, "release")
+    assert "softprops/action-gh-release" in release
 
 
 def test_workflow_exists():
@@ -135,14 +155,17 @@ def test_workflow_prunes_nested_dot_apps_before_sign(workflow_text):
 
 
 def test_editor_build_drops_collect_all_pyside6(workflow_text, script_text):
-    assert "--collect-all PySide6" not in workflow_text
+    # Scoped to the macOS job: the Windows job still needs
+    # --collect-all PySide6, which must never leak into the macOS bundle.
+    macos = job_section(workflow_text, "build-macos")
+    assert "--collect-all PySide6" not in macos
     assert "--collect-all PySide6" not in script_text
     for hidden in ("PySide6.QtPdf", "PySide6.QtPdfWidgets"):
-        assert hidden in workflow_text, f"workflow missing {hidden}"
+        assert hidden in macos, f"macOS job missing {hidden}"
         assert hidden in script_text, f"build script missing {hidden}"
     # Typst/numpy collection must stay.
-    assert "--collect-all typst" in workflow_text
-    assert "--collect-all numpy" in workflow_text
+    assert "--collect-all typst" in macos
+    assert "--collect-all numpy" in macos
 
 
 def test_smoke_checks_qt_platform_plugin():

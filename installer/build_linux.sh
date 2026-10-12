@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the Easy Math Linux installers (.deb + .rpm) from PyInstaller
 # binaries (mirrors scripts/build_macos.sh and the CI workflow
-# .github/workflows/build-linux-installers.yml).
+# .github/workflows/build-installers.yml).
 #
 # Usage (Linux, from the repo root):
 #   bash installer/build_linux.sh
@@ -9,7 +9,8 @@
 # Output in dist/:
 #   easymath_<ver>_amd64.deb            (Debian/Ubuntu install)
 #   easymath-<ver>-1.x86_64.rpm         (Fedora/RHEL/openSUSE install)
-#   EasyMathLang-Linux-amd64.deb/.rpm   (stable names for GitHub Releases)
+#   EasyMathLang-Debian-amd64.deb   (stable .deb for Debian/Ubuntu/Mint)
+#   EasyMathLang-Fedora-amd64.rpm   (stable .rpm for Fedora/RHEL/openSUSE)
 #
 # Installed FHS layout (same as installer/PKGBUILD):
 #   /usr/bin/easy-math-lang, ezmath, easy-math-lsp, easy-math-editor -> lib
@@ -135,7 +136,7 @@ chmod 644 "$STAGE/DEBIAN/control"
 
 DEB="dist/easymath_${VER}_amd64.deb"
 dpkg-deb --build "$STAGE" "$DEB"
-cp -f "$DEB" dist/EasyMathLang-Linux-amd64.deb
+cp -f "$DEB" dist/EasyMathLang-Debian-amd64.deb
 echo "Built $DEB"
 
 # --- .rpm ---------------------------------------------------------------
@@ -186,9 +187,9 @@ rpmbuild -bb "$TOPDIR/SPECS/easymath.spec" \
   --define "_sourcedir $TOPDIR/SOURCES"
 RPM="$(find "$TOPDIR/RPMS" -name '*.rpm' | head -n 1)"
 cp -f "$RPM" "dist/easymath-${VER}-1.x86_64.rpm"
-cp -f "$RPM" dist/EasyMathLang-Linux-amd64.rpm
+cp -f "$RPM" dist/EasyMathLang-Fedora-amd64.rpm
 echo "Built dist/easymath-${VER}-1.x86_64.rpm"
 
 ls -lh dist/*.deb dist/*.rpm
 echo 'Build OK:'
-ls -l dist/EasyMathLang-Linux-amd64.deb dist/EasyMathLang-Linux-amd64.rpm
+ls -l dist/EasyMathLang-Debian-amd64.deb dist/EasyMathLang-Fedora-amd64.rpm

@@ -17,6 +17,15 @@ import pytest
 
 ISS = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'installer', 'setup.iss'))
+WORKFLOW = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '.github',
+                 'workflows', 'build-installers.yml'))
+README = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'README.md'))
+INSTALL_DOC = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'docs', 'installation.md'))
+PACKAGING_DOC = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'docs', 'packaging.md'))
 
 
 @pytest.fixture(scope='module')
@@ -72,3 +81,17 @@ def test_no_hklm_environment_key_anywhere(iss_text):
             continue
         assert not re.search(r'(?i)\bHKLM\\Environment\b', stripped), \
             f'line {lineno}: HKLM\\Environment is not a real env location'
+
+
+def test_output_filename_agrees_everywhere(iss_text):
+    """The Windows setup file name must agree across iss, CI, and docs."""
+    match = re.search(r'(?im)^OutputBaseFilename\s*=\s*(\S+)\s*$', iss_text)
+    assert match, 'no OutputBaseFilename found'
+    assert match.group(1) == 'EasyMathLang-Windows-x64-Setup'
+    filename = match.group(1) + '.exe'
+    with open(WORKFLOW, encoding='utf-8') as handle:
+        workflow_text = handle.read()
+    assert filename in workflow_text, 'CI does not upload the named setup exe'
+    for path in (README, INSTALL_DOC, PACKAGING_DOC):
+        with open(path, encoding='utf-8') as handle:
+            assert filename in handle.read(), f'{filename} missing from {path}'

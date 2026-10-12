@@ -7,7 +7,7 @@ import pytest
 
 WORKFLOW = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", ".github",
-                 "workflows", "build-linux-installers.yml"))
+                 "workflows", "build-installers.yml"))
 SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "installer", "build_linux.sh"))
 PKGBUILD = os.path.abspath(
@@ -104,9 +104,18 @@ def test_script_requires_dpkg_deb(script_text):
     assert "exit 1" in script_text
 
 
-def test_script_emits_stable_release_names(script_text):
-    assert "EasyMathLang-Linux-amd64.deb" in script_text
-    assert "EasyMathLang-Linux-amd64.rpm" in script_text
+def test_stable_distro_names_agree(script_text, workflow_text):
+    """Distro-scoped package names must agree across script, CI, and docs."""
+    texts = [script_text, workflow_text]
+    for path in (INSTALL_DOC, PACKAGING_DOC, README):
+        with open(path, encoding="utf-8") as h:
+            texts.append(h.read())
+    for name in ("EasyMathLang-Debian-amd64.deb",
+                 "EasyMathLang-Fedora-amd64.rpm"):
+        for text in texts:
+            assert name in text, f"{name} missing somewhere"
+    assert "EasyMathLang-Linux-amd64" not in script_text
+    assert "EasyMathLang-Linux-amd64" not in workflow_text
 
 
 def test_workflow_triggers_on_tag_and_dispatch(workflow_text):

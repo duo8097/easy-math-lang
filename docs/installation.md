@@ -27,9 +27,9 @@ even if you have never set up a programming tool before.
 
 ## Option A — Windows installer (easiest)
 
-1. Download `EasyMathLangSetup.exe` from the latest stable release on the
+1. Download `EasyMathLang-Windows-x64-Setup.exe` from the latest stable release on the
    [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
-   (or the nightly artifact under Actions -> "Build Windows Installer").
+   (or the nightly artifact under Actions -> "Build Installers").
 2. Run it and follow the steps. Two options are offered:
    - *Create a desktop shortcut* (off by default).
    - *Add compiler/LSP to PATH* (off by default) — tick this only if you
@@ -50,7 +50,7 @@ Apple Silicon only (M1 or newer); does not run on Intel Macs.
 
 1. Download `EasyMathLang-macOS-arm64.dmg` from the latest stable release
    on the [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
-   (or the nightly artifact under Actions -> "Build macOS Installer").
+   (or the nightly artifact under Actions -> "Build Installers").
    A `.zip` with the same contents is attached alongside.
 2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`
    (a shortcut to `Applications` is included in the image for this).
@@ -87,17 +87,18 @@ automatically, even when nothing was added to `PATH`.
 
 x86_64 only.
 
-1. Download `EasyMathLang-Linux-amd64.deb` (Debian/Ubuntu) or
-   `EasyMathLang-Linux-amd64.rpm` (Fedora/RHEL/openSUSE) from the latest
+1. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint and
+   derivatives) or `EasyMathLang-Fedora-amd64.rpm` (Fedora, RHEL,
+   openSUSE and derivatives) from the latest
    stable release on the
    [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
-   (or the nightly artifact under Actions -> "Build Linux Installers").
+   (or the nightly artifact under Actions -> "Build Installers").
 2. Install it:
    ```
-   sudo dpkg -i EasyMathLang-Linux-amd64.deb       # Debian/Ubuntu
+   sudo dpkg -i EasyMathLang-Debian-amd64.deb       # Debian/Ubuntu/Mint
    ```
    ```
-   sudo rpm -i EasyMathLang-Linux-amd64.rpm        # Fedora/RHEL/openSUSE
+   sudo rpm -i EasyMathLang-Fedora-amd64.rpm        # Fedora/RHEL/openSUSE
    ```
    (On Debian/Ubuntu, if `dpkg` complains about missing dependencies,
    run `sudo apt-get install -f` afterwards.)

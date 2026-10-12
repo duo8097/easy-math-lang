@@ -1,5 +1,5 @@
 # Local test build of the Easy Math binaries (mirrors
-# .github/workflows/build-windows-installer.yml, minus Inno Setup).
+# .github/workflows/build-installers.yml, minus Inno Setup).
 #
 # Usage (Windows, from the repo root):
 #   powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1
