@@ -229,12 +229,18 @@ def _overlap_area(a, b):
 
 
 def test_panel_center_agreement(tmp_path, qapp):
-    """Non-circular check: model-predicted center page == navigator page."""
+    """Non-circular check: model-predicted navigator page == navigator page.
+
+    QPdfView tracks the page under a 2px probe at 40% of the viewport
+    height (see QPdfViewPrivate::setViewport in Qt's qpdfview.cpp), not
+    the viewport center, so the model must use the same 0.4 probe.
+    """
     from editor.preview_panel import PreviewPanel, pdf_available
     if not pdf_available():
         pytest.skip('Qt PDF modules unavailable')
     pytest.importorskip('typst')
     import tempfile
+    import time
     work = tempfile.mkdtemp(prefix='easymath-hit-')
     lines = [f'Block line number {i} with some words' for i in range(30)]
     pdf, _ = _real_pdf_with_links(work, '\n'.join(lines) + '\n')
@@ -244,20 +250,47 @@ def test_panel_center_agreement(tmp_path, qapp):
         panel.show()
         qapp.processEvents()
         panel.show_pdf(pdf)
-        qapp.processEvents()
+        # macOS ARM settles document layout asynchronously; wait for
+        # a stable non-trivial scrollbar maximum before probing.
+        vmax = 0
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline:
+            qapp.processEvents()
+            try:
+                vmax = int(panel._view.verticalScrollBar().maximum())
+            except Exception:
+                vmax = 0
+            if vmax > 0 and panel._layout_metrics() is not None:
+                break
+            time.sleep(0.05)
         vsb = panel._view.verticalScrollBar()
-        vph = panel._view.viewport().height()
-        metrics = panel._layout_metrics()
-        assert metrics is not None
-        _k, tops, _l, _s, heights, _w = metrics
         for v in (0, vsb.maximum() // 4, vsb.maximum() // 2,
                   3 * vsb.maximum() // 4, vsb.maximum()):
             vsb.setValue(v)
-            for _ in range(3):
+            # Let the view process the scroll and update the navigator.
+            nav_deadline = time.monotonic() + 5.0
+            expect = None
+            while time.monotonic() < nav_deadline:
                 qapp.processEvents()
-            center = v + vph / 2
+                time.sleep(0.02)
+                metrics = panel._layout_metrics()
+                if metrics is None:
+                    continue
+                _k, tops, _l, _s, heights, _w = metrics
+                vph = panel._view.viewport().height()
+                cur_v = vsb.value()
+                probe = cur_v + vph * 0.4
+                expect = next(i for i in reversed(range(len(tops)))
+                              if probe >= tops[i])
+                if panel._view.pageNavigator().currentPage() == expect:
+                    break
+            metrics = panel._layout_metrics()
+            assert metrics is not None
+            _k, tops, _l, _s, heights, _w = metrics
+            vph = panel._view.viewport().height()
+            probe = vsb.value() + vph * 0.4
             expect = next(i for i in reversed(range(len(tops)))
-                          if center >= tops[i])
+                          if probe >= tops[i])
             assert panel._view.pageNavigator().currentPage() == expect, v
     finally:
         panel.close()
