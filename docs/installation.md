@@ -7,24 +7,29 @@ even if you have never set up a programming tool before.
 > see [Option A](#option-a--windows-installer-easiest) below.
 > No Python needed.
 >
-> **On macOS?** Download the `.dmg` / `.zip` from the
+> **On macOS?** Download the `.dmg` / `.zip` from the latest stable
+> release on the
 > [Releases page](https://github.com/duo8097/easy-math-lang/releases) —
 > see [Option A2](#option-a2--macos-disk-image-easiest) below.
 > No Python needed (Apple Silicon only, M1 or newer; does not run on
 > Intel Macs).
 >
 > **On Linux?** Download the `.deb` (Debian/Ubuntu) or `.rpm`
-> (Fedora/RHEL/openSUSE) from the
+> (Fedora/RHEL/openSUSE) from the latest stable release on the
 > [Releases page](https://github.com/duo8097/easy-math-lang/releases) —
 > see [Option A3](#option-a3--linux-packages-easiest) below.
 > No Python needed (x86_64).
+>
+> **Nightly builds** (fresh off `main`) are under Actions as run
+> Artifacts (expire after 14 days) — see each option below.
 
 ---
 
 ## Option A — Windows installer (easiest)
 
-1. Download `EasyMathLangSetup.exe` from the
-   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+1. Download `EasyMathLangSetup.exe` from the latest stable release on the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
+   (or the nightly artifact under Actions -> "Build Windows Installer").
 2. Run it and follow the steps. Two options are offered:
    - *Create a desktop shortcut* (off by default).
    - *Add compiler/LSP to PATH* (off by default) — tick this only if you
@@ -43,8 +48,9 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
 
 Apple Silicon only (M1 or newer); does not run on Intel Macs.
 
-1. Download `EasyMathLang-macOS-arm64.dmg` from the
-   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+1. Download `EasyMathLang-macOS-arm64.dmg` from the latest stable release
+   on the [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
+   (or the nightly artifact under Actions -> "Build macOS Installer").
    A `.zip` with the same contents is attached alongside.
 2. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`
    (a shortcut to `Applications` is included in the image for this).
@@ -82,8 +88,10 @@ automatically, even when nothing was added to `PATH`.
 x86_64 only.
 
 1. Download `EasyMathLang-Linux-amd64.deb` (Debian/Ubuntu) or
-   `EasyMathLang-Linux-amd64.rpm` (Fedora/RHEL/openSUSE) from the
-   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases).
+   `EasyMathLang-Linux-amd64.rpm` (Fedora/RHEL/openSUSE) from the latest
+   stable release on the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
+   (or the nightly artifact under Actions -> "Build Linux Installers").
 2. Install it:
    ```
    sudo dpkg -i EasyMathLang-Linux-amd64.deb       # Debian/Ubuntu

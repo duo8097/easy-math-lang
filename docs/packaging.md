@@ -66,8 +66,10 @@ bash scripts/build_macos.sh
 Both write temporary `entry_*.py` shims, run the same three PyInstaller
 commands as their CI workflow, remove the shims again, and leave the
 output in `dist/` (gitignored). Tagging a commit `v*` runs the steps
-in CI and attaches the installer(s) to a GitHub Release (manual
-dispatch uploads the same files as run artifacts).
+in CI and attaches the installer(s) to a stable GitHub Release
+(hyphenated tags become prereleases). The nightly schedule — plus pull
+requests and manual dispatch — uploads the same files as run artifacts
+(14-day retention).
 
 ---
 
@@ -138,8 +140,8 @@ usr/
 
 - `installer/build_linux.sh` (run from the repo root on Linux) writes
   `dist/easymath_<ver>_amd64.deb` and `dist/easymath-<ver>-1.x86_64.rpm`
-  plus stable `dist/EasyMathLang-Linux-amd64.deb/.rpm` copies for the
-  GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
+  plus stable `dist/EasyMathLang-Linux-amd64.deb/.rpm` copies attached
+  to the stable GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
 - The `.deb` is assembled with `dpkg-deb` (required); the `.rpm` needs
   `rpmbuild` and is skipped with a warning when it is missing
   (CI installs the `rpm` package first).

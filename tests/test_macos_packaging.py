@@ -41,6 +41,11 @@ def test_workflow_triggers_on_tag_and_dispatch(workflow_text):
     assert "softprops/action-gh-release" in workflow_text
 
 
+def test_workflow_runs_nightly_schedule(workflow_text):
+    assert "schedule" in workflow_text
+    assert "cron" in workflow_text
+
+
 def test_workflow_builds_arm64_only(workflow_text):
     assert "macos-15" in workflow_text
     assert "arm64" in workflow_text

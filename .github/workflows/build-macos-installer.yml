@@ -2,7 +2,11 @@ name: Build macOS Installer
 
 on:
   push:
-  pull_request: 
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 2 * * *"
 
 permissions:
   contents: write
