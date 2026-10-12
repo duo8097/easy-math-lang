@@ -118,10 +118,13 @@ def test_stable_distro_names_agree(script_text, workflow_text):
     assert "EasyMathLang-Linux-amd64" not in workflow_text
 
 
-def test_workflow_triggers_on_tag_and_dispatch(workflow_text):
-    assert "v*" in workflow_text
+def test_workflow_runs_on_every_commit(workflow_text):
+    # Unfiltered push: every commit builds. Tag pushes additionally
+    # publish the stable GitHub Release (see Create GitHub Release).
     assert "workflow_dispatch" in workflow_text
+    assert "tags:" not in workflow_text
     assert "softprops/action-gh-release" in workflow_text
+    assert "startsWith(github.ref, 'refs/tags/')" in workflow_text
 
 
 def test_workflow_runs_nightly_schedule(workflow_text):

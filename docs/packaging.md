@@ -65,11 +65,11 @@ bash scripts/build_macos.sh
 
 Both write temporary `entry_*.py` shims, run the same three PyInstaller
 commands as their CI workflow, remove the shims again, and leave the
-output in `dist/` (gitignored). Tagging a commit `v*` runs the steps
-in CI and attaches the installer(s) to a stable GitHub Release
-(hyphenated tags become prereleases). The nightly schedule — plus pull
-requests and manual dispatch — uploads the same files as run artifacts
-(14-day retention).
+output in `dist/` (gitignored). Every push runs the steps in CI and
+uploads the installer(s) as run artifacts (14-day retention); tagging a
+commit `v*` additionally attaches them to a stable GitHub Release
+(hyphenated tags become prereleases). The nightly schedule, pull
+requests and manual dispatch build the same way.
 
 ---
 
@@ -99,8 +99,8 @@ staging/
 └── README.txt
 ```
 
-`hdiutil` packs `staging/` to `EasyMathLang-macOS-arm64.dmg`; the `.zip`
-is built with `ditto` from the same staged content. Signing is inside-out
+`hdiutil` packs `staging/` into the single `EasyMathLang-macOS-arm64.dmg`.
+Signing is inside-out
 (nested code, then the bundle — never recursive for the final sign) with
 `codesign --verify --deep --strict` afterwards, and the step has no
 leniency: a bad signature fails the job. Ad-hoc means first launch still

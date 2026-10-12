@@ -2,7 +2,6 @@ name: Build Installers
 
 on:
   push:
-    tags: ["v*"]
   pull_request:
   workflow_dispatch: {}
   schedule:
@@ -274,26 +273,21 @@ jobs:
         shell: bash
         run: bash scripts/smoke_macos.sh staging
 
-      - name: Create DMG + ZIP
+      - name: Create DMG
         shell: bash
         run: |
           DMG="EasyMathLang-macOS-${{ matrix.arch }}.dmg"
-          ZIP="EasyMathLang-macOS-${{ matrix.arch }}.zip"
-          rm -f "$DMG" "$ZIP"
+          rm -f "$DMG"
           hdiutil create -volname EasyMathLang -srcfolder staging -ov -format UDZO "$DMG"
-          (cd staging && ditto -c -k --sequesterRsrc . "../$ZIP")
-          ls -lh "$DMG" "$ZIP"
+          ls -lh "$DMG"
           echo "DMG=$DMG" >> "$GITHUB_ENV"
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       # --- Artifacts ---------------------------------------------------------
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:
           name: EasyMathLang-macOS-${{ matrix.arch }}
-          path: |
-            EasyMathLang-macOS-${{ matrix.arch }}.dmg
-            EasyMathLang-macOS-${{ matrix.arch }}.zip
+          path: EasyMathLang-macOS-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: 14
 

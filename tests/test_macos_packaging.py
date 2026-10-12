@@ -55,10 +55,13 @@ def test_workflow_exists():
     assert os.path.isfile(SCRIPT), "macOS build script missing"
 
 
-def test_workflow_triggers_on_tag_and_dispatch(workflow_text):
-    assert "v*" in workflow_text
+def test_workflow_runs_on_every_commit(workflow_text):
+    # Unfiltered push: every commit builds. Tag pushes additionally
+    # publish the stable GitHub Release (see Create GitHub Release).
     assert "workflow_dispatch" in workflow_text
+    assert "tags:" not in workflow_text
     assert "softprops/action-gh-release" in workflow_text
+    assert "startsWith(github.ref, 'refs/tags/')" in workflow_text
 
 
 def test_workflow_runs_nightly_schedule(workflow_text):
@@ -108,10 +111,12 @@ def test_workflow_provides_ezmath_alias(workflow_text):
     assert "ezmath" in workflow_text
 
 
-def test_workflow_creates_dmg_and_zip(workflow_text):
-    assert "hdiutil" in workflow_text
-    assert ".dmg" in workflow_text
-    assert ".zip" in workflow_text or "ditto" in workflow_text
+def test_workflow_creates_dmg_only(workflow_text):
+    macos = job_section(workflow_text, "build-macos")
+    assert "hdiutil" in macos
+    assert ".dmg" in macos
+    assert ".zip" not in macos
+    assert "ditto" not in macos
 
 
 def test_workflow_bundles_helpers_into_app(workflow_text):
@@ -133,9 +138,10 @@ def test_workflow_has_applications_symlink(workflow_text):
     assert "ln -s /Applications" in workflow_text
 
 
-def test_workflow_zip_from_staged_content(workflow_text):
-    assert "cd staging" in workflow_text
-    assert "ditto" in workflow_text
+def test_workflow_builds_dmg_from_staged_app(workflow_text):
+    macos = job_section(workflow_text, "build-macos")
+    assert "-srcfolder staging" in macos
+    assert "easy-math-editor.app" in macos
 
 
 def test_workflow_prunes_nested_dot_apps_before_sign(workflow_text):
@@ -232,7 +238,7 @@ def test_workflow_uploads_and_releases(workflow_text):
     assert "retention-days: 14" in workflow_text
     assert "EasyMathLang-macOS-${{ matrix.arch }}" in workflow_text
     assert "fail-fast: false" in workflow_text
-    # Release ships the same DMG+ZIP and only runs on tag builds.
+    # Release ships the DMG and only runs on tag builds.
     assert "startsWith(github.ref, 'refs/tags/')" in workflow_text
     assert workflow_text.index("upload-artifact") < workflow_text.index(
         "softprops/action-gh-release"
