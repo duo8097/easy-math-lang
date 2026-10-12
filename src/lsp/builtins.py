@@ -40,7 +40,7 @@ MATH_DOCS = {
     'integral': ('*integral(lower ; upper ; expression [; variable])', 'Integral (alias of *int).'),
     'oint': ('*oint(lower ; upper ; expression [; variable])', 'Contour integral (Typst integral.cont). Same args as *int.'),
     'cases': ('*cases(row1 | row2)', 'Piecewise / equation system (Typst cases). Rows split on |; multiline *cases( block works too.'),
-    'vec': ('*vec(expression)', 'Vector arrow accent (Typst arrow, not column vec).'),
+    'vec': ('*vec(x ; y)', 'Vector arrow diagram as SVG (matplotlib backend, same as *plot). Two numeric components.'),
     'binom': ('*binom(n ; k)', 'Binomial coefficient.'),
     'cot': ('*cot(x)', 'Cotangent.'),
     'sec': ('*sec(x)', 'Secant.'),

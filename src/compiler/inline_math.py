@@ -127,6 +127,12 @@ def process_math_inner(ctx, inner_raw, line_no=None):
             f'cannot be used inside math \\ ... \\ — leaving as-is',
             file=sys.stderr,
         )
+    if re.search(r'\*vec\s*\(', inner):
+        print(
+            f'[Warning] Line {line_no}: *vec(...) is text mode (SVG diagram) '
+            f'and cannot be used inside math \\ ... \\ — leaving as-is',
+            file=sys.stderr,
+        )
     inner = normalize_friendly_calls(inner)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)

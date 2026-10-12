@@ -62,6 +62,7 @@ def test_template_generation_math():
                         {'condition': 'x -> 0', 'expression': 'sin(x) / x'}) == \
         '*lim(x -> 0 ; sin(x) / x)'
     assert build_source('calc', {'expression': '2+3'}) == 'calc(2+3)'
+    assert build_source('vec', {'x1': '3', 'x2': '4'}) == '*vec(3 ; 4)'
 
 
 def test_template_generation_variables_and_text():

@@ -128,12 +128,67 @@ def test_cases_piecewise_real_pdf():
         shutil.rmtree(work, ignore_errors=True)
 
 
-def test_vec_arrow_not_column(tmp_path, monkeypatch, capsys):
-    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(AB)\n")
+def test_vec_basic_image(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n")
     assert ok is True
-    assert "$arrow(A B)$" in typ
-    # Must not map to Typst column vec.
+    assert '#image("case-vec-1.svg"' in typ
+    assert (tmp_path / "case-vec-1.svg").is_file()
     assert "$vec(" not in typ
+    assert "arrow(" not in typ
+
+
+def test_vec_comma_and_thousands(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(3, 4)\n")
+    assert ok is True
+    assert '#image("case-vec-1.svg"' in typ
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*vec(100,000 ; 2)\n"
+    )
+    assert ok is True
+    assert '#image("case-vec-1.svg"' in typ
+
+
+def test_vec_variables_and_calc(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys,
+        "<a> = 2\n*vec(<a> ; calc(<a> * 3))\n",
+    )
+    assert ok is True
+    assert '#image("case-vec-1.svg"' in typ
+
+
+def test_vec_wrong_arity_is_error(tmp_path, monkeypatch, capsys):
+    for text in ("*vec(3)\n", "*vec(1 ; 2 ; 3)\n"):
+        ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, text)
+        assert ok is True, text
+        assert "Vec Error" in typ, text
+        assert "needs 2 arguments" in err, text
+        assert "#image(" not in typ, text
+
+
+def test_vec_symbolic_is_error(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(x ; y)\n")
+    assert ok is True
+    assert "Vec Error" in typ
+    assert "#image(" not in typ
+
+
+def test_vec_unclosed_warns(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*vec(3 ; 4\n"
+    )
+    assert "[Warning] Line 1: unclosed *vec(... — missing closing parenthesis" in err
+    assert "#image(" not in typ
+
+
+def test_vec_inline_math_warns(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "\\ v = *vec(3 ; 4) \\\n"
+    )
+    assert ok is True
+    assert "text mode" in err
+    assert "*vec" in typ
+    assert "#image(" not in typ
 
 
 def test_binom(tmp_path, monkeypatch, capsys):
@@ -179,7 +234,7 @@ def test_variables_and_calc_inside_args(tmp_path, monkeypatch, capsys):
 
 def test_new_commands_no_lsp_unknown_warning():
     from lsp import analysis
-    for snippet in ("*int(0 ; 1 ; x)\n", "*cases(a | b)\n", "*vec(AB)\n",
+    for snippet in ("*int(0 ; 1 ; x)\n", "*cases(a | b)\n", "*vec(3 ; 4)\n",
                     "*binom(n ; k)\n", "*cot(x)\n", "*sinh(x)\n"):
         result = analysis.analyze_text(snippet)
         assert not any("unknown command" in d.message.lower()
@@ -189,7 +244,7 @@ def test_new_commands_no_lsp_unknown_warning():
 def test_new_commands_no_unknown_command_stderr(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(
         tmp_path, monkeypatch, capsys,
-        "*int(x)\n*cases(a | b)\n*vec(AB)\n*binom(n ; k)\n*cot(x)\n",
+        "*int(x)\n*cases(a | b)\n*vec(3 ; 4)\n*binom(n ; k)\n*cot(x)\n",
     )
     assert ok is True
     assert "unknown command" not in err.lower()
@@ -217,7 +272,7 @@ def test_real_pdf_compile(tmp_path):
             f.write(
                 "*int(0 ; 1 ; x^2 ; x)\n"
                 "*cases(a | b)\n"
-                "*vec(AB)\n"
+                "*vec(3 ; 4)\n"
                 "*binom(5 ; 2)\n"
                 "*cot(x)\n*sinh(x)\n"
             )

@@ -206,14 +206,15 @@ def test_geometry_rejects_decimal_comma_radius():
 
 
 def test_calc_decimal_comma(tmp_path, monkeypatch, capsys):
+    # Decimal separator is a dot; comma is thousands only.
     typ, _ = compile_text(
-        tmp_path, monkeypatch, capsys, "<a> = 3,5\n<b> = calc(<a> * 2)\n<b>\n"
+        tmp_path, monkeypatch, capsys, "<a> = 3.5\n<b> = calc(<a> * 2)\n<b>\n"
     )
     assert "7 \\" in typ
 
 
 def test_calc_decimal_comma_fraction(tmp_path, monkeypatch, capsys):
-    typ, _ = compile_text(tmp_path, monkeypatch, capsys, "calc(0,25 * 4)\n")
+    typ, _ = compile_text(tmp_path, monkeypatch, capsys, "calc(0.25 * 4)\n")
     assert "1 \\" in typ
 
 
@@ -227,15 +228,15 @@ def test_calc_thousands_comma(tmp_path, monkeypatch, capsys):
 def test_calc_ambiguous_comma_reads_as_thousands(
     tmp_path, monkeypatch, capsys
 ):
-    # 3,500 matches the thousands pattern (1 digit + exactly 3 digits),
-    # so it reads as 3500. Write 3.5 for three-and-a-half.
+    # Comma is thousands only (1 digit + exactly 3 digits -> 3500).
+    # Use a dot for decimals (3.5).
     typ, _ = compile_text(tmp_path, monkeypatch, capsys, "calc(3,500)\n")
     assert "3500 \\" in typ
 
 
 def test_calc_mixed_decimal_and_thousands(tmp_path, monkeypatch, capsys):
     typ, _ = compile_text(
-        tmp_path, monkeypatch, capsys, "calc(3,5 * 2 + 1,000)\n"
+        tmp_path, monkeypatch, capsys, "calc(3.5 * 2 + 1,000)\n"
     )
     assert "1007 \\" in typ
 
@@ -251,5 +252,18 @@ def test_calc_decimal_comma_unsupported_keeps_clear_error(
 def test_lsp_calc_decimal_comma_no_error():
     from lsp import analysis
 
-    result = analysis.analyze_text("<a> = 3,5\n<b> = calc(<a> * 2)\n")
+    result = analysis.analyze_text("<a> = 3.5\n<b> = calc(<a> * 2)\n")
     assert not [d for d in result.diagnostics if d.severity == "error"]
+
+
+def test_calc_comma_decimal_now_errors(tmp_path, monkeypatch, capsys):
+    # Comma is not a decimal separator: 3,5 must fail clearly.
+    typ, _ = compile_text(tmp_path, monkeypatch, capsys, "calc(3,5)\n")
+    assert "[Calc Error:" in typ
+
+
+def test_lsp_calc_comma_decimal_errors():
+    from lsp import analysis
+
+    result = analysis.analyze_text("calc(3,5)\n")
+    assert [d for d in result.diagnostics if d.severity == "error"]

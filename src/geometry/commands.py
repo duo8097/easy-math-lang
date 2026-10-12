@@ -13,8 +13,9 @@ def parse_numeric_arg(text):
 
     ``1,000`` / ``100,000`` -> 1000.0. Only strict thousands groups
     (1-3 leading digits, then groups of exactly 3 digits) are accepted;
-    anything else containing a comma (e.g. a decimal ``3,5``) raises
-    ValueError so callers report their usual "must be numeric" error.
+    anything else containing a comma (e.g. ``3,5`` — use ``3.5`` for
+    decimals) raises ValueError so callers report their usual
+    "must be numeric" error. Decimal separator is a dot.
     """
     s = text.strip()
     # Tolerate sign and decimals: -1,000, 1,000.5

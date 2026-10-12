@@ -28,7 +28,7 @@ Piecewise function:
 
 # Vectors and binomials
 
-Vector AB: *vec(AB)
+Vector: *vec(3 ; 4)
 
 Binomial: *binom(n ; k)
 

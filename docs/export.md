@@ -1,7 +1,8 @@
 # Exporting to PDF, images, HTML and Typst
 
-`easy-math-lang` always writes the intermediate Typst source (`doc.typ`
-next to your `.ezmath`), then converts it with the `typst` package.
+`easy-math-lang` writes the intermediate Typst source (`doc.typ`
+next to your `.ezmath`), converts it with the `typst` package, then
+removes the intermediates on success — only the deliverable stays.
 Pick the output by extension — or explicitly with `--format`.
 
 ## Quick examples
@@ -43,8 +44,10 @@ yourself, include `{p}` in the output name: `out-{p}.png`.
 - Unknown extensions (e.g. `out`) warn and assume PDF — add `--format`
   to be explicit.
 - Invalid `--format`/`--ppi` fails fast with exit code 2 and a hint.
-- The `.typ` file next to your input is always rewritten, even when
-  exporting images — handy for debugging layout.
+- Intermediates (`.typ`, `.smap.json`, `-plot-`/`-vec-*.svg` next to
+  the input) are removed on success; pass `--save-build-artifacts` to
+  keep them for debugging layout. Failures always keep them. The
+  `compile_ezmath()` API and the editor preview always keep them.
 - Geometry (`*draw`) renders identically in every format (CeTZ canvas).
 
 ## Honest status and --strict

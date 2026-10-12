@@ -157,7 +157,7 @@ def escape_number_commas(s):
 _TYPST_MATH_KEEP = frozenset({
     'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'cbrt', 'root',
     'sum', 'product', 'prod', 'lim', 'display',
-    'integral', 'cont', 'dif', 'cases', 'arrow', 'binom',
+    'integral', 'cont', 'dif', 'cases', 'arrow', 'vec', 'binom',
     'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh', 'coth',
     'quad', 'thin', 'med',
@@ -376,8 +376,6 @@ def math_call_specs(ctx):
          )),
         ('lim', 2,
          lambda args: f"$lim_({clean_inner_math(ctx, args[0])}) ({clean_inner_math(ctx, args[1])})$"),
-        ('vec', 1,
-         lambda args: f"$arrow({clean_inner_math(ctx, args[0])})$"),
         ('binom', 2,
          lambda args: f"$binom({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
         ('cot', 1, lambda args: f"$cot({clean_inner_math(ctx, args[0])})$"),

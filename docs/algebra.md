@@ -141,24 +141,21 @@ calc(1 000 000 + 500)
 
 Result: `1000500`
 
-### Decimal comma (Vietnamese style)
+### Decimal point
 
-Inside `calc`, a comma between digits is a decimal separator, so
-`3,5` means three-and-a-half:
+Inside `calc`, use a dot for decimals:
 
 ```
-<a> = 3,5
+<a> = 3.5
 <b> = calc(<a> * 2)   // 7
-calc(0,25 * 4)        // 1
+calc(0.25 * 4)        // 1
 ```
 
 Thousands separators keep working: `calc(100,000 + 1)` is `100001`
 and `calc(1,000 * 2)` is `2000`.
 
-> **Ambiguity:** `3,500` matches the thousands pattern (1–3 digits,
-> then groups of exactly 3 digits), so it reads as `3500`, not `3.5`.
-> To disambiguate, write decimals with a dot (`3.5`), put a space
-> after the comma, or use `;` to separate function arguments
+> **Note:** a comma never means decimal — `3,5` is a calc error
+> (use `3.5`). In `*frac`/`*table`/etc, `,` separates arguments
 > (`*frac(3,5)` is two arguments `3` and `5`, never `3.5`).
 
 ---
@@ -328,13 +325,25 @@ Multiline block form works too (cells work per line as well):
 )
 ```
 
-### Vectors (arrow accent)
+### Vector diagrams
 
 ```
-*vec(AB)     // AB with an arrow over it (Typst arrow, not a column vector)
+*vec(3 ; 4)
+*vec(-2 ; 5)
 ```
 
-Column vectors stay available through `*matrix` (e.g. `*matrix(1 ; 2)`).
+2D vector arrow from the origin to `(x, y)`, rendered with Matplotlib
+to `yourdoc-vec-1.svg` and embedded as `#image(...)` — the same
+backend as `*plot` (numerical eval, SVG next to the `.typ`, basename
+embedded so the build stays relocatable). Components use `calc`-style
+syntax (`+ - * / % ^`, parentheses, `pi`/`e`, `sin cos tan cot sec
+csc arcsin arccos arctan sinh cosh tanh coth sqrt cbrt log ln abs
+exp`) and accept variables (`*vec(<a> ; calc(<a> * 3))`). Commas work
+too (`*vec(3, 4)`); `;` wins when present so `*vec(100,000 ; 2)` keeps
+`100,000` intact. Exactly 2 numeric components; anything else emits a
+`[Vec Error: ...]` message instead of an image — the rest of the
+document still builds. Text mode only: `*vec` cannot be used inside
+`\ ... \` or matrices (like `*table`).
 
 ### Binomial coefficients
 
@@ -400,7 +409,8 @@ Commas work too: `*plot(x^2, -5, 5)`.
 
 Each plot becomes an SVG image next to your document
 (`yourdoc-plot-1.svg`, `yourdoc-plot-2.svg`, …) and is embedded in
-the PDF automatically. Bounds accept the same numbers and
+the PDF automatically (the CLI removes these intermediates on success
+unless you pass `--save-build-artifacts`). Bounds accept the same numbers and
 expressions as `calc` (including variables: `*plot(x; -<a>; <a>)`).
 
 The expression uses `calc`-style syntax: `+ - * / % ^` (`^` is
@@ -424,6 +434,8 @@ Limitations:
 * A plot whose expression has no finite values on the interval
   (e.g. `*plot(sqrt(x); -10; -1)`) emits a `[Plot Error: ...]`
   message instead of an image — the rest of the document still builds.
+  `*vec` shares this backend (diagrams go to `yourdoc-vec-1.svg`,
+  failures emit `[Vec Error: ...]`).
 
 ---
 

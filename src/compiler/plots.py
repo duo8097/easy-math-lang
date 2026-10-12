@@ -9,7 +9,7 @@ Pipeline (mirrors the ``*table``/``*matrix`` extension pattern):
 
 Expression syntax is the same family as ``calc(...)`` (see
 :mod:`compiler.calc`): ``+ - * / % ^`` (``^`` is power), parentheses,
-decimal points/commas and thousands separators. Additionally the plot
+decimal points (dots) and thousands separators. Additionally the plot
 variable ``x``, the constants ``pi``/``e`` (``*pi`` is accepted too)
 and the single-argument functions ``sin cos tan cot sec csc arcsin
 arccos arctan sinh cosh tanh coth sqrt cbrt log ln abs exp`` are
@@ -127,8 +127,8 @@ def _preprocess_expression(ctx, raw):
             r'\s' + re.escape(ctx.mult_sym) + r'\s', ' * ', f' {expr} '
         ).strip()
     expr = re.sub(r'(?<=\d)\s+(?=\d{3}\b)', '', expr)
+    # Decimal separator is a dot (3.5); commas are thousands only.
     expr = re.sub(r'(?<=\d),(?=\d{3}(?:,\d{3})*(?!\d))', '', expr)
-    expr = re.sub(r'(?<=\d),(?=\d)', '.', expr)
     expr = expr.replace('^', '**')
     return expr.strip()
 

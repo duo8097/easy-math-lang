@@ -48,6 +48,7 @@ from .symbols import replace_symbol_shortcuts
 from .variables import check_undefined_vars, replace_defines, replace_vars
 from . import tables as _tables
 from . import plots as _plots
+from . import vectors as _vecs
 
 
 class _DiagCounter:
@@ -283,6 +284,14 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
                     if not cell_raw.strip():
                         r_out.append('')
                         continue
+                    if re.search(r'\*vec\s*\(', cell_raw):
+                        print(
+                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                            f'contains *vec(...) — vec is text mode '
+                            f'(SVG diagram); only math commands are '
+                            f'supported inside matrices — leaving as-is',
+                            file=sys.stderr,
+                        )
                     if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
                         print(
                             f'[Warning] Line {line_no}: *{name}(...) cell '
@@ -377,6 +386,87 @@ def _expand_plots(ctx, text, line_no):
             pos = call_end
             continue
         ph = f'\x06{idx}\x06'
+        idx += 1
+        placeholders[ph] = f'#image("{fname}", width: 80%)'
+        out.append(ph)
+        pos = call_end
+    return ''.join(out), placeholders
+
+
+def _expand_vecs(ctx, text, line_no):
+    """Expand ``*vec(x ; y)`` to a vector-diagram ``#image(...)``.
+
+    Same backend as :func:`_expand_plots`: each diagram is rendered to
+    ``<stem>-vec-<n>.svg`` next to the intermediate ``.typ`` file (see
+    ``ctx.plot_dir``/``ctx.plot_stem``) and referenced by basename so
+    the Typst build stays relocatable. Failures never abort the build:
+    a ``[Vec Error: ...]`` literal is emitted and reported on stderr,
+    mirroring ``*plot`` error UX.
+    Returns (new_text, {placeholder: typst}).
+    """
+    placeholders = {}
+    idx = 0
+    pos = 0
+    out = []
+    while True:
+        found = _vecs.find_next_vec_call(text, pos)
+        if not found:
+            out.append(text[pos:])
+            break
+        if found[0] == 'unclosed':
+            _, call_start, inner_start, _, _ = found
+            print(
+                f'[Warning] Line {line_no}: unclosed *vec(... — '
+                f'missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[pos:inner_start])
+            pos = inner_start
+            continue
+        _call_start, _inner_start, call_end, inner_raw = found
+        out.append(text[pos:_call_start])
+        # Same friendly rule as *matrix cells (and the old Typst *vec):
+        # ';' wins when present so 100,000 stays intact, otherwise ','
+        # also splits.
+        args = _tables.split_cells_top_level(inner_raw)
+        err = None
+        if len(args) != 2:
+            err = (f'*vec(...) needs 2 arguments: x ; y '
+                   f'(got {len(args)})')
+        elif not args[0].strip() or not args[1].strip():
+            err = '*vec(...) needs numeric x and y components'
+        else:
+            try:
+                dx = _vecs.evaluate_vec_component(ctx, args[0])
+                dy = _vecs.evaluate_vec_component(ctx, args[1])
+            except ValueError as e:
+                err = f'*vec(...) invalid components: {e}'
+                dx = dy = None
+        if err is not None:
+            print(f'[Error] Line {line_no}: {err}', file=sys.stderr)
+            out.append(f'[Vec Error: {err}]')
+            pos = call_end
+            continue
+        ctx.vec_index = int(getattr(ctx, 'vec_index', 0) or 0) + 1
+        plot_dir = getattr(ctx, 'plot_dir', None) or os.getcwd()
+        plot_stem = getattr(ctx, 'plot_stem', None) or 'doc'
+        fname = _vecs.vec_filename(plot_stem, ctx.vec_index)
+        fpath = os.path.join(plot_dir, fname)
+        try:
+            _vecs.render_vec_svg(ctx, dx, dy, fpath)
+        except ValueError as e:
+            print(f'[Error] Line {line_no}: *vec(...) {e}',
+                  file=sys.stderr)
+            out.append(f'[Vec Error: {e}]')
+            pos = call_end
+            continue
+        except Exception as e:
+            print(f'[Error] Line {line_no}: *vec(...) failed: {e}',
+                  file=sys.stderr)
+            out.append(f'[Vec Error: {e}]')
+            pos = call_end
+            continue
+        ph = f'\x0e{idx}\x0e'
         idx += 1
         placeholders[ph] = f'#image("{fname}", width: 80%)'
         out.append(ph)
@@ -682,6 +772,12 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     if _table_depth <= 20:
         text, plot_placeholders = _expand_plots(ctx, text, line_no)
 
+    # 5e. Vector diagrams (*vec). Same matplotlib->SVG->#image backend
+    # as plots (SVGs next to the .typ, basename embedded).
+    vec_placeholders = {}
+    if _table_depth <= 20:
+        text, vec_placeholders = _expand_vecs(ctx, text, line_no)
+
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
@@ -751,6 +847,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     for ph, typ in table_placeholders.items():
         text = text.replace(ph, typ)
     for ph, typ in plot_placeholders.items():
+        text = text.replace(ph, typ)
+    for ph, typ in vec_placeholders.items():
         text = text.replace(ph, typ)
     # Restore literal dollars as escaped Typst dollars.
     for ph in dollar_placeholders:
@@ -937,7 +1035,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
     print(f'Compiling {label} with Typst...')
 
     def _copy_plot_sidecars(dst_dir):
-        """Copy ``<stem>-plot-*.svg`` next to *dst_dir* for typ/html.
+        """Copy ``<stem>-plot-*.svg`` / ``<stem>-vec-*.svg`` next to *dst_dir*.
 
         PDF/PNG/SVG embeds the images; raw Typst source and HTML keep
         external ``#image("...")`` references, so the SVGs must travel
@@ -951,13 +1049,13 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
             if os.path.abspath(tdir) == os.path.abspath(ddir):
                 return
             os.makedirs(ddir, exist_ok=True)
-            for svg in sorted(
-                    _glob.glob(os.path.join(tdir, f'{tstem}-plot-*.svg'))):
-                try:
-                    shutil.copyfile(
-                        svg, os.path.join(ddir, os.path.basename(svg)))
-                except OSError:
-                    pass
+            for pat in (f'{tstem}-plot-*.svg', f'{tstem}-vec-*.svg'):
+                for svg in sorted(_glob.glob(os.path.join(tdir, pat))):
+                    try:
+                        shutil.copyfile(
+                            svg, os.path.join(ddir, os.path.basename(svg)))
+                    except OSError:
+                        pass
         except Exception:
             pass
     if _require_typst() is None:
@@ -1054,6 +1152,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
           -> inline math \\ ... \\ (multiline supported, see below)
           -> tables/matrices (*table / *matrix / *mat, | rows, ;/, cells)
           -> function plots (*plot(expression ; xmin ; xmax) -> SVG #image)
+          -> vector diagrams (*vec(x ; y) -> SVG #image, same backend)
           -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
              (friendly: ',' works like ';', *fraction etc. are aliases)
           -> unknown *command(...) warning
@@ -1130,6 +1229,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     ctx.plot_stem = os.path.splitext(
         os.path.basename(_typ_file_early))[0] or 'doc'
     ctx.plot_index = 0
+    ctx.vec_index = 0
 
     try:
         with open(input_str, 'r', encoding='utf-8') as f:
@@ -1652,7 +1752,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
 
 def _print_usage():
     print('Usage: easy-math-lang <input.ezmath> [output.pdf]')
-    print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] [--strict] <input.ezmath>')
+    print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] [--strict] [--save-build-artifacts] <input.ezmath>')
     print('')
     print('Export formats: pdf, png, svg, html, typ (default: from output extension).')
     print('  PNG/SVG multi-page documents write stem-{p}.ext (one file per page).')
@@ -1672,6 +1772,8 @@ def _print_usage():
     print('  -o, --output FILE  Output file (same as positional [output])')
     print('  --strict        Exit non-zero when any [Error] was emitted')
     print('                  (PDF is still written; default keeps exit 0)')
+    print('  --save-build-artifacts  Keep intermediate files (.typ, .smap.json,')
+    print('                  -plot-/-vec-*.svg); default removes them on success')
     print('  --list-formats  List supported export formats and exit')
     print('  --              Treat remaining arguments as file names '
           '(e.g. a file literally named --version)')
@@ -1681,6 +1783,72 @@ def _standalone_flag_error(flag):
     print(f'error: {flag} takes no arguments', file=sys.stderr)
     _print_usage()
     sys.exit(2)
+
+
+def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
+    """Remove intermediate build artifacts next to the input file.
+
+    Removes the intermediate ``<base>.typ``, the default
+    ``<base>.smap.json`` sidecar, and ``<stem>-plot-*.svg`` /
+    ``<stem>-vec-*.svg`` images — the files :func:`compile_ezmath`
+    writes next to the input (see ``ctx.plot_dir``/``ctx.plot_stem``).
+    Never removes the input file or the final output file. For
+    ``typ``/``html`` exports whose output lives next to the
+    intermediates, the SVGs are live dependencies of the exported
+    file and are kept. Missing files are ignored; never raises.
+    A custom ``source_map_path`` sidecar elsewhere is left alone.
+    Returns the list of removed paths.
+    """
+    import glob as _glob
+    removed = []
+    try:
+        in_abs = os.path.abspath(os.fspath(input_file))
+    except (TypeError, ValueError, OSError):
+        return removed
+    base, _ = os.path.splitext(in_abs)
+    typ_path = base + '.typ'
+    smap_path = base + '.smap.json'
+    typ_dir = os.path.dirname(typ_path) or '.'
+    stem = os.path.splitext(os.path.basename(typ_path))[0] or 'doc'
+    try:
+        out_abs = (os.path.abspath(os.fspath(output_file))
+                   if output_file is not None else None)
+    except (TypeError, ValueError, OSError):
+        out_abs = None
+    fmt = str(export_format or '').strip().lower().lstrip('.')
+    if not fmt and out_abs is not None:
+        out_ext = os.path.splitext(out_abs)[1].lower()
+        fmt = out_ext.lstrip('.')
+        if fmt == 'htm':
+            fmt = 'html'
+    same_dir = (
+        out_abs is not None
+        and os.path.abspath(os.path.dirname(out_abs) or '.')
+        == os.path.abspath(typ_dir)
+    )
+    keep_svgs = same_dir and fmt in ('typ', 'html')
+    candidates = [typ_path, smap_path]
+    if not keep_svgs:
+        candidates.extend(
+            sorted(_glob.glob(os.path.join(typ_dir, f'{stem}-plot-*.svg'))))
+        candidates.extend(
+            sorted(_glob.glob(os.path.join(typ_dir, f'{stem}-vec-*.svg'))))
+    for cand in candidates:
+        try:
+            cand_abs = os.path.abspath(cand)
+        except (TypeError, ValueError, OSError):
+            continue
+        if cand_abs == in_abs:
+            continue
+        if out_abs is not None and cand_abs == out_abs:
+            continue
+        try:
+            if os.path.isfile(cand):
+                os.remove(cand)
+                removed.append(cand)
+        except OSError:
+            pass
+    return removed
 
 
 def main():
@@ -1729,6 +1897,7 @@ def main():
     exp_ppi = None
     exp_output = None
     exp_strict = False
+    exp_save_artifacts = False
     positionals = []
     if not positional_only:
         i = 0
@@ -1736,6 +1905,10 @@ def main():
             a = args[i]
             if a == '--strict':
                 exp_strict = True
+                i += 1
+                continue
+            if a == '--save-build-artifacts':
+                exp_save_artifacts = True
                 i += 1
                 continue
             if a in ('--format', '--ppi', '--output', '-o'):
@@ -1805,6 +1978,10 @@ def main():
     ok = compile_ezmath(input_file, output_file,
                         format=exp_format, ppi=exp_ppi,
                         strict=exp_strict)
+    if ok and not exp_save_artifacts:
+        # Default: leave only the deliverable behind. Intermediates are
+        # kept on failure (debugging) and with --save-build-artifacts.
+        _cleanup_build_artifacts(input_file, output_file, exp_format)
     sys.exit(0 if ok else 1)
 
 

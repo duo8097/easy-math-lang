@@ -223,10 +223,12 @@ then run:
 uv run easy-math-lang my-doc.ezmath
 ```
 
-You will see two new files appear:
+You will see your finished document appear:
 
-- `my-doc.typ` — the intermediate file (you can ignore this)
-- `my-doc.pdf` — your finished document, open this!
+- `my-doc.pdf` — open this!
+
+(The intermediate `my-doc.typ` is removed on success; pass
+`--save-build-artifacts` to keep it for debugging.)
 
 > **Want to try immediately?** The `examples/` folder already contains finished
 > documents. Run `uv run easy-math-lang examples/example.ezmath` and open

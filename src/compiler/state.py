@@ -21,6 +21,8 @@ class CompileContext:
         self.doc_font_size = None
         # Function-plot output (set by compile_ezmath before the line
         # loop; *_render_text_line* generates SVGs next to the .typ).
+        # Vector diagrams (*vec) share the same backend (see vectors.py).
         self.plot_dir = None
         self.plot_stem = 'doc'
         self.plot_index = 0
+        self.vec_index = 0
