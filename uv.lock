@@ -133,7 +133,7 @@ wheels = [
 
 [[package]]
 name = "easy-math-lang"
-version = "4.0.1"
+version = "4.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
