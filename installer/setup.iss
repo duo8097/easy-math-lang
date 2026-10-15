@@ -1,6 +1,6 @@
 [Setup]
 AppName=Easy Math Lang
-AppVersion=4.1.0
+AppVersion=4.2.0
 PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
