@@ -168,7 +168,7 @@ _TYPST_MATH_KEEP = frozenset({
     'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh', 'coth',
     'hat', 'bar', 'overline', 'tilde', 'dot',
-    'partial', 'det',
+    'partial', 'det', 'delim',
     'quad', 'thin', 'med',
     'pi', 'infinity',
     'strong', 'emph', 'underline',
@@ -708,7 +708,7 @@ def replace_cases_call(text, ctx, _depth=0):
 
 
 def _render_det_grid(ctx, grid_raw):
-    """Render a raw det grid to Typst ``det(mat(...))`` inner (no $).
+    """Render a raw det grid to Typst ``mat(delim: "|", ...)`` (no $).
 
     Returns None when the grid is empty (caller leaves input as-is).
     Ragged rows are padded with 0 (warning), like *matrix. Text-mode
@@ -716,7 +716,6 @@ def _render_det_grid(ctx, grid_raw):
     Warnings carry no line number, like *cases.
     """
     import sys
-    from . import tables as _tables
     kept = [r for r in grid_raw if any(c.strip() for c in r)]
     if not kept:
         print(
@@ -756,7 +755,12 @@ def _render_det_grid(ctx, grid_raw):
                 )
             r_out.append(clean_inner_math(ctx, cell_raw))
         rendered.append(r_out)
-    return f'det({_tables.build_matrix_math_inner(rendered)})'
+    inner = '; '.join(
+        ', '.join(c if c.strip() else '0' for c in row) for row in rendered
+    )
+    # Empty matrix cells have no sensible math value; '0' keeps Typst
+    # compiling instead of aborting the whole PDF (same as *matrix).
+    return f'mat(delim: "|", {inner})'
 
 
 def _det_matrix_arg_inner(inner_raw):
@@ -793,12 +797,14 @@ def _det_matrix_arg_inner(inner_raw):
 
 
 def replace_det_calls(text, ctx, _depth=0):
-    """Expand *det(...) to a vertical-bar determinant ``$det(mat(...))$``.
+    """Expand *det(...) to a vertical-bar determinant.
 
-    Accepts either a single ``*matrix(...)`` argument or the same
-    row/cell syntax as *matrix (``|`` rows, ``;`` or friendly ``,``
-    cells). Ragged rows pad with 0 (warning); empty calls warn and
-    stay as-is. Warnings carry no line number, like *cases.
+    Emits Typst ``$mat(delim: "|", ...)$`` (real vertical bars, not a
+    ``det`` word). Accepts either a single ``*matrix(...)`` argument
+    or the same row/cell syntax as *matrix (``|`` rows, ``;`` or
+    friendly ``,`` cells). Ragged rows pad with 0 (warning); empty
+    calls warn and stay as-is. Warnings carry no line number, like
+    *cases.
     """
     import sys
     from . import tables as _tables
@@ -842,9 +848,9 @@ def replace_det_calls(text, ctx, _depth=0):
         if mat_arg is not None:
             kind, mat_inner = mat_arg
             if kind == 'typst':
-                # Already-expanded $mat(...)$: wrap it directly (cells
-                # are rendered Typst, no re-parse needed).
-                out.append(f'$det({mat_inner})$')
+                # Already-expanded $mat(...)$: splice in the "|"
+                # delimiter (cells are rendered Typst already).
+                out.append(f'$mat(delim: "|", {mat_inner[4:]})$')
                 pos = i
                 continue
             grid_raw = _tables.parse_grid(mat_inner)

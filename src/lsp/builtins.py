@@ -59,7 +59,7 @@ MATH_DOCS = {
     'dot': ('*dot(x)', 'Dot accent.'),
     'diff': ('*diff(f ; x [; n])', 'Derivative df/dx as a fraction; *diff(f ; x ; n) for the n-th.'),
     'pdiff': ('*pdiff(f ; x [; n])', 'Partial derivative (Typst partial). Same args as *diff.'),
-    'det': ('*det(1 ; 2 | 3 ; 4)', 'Determinant with vertical bars (Typst det). Same rows/cells as *matrix, or *det(*matrix(...)).'),
+    'det': ('*det(1 ; 2 | 3 ; 4)', 'Determinant with vertical bars (Typst mat with | delimiters). Same rows/cells as *matrix, or *det(*matrix(...)).'),
     'set': ('*set(x ; x > 0)', 'Set-builder {x | condition} (two ;-args); one or 3+ args list {a, b, c}. Commas always list: *set(a, b).'),
     'align': ('*align(x = 1 | y = 2)', 'Equations aligned at = (Typst &). Rows split on |; multiline *align( block works too.'),
     'table': ('*table(cell ; cell | cell ; cell)', 'Table. Rows split on |, cells on ; (comma works when no ;).'),

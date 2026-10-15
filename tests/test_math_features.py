@@ -169,7 +169,7 @@ def test_det_grid(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*det(1 ; 2 | 3 ; 4)\n"
     )
     assert ok is True
-    assert "$det(mat(1, 2; 3, 4))$" in typ
+    assert '$mat(delim: "|", 1, 2; 3, 4)$' in typ
 
 
 def test_det_matrix_arg(tmp_path, monkeypatch, capsys):
@@ -177,7 +177,7 @@ def test_det_matrix_arg(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*det(*matrix(1 ; 2 | 3 ; 4))\n"
     )
     assert ok is True
-    assert "$det(mat(1, 2; 3, 4))$" in typ
+    assert '$mat(delim: "|", 1, 2; 3, 4)$' in typ
 
 
 def test_det_comma_and_vars(tmp_path, monkeypatch, capsys):
@@ -186,7 +186,7 @@ def test_det_comma_and_vars(tmp_path, monkeypatch, capsys):
         "<a> = 2\n*det(1, <a> | 3, 4)\n*det(*mat(1 ; 2 | 3 ; 4))\n",
     )
     assert ok is True
-    assert "$det(mat(1, 2; 3, 4))$" in typ
+    assert '$mat(delim: "|", 1, 2; 3, 4)$' in typ
 
 
 def test_det_ragged_pads_and_empty_warns(tmp_path, monkeypatch, capsys):
@@ -195,11 +195,11 @@ def test_det_ragged_pads_and_empty_warns(tmp_path, monkeypatch, capsys):
     )
     assert ok is True
     assert "different lengths" in err
-    assert "$det(mat(1, 2; 3, 0))$" in typ
+    assert '$mat(delim: "|", 1, 2; 3, 0)$' in typ
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*det()\n")
     assert ok is True
     assert "*det(...) is empty" in err
-    assert "$det" not in typ
+    assert "delim:" not in typ
 
 
 def test_det_unclosed_warns(tmp_path, monkeypatch, capsys):
@@ -207,7 +207,7 @@ def test_det_unclosed_warns(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*det(1 ; 2\n"
     )
     assert "unclosed *det(..." in err
-    assert "$det" not in typ
+    assert "delim:" not in typ
 
 
 def test_det_in_math(tmp_path, monkeypatch, capsys):
@@ -215,7 +215,7 @@ def test_det_in_math(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "\\ *det(1 ; 2 | 3 ; 4) = 0 \\\n"
     )
     assert ok is True
-    assert "det(mat(1, 2; 3, 4))" in typ
+    assert 'mat(delim: "|", 1, 2; 3, 4)' in typ
     assert "unknown command" not in err.lower()
 
 

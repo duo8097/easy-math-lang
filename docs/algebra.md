@@ -375,7 +375,8 @@ Multiline block form works too (cells work per line as well):
 *det(1 ; 2 | 3 ; 4)
 ```
 
-Renders a determinant with vertical bars (Typst `det`). Rows split
+Renders a determinant with vertical bars (Typst `mat` with `|`
+delimiters: `$mat(delim: "|", 1, 2; 3, 4)$`). Rows split
 on `|` and cells on `;` (or `,` when a row has no `;`) — the same
 rule as `*matrix`. Alternatively pass a matrix directly:
 
