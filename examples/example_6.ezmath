@@ -1,0 +1,77 @@
+// New features tour: one document exercising every Phase 1-3 addition.
+// It must compile with zero errors (check the final status line).
+*doc_title(New Features Tour)
+
+# Text styling
+
+*bold(Important ideas) stand out, *italic(emphasis) adds tone,
+and *underline(key terms) mark vocabulary.
+
+Short forms: *b(bold), *i(italic), *u(underline).
+
+Nesting works: *bold(outer *italic(inner) outer).
+
+Variables and calculations work inside styling:
+
+<n> = 3
+*bold(answer is calc(<n> * 2))
+
+Math works inside too: *bold(*frac(1 ; 2)).
+
+# Numbers and sets
+
+Real numbers: *RR, naturals: *NN, integers: *ZZ, rationals: *QQ, complex: *CC.
+
+Long forms: *reals *naturals *integers *rationals *complex.
+
+The solution is \ x *isin *RR \.
+
+*matrix(*NN ; *ZZ | *QQ ; *CC)
+
+# Accents and derivatives
+
+*hat(x) + *bar(y) + *tilde(z) + *dot(w)
+
+Segment AB: *overline(AB)
+
+First derivative: *diff(x^2 ; x)
+
+Second derivative: *diff(x^2 ; x ; 2)
+
+Partial derivative: *pdiff(f ; x)
+
+# Determinants and sets
+
+*det(1 ; 2 | 3 ; 4)
+
+*det(*matrix(2 ; 5 | 1 ; 3))
+
+Builder notation: *set(x ; x > 0)
+
+Listing notation: *set(1 ; 2 ; 3)
+
+Two elements use commas: *set(a, b)
+
+# Aligned equations
+
+*align(x + y = 3 | x - y = 1)
+
+*align(
+    x = 1
+    y = 2
+)
+
+# Calculations with functions
+
+calc(sqrt(16)) and calc(sin(0)) and calc(2 * pi).
+
+<root> = calc(sqrt(16))
+The square root of 16 is <root>.
+
+# Page break and image
+
+*newpage
+
+After the break: a sine wave.
+
+*image(sine.png ; 70%)
