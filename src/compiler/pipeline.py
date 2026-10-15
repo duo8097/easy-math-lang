@@ -957,6 +957,7 @@ FORMAT_BY_EXT = {
     '.html': 'html',
     '.htm': 'html',
     '.typ': 'typ',
+    '.typst': 'typ',
 }
 
 
@@ -971,6 +972,8 @@ def infer_export_format(output_path, explicit=None):
         fmt = str(explicit).strip().lower().lstrip('.')
         if fmt in ('htm',):
             fmt = 'html'
+        if fmt in ('typst',):
+            fmt = 'typ'
         if fmt not in SUPPORTED_EXPORT_FORMATS:
             print(
                 f"[Error] unsupported export format {explicit!r} — "
@@ -1755,6 +1758,7 @@ def _print_usage():
     print('       easy-math-lang [--format FORMAT] [--ppi PPI] [-o OUTPUT] [--strict] [--save-build-artifacts] <input.ezmath>')
     print('')
     print('Export formats: pdf, png, svg, html, typ (default: from output extension).')
+    print('  (typst is accepted as an alias of typ: --format typst, out.typst)')
     print('  PNG/SVG multi-page documents write stem-{p}.ext (one file per page).')
     print('  Examples:')
     print('    easy-math-lang doc.ezmath                # doc.pdf')
@@ -1819,8 +1823,10 @@ def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
     if not fmt and out_abs is not None:
         out_ext = os.path.splitext(out_abs)[1].lower()
         fmt = out_ext.lstrip('.')
-        if fmt == 'htm':
-            fmt = 'html'
+    if fmt == 'htm':
+        fmt = 'html'
+    if fmt == 'typst':
+        fmt = 'typ'
     same_dir = (
         out_abs is not None
         and os.path.abspath(os.path.dirname(out_abs) or '.')

@@ -12,7 +12,8 @@ VS Code**, anything.
 > - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root).
 > - `let x = 5` / `var x = 5` / `*define x = 5` work like `<x> = 5`.
 > - `# Title`, `## Sub`, `- item`, `1. item` become headings/lists.
-> - `==` means `=` (single equals); unknown `*cmd` suggests a fix.
+> - `==` means `=` (single equals); unknown `*cmd` (with or without
+>   parens) suggests a fix.
 
 ---
 
@@ -132,6 +133,23 @@ Output:
 | `/` | Division |
 | `^` | Power (e.g. `2 ^ 3` = 8) |
 | `%` | Remainder |
+
+### Functions and constants inside calc
+
+`calc` understands the same function whitelist as `*plot`/`*vec`
+(`log` is base-10, `ln` is the natural log) plus `pi` and `e`:
+
+```
+calc(sqrt(16))      // 4 (exact results stay ints, not 4.0)
+calc(sin(0))        // 0
+calc(2 * pi)        // 6.283185307179586
+calc(log(100))      // 2
+```
+
+Only single-argument calls work (`calc(sin(1, 2))` is an error),
+and there is no `x` variable — `calc(x)` is an error. `*`-spellings
+(`calc(*sin(0))`, `calc(*pi)`) work too. Words that merely contain a
+function name (`since 1990`) are plain text, never evaluated.
 
 You can also write large numbers with spaces — they are ignored inside `calc`:
 

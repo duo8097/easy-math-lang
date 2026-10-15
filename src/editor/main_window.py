@@ -1238,6 +1238,8 @@ class MainWindow(QtWidgets.QMainWindow):
         chosen file.
         """
         fmt = str(fmt or 'pdf').strip().lower()
+        if fmt == 'typst':
+            fmt = 'typ'
         filters = {
             'pdf': 'PDF (*.pdf)',
             'png': 'PNG Image (*.png)',

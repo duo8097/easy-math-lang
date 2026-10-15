@@ -1,7 +1,14 @@
 """Unknown-command diagnostics."""
 
+import difflib
 import re
 import sys
+
+from .symbols import WORD_REPLACEMENTS
+
+# Bare *word keywords that render as glyphs (not commands); a bare
+# occurrence must stay silent (e.g. *alpha, *pi, *quad).
+_SYMBOL_WORDS = frozenset(old for old, _new in WORD_REPLACEMENTS)
 
 KNOWN_COMMANDS = {
     'define', 'p',
@@ -70,9 +77,62 @@ def _levenshtein(a, b):
     return prev[len(b)]
 
 
+def _suggest_command(cmd):
+    """Closest known command name for *cmd, or None when nothing is close."""
+    hint = _SUGGESTIONS.get(cmd)
+    if hint is None:
+        close = difflib.get_close_matches(
+            cmd, sorted(KNOWN_COMMANDS | KNOWN_GEOMETRY_COMMANDS),
+            n=1, cutoff=0.8,
+        )
+        if close and _levenshtein(cmd, close[0]) <= 2:
+            hint = close[0]
+        else:
+            hint = None
+    return hint
+
+
+# Bare *word without parens. The star must start a word: not preceded
+# by a letter/digit (a*b is multiplication), another star (** is the
+# multiplication dot) or a backslash (escaped asterisk). The word must
+# match in full (no partial backtrack into *cmd(...) — a following '('
+# belongs to the *cmd(...) path, not here). Shared with the LSP
+# (analysis.py), which masks protected spans before matching.
+BARE_COMMAND_RE = re.compile(
+    r'(?<![A-Za-z0-9_*\\])\*([A-Za-z][A-Za-z0-9_\-]*)(?![A-Za-z0-9_\-])(?!\s*\()'
+)
+
+
+def _warn_bare_command(cmd, line_no):
+    """Emit the diagnostic for one bare *cmd (no parens)."""
+    if cmd in KNOWN_COMMANDS or cmd in _SYMBOL_WORDS or cmd == 'calc':
+        # Known command used without parens, a symbol keyword (*alpha,
+        # *pi, *quad, ...), or bare calc: all render literally today,
+        # so they stay silent.
+        return
+    if cmd == 'draw':
+        # Top-level *draw(...) is valid; a bare *draw is unclosed/malformed.
+        print(
+            f'[Warning] Line {line_no}: unclosed or malformed *draw(...) — treated as plain text',
+            file=sys.stderr,
+        )
+        return
+    if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
+        print(
+            f'[Warning] Line {line_no}: *{cmd} is only valid inside *draw(...) — treated as plain text',
+            file=sys.stderr,
+        )
+        return
+    hint = _suggest_command(cmd)
+    extra = f" Did you mean '*{hint}(...)'?" if hint else ""
+    print(
+        f'[Warning] Line {line_no}: unknown command *{cmd} — treated as plain text.{extra}',
+        file=sys.stderr,
+    )
+
+
 def warn_unknown_commands(text, line_no):
     """Warn if *name(...) appears where name is not in KNOWN_COMMANDS."""
-    import difflib
     for m in re.finditer(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(', text):
         cmd = m.group(1)
         if cmd in KNOWN_COMMANDS:
@@ -93,18 +153,18 @@ def warn_unknown_commands(text, line_no):
                 file=sys.stderr,
             )
             continue
-        hint = _SUGGESTIONS.get(cmd)
-        if hint is None:
-            close = difflib.get_close_matches(
-                cmd, sorted(KNOWN_COMMANDS | KNOWN_GEOMETRY_COMMANDS),
-                n=1, cutoff=0.8,
-            )
-            if close and _levenshtein(cmd, close[0]) <= 2:
-                hint = close[0]
-            else:
-                hint = None
+        hint = _suggest_command(cmd)
         extra = f" Did you mean '*{hint}(...)'?" if hint else ""
         print(
             f'[Warning] Line {line_no}: unknown command *{cmd}(...) — treated as plain text.{extra}',
             file=sys.stderr,
         )
+    # Bare *word without parens (e.g. *foo, *bogus). Generated $...$
+    # math spans are skipped: 'a*b' inside math is multiplication,
+    # not a command. Callers (*p/raw, calc, math-placeholder stages)
+    # run before this, so their contents never reach the scan.
+    for tok in re.split(r'(\$.*?\$)', text):
+        if len(tok) >= 2 and tok.startswith('$') and tok.endswith('$'):
+            continue
+        for m in BARE_COMMAND_RE.finditer(tok):
+            _warn_bare_command(m.group(1), line_no)

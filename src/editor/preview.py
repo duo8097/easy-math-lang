@@ -82,6 +82,8 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     fmt = str(format or 'pdf').strip().lower().lstrip('.')
     if fmt == 'htm':
         fmt = 'html'
+    if fmt == 'typst':
+        fmt = 'typ'
     # Allowlist: fmt feeds preview.{fmt} inside workdir — a raw fmt
     # like '../evil' would escape via os.path.join.
     if fmt not in ('pdf', 'png', 'svg', 'html', 'typ'):
@@ -189,6 +191,8 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
     fmt = (str(fmt or 'pdf').strip().lower().lstrip('.') or 'pdf')
     if fmt == 'htm':
         fmt = 'html'
+    if fmt == 'typst':
+        fmt = 'typ'
     if fmt not in ('pdf', 'png', 'svg', 'html', 'typ'):
         fmt = 'pdf'
     workdir = tempfile.mkdtemp(prefix='easymath-export-')

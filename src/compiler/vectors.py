@@ -27,6 +27,8 @@ import operator
 import re
 import warnings
 
+from .safemath import numpy_consts, numpy_funcs, preprocess_math_expr
+
 _VEC_CALL_RE = re.compile(r'\*vec\s*\(')
 
 _BINOPS = {
@@ -47,33 +49,11 @@ _UNARYOPS = {
 
 def _numpy_funcs():
     """Whitelisted single-argument functions (lazy numpy import)."""
-    import numpy as _np
-    return {
-        'sin': _np.sin,
-        'cos': _np.cos,
-        'tan': _np.tan,
-        'cot': lambda x: 1.0 / _np.tan(x),
-        'sec': lambda x: 1.0 / _np.cos(x),
-        'csc': lambda x: 1.0 / _np.sin(x),
-        'arcsin': _np.arcsin,
-        'arccos': _np.arccos,
-        'arctan': _np.arctan,
-        'sinh': _np.sinh,
-        'cosh': _np.cosh,
-        'tanh': _np.tanh,
-        'coth': lambda x: 1.0 / _np.tanh(x),
-        'sqrt': _np.sqrt,
-        'cbrt': _np.cbrt,
-        'log': _np.log10,
-        'ln': _np.log,
-        'abs': _np.abs,
-        'exp': _np.exp,
-    }
+    return numpy_funcs()
 
 
 def _numpy_consts():
-    import numpy as _np
-    return {'pi': _np.pi, 'e': _np.e}
+    return numpy_consts()
 
 
 def find_next_vec_call(text, start=0):
@@ -111,23 +91,8 @@ def find_next_vec_call(text, start=0):
 
 def _preprocess_component(ctx, raw):
     """Substitute vars/defines and normalize calc-style syntax."""
-    from .variables import replace_defines, replace_vars
-    expr = replace_vars(ctx, raw)
-    expr = replace_defines(ctx, expr)
-    expr = re.sub(r'\*pi\b', 'pi', expr)
-    # Accept math-command spellings (*sin(x), *sqrt(x)) inside vecs:
-    # single-argument functions map to their bare numpy equivalents.
-    expr = re.sub(
-        r'\*(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|coth|sqrt|cbrt|log|ln|abs|exp)\s*\(', r'\1(', expr)
-    if ctx.mult_sym != '*':
-        expr = re.sub(
-            r'\s' + re.escape(ctx.mult_sym) + r'\s', ' * ', f' {expr} '
-        ).strip()
-    expr = re.sub(r'(?<=\d)\s+(?=\d{3}\b)', '', expr)
-    # Decimal separator is a dot (3.5); commas are thousands only.
-    expr = re.sub(r'(?<=\d),(?=\d{3}(?:,\d{3})*(?!\d))', '', expr)
-    expr = expr.replace('^', '**')
-    return expr.strip()
+    # Shared with calc()/plots (see safemath).
+    return preprocess_math_expr(ctx, raw)
 
 
 def evaluate_vec_component(ctx, raw):

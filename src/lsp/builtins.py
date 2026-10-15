@@ -60,7 +60,7 @@ MATH_DOCS = {
 
 KEYWORD_DOCS = {
     'define': ('*define(name = value)', 'Define a reusable value. Also: *define x = 5, let x = 5.'),
-    'calc': ('calc(expression)', 'Evaluate a math expression.'),
+    'calc': ('calc(expression)', 'Evaluate a math expression (numbers, pi/e, and sin/sqrt/... functions).'),
     'p': ('*p(expression)', 'Print raw text, bypassing other rules.'),
     'doc_title': ('*doc_title(title)', 'Set the document title (centered heading + PDF metadata). Aliases: *doc-title, *doctitle, *title.'),
     'doc_font': ('*doc_font(family [; size])', 'Set the document font family and size (e.g. *doc_font(DejaVu Sans ; 14pt)). Aliases: *doc-font, *docfont.'),

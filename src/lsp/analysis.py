@@ -24,7 +24,12 @@ import re
 
 from compiler.calc import apply_calc_in_string, evaluate_calc
 from compiler.comments import strip_comments
-from compiler.diagnostics import KNOWN_COMMANDS, KNOWN_GEOMETRY_COMMANDS
+from compiler.diagnostics import (
+    BARE_COMMAND_RE,
+    KNOWN_COMMANDS,
+    KNOWN_GEOMETRY_COMMANDS,
+)
+from compiler.symbols import WORD_REPLACEMENTS
 from compiler.statements import (
     _normalize_friendly_statement,
     process_assignment_or_define,
@@ -41,6 +46,63 @@ CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])\*?calc\(')
 CMD_CALL = re.compile(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(')
 P_LINE = re.compile(r'^\*p\((.*)\)$')
 WORD_AT = re.compile(IDENT)
+
+# Bare *word keywords that render as glyphs (mirror compiler/diagnostics.py).
+_SYMBOL_WORDS = frozenset(old for old, _new in WORD_REPLACEMENTS)
+
+
+def _mask_ranges(code, spans):
+    """Blank *spans* with spaces (offset-preserving)."""
+    chars = list(code)
+    for start, end in spans:
+        for i in range(max(0, start), min(len(chars), end)):
+            chars[i] = ' '
+    return ''.join(chars)
+
+
+def _mask_calc_spans(code):
+    """Blank balanced calc(...)/ *calc(...) spans (offset-preserving).
+
+    The compiler evaluates calc() away before warning about commands,
+    so command-like text inside calc() (e.g. the ``*`` in ``2*3``)
+    must not warn here either. Unclosed calc() is left intact so the
+    unclosed-paren check below can still flag it.
+    """
+    spans = []
+    for m in CALC_OPEN.finditer(code):
+        close = _balanced_range(code, m.end() - 1)
+        if close is None:
+            continue
+        spans.append((m.start(), close))
+    return _mask_ranges(code, spans)
+
+
+def _mask_known_call_spans(code):
+    """Blank balanced *known(...) spans (offset-preserving).
+
+    The compiler expands known math commands before warning, so
+    multiplication inside their arguments (``*frac(a*b ; c)``) never
+    warns there — hide the same spans here for parity. Unknown calls
+    stay visible so the unknown-command checks still flag them.
+    ``*table``/``*matrix``/``*mat`` are NOT masked: their cells run
+    through the full text pipeline, so bare unknowns inside them warn
+    in the compiler too (nested known calls inside the cells are still
+    masked by the same pass).
+    """
+    spans = []
+    for m in CMD_CALL.finditer(code):
+        cmd = m.group(1)
+        if cmd in ('table', 'matrix', 'mat'):
+            continue
+        if (cmd in KNOWN_COMMANDS or cmd in _SYMBOL_WORDS
+                or cmd == 'calc'
+                or cmd in KNOWN_GEOMETRY_COMMANDS
+                or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS):
+            close = _balanced_range(code, m.end() - 1)
+            if close is None:
+                continue
+            spans.append((m.start(), close))
+    return _mask_ranges(code, spans)
 
 
 class Diag:
@@ -582,6 +644,29 @@ def _analyze_text_inner(text, analysis):
                 analysis.diagnostics.append(Diag(
                     idx, m.start(), m.end(), 'warning',
                     f"Unknown command *{cmd}(...) — treated as plain text",
+                ))
+
+            # Bare *word without parens (mirrors the compiler warning).
+            # Protected spans are hidden first: math pairs (above), calc()
+            # contents (evaluated away by the compiler), known *cmd(...)
+            # arguments (*frac(a*b ; c) is multiplication, not a command)
+            # and literal dollars (the compiler escapes each '$').
+            _bare_scan = _mask_calc_spans(_math_masked)
+            _bare_scan = _mask_known_call_spans(_bare_scan)
+            _bare_scan = _bare_scan.replace('$', ' ')
+            for m in BARE_COMMAND_RE.finditer(_bare_scan):
+                cmd = m.group(1)
+                if cmd in KNOWN_COMMANDS or cmd in _SYMBOL_WORDS or cmd == 'calc':
+                    continue
+                if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
+                    analysis.diagnostics.append(Diag(
+                        idx, m.start(), m.end(), 'warning',
+                        f"*{cmd} is only valid inside *draw(...) — treated as plain text",
+                    ))
+                    continue
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), m.end(), 'warning',
+                    f"Unknown command *{cmd} — treated as plain text",
                 ))
 
             # Table/matrix shape checks (text mode). Matrices also work

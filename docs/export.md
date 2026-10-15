@@ -18,6 +18,9 @@ uv run easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png
 easy-math-lang --list-formats                 # pdf, png, svg, html, typ
 ```
 
+`typst` is accepted as an alias of `typ` (`--format typst`, `out.typst`),
+matching the "Typst" label used in the docs and the editor.
+
 The installed binaries (`easy-math-lang`, `ezmath`) accept the same flags.
 In the desktop editor: **File → Export As…** (PDF/PNG/SVG/HTML/Typst)
 works for saved and untitled documents; PNG prompts for DPI (default 150).
@@ -30,7 +33,7 @@ works for saved and untitled documents; PNG prompts for DPI (default 150).
 | PNG | `.png` | Raster image. `--ppi 1..1200` controls resolution. |
 | SVG | `.svg` | Vector image (scales cleanly for slides/web). |
 | HTML | `.html` | Single web page (Typst HTML export). |
-| Typst | `.typ` | Intermediate source only — no `typst.compile()` call. |
+| Typst | `.typ` (`.typst` also works) | Intermediate source only — no `typst.compile()` call. |
 
 ## Multi-page images
 

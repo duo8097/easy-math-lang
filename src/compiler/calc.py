@@ -5,6 +5,7 @@ import operator
 import re
 import sys
 
+from .safemath import preprocess_math_expr, scalar_consts, scalar_funcs
 from .variables import replace_defines, replace_vars
 
 safe_operators = {
@@ -37,30 +38,39 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
     if nested != expression:
         expression = nested
     try:
-        # Only treat mult_sym as an operator when spaced, so decimals
-        # (3.14) and words containing 'x' are not corrupted.
-        if ctx.mult_sym != '*':
-            eval_expr = re.sub(
-                r'\s' + re.escape(ctx.mult_sym) + r'\s', ' * ', f' {expression} '
-            ).strip()
-        else:
-            eval_expr = expression.strip()
-        eval_expr = re.sub(r'(?<=\d)\s+(?=\d{3}\b)', '', eval_expr)
-        # Decimal separator is a dot (3.5). Commas are thousands
-        # separators only and are stripped first
-        # (100,000 / 1,000 -> plain digits). A comma that remains
-        # (e.g. 3,5) is left as-is so ast.parse fails with a clear
-        # calc error — use a dot for decimals and ';' to separate
-        # function arguments.
-        eval_expr = re.sub(r'(?<=\d),(?=\d{3}(?:,\d{3})*(?!\d))', '', eval_expr)
-        eval_expr = eval_expr.replace('^', '**')
+        # Shared preprocessing (safemath): <vars>/defines (idempotent
+        # here), *sin(x)/*pi spellings, custom multiplication symbol,
+        # thousands separators, decimal dots, ^ power. Only treat
+        # mult_sym as an operator when spaced, so decimals (3.14) and
+        # words containing 'x' are not corrupted.
+        eval_expr = preprocess_math_expr(ctx, expression)
         tree = ast.parse(eval_expr, mode='eval')
+        funcs = scalar_funcs()
+        consts = scalar_consts()
 
         def eval_node(node):
             if isinstance(node, ast.Expression):
                 return eval_node(node.body)
             if isinstance(node, ast.Constant) and type(node.value) in (int, float):
                 return node.value
+            if isinstance(node, ast.Name):
+                if node.id in consts:
+                    return consts[node.id]
+                raise ValueError(
+                    f'unknown name {node.id!r} — only numbers, pi, e and '
+                    f'{sorted(funcs)} are supported')
+            if isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name):
+                    raise ValueError('only plain function names are supported')
+                fname = node.func.id
+                if fname not in funcs:
+                    raise ValueError(
+                        f'unsupported function {fname!r} — supported: '
+                        f'{sorted(funcs)}')
+                if len(node.args) != 1 or node.keywords:
+                    raise ValueError(
+                        f'function {fname!r} takes exactly one argument')
+                return funcs[fname](eval_node(node.args[0]))
             if isinstance(node, ast.BinOp) and type(node.op) in safe_operators:
                 left = eval_node(node.left)
                 right = eval_node(node.right)
