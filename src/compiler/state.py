@@ -26,3 +26,7 @@ class CompileContext:
         self.plot_stem = 'doc'
         self.plot_index = 0
         self.vec_index = 0
+        # Image files used via *image(...) as (abs_path, typ_relpath)
+        # pairs (set during the line loop; typ/html exports to other
+        # directories copy them along like plot/vec sidecars).
+        self.image_files = []

@@ -751,6 +751,68 @@ build ignores system fonts, so pick a family bundled with Typst.
 
 ---
 
+## Text styling — bold, italic, underline
+
+```
+*bold(important)
+*italic(emphasis)
+*underline(note)
+```
+
+Short aliases: `*b(...)`, `*i(...)`, `*u(...)`. The whole text in
+parentheses is styled, so commas and semicolons stay literal
+(`*bold(yes, really)` keeps both words). Nesting works, and
+variables, `calc()` and math commands work inside:
+
+```
+<name> = Ada
+*bold(hello <name>)
+*bold(area is calc(3 * 4))
+*bold(a *italic(b) c)
+*bold(*frac(1 ; 2))
+```
+
+Styling also works inside `\ ... \` math and `*matrix` cells.
+
+---
+
+## Page breaks
+
+```
+*newpage
+```
+
+Alias `*pagebreak`; `*newpage()` with parentheses works too. Emits a
+Typst page break (text mode only — not inside `\ ... \` math).
+
+---
+
+## Images
+
+```
+*image(pic.png)
+*image(pic.png ; 50%)
+*image(photos/cat.jpg ; 6cm)
+```
+
+Relative paths resolve from your `.ezmath` file's folder, and the
+document embeds the relative path so the build stays relocatable
+(same discipline as `*plot`/`*vec` SVGs). With `typ`/`html`
+exports to another folder, the image file is copied along.
+
+The optional width is a percentage (`50%`), a length (`6cm`, `10pt`,
+`80mm`), or a bare number meaning percent (`50` = `50%`). Without a
+width the image keeps its natural size. Commas work too:
+`*image(pic.png, 50%)`. Variables and `calc()` work inside both
+arguments.
+
+A missing file (or a bad width) does not stop the build: you get an
+`[Error]` diagnostic plus a visible `[Image Error: ...]` placeholder
+in the PDF. Images are text mode only (not inside `\ ... \` math or
+`*matrix` cells).
+
+---
+
 ## Tables and matrices
 
 Rows are separated by `|`, cells by `;` (or `,` when a row has no `;`

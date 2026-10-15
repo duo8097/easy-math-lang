@@ -49,6 +49,7 @@ from .variables import check_undefined_vars, replace_defines, replace_vars
 from . import tables as _tables
 from . import plots as _plots
 from . import vectors as _vecs
+from . import text_commands as _textcmds
 
 
 class _DiagCounter:
@@ -290,6 +291,25 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
                             f'contains *vec(...) — vec is text mode '
                             f'(SVG diagram); only math commands are '
                             f'supported inside matrices — leaving as-is',
+                            file=sys.stderr,
+                        )
+                    if re.search(r'\*image\s*\(', cell_raw):
+                        print(
+                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                            f'contains *image(...) — images are text mode; '
+                            f'only math commands are supported inside '
+                            f'matrices — leaving as-is',
+                            file=sys.stderr,
+                        )
+                    if re.search(
+                        r'(?<![A-Za-z0-9_*\\])\*'
+                        r'(newpage|pagebreak)(?![A-Za-z0-9_\-])', cell_raw
+                    ):
+                        print(
+                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                            f'contains a page break — page breaks are text '
+                            f'mode; only math commands are supported '
+                            f'inside matrices — leaving as-is',
                             file=sys.stderr,
                         )
                     if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
@@ -778,6 +798,20 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     if _table_depth <= 20:
         text, vec_placeholders = _expand_vecs(ctx, text, line_no)
 
+    # 5f. Text commands (*bold/*italic/*underline, *newpage, *image).
+    # Runs after vars/calc/plots/vecs (like math commands) so <vars>
+    # holding styled text still expand; styling args re-render through
+    # the full pipeline (nesting, variables, calc and math work
+    # inside). Placeholders protect the #-markup through escaping.
+    tc_placeholders = {}
+    if _table_depth <= 20:
+        text, tc_placeholders = _textcmds.expand_text_commands(
+            ctx, text, line_no,
+            lambda arg: _render_text_line(
+                ctx, arg, line_no, _table_depth=_table_depth + 1),
+            _table_depth,
+        )
+
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
@@ -849,6 +883,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     for ph, typ in plot_placeholders.items():
         text = text.replace(ph, typ)
     for ph, typ in vec_placeholders.items():
+        text = text.replace(ph, typ)
+    for ph, typ in tc_placeholders.items():
         text = text.replace(ph, typ)
     # Restore literal dollars as escaped Typst dollars.
     for ph in dollar_placeholders:
@@ -1023,7 +1059,18 @@ def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
     return out_path, fmt, ppi
 
 
-def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
+def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
+                      image_files=()):
+    """Run typst.compile() for one export; True on success.
+
+    - ``typ``: just copy the intermediate file to *output_path*.
+    - ``pdf``/``html``: single-file compile.
+    - ``png``/``svg``: single-file when the doc fits one page; when
+      Typst reports "multiple pages", retry with a ``stem-{p}.ext``
+      pattern so every page lands on disk (Typst requires ``{p}``).
+    *image_files* (``(abs_path, typ_relpath)`` pairs from ``*image``)
+    travel with ``typ``/``html`` exports like plot/vec sidecars.
+    """
     """Run typst.compile() for one export; True on success.
 
     - ``typ``: just copy the intermediate file to *output_path*.
@@ -1043,6 +1090,8 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
         PDF/PNG/SVG embeds the images; raw Typst source and HTML keep
         external ``#image("...")`` references, so the SVGs must travel
         with the exported file when it lands in another directory.
+        ``*image`` files travel too (recreating their typdir-relative
+        layout), so the exported source stays relocatable.
         """
         import glob as _glob
         try:
@@ -1059,6 +1108,19 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str=''):
                             svg, os.path.join(ddir, os.path.basename(svg)))
                     except OSError:
                         pass
+            for abs_src, rel in (image_files or ()):
+                try:
+                    dst = os.path.normpath(os.path.join(ddir, rel))
+                    if not os.path.isfile(abs_src):
+                        continue
+                    if os.path.abspath(dst) == os.path.abspath(abs_src):
+                        continue
+                    parent = os.path.dirname(dst)
+                    if parent:
+                        os.makedirs(parent, exist_ok=True)
+                    shutil.copyfile(abs_src, dst)
+                except (OSError, TypeError, ValueError):
+                    pass
         except Exception:
             pass
     if _require_typst() is None:
@@ -1750,6 +1812,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         return False
     return _run_typst_export(
         typst_file, _out_path, _fmt, _ppi, input_str=input_str,
+        image_files=getattr(ctx, 'image_files', []),
     )
 
 

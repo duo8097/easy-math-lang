@@ -51,6 +51,10 @@ yourself, include `{p}` in the output name: `out-{p}.png`.
   the input) are removed on success; pass `--save-build-artifacts` to
   keep them for debugging layout. Failures always keep them. The
   `compile_ezmath()` API and the editor preview always keep them.
+  `*image` files are your own sources, never intermediates: they are
+  never deleted, and `typ`/`html` exports to another folder copy them
+  along (preserving their relative layout) so the exported source
+  keeps working.
 - Geometry (`*draw`) renders identically in every format (CeTZ canvas).
 
 ## Honest status and --strict

@@ -133,7 +133,31 @@ def process_math_inner(ctx, inner_raw, line_no=None):
             f'and cannot be used inside math \\ ... \\ — leaving as-is',
             file=sys.stderr,
         )
+    if re.search(r'\*image\s*\(', inner):
+        print(
+            f'[Warning] Line {line_no}: *image(...) is text mode (image file) '
+            f'and cannot be used inside math \\ ... \\ — leaving as-is',
+            file=sys.stderr,
+        )
+    if re.search(
+        r'(?<![A-Za-z0-9_*\\])\*(newpage|pagebreak)(?![A-Za-z0-9_\-])',
+        inner,
+    ):
+        print(
+            f'[Warning] Line {line_no}: *newpage/*pagebreak is text mode '
+            f'and cannot be used inside math \\ ... \\ — leaving as-is',
+            file=sys.stderr,
+        )
     inner = normalize_friendly_calls(inner)
+    from .text_commands import normalize_text_aliases, replace_styling_calls
+    inner = normalize_text_aliases(inner)
+    # Text styling compiles inside math too (Typst accepts
+    # #strong/#emph/#underline in equations); page breaks and images
+    # stay text-mode-only (warned above).
+    inner = replace_styling_calls(
+        inner, ctx, line_no,
+        lambda arg: clean_inner_math(ctx, arg),
+    )
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
     inner = replace_int_calls(inner, ctx)

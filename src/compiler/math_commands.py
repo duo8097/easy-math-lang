@@ -162,6 +162,7 @@ _TYPST_MATH_KEEP = frozenset({
     'sinh', 'cosh', 'tanh', 'coth',
     'quad', 'thin', 'med',
     'pi', 'infinity',
+    'strong', 'emph', 'underline',
     'upright', 'bracket', 'lr', 'mid',
 })
 
@@ -304,7 +305,14 @@ def clean_inner_math(ctx, s, _depth=0):
 
 
 def _clean_inner_math(ctx, s, _depth=0):
+    from .text_commands import normalize_text_aliases, replace_styling_calls
     s = normalize_friendly_calls(s.strip())
+    s = normalize_text_aliases(s)
+    s = replace_styling_calls(
+        s, ctx, None,
+        lambda arg: clean_inner_math(ctx, arg, _depth + 1),
+        _depth,
+    )
     s = replace_vars(ctx, s.strip())
     s = replace_defines(ctx, s)
     s = apply_calc_in_string(ctx, s)

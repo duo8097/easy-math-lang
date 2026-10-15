@@ -56,6 +56,15 @@ MATH_DOCS = {
     'matrix': ('*matrix(1 ; 2 | 3 ; 4)', 'Matrix (Typst mat). Rows split on |, cells on ;.'),
     'mat': ('*mat(1 ; 2 | 3 ; 4)', 'Matrix (alias of *matrix).'),
     'plot': ('*plot(expression ; xmin ; xmax)', 'Plot y=f(x) as SVG (numerical, 1000 samples).'),
+    'bold': ('*bold(text)', 'Bold text. Short alias: *b(...). Nesting, variables and calc() work inside.'),
+    'b': ('*b(text)', 'Bold text (alias of *bold).'),
+    'italic': ('*italic(text)', 'Italic text. Short alias: *i(...).'),
+    'i': ('*i(text)', 'Italic text (alias of *italic).'),
+    'underline': ('*underline(text)', 'Underlined text. Short alias: *u(...).'),
+    'u': ('*u(text)', 'Underlined text (alias of *underline).'),
+    'newpage': ('*newpage', 'Page break (Typst pagebreak). Alias: *pagebreak. Bare or *newpage().'),
+    'pagebreak': ('*pagebreak', 'Page break (alias of *newpage).'),
+    'image': ('*image(path [; width])', 'Image from a file (width like 50% or 6cm). Relative paths resolve from the document folder.'),
 }
 
 KEYWORD_DOCS = {

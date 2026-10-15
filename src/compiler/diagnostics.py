@@ -24,6 +24,8 @@ KNOWN_COMMANDS = {
     'sinh', 'cosh', 'tanh', 'coth',
     'table', 'matrix', 'mat',
     'plot',
+    'bold', 'b', 'italic', 'i', 'underline', 'u',
+    'newpage', 'pagebreak', 'image',
     # symbol shortcuts handled separately: pi, infinity, degree, ...
 }
 
@@ -49,6 +51,9 @@ _SUGGESTIONS = {
     'matrx': 'matrix',
     'matix': 'matrix',
     'martix': 'matrix',
+    'blod': 'bold',
+    'textbf': 'bold',
+    'textit': 'italic',
 }
 
 KNOWN_GEOMETRY_COMMANDS = {
