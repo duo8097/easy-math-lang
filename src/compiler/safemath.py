@@ -38,6 +38,26 @@ def scalar_consts():
     return {'pi': math.pi, 'e': math.e}
 
 
+def _cbrt(x):
+    """Cube root that snaps exact cubes back to whole floats.
+
+    Some libm builds return e.g. 3.0000000000000004 for cbrt(27),
+    which would print as ``3.0000000000000004`` instead of ``3``.
+    When the result rounds to an integer whose cube is exactly the
+    input, return that integer as a float (the calc layer then folds
+    it to an int); otherwise return the raw libm value untouched.
+    """
+    r = math.cbrt(x)
+    if math.isfinite(r):
+        n = round(r)
+        try:
+            if n ** 3 == x:
+                return float(n)
+        except (OverflowError, ValueError):
+            pass
+    return r
+
+
 def scalar_funcs():
     """Name -> callable for ``calc()`` (stdlib :mod:`math` semantics)."""
     return {
@@ -55,7 +75,7 @@ def scalar_funcs():
         'tanh': math.tanh,
         'coth': lambda x: 1.0 / math.tanh(x),
         'sqrt': math.sqrt,
-        'cbrt': math.cbrt,
+        'cbrt': _cbrt,
         'log': math.log10,
         'ln': math.log,
         'abs': abs,

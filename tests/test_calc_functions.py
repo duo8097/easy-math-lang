@@ -36,6 +36,31 @@ def _compile(tmp_path, monkeypatch, capsys, text):
     return ok, typ, captured.err, captured.out
 
 
+def test_cbrt_exact_cubes_snap():
+    # Some libm builds return 3.0000000000000004 for cbrt(27); the
+    # scalar helper snaps exact cubes back to ints. Non-cubes keep
+    # full float precision.
+    import math as _math
+    for expr, want in (("cbrt(27)", "3"), ("cbrt(-8)", "-2"),
+                       ("cbrt(64)", "4"), ("cbrt(0)", "0"),
+                       ("cbrt(1)", "1")):
+        res, err = _eval(expr)
+        assert (res, err) == (want, ""), expr
+    res, err = _eval("cbrt(2)")
+    assert err == ""
+    assert float(res) == pytest.approx(_math.cbrt(2))
+    assert "." in res  # a normal float, never snapped to int
+
+
+def test_cbrt_snaps_wobbly_libm(monkeypatch):
+    # Simulate a libm that returns 3.0000000000000004 for cbrt(27):
+    # calc must still print 3.
+    import math as _math
+    monkeypatch.setattr(_math, "cbrt", lambda x: 3.0000000000000004)
+    res, err = _eval("cbrt(27)")
+    assert (res, err) == ("3", "")
+
+
 def test_functions_exact_ints():
     # Exact results stay ints (4, not 4.0).
     for expr, want in (("sqrt(16)", "4"), ("cbrt(27)", "3"),
