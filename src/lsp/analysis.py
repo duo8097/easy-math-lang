@@ -473,11 +473,12 @@ def _analyze_text_inner(text, analysis):
                 in_f_block = False
                 continue
 
-            # Multiline *table/*matrix/*mat blocks: buffer rows for shape
-            # validation, but inner lines still get normal text checks
-            # below (variables/calc inside cells must resolve).
+            # Multiline *table/*matrix/*mat/*align blocks: buffer rows for
+            # shape validation, but inner lines still get normal text
+            # checks below (variables/calc inside cells must resolve).
+            # *align rows are equations (no shape check on close).
             if not math_buffered and not in_f_block and s in (
-                '*table(', '*matrix(', '*mat(',
+                '*table(', '*matrix(', '*mat(', '*align(',
             ):
                 in_table_block = True
                 table_type = s
@@ -485,10 +486,11 @@ def _analyze_text_inner(text, analysis):
                 table_start = idx
                 continue
             if not math_buffered and s == ')' and in_table_block:
-                _validate_table_block(
-                    table_type, table_content, lines,
-                    table_start, idx, analysis,
-                )
+                if table_type != '*align(':
+                    _validate_table_block(
+                        table_type, table_content, lines,
+                        table_start, idx, analysis,
+                    )
                 in_table_block = False
                 table_type = None
                 table_content = []

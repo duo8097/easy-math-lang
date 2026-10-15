@@ -76,6 +76,12 @@ WORD_REPLACEMENTS = [
     ('emptyset', '∅'), ('empty', '∅'),
     ('land', '∧'), ('lor', '∨'), ('lnot', '¬'),
     ('therefore', '∴'), ('because', '∵'),
+    # Number sets (blackboard bold; short forms match classroom usage).
+    ('reals', 'ℝ'), ('RR', 'ℝ'),
+    ('naturals', 'ℕ'), ('NN', 'ℕ'),
+    ('integers', 'ℤ'), ('ZZ', 'ℤ'),
+    ('rationals', 'ℚ'), ('QQ', 'ℚ'),
+    ('complex', 'ℂ'), ('CC', 'ℂ'),
     # Arrows.
     ('to', '→'), ('rightarrow', '→'), ('gets', '←'), ('leftarrow', '←'),
     ('implies', '⇒'), ('Rightarrow', '⇒'),

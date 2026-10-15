@@ -35,9 +35,13 @@ from .math_commands import (
     clean_inner_math,
     math_call_specs,
     normalize_friendly_calls,
+    replace_align_calls,
     replace_cases_call,
+    replace_det_calls,
+    replace_diff_calls,
     replace_int_calls,
     replace_math_call,
+    replace_set_calls,
     split_top_level_args,
 )
 from .statements import _normalize_friendly_statement, process_assignment_or_define
@@ -776,7 +780,15 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
         math_placeholders[ph] = wrapped
         text = text[:opening] + ph + tail
 
-    # 5c. Tables and matrices (*table / *matrix / *mat). Runs after
+    # 5c. Determinants (*det). Runs BEFORE tables/matrices so a
+    # *matrix(...) argument is still source text (the tables pass
+    # would expand it first, hiding it behind a placeholder).
+    # Nested det (matrix cells, math args) is handled by the math
+    # cleaners; the step-6 call below is a harmless idempotent cover.
+    if _table_depth <= 20:
+        text = replace_det_calls(text, ctx)
+
+    # 5d. Tables and matrices (*table / *matrix / *mat). Runs after
     # vars/calc/inline-math (like math commands) so <vars> holding
     # tables still expand; cells re-render via the full pipeline.
     table_placeholders = {}
@@ -785,20 +797,20 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
             ctx, text, line_no, _table_depth
         )
 
-    # 5d. Function plots (*plot). Same placeholder discipline as
+    # 5e. Function plots (*plot). Same placeholder discipline as
     # tables: the SVGs are written next to the .typ file and only the
     # basename is embedded, so the Typst build stays relocatable.
     plot_placeholders = {}
     if _table_depth <= 20:
         text, plot_placeholders = _expand_plots(ctx, text, line_no)
 
-    # 5e. Vector diagrams (*vec). Same matplotlib->SVG->#image backend
+    # 5f. Vector diagrams (*vec). Same matplotlib->SVG->#image backend
     # as plots (SVGs next to the .typ, basename embedded).
     vec_placeholders = {}
     if _table_depth <= 20:
         text, vec_placeholders = _expand_vecs(ctx, text, line_no)
 
-    # 5f. Text commands (*bold/*italic/*underline, *newpage, *image).
+    # 5g. Text commands (*bold/*italic/*underline, *newpage, *image).
     # Runs after vars/calc/plots/vecs (like math commands) so <vars>
     # holding styled text still expand; styling args re-render through
     # the full pipeline (nesting, variables, calc and math work
@@ -817,7 +829,11 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         text = replace_math_call(text, fn_name, fn_min, fn_fmt)
     text = replace_int_calls(text, ctx)
+    text = replace_diff_calls(text, ctx)
     text = replace_cases_call(text, ctx)
+    text = replace_det_calls(text, ctx)
+    text = replace_set_calls(text, ctx)
+    text = replace_align_calls(text, ctx)
 
     # 7. Warn about unknown *command(...)
     warn_unknown_commands(text, line_no)
@@ -1215,12 +1231,14 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
           -> define (bare-word) substitution
           -> calc(...) evaluation
           -> inline math \\ ... \\ (multiline supported, see below)
+          -> determinants (*det, before tables so *matrix args survive)
           -> tables/matrices (*table / *matrix / *mat, | rows, ;/, cells)
           -> function plots (*plot(expression ; xmin ; xmax) -> SVG #image)
           -> vector diagrams (*vec(x ; y) -> SVG #image, same backend)
+          -> text commands (*bold/*italic/*underline, *newpage, *image)
           -> math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)
              (friendly: ',' works like ';', *fraction etc. are aliases)
-          -> unknown *command(...) warning
+          -> unknown *command warning (bare *word too)
           -> *pi / *infinity
           -> subscript notation (A_1, outside math only)
           -> symbol shortcuts (outside math only, incl. == -> =)
@@ -1437,7 +1455,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                     process_assignment_or_define(ctx, inner, line_no=line_no)
                     continue
         if line in ('*(', '*f(', 'f(', '*draw(',
-                      '*table(', '*matrix(', '*mat(', '*cases('):
+                      '*table(', '*matrix(', '*mat(', '*cases(', '*align('):
             in_f_block = True
             block_type = line
             block_content = []
@@ -1449,7 +1467,8 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 _append_output(drawn, block_start_line, line_no)
                 if _is_draw_error_placeholder(drawn):
                     draw_failed = True
-            elif block_type in ('*table(', '*matrix(', '*mat(', '*cases('):
+            elif block_type in ('*table(', '*matrix(', '*mat(', '*cases(',
+                                '*align('):
                 cmd_name = block_type[1:-1]
                 joined = _tables.join_block_lines(block_content)
                 single = f'*{cmd_name}({joined})'

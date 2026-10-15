@@ -191,7 +191,7 @@ def _math_dialog(name, display, cmd, fields):
 # ----------------------------------------------------------------------
 
 #: Palette ids whose dialogs edit an NxM grid of ``r{row}c{col}`` cells.
-GRID_SYMBOLS = frozenset({'table', 'matrix'})
+GRID_SYMBOLS = frozenset({'table', 'matrix', 'det'})
 
 #: Preserved 2x2 placeholders (Add row/cell must not change these).
 TABLE_BASE_CELLS = {
@@ -244,7 +244,7 @@ def make_grid_fields(name: str, rows: int, cols: int) -> list[SymbolField]:
         raise ValueError('Grid dimensions must be at least 1x1')
     if name == 'table':
         base = TABLE_BASE_CELLS
-    elif name == 'matrix':
+    elif name in ('matrix', 'det'):
         base = MATRIX_BASE_CELLS
     else:
         raise ValueError(f'not a grid symbol: {name!r}')
@@ -305,6 +305,11 @@ def _build_symbols() -> list[Symbol]:
         _direct_word('cup', 'cup', 'Basic', 'Union'),
         _direct_word('cap', 'cap', 'Basic', 'Intersection'),
         _direct_word('emptyset', 'emptyset', 'Basic', 'Empty set'),
+        _direct_word('reals', 'RR', 'Basic', 'Reals'),
+        _direct_word('naturals', 'NN', 'Basic', 'Naturals'),
+        _direct_word('integers', 'ZZ', 'Basic', 'Integers'),
+        _direct_word('rationals', 'QQ', 'Basic', 'Rationals'),
+        _direct_word('complex-nums', 'CC', 'Basic', 'Complex numbers'),
         _direct_word('partial', 'partial', 'Basic', 'Partial'),
         _direct_word('quad-sym', 'quad', 'Basic', 'Quad space (1em, text and math)'),
         _direct_word('qquad-sym', 'qquad', 'Basic', 'Double quad space'),
@@ -388,6 +393,33 @@ def _build_symbols() -> list[Symbol]:
                 [_req('expression', 'Expression', 'x - 5')]),
         _math_dialog('cbrt', '∛', 'cbrt',
                 [_req('expression', 'Expression', '27')]),
+        _math_dialog('hat', 'hat', 'hat',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('bar', 'bar', 'bar',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('overline', 'overline', 'overline',
+                [_req('expression', 'Expression', 'AB')]),
+        _math_dialog('tilde', 'tilde', 'tilde',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('dot', 'dot', 'dot',
+                [_req('expression', 'Expression', 'x')]),
+        _math_dialog('diff', 'd/dx', 'diff',
+                [_req('function', 'Function', 'x^2'),
+                 _req('variable', 'Variable', 'x'),
+                 _opt('order', 'Order (optional)', '2',
+                      help='Leave empty for the first derivative.')]),
+        _math_dialog('pdiff', '∂/∂x', 'pdiff',
+                [_req('function', 'Function', 'x^2'),
+                 _req('variable', 'Variable', 'x'),
+                 _opt('order', 'Order (optional)', '2',
+                      help='Leave empty for the first derivative.')]),
+        _math_dialog('det', 'det', 'det',
+                make_grid_fields('det', 2, 2)),
+        _dialog('set', '{…}', _math_sig_desc('set')[0], 'Math',
+                _math_sig_desc('set')[1] or '*set(x ; x > 0)',
+                [_req('element', 'Element', 'x'),
+                 _req('condition', 'Condition', 'x > 0')],
+                command='set'),
         _math_dialog('plot', 'Plot', 'plot',
                 [_req('expression', 'Expression', 'x^2',
                       help='Function of x (calc-style: x^2, sin(x)).'),
@@ -405,6 +437,12 @@ def _build_symbols() -> list[Symbol]:
                  _req('row2', 'Row 2', 'x - y = 1'),
                  _opt('row3', 'Row 3 (optional)', '')],
                 command='cases'),
+        _dialog('align', '=…', _math_sig_desc('align')[0], 'Math',
+                _math_sig_desc('align')[1] or '*align(x = 1 | y = 2)',
+                [_req('row1', 'Row 1', 'x = 1'),
+                 _req('row2', 'Row 2', 'y = 2'),
+                 _opt('row3', 'Row 3 (optional)', '')],
+                command='align'),
 
         # -- Variables / definitions --
         _dialog('var-def', '<x> =', '<name> = value', 'Variables',
@@ -663,7 +701,7 @@ _CUSTOM_SYMBOLS = frozenset({
     'calc', 'var-def', 'define', 'inline-math', 'heading', 'doc-title',
     'doc-font', 'list-item',
     'raw-p', 'geo-point', 'geo-length', 'geo-angle-value',
-    'table', 'matrix', 'cases',
+    'table', 'matrix', 'det', 'cases', 'align',
 })
 
 
@@ -727,6 +765,8 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
         return _build_grid_source('table', vals)
     if n == 'matrix':
         return _build_grid_source('matrix', vals)
+    if n == 'det':
+        return _build_grid_source('det', vals)
     if n == 'cases':
         rows = [_v(vals, 'row1'), _v(vals, 'row2')]
         row3 = _v(vals, 'row3')
@@ -734,6 +774,13 @@ def build_source(symbol: Symbol | str, values: dict | None = None) -> str:
             rows.append(row3)
         # validate_fields already ensures row1/row2 non-empty.
         return f"*cases({' | '.join(rows)})"
+    if n == 'align':
+        rows = [_v(vals, 'row1'), _v(vals, 'row2')]
+        row3 = _v(vals, 'row3')
+        if row3:
+            rows.append(row3)
+        # validate_fields already ensures row1/row2 non-empty.
+        return f"*align({' | '.join(rows)})"
     # -- geometry: always wrapped in *draw(...) --
     if n == 'geo-point':
         name = _v(vals, 'name')

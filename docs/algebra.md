@@ -300,6 +300,19 @@ x_n     → xₙ
 
 All take one argument, like `*sin`. They also work inside `*plot(...)`.
 
+### Accents
+
+```
+*hat(x)         // x̂
+*bar(x)         // x̄
+*overline(AB)   // overline over AB (e.g. segment AB)
+*tilde(x)       // x̃
+*dot(x)         // ẋ
+```
+
+All take one argument. Variables, `calc()` and nesting work inside,
+like everywhere else.
+
 ### Integrals
 
 ```
@@ -313,6 +326,19 @@ All take one argument, like `*sin`. They also work inside `*plot(...)`.
 
 `lower ; upper` are optional; the last `; variable` adds `dif variable`.
 Variables and `calc()` work inside every argument.
+
+### Derivatives
+
+```
+*diff(f ; x)         // df/dx as a proper fraction
+*diff(f ; x ; 2)     // second derivative
+*pdiff(f ; x)        // partial derivative ∂f/∂x
+*pdiff(f ; x ; 2)    // second partial
+```
+
+Commas work too (`*diff(f, x)`). The order `n` is usually a number
+but any expression works (`*diff(f ; x ; n)`). Variables and `calc()`
+work inside every argument.
 
 ### Piecewise and equation systems
 
@@ -342,6 +368,59 @@ Multiline block form works too (cells work per line as well):
     0 ; x <= 0
 )
 ```
+
+### Determinants
+
+```
+*det(1 ; 2 | 3 ; 4)
+```
+
+Renders a determinant with vertical bars (Typst `det`). Rows split
+on `|` and cells on `;` (or `,` when a row has no `;`) — the same
+rule as `*matrix`. Alternatively pass a matrix directly:
+
+```
+*det(*matrix(1 ; 2 | 3 ; 4))
+```
+
+Ragged rows pad with `0` (warning); variables, `calc()`, math and
+symbols work inside cells.
+
+### Sets
+
+```
+*set(x ; x > 0)     // {x | x > 0}
+*set(1 ; 2 ; 3)     // {1, 2, 3}
+```
+
+The rule is by separator: with `;`, two arguments mean set-builder
+`{x | condition}`; one argument is a singleton (`*set(x)` → `{x}`)
+and three or more list their elements. Without `;`, commas always
+list — so two-element listings use commas (`*set(a, b)` → `{a, b}`)
+while `*set(a ; b)` stays set-builder. A condition containing `;`
+can be quoted (`*set(x ; "a;b")`), and `100,000`-style numbers stay
+intact when `;` is present (`*set(100,000 ; 2 ; 3)` lists three).
+
+### Aligned equations
+
+```
+*align(x = 1 | y = 2)
+```
+
+Rows split on `|` (same quote/nesting rules as `*matrix` rows) and
+each row aligns at its first `=` (Typst `&`). The multiline block
+form works exactly like `*cases`:
+
+```
+*align(
+    x = 1
+    y = 2
+)
+```
+
+Rows without `=` are kept as-is (they never crash the build); only
+the first `=` aligns, later ones stay literal. Variables, `calc()`,
+math and symbols work inside rows.
 
 ### Vector diagrams
 
@@ -624,6 +703,11 @@ You can also type symbols using `*` + a word:
 | `*union` | ∪ |
 | `*intersect` | ∩ |
 | `*emptyset` or `*empty` | ∅ |
+| `*reals` or `*RR` | ℝ (real numbers) |
+| `*naturals` or `*NN` | ℕ (natural numbers) |
+| `*integers` or `*ZZ` | ℤ (integers) |
+| `*rationals` or `*QQ` | ℚ (rational numbers) |
+| `*complex` or `*CC` | ℂ (complex numbers) |
 | `*land` | ∧ |
 | `*lor` | ∨ |
 | `*lnot` | ¬ |

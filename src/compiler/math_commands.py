@@ -7,6 +7,37 @@ from .symbols import replace_symbol_shortcuts
 from .variables import replace_defines, replace_vars
 
 
+def _has_top_level_semi(s):
+    """True when *s* has a depth-0 ``;`` (quote-aware for ``"..."``).
+
+    Shared by the friendly ``;``-wins splitters: when ``;`` appears at
+    depth 0 it separates alone (so ``100,000`` stays intact).
+    """
+    _dp = _db = _br = 0
+    _q = False
+    for _i, _ch in enumerate(s):
+        if _ch == '"' and (_i == 0 or s[_i - 1] != '\\'):
+            _q = not _q
+            continue
+        if _q:
+            continue
+        if _ch == '(':
+            _dp += 1
+        elif _ch == ')' and _dp > 0:
+            _dp -= 1
+        elif _ch == '{':
+            _db += 1
+        elif _ch == '}' and _db > 0:
+            _db -= 1
+        elif _ch == '[':
+            _br += 1
+        elif _ch == ']' and _br > 0:
+            _br -= 1
+        elif _ch == ';' and _dp == 0 and _db == 0 and _br == 0:
+            return True
+    return False
+
+
 def split_top_level_args(args):
     """Split on ';' (or ',' friendly) at paren depth 0 (tracks (), {} and []).
 
@@ -18,32 +49,7 @@ def split_top_level_args(args):
     """
     # Scan for a depth-0 ';' first to decide the separator set.
     # Quote-aware: separators inside "..." never count.
-    def _has_top_semi(s):
-        _dp = _db = _br = 0
-        _q = False
-        for _i, _ch in enumerate(s):
-            if _ch == '"' and (_i == 0 or s[_i - 1] != '\\'):
-                _q = not _q
-                continue
-            if _q:
-                continue
-            if _ch == '(':
-                _dp += 1
-            elif _ch == ')' and _dp > 0:
-                _dp -= 1
-            elif _ch == '{':
-                _db += 1
-            elif _ch == '}' and _db > 0:
-                _db -= 1
-            elif _ch == '[':
-                _br += 1
-            elif _ch == ']' and _br > 0:
-                _br -= 1
-            elif _ch == ';' and _dp == 0 and _db == 0 and _br == 0:
-                return True
-        return False
-
-    has_semi = _has_top_semi(args)
+    has_semi = _has_top_level_semi(args)
     seps = (';',) if has_semi else (';', ',')
     parts = []
     current = []
@@ -109,6 +115,7 @@ _CANONICAL_MATH_NAMES = (
     'int', 'oint', 'cases', 'vec', 'binom',
     'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh', 'coth',
+    'hat', 'bar', 'overline', 'tilde', 'dot',
 )
 
 
@@ -160,6 +167,8 @@ _TYPST_MATH_KEEP = frozenset({
     'integral', 'cont', 'dif', 'cases', 'arrow', 'vec', 'binom',
     'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh', 'coth',
+    'hat', 'bar', 'overline', 'tilde', 'dot',
+    'partial', 'det',
     'quad', 'thin', 'med',
     'pi', 'infinity',
     'strong', 'emph', 'underline',
@@ -329,7 +338,11 @@ def _clean_inner_math(ctx, s, _depth=0):
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt)
     s = replace_int_calls(s, ctx, _depth)
+    s = replace_diff_calls(s, ctx, _depth)
     s = replace_cases_call(s, ctx, _depth)
+    s = replace_det_calls(s, ctx, _depth)
+    s = replace_set_calls(s, ctx, _depth)
+    s = replace_align_calls(s, ctx, _depth)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
     # Escape thousands commas (100,000 -> 100\,000) so Typst does not
     # read them as argument separators. See escape_number_commas.
@@ -396,6 +409,11 @@ def math_call_specs(ctx):
         ('cosh', 1, lambda args: f"$cosh({clean_inner_math(ctx, args[0])})$"),
         ('tanh', 1, lambda args: f"$tanh({clean_inner_math(ctx, args[0])})$"),
         ('coth', 1, lambda args: f"$coth({clean_inner_math(ctx, args[0])})$"),
+        ('hat', 1, lambda args: f"$hat({clean_inner_math(ctx, args[0])})$"),
+        ('bar', 1, lambda args: f"$bar({clean_inner_math(ctx, args[0])})$"),
+        ('overline', 1, lambda args: f"$overline({clean_inner_math(ctx, args[0])})$"),
+        ('tilde', 1, lambda args: f"$tilde({clean_inner_math(ctx, args[0])})$"),
+        ('dot', 1, lambda args: f"$dot({clean_inner_math(ctx, args[0])})$"),
     ]
 
 
@@ -506,6 +524,98 @@ def replace_int_calls(text, ctx, _depth=0):
     return text
 
 
+def _format_diff(ctx, name, args):
+    """Typst for *diff/*pdiff (2-3 args, friendly ;/, separators).
+
+    - 2 args: ``*diff(f ; x)`` -> ``$frac(dif f, dif x)$`` (Leibniz
+      notation with Typst's upright differential ``dif``).
+    - 3 args: ``*diff(f ; x ; n)`` -> ``$frac(dif^n f, dif x^n)$``.
+    ``*pdiff`` uses ``partial`` (Typst ``partial``, renders ∂) with
+    the same 2-3 arguments.
+    """
+    base = 'partial' if name == 'pdiff' else 'dif'
+    if len(args) == 2:
+        return (f"$frac({base} {clean_inner_math(ctx, args[0])}, "
+                f"{base} {clean_inner_math(ctx, args[1])})$")
+    # len == 3 (caller caps extras to 3)
+    order = clean_inner_math(ctx, args[2])
+    return (f"$frac({base}^{order} {clean_inner_math(ctx, args[0])}, "
+            f"{base} {clean_inner_math(ctx, args[1])}^{order})$")
+
+
+def _replace_single_diff(text, ctx, name, _depth=0):
+    """Replace one of *diff/*pdiff (variable 2-3 arity)."""
+    import sys
+    pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        args = split_top_level_args(text[start:i - 1])
+        if len(args) < 2 or any(a == '' for a in args[:2]):
+            print(
+                f'[Warning] *{name}(...) expects 2 argument(s), '
+                f'got {len(args)} — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+        elif any(a == '' for a in args):
+            print(
+                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+        else:
+            if len(args) > 3:
+                print(
+                    f'[Warning] *{name}(...) expects 3 argument(s), '
+                    f'got {len(args)} — extra arguments ignored',
+                    file=sys.stderr,
+                )
+                args = args[:3]
+            out.append(_format_diff(ctx, name, args))
+        pos = i
+    return ''.join(out)
+
+
+def replace_diff_calls(text, ctx, _depth=0):
+    """Expand *diff/*pdiff (variable arity) for text/math/nested paths."""
+    import sys
+    if _depth > 20:
+        print('[Warning] *diff(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    for name in ('diff', 'pdiff'):
+        text = _replace_single_diff(text, ctx, name, _depth)
+    return text
+
+
 def replace_cases_call(text, ctx, _depth=0):
     """Expand *cases(row1 | row2 | ...) to Typst cases(...).
 
@@ -593,6 +703,332 @@ def replace_cases_call(text, ctx, _depth=0):
             pos = i
             continue
         out.append(f"$cases({', '.join(rendered)})$")
+        pos = i
+    return ''.join(out)
+
+
+def _render_det_grid(ctx, grid_raw):
+    """Render a raw det grid to Typst ``det(mat(...))`` inner (no $).
+
+    Returns None when the grid is empty (caller leaves input as-is).
+    Ragged rows are padded with 0 (warning), like *matrix. Text-mode
+    constructs (*vec, nested tables) warn like matrix cells do.
+    Warnings carry no line number, like *cases.
+    """
+    import sys
+    from . import tables as _tables
+    kept = [r for r in grid_raw if any(c.strip() for c in r)]
+    if not kept:
+        print(
+            '[Warning] *det(...) is empty — leaving as-is',
+            file=sys.stderr,
+        )
+        return None
+    widths = [len(r) for r in kept]
+    ncols = max(widths)
+    if len(set(widths)) != 1:
+        print(
+            f'[Warning] *det(...) rows have different lengths {widths} — '
+            f'padding to {ncols} column(s)',
+            file=sys.stderr,
+        )
+        kept = [r + [''] * (ncols - len(r)) for r in kept]
+    rendered = []
+    for row in kept:
+        r_out = []
+        for cell_raw in row:
+            if not cell_raw.strip():
+                r_out.append('')
+                continue
+            if re.search(r'\*vec\s*\(', cell_raw):
+                print(
+                    '[Warning] *det(...) cell contains *vec(...) — vec is '
+                    'text mode (SVG diagram); only math commands are '
+                    'supported inside determinants — leaving as-is',
+                    file=sys.stderr,
+                )
+            if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
+                print(
+                    '[Warning] *det(...) cell contains a nested '
+                    'table/matrix — only math commands are supported '
+                    'inside determinants',
+                    file=sys.stderr,
+                )
+            r_out.append(clean_inner_math(ctx, cell_raw))
+        rendered.append(r_out)
+    return f'det({_tables.build_matrix_math_inner(rendered)})'
+
+
+def _det_matrix_arg_inner(inner_raw):
+    """Inner grid text when *inner_raw* is one matrix, else None.
+
+    Accepts both the source form ``*matrix(...)``/``*mat(...)`` (seen
+    on the nested clean_inner_math path) and the already-expanded
+    Typst form ``$mat(...)$`` (the text pipeline expands tables
+    before math commands run).
+    """
+    stripped = inner_raw.strip()
+    m = re.fullmatch(r'\$(mat\(.*\))\$', stripped, re.DOTALL)
+    if m:
+        return ('typst', m.group(1))
+    m = re.match(r'\*(matrix|mat)\s*\(', stripped)
+    if not m:
+        return None
+    depth = 1
+    i = m.end()
+    in_quote = False
+    while i < len(stripped) and depth > 0:
+        ch = stripped[i]
+        if ch == '"' and (i == 0 or stripped[i - 1] != '\\'):
+            in_quote = not in_quote
+        elif not in_quote:
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+        i += 1
+    if depth != 0 or stripped[i:].strip():
+        return None
+    return ('ezmath', stripped[m.end():i - 1])
+
+
+def replace_det_calls(text, ctx, _depth=0):
+    """Expand *det(...) to a vertical-bar determinant ``$det(mat(...))$``.
+
+    Accepts either a single ``*matrix(...)`` argument or the same
+    row/cell syntax as *matrix (``|`` rows, ``;`` or friendly ``,``
+    cells). Ragged rows pad with 0 (warning); empty calls warn and
+    stay as-is. Warnings carry no line number, like *cases.
+    """
+    import sys
+    from . import tables as _tables
+    if _depth > 20:
+        print('[Warning] *det(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    pattern = re.compile(r'\*det\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                '[Warning] unclosed *det(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        inner_raw = text[start:i - 1]
+        mat_arg = _det_matrix_arg_inner(inner_raw)
+        if mat_arg is not None:
+            kind, mat_inner = mat_arg
+            if kind == 'typst':
+                # Already-expanded $mat(...)$: wrap it directly (cells
+                # are rendered Typst, no re-parse needed).
+                out.append(f'$det({mat_inner})$')
+                pos = i
+                continue
+            grid_raw = _tables.parse_grid(mat_inner)
+        else:
+            grid_raw = _tables.parse_grid(inner_raw)
+        rendered = _render_det_grid(ctx, grid_raw)
+        if rendered is None:
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        out.append(f'${rendered}$')
+        pos = i
+    return ''.join(out)
+
+
+def replace_set_calls(text, ctx, _depth=0):
+    """Expand *set(...) to ``{x | condition}`` or ``{a, b, c}``.
+
+    The rule is by separator (documented in docs/algebra.md): when
+    ``;`` separates at depth 0, two arguments mean set-builder
+    ``*set(x ; condition)`` -> ``$ {x | condition} $``; any other
+    count is a listing (one argument is a singleton). Without ``;``,
+    comma-separated arguments are always a listing — so two-element
+    listings are written ``*set(a, b)`` while ``*set(a ; b)`` stays
+    set-builder. Conditions containing ``;`` can be quoted
+    (``*set(x ; "a;b")``).
+    """
+    import sys
+    if _depth > 20:
+        print('[Warning] *set(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    pattern = re.compile(r'\*set\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                '[Warning] unclosed *set(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        inner_raw = text[start:i - 1]
+        args = split_top_level_args(inner_raw)
+        if not args or any(a == '' for a in args):
+            print(
+                '[Warning] *set(...) has empty argument(s) — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        if len(args) == 2 and _has_top_level_semi(inner_raw):
+            elem = clean_inner_math(ctx, args[0])
+            cond = clean_inner_math(ctx, args[1])
+            out.append(f'$ {{{elem} | {cond}}} $')
+        else:
+            cells = [clean_inner_math(ctx, a) for a in args]
+            out.append(f"$ {{{', '.join(cells)}}} $")
+        pos = i
+    return ''.join(out)
+
+
+def _split_first_eq(s):
+    """Split *s* at the first depth-0 ``=`` (quote-aware).
+
+    Returns (left, right), or (s, None) when there is no top-level
+    ``=``. Depth tracks ()/ {}/[] so ``*sum(i = 1 ; n ; i) = x``
+    aligns at the outer ``=`` only.
+    """
+    dp = db = br = 0
+    in_quote = False
+    for idx, ch in enumerate(s):
+        if ch == '"' and (idx == 0 or s[idx - 1] != '\\'):
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if ch == '(':
+            dp += 1
+        elif ch == ')' and dp > 0:
+            dp -= 1
+        elif ch == '{':
+            db += 1
+        elif ch == '}' and db > 0:
+            db -= 1
+        elif ch == '[':
+            br += 1
+        elif ch == ']' and br > 0:
+            br -= 1
+        elif ch == '=' and dp == 0 and db == 0 and br == 0:
+            return s[:idx], s[idx + 1:]
+    return s, None
+
+
+def replace_align_calls(text, ctx, _depth=0):
+    """Expand *align(...) to equations aligned at ``=``.
+
+    Rows split on top-level ``|`` with the same quote/nesting rules
+    as *matrix rows, and the multiline block form works exactly like
+    *cases (lines joined with ``|``). Each row is cleaned first (so
+    ``==`` becomes ``=``), then split at its first depth-0 ``=`` and
+    emitted with Typst ``&`` alignment (``$x &= 1 \\ y &= 2$``).
+    Rows without ``=`` are emitted as-is and never crash the build;
+    only the first ``=`` aligns, the rest stay literal.
+    """
+    import sys
+    from . import tables as _tables
+    if _depth > 20:
+        print('[Warning] *align(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    pattern = re.compile(r'\*align\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                '[Warning] unclosed *align(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        inner_raw = text[start:i - 1]
+        rows_raw = _tables.split_rows_top_level(inner_raw)
+        rows = [r.strip() for r in rows_raw if r.strip() != '']
+        if not rows:
+            print(
+                '[Warning] *align(...) is empty — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        rendered = []
+        for r in rows:
+            cleaned = clean_inner_math(ctx, r)
+            left, right = _split_first_eq(cleaned)
+            if right is None:
+                rendered.append(cleaned)
+            else:
+                rendered.append(f'{left.strip()} & {right.strip()}')
+        out.append(f"$ {' \\\\ '.join(rendered)} $")
         pos = i
     return ''.join(out)
 
