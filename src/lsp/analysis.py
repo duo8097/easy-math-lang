@@ -43,7 +43,7 @@ from . import builtins
 IDENT = r'[A-Za-z_][A-Za-z0-9_]*'
 VAR_TOKEN = re.compile(r'<([^<>]+)>')
 CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])\*?calc\(')
-CMD_CALL = re.compile(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(')
+CMD_CALL = re.compile(r'\*([^\W\d_][\w\-]*)\s*\(')
 P_LINE = re.compile(r'^\*p\((.*)\)$')
 WORD_AT = re.compile(IDENT)
 

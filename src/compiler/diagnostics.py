@@ -103,10 +103,12 @@ def _suggest_command(cmd):
 # by a letter/digit (a*b is multiplication), another star (** is the
 # multiplication dot) or a backslash (escaped asterisk). The word must
 # match in full (no partial backtrack into *cmd(...) — a following '('
-# belongs to the *cmd(...) path, not here). Shared with the LSP
-# (analysis.py), which masks protected spans before matching.
+# belongs to the *cmd(...) path, not here). Letter classes are
+# Unicode-aware ([^\W\d_] matches letters in any script) so *lưu reports
+# *lưu, not a truncated *l. Shared with the LSP (analysis.py), which
+# masks protected spans before matching.
 BARE_COMMAND_RE = re.compile(
-    r'(?<![A-Za-z0-9_*\\])\*([A-Za-z][A-Za-z0-9_\-]*)(?![A-Za-z0-9_\-])(?!\s*\()'
+    r'(?<![^\W_])(?<!\\)(?<!\*)\*([^\W\d_][\w\-]*)(?![\w\-])(?!\s*\()'
 )
 
 
@@ -140,7 +142,7 @@ def _warn_bare_command(cmd, line_no):
 
 def warn_unknown_commands(text, line_no):
     """Warn if *name(...) appears where name is not in KNOWN_COMMANDS."""
-    for m in re.finditer(r'\*([A-Za-z][A-Za-z0-9_\-]*)\s*\(', text):
+    for m in re.finditer(r'\*([^\W\d_][\w\-]*)\s*\(', text):
         cmd = m.group(1)
         if cmd in KNOWN_COMMANDS:
             continue

@@ -52,6 +52,36 @@ def test_bare_unrelated_gets_no_suggestion(tmp_path, monkeypatch, capsys):
     assert "Did you mean" not in err
 
 
+def test_unicode_bare_reports_full_word(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*lưu ý\n")
+    assert ok is True
+    assert "[Warning] Line 1: unknown command *lưu — treated as plain text." in err
+    assert "\\*lưu ý" in typ
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "diện tích *rộng\n"
+    )
+    assert ok is True
+    assert "unknown command *rộng" in err
+    assert "unknown command *r " not in err
+
+
+def test_unicode_paren_reports_full_word(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*nhấn(1 ; 2)\n"
+    )
+    assert ok is True
+    assert "unknown command *nhấn(...)" in err
+    assert "unknown command *nh " not in err
+
+
+def test_unicode_raw_p_stays_silent(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*p(*lưu ý)\n"
+    )
+    assert ok is True
+    assert "unknown command" not in err.lower()
+
+
 def test_bare_geometry_warns_draw_only(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*point\n")
     assert ok is True
@@ -146,8 +176,7 @@ def test_inline_math_multiplication_stays_silent(tmp_path, monkeypatch, capsys):
     assert "unknown command" not in err.lower()
 
 
-def test_paren_form_warns_once(tmp_path, monkeypatch, capsys):
-    # *cmd(...) must not also trigger the bare-word path (no *frac-style
+def test_paren_form_warns_once(tmp_path, monkeypatch, capsys):    # *cmd(...) must not also trigger the bare-word path (no *frac-style
     # partial, no double diagnostic for one typo).
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*fract(1 ; 2)\n")
     assert ok is True
@@ -172,3 +201,13 @@ def test_bare_lsp_silence():
         result = analysis.analyze_text(snippet)
         assert not any("unknown command" in d.message.lower()
                        for d in result.diagnostics), snippet
+
+
+def test_unicode_lsp_reports_full_word():
+    from lsp import analysis
+    result = analysis.analyze_text("*lưu ý\n")
+    assert any(d.message == "Unknown command *lưu — treated as plain text"
+               for d in result.diagnostics), result.diagnostics
+    result = analysis.analyze_text("*nhấn(1)\n")
+    assert any(d.message == "Unknown command *nhấn(...) — treated as plain text"
+               for d in result.diagnostics), result.diagnostics
