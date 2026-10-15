@@ -968,9 +968,10 @@ def replace_align_calls(text, ctx, _depth=0):
     as *matrix rows, and the multiline block form works exactly like
     *cases (lines joined with ``|``). Each row is cleaned first (so
     ``==`` becomes ``=``), then split at its first depth-0 ``=`` and
-    emitted with Typst ``&`` alignment (``$x &= 1 \\ y &= 2$``).
-    Rows without ``=`` are emitted as-is and never crash the build;
-    only the first ``=`` aligns, the rest stay literal.
+    emitted with the Typst ``&=`` alignment marker and single-``\\``
+    row breaks (``$ x &= 1 \\ y &= 2 $``). Rows without ``=`` are
+    emitted as-is and never crash the build; only the first ``=``
+    aligns, the rest stay literal.
     """
     import sys
     from . import tables as _tables
@@ -1027,8 +1028,8 @@ def replace_align_calls(text, ctx, _depth=0):
             if right is None:
                 rendered.append(cleaned)
             else:
-                rendered.append(f'{left.strip()} & {right.strip()}')
-        out.append(f"$ {' \\\\ '.join(rendered)} $")
+                rendered.append(f'{left.strip()} &= {right.strip()}')
+        out.append(f"$ {' \\ '.join(rendered)} $")
         pos = i
     return ''.join(out)
 

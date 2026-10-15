@@ -274,7 +274,7 @@ def test_align_basic(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*align(x = 1 | y = 2)\n"
     )
     assert ok is True
-    assert "$ x & 1 \\\\ y & 2 $" in typ
+    assert "$ x &= 1 \\ y &= 2 $" in typ
 
 
 def test_align_block_form(tmp_path, monkeypatch, capsys):
@@ -283,7 +283,7 @@ def test_align_block_form(tmp_path, monkeypatch, capsys):
         "*align(\n    x = 1\n    y = 2\n)\n",
     )
     assert ok is True
-    assert "$ x & 1 \\\\ y & 2 $" in typ
+    assert "$ x &= 1 \\ y &= 2 $" in typ
 
 
 def test_align_no_equals_no_crash(tmp_path, monkeypatch, capsys):
@@ -291,7 +291,7 @@ def test_align_no_equals_no_crash(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*align(x = 1 | just words here)\n"
     )
     assert ok is True
-    assert "&" in typ
+    assert "$ x &= 1 \\ j u s t w o r d s h e r e $" in typ
     assert "[Error]" not in err
 
 
@@ -300,7 +300,7 @@ def test_align_first_equals_wins(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*align(a == b | x = y = z)\n"
     )
     assert ok is True
-    assert "$ a & b \\\\ x & y = z $" in typ
+    assert "$ a &= b \\ x &= y = z $" in typ
 
 
 def test_align_sum_parens_safe(tmp_path, monkeypatch, capsys):
@@ -309,8 +309,7 @@ def test_align_sum_parens_safe(tmp_path, monkeypatch, capsys):
         "*align(*sum(i = 1 ; n ; i) = x | y = 2)\n",
     )
     assert ok is True
-    assert "sum_(i = 1)" in typ
-    assert typ.count("&") == 2
+    assert "$ display(sum_(i = 1)^(n) (i)) &= x \\ y &= 2 $" in typ
 
 
 def test_align_empty_warns(tmp_path, monkeypatch, capsys):
@@ -325,7 +324,7 @@ def test_align_vars_calc(tmp_path, monkeypatch, capsys):
         "<a> = 2\n*align(x = <a> | y = calc(<a> + 1))\n",
     )
     assert ok is True
-    assert "$ x & 2 \\\\ y & 3 $" in typ
+    assert "$ x &= 2 \\ y &= 3 $" in typ
 
 
 # --- LSP + registry --------------------------------------------------------
@@ -370,6 +369,191 @@ def test_new_commands_symbol_registry():
     assert build_source(
         'align', {'row1': 'x = 1', 'row2': 'y = 2'}) == '*align(x = 1 | y = 2)'
     assert get_symbol('det').category == 'Math'
+
+
+def _pdf_text_lines(pdf_path):
+    """Extract [(y, text)] lines from a PDF using only the stdlib.
+
+    Decompresses streams, reads each font's ToUnicode CMap
+    (beginbfchar/bfrange), and decodes Tj/TJ-shown strings while
+    tracking the current font (Tf) and block position (the cm
+    translation Typst emits per block) so chunks group into lines.
+    Returns [(y, joined_text)] sorted with unpositioned text last.
+    """
+    import re
+    import zlib
+    data = open(pdf_path, 'rb').read()
+    objs = {}
+    for m in re.finditer(rb'(\d+) 0 obj(.*?)endobj', data, re.DOTALL):
+        objs[int(m.group(1))] = m.group(2)
+
+    def stream_of(body):
+        m = re.search(rb'stream\r?\n(.*?)endstream', body, re.DOTALL)
+        if not m:
+            return None
+        raw = m.group(1)
+        if raw.endswith(b'\r\n'):
+            raw = raw[:-2]
+        elif raw.endswith(b'\n'):
+            raw = raw[:-1]
+        if b'/FlateDecode' in body:
+            try:
+                return zlib.decompress(raw)
+            except Exception:
+                return None
+        return raw
+
+    font_cmaps = {}
+    for num, body in objs.items():
+        if b'/Type/Font' not in body or b'/ToUnicode' not in body:
+            continue
+        m = re.search(rb'/ToUnicode\s+(\d+) 0 R', body)
+        if not m:
+            continue
+        cmap_raw = stream_of(objs.get(int(m.group(1)), b''))
+        if not cmap_raw:
+            continue
+        cmap = {}
+        in_char = in_range = False
+        for line in cmap_raw.decode('latin-1').splitlines():
+            line = line.strip()
+            if 'beginbfchar' in line:
+                in_char = True
+            elif 'endbfchar' in line:
+                in_char = False
+            elif 'beginbfrange' in line:
+                in_range = True
+            elif 'endbfrange' in line:
+                in_range = False
+            elif in_char:
+                parts = line.split()
+                if len(parts) >= 2:
+                    src = bytes.fromhex(parts[0][1:-1]).decode('latin-1')
+                    dst = bytes.fromhex(parts[1][1:-1])
+                    cmap[src] = dst.decode('utf-16-be', 'replace')
+            elif in_range:
+                parts = line.split()
+                if len(parts) >= 3:
+                    lo = int(parts[0][1:-1], 16)
+                    hi = int(parts[1][1:-1], 16)
+                    dst = bytes.fromhex(parts[2][1:-1])
+                    for i, code in enumerate(range(lo, hi + 1)):
+                        key = code.to_bytes(2, 'big').decode('latin-1')
+                        cmap[key] = (dst[:2].decode('utf-16-be', 'replace')
+                                     if len(dst) == 2
+                                     else chr(int.from_bytes(dst, 'big') + i))
+        font_cmaps[num] = cmap
+    res_to_obj = {}
+    for num, body in objs.items():
+        start = body.find(b'/Font')
+        if start == -1:
+            continue
+        open_at = body.find(b'<<', start)
+        if open_at == -1:
+            continue
+        depth = 0
+        i = open_at
+        while i < len(body) - 1:
+            if body[i:i + 2] == b'<<':
+                depth += 1
+                i += 2
+            elif body[i:i + 2] == b'>>':
+                depth -= 1
+                i += 2
+                if depth == 0:
+                    break
+            else:
+                i += 1
+        for rm in re.finditer(rb'/(f\w+)\s+(\d+) 0 R', body[open_at:i]):
+            res_to_obj[rm.group(1).decode()] = int(rm.group(2))
+
+    def unescape(s):
+        out = bytearray()
+        i = 0
+        while i < len(s):
+            c = s[i:i + 1]
+            if c == b'\\' and i + 1 < len(s):
+                n = s[i + 1:i + 2]
+                if n in b'nrtbf()\\':
+                    out += {b'n': b'\n', b'r': b'\r', b't': b'\t',
+                            b'b': b'\b', b'f': b'\f'}.get(n, n)
+                    i += 2
+                    continue
+                mo = re.match(rb'[0-7]{1,3}', s[i + 1:])
+                if mo:
+                    out.append(int(mo.group(0), 8) & 0xFF)
+                    i += 1 + len(mo.group(0))
+                    continue
+                out += n
+                i += 2
+                continue
+            out += c
+            i += 1
+        return bytes(out)
+
+    rows = []
+    for num, body in objs.items():
+        dec = stream_of(body)
+        if dec is None or (b'Tj' not in dec and b'TJ' not in dec):
+            continue
+        font = None
+        base_y = None
+        for tm in re.finditer(
+                rb'/f\w+\s+[\d.]+\s+Tf'
+                # Typst positions each block with `q 1 0 0 -1 X Y cm`
+                # (Tm itself stays identity), so track the cm Y.
+                rb'|1 0 0 -1\s+[\d.\-]+\s+([\d.\-]+)\s+cm'
+                rb'|\((?:\\.|[^\\()])*\)\s*Tj'
+                rb'|\[(?:[^\[\]]*?)\]\s*TJ', dec):
+            tok = tm.group(0)
+            if tok.endswith(b'Tf'):
+                font = tok.split()[0].decode().lstrip('/')
+                continue
+            if tok.endswith(b'cm'):
+                try:
+                    base_y = round(float(tm.group(1)), 1)
+                except (TypeError, ValueError):
+                    base_y = None
+                continue
+            cmap = font_cmaps.get(res_to_obj.get(font, -1), {})
+            if tok.endswith(b'Tj'):
+                raw = unescape(tok[1:tok.rindex(b')')])
+            else:
+                raw = b''.join(
+                    unescape(p[1:-1]) if p.startswith(b'(') else
+                    bytes.fromhex(p[1:-1].decode('ascii', 'ignore'))
+                    for p in re.findall(rb'\((?:\\.|[^\\()])*\)'
+                                        rb'|<[0-9A-Fa-f]+>', tok))
+            word = []
+            for i in range(0, len(raw) - 1, 2):
+                word.append(cmap.get(raw[i:i + 2].decode('latin-1'), ''))
+            rows.append((base_y, ''.join(word)))
+    lines = {}
+    for y, word in rows:
+        lines.setdefault(y, []).append(word)
+    return sorted(((y, ''.join(words)) for y, words in lines.items()),
+                  key=lambda pair: (pair[0] is None, pair[0]))
+
+
+def test_align_real_pdf_rows(tmp_path):
+    """Real Typst compile: both rows on separate lines with = present."""
+    pytest.importorskip("typst")
+    from compiler.pipeline import compile_ezmath
+    src = tmp_path / "al.ezmath"
+    out = tmp_path / "al.pdf"
+    src.write_text("*align(x = 1 | y = 2)\n", encoding="utf-8")
+    assert compile_ezmath(str(src), str(out)) is True
+    lines = _pdf_text_lines(str(out))
+    text = ' '.join(t for _, t in lines)
+    # Typst math italicizes variables (𝑥/𝑦); digits and = stay ASCII.
+    assert '=' in text
+    assert '1' in text and '2' in text
+    # The old broken output printed a literal backslash glyph.
+    assert '\\' not in text
+    eq_lines = [t for _, t in lines if '=' in t]
+    assert len(eq_lines) >= 2
+    assert any('1' in t for t in eq_lines)
+    assert any('2' in t for t in eq_lines)
 
 
 def test_real_pdf_compile():
