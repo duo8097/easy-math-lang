@@ -146,12 +146,21 @@ def test_diff_vars_calc_comma(tmp_path, monkeypatch, capsys):
 
 
 def test_diff_bad_args(tmp_path, monkeypatch, capsys):
-    for text in ("*diff(f)\n", "*diff()\n", "*diff(f ; x ; 2 ; y)\n"):
-        ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, text)
-        assert ok is True, text
-        assert "Warning" in err, text
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*diff(f)\n")
+    assert ok is True
+    assert "leaving as-is" in err
+    assert "\\*diff(f)" in typ
     assert "$frac(dif" not in typ
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*diff()\n")
+    assert ok is True
+    assert "leaving as-is" in err
+    assert "\\*diff()" in typ
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*diff(f ; x ; 2 ; y)\n"
+    )
+    assert ok is True
+    assert "extra arguments ignored" in err
+    assert "$frac(dif^2 f, dif x^2)$" in typ
 
 
 def test_diff_nested_in_frac(tmp_path, monkeypatch, capsys):
@@ -159,7 +168,7 @@ def test_diff_nested_in_frac(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*frac(*diff(f ; x) ; 2)\n"
     )
     assert ok is True
-    assert "dif f" in typ and "frac" in typ
+    assert "$frac(frac(dif f, dif x), 2)$" in typ
 
 
 # --- 3d: det --------------------------------------------------------------
@@ -200,6 +209,7 @@ def test_det_ragged_pads_and_empty_warns(tmp_path, monkeypatch, capsys):
     assert ok is True
     assert "*det(...) is empty" in err
     assert "delim:" not in typ
+    assert "\\*det()" in typ
 
 
 def test_det_unclosed_warns(tmp_path, monkeypatch, capsys):
@@ -208,6 +218,7 @@ def test_det_unclosed_warns(tmp_path, monkeypatch, capsys):
     )
     assert "unclosed *det(..." in err
     assert "delim:" not in typ
+    assert "\\*det(1 ; 2" in typ
 
 
 def test_det_in_math(tmp_path, monkeypatch, capsys):
@@ -245,7 +256,7 @@ def test_set_thousands_and_quoted_semi(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*set(100,000 ; 2 ; 3)\n"
     )
     assert ok is True
-    assert "100\\,000" in typ
+    assert "$ {100\\,000, 2, 3} $" in typ
     assert "unknown command" not in err.lower()
 
 
@@ -256,6 +267,7 @@ def test_set_empty_warns(tmp_path, monkeypatch, capsys):
     assert ok is True
     assert "empty argument" in err
     assert "{x |" not in typ
+    assert "\\*set(x ; )" in typ
 
 
 def test_set_lookalikes(tmp_path, monkeypatch, capsys):
@@ -316,6 +328,7 @@ def test_align_empty_warns(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*align()\n")
     assert ok is True
     assert "*align(...) is empty" in err
+    assert "\\*align()" in typ
 
 
 def test_align_vars_calc(tmp_path, monkeypatch, capsys):
@@ -577,5 +590,15 @@ def test_real_pdf_compile():
             )
         assert compile_ezmath(src, out) is True
         assert os.path.isfile(out)
+        with open(os.path.join(work, "m.typ"), encoding="utf-8") as f:
+            typ = f.read()
+        assert "ℝ" in typ and "ℕ" in typ
+        assert "$hat(x)$" in typ and "$overline(A B)$" in typ
+        assert "$frac(dif f, dif x)$" in typ
+        assert "$frac(partial f, partial x)$" in typ
+        assert '$mat(delim: "|", 1, 2; 3, 4)$' in typ
+        assert "$ {x | x > 0} $" in typ
+        assert "$ {1, 2, 3} $" in typ
+        assert "$ x &= 1 \\ y &= 2 $" in typ
     finally:
         shutil.rmtree(work, ignore_errors=True)
