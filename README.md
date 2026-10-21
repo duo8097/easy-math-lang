@@ -94,8 +94,9 @@ uv run easy-math-lang examples/example.ezmath
 uv run easy-math-lang examples/draw_test.ezmath
 ```
 
-Each command creates a `.typ` file (intermediate, you can ignore it) and a
-`.pdf` file (your finished document) next to the input file.
+Each command creates a `.pdf` file next to the input file. Add
+`--save-build-artifacts` to also keep the intermediate `.typ` source
+and source map for debugging.
 
 Friendly shortcuts work everywhere: `*frac(2, 3)`, `*fraction(2 ; 3)`,
 `let x = 5`, `# Title`, `- item`, `==` for `=`.

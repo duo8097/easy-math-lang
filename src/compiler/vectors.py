@@ -196,6 +196,7 @@ def render_vec_svg(ctx, dx, dy, out_path):
         raise RuntimeError(
             'vector diagrams need matplotlib — run `uv sync` to install it')
     label = f'vec({dx:g}, {dy:g})'
+    fig = None
     try:
         with plt.rc_context({'svg.fonttype': 'none'}):
             fig, ax = plt.subplots(figsize=(5.5, 3.5))
@@ -219,9 +220,11 @@ def render_vec_svg(ctx, dx, dy, out_path):
             ax.margins(0.15)
             fig.tight_layout()
             fig.savefig(out_path, format='svg', bbox_inches='tight')
-            plt.close(fig)
     except ValueError:
         raise
     except Exception as e:
         raise RuntimeError(f'could not generate vec SVG: {e}')
+    finally:
+        if fig is not None:
+            plt.close(fig)
     return label

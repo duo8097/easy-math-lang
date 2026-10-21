@@ -80,8 +80,19 @@ def _find_comment_start(line_prot, protected):
 
 
 def strip_comments(text):
+    from .statements import _normalize_friendly_statement
+
     cleaned_lines = []
+    in_math = False
+    in_fence = False
     for raw_line in text.splitlines():
+        if raw_line.strip().startswith('```'):
+            in_fence = not in_fence
+            cleaned_lines.append(raw_line)
+            continue
+        if in_fence:
+            cleaned_lines.append(raw_line)
+            continue
         # Protect full URLs (scheme://host/path...) from // comment
         # stripping — the old scheme-only shield let a later // in the
         # path start a bogus comment (https://example.com/a//b).
@@ -92,8 +103,33 @@ def strip_comments(text):
             raw_line,
         )
         protected = _protected_ranges(line_prot)
-        protected.extend(_math_ranges(line_prot))
+        # Track multiline math across source lines. Only actual text
+        # delimiters affect state: raw *p(...) and assignment values are
+        # consumed before inline math by the document pipeline.
+        statement = _normalize_friendly_statement(line_prot.strip())
+        control = not in_math and (
+            re.match(r'^<[^<>]+>\s*=', statement)
+            or re.match(r'^\*?define\s*\(', statement)
+            or statement.startswith('*draw('))
+        raw_spans = list(_balanced_spans(line_prot, '*p('))
+        positions = [] if control else [
+            pos for pos in find_unescaped(line_prot)
+            if not any(start <= pos < end for start, end in raw_spans)]
+        opened = 0 if in_math else None
+        for pos in positions:
+            if opened is None:
+                opened = pos
+            else:
+                protected.append((opened, pos + 1))
+                opened = None
+        if opened is not None:
+            protected.append((opened, len(line_prot)))
         idx = _find_comment_start(line_prot, protected)
+        # A backslash inside a removed comment must not open math on the
+        # next line.
+        for pos in positions:
+            if idx == -1 or pos < idx:
+                in_math = not in_math
         if idx != -1:
             line_prot = line_prot[:idx]
         line = line_prot.replace(placeholder, '/')

@@ -33,6 +33,18 @@ FUNCTION_NAMES = (
 CONST_NAMES = ('pi', 'e')
 
 
+def bounded_power(left, right):
+    """Bound scalar powers before Python allocates enormous integers.
+
+    NumPy arrays already use fixed-size arithmetic. Scalar subexpressions
+    in plots need the same guard as calc, even before array conversion.
+    """
+    if type(left) in (int, float) and type(right) in (int, float):
+        if abs(right) > 1000 or (abs(left) > 10 and abs(right) > 100):
+            raise ValueError('calc: exponent too large')
+    return left ** right
+
+
 def scalar_consts():
     """``{'pi': ..., 'e': ...}`` (stdlib floats, for ``calc()``)."""
     return {'pi': math.pi, 'e': math.e}

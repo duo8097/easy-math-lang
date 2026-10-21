@@ -5,7 +5,7 @@ import operator
 import re
 import sys
 
-from .safemath import preprocess_math_expr, scalar_consts, scalar_funcs
+from .safemath import bounded_power, preprocess_math_expr, scalar_consts, scalar_funcs
 from .variables import replace_defines, replace_vars
 
 safe_operators = {
@@ -15,7 +15,7 @@ safe_operators = {
     ast.Div: operator.truediv,
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
+    ast.Pow: bounded_power,
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
@@ -76,16 +76,6 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
                 right = eval_node(node.right)
                 if isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)) and right == 0:
                     raise ZeroDivisionError("division by zero")
-                if isinstance(node.op, ast.Pow):
-                    # Guard against gigantic bigint DoS (e.g. 9 ** 9 ** 9).
-                    try:
-                        if type(left) in (int, float) and type(right) in (int, float):
-                            if abs(right) > 1000 or (abs(left) > 10 and abs(right) > 100):
-                                raise ValueError('calc: exponent too large')
-                    except ValueError:
-                        raise
-                    except TypeError:
-                        pass
                 result = safe_operators[type(node.op)](left, right)
                 if isinstance(result, int) and abs(result) >= 10 ** 4000:
                     raise ValueError('calc: result too large')

@@ -37,7 +37,8 @@ def ensure_workdir(workdir):
     return path
 
 
-def compile_source_to_pdf(source_text, workdir, version=None, source_links=False):
+def compile_source_to_pdf(source_text, workdir, version=None, source_links=False,
+                          source_path=None):
     """Compile *source_text* to a preview PDF inside *workdir*.
 
     Writes ``preview.ezmath`` then reuses
@@ -56,12 +57,13 @@ def compile_source_to_pdf(source_text, workdir, version=None, source_links=False
     """
     return compile_source_to_format(
         source_text, workdir, format='pdf', version=version,
-        source_links=source_links,
+        source_links=source_links, source_path=source_path,
     )
 
 
 def compile_source_to_format(source_text, workdir, format='pdf',
-                             version=None, ppi=None, source_links=False):
+                             version=None, ppi=None, source_links=False,
+                             source_path=None):
     """Compile *source_text* to *format* (pdf/png/svg/html/typ) in *workdir*.
 
     Headless helper shared by the live preview (pdf) and
@@ -72,6 +74,17 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     ``smap`` is the sidecar source-map path when the compiler wrote one
     (else ``None``; missing map never fails the build).
     """
+    # Include source writes and output discovery in the critical section;
+    # locking only the compiler lets another request replace its input.
+    with COMPILE_LOCK:
+        return _compile_source_to_format(
+            source_text, workdir, format, version, ppi, source_links,
+            source_path=source_path)
+
+
+def _compile_source_to_format(source_text, workdir, format='pdf',
+                              version=None, ppi=None, source_links=False,
+                              stem='preview', source_path=None):
     from compiler.pipeline import compile_ezmath
 
     directory = ensure_workdir(workdir)
@@ -88,23 +101,33 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     # like '../evil' would escape via os.path.join.
     if fmt not in ('pdf', 'png', 'svg', 'html', 'typ'):
         fmt = 'pdf'
-    src_path = os.path.join(directory, PREVIEW_SOURCE_NAME)
-    out_name = (f'preview{suffix}.{fmt}' if suffix
-                else f'preview.{fmt}')
+    src_path = os.path.join(directory, f'{stem}.ezmath')
+    out_name = f'{stem}{suffix}.{fmt}'
     out_path = os.path.join(directory, out_name)
-    typ_path = os.path.join(directory, PREVIEW_TYP_NAME)
+    typ_path = os.path.join(directory, f'{stem}.typ')
     with open(src_path, 'w', encoding='utf-8') as handle:
         handle.write(source_text)
 
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
     ok = False
-    with COMPILE_LOCK, \
-            contextlib.redirect_stdout(stdout_buf), \
+    # A workdir is reused across edits. Remove only the exact output and
+    # numbered page siblings owned by this render before compiling again.
+    import re
+    page_stem, page_ext = os.path.splitext(out_name)
+    page_re = re.compile(re.escape(page_stem) + r'-(\d+)' + re.escape(page_ext))
+    for name in os.listdir(directory):
+        if name == out_name or (fmt in ('png', 'svg') and page_re.fullmatch(name)):
+            path = os.path.join(directory, name)
+            if os.path.isfile(path):
+                os.remove(path)
+    with contextlib.redirect_stdout(stdout_buf), \
             contextlib.redirect_stderr(stderr_buf):
         try:
             ok = bool(compile_ezmath(src_path, out_path,
                                      format=fmt, ppi=ppi,
+                                     image_base_dir=(os.path.dirname(os.path.abspath(source_path))
+                                                     if source_path else None),
                                      embed_source_links=bool(source_links)))
         except BaseException as exc:  # never let preview wedge the panel
             print(f'[ERROR] Preview failed: {exc}')
@@ -114,13 +137,16 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     # (see pipeline._run_typst_export which uses stem-{p}.ext).
     files = []
     if ok:
-        import glob
         if os.path.isfile(out_path):
             files = [out_path]
         elif fmt in ('png', 'svg'):
-            stem, ext = os.path.splitext(out_path)
-            cands = sorted(glob.glob(f'{stem}-*{ext}'))
-            files = [c for c in cands if os.path.isfile(c)]
+            pages = []
+            for name in os.listdir(directory):
+                match = page_re.fullmatch(name)
+                path = os.path.join(directory, name)
+                if match and os.path.isfile(path):
+                    pages.append((int(match.group(1)), path))
+            files = [path for _, path in sorted(pages)]
             if not files:
                 ok = False
         else:
@@ -134,7 +160,7 @@ def compile_source_to_format(source_text, workdir, format='pdf',
     try:
         from compiler.source_map import default_map_path
         _auto = default_map_path(typ_path)
-        _stable = os.path.join(directory, PREVIEW_SMAP_NAME)
+        _stable = os.path.join(directory, f'{stem}.smap.json')
         if os.path.isfile(_auto):
             try:
                 import shutil as _shutil
@@ -172,7 +198,8 @@ def resolve_typ_to_eml(smap_path, typ_line, typ_column):
         return None
 
 
-def export_source_to_file(source_text, output_path, format=None, ppi=None):
+def export_source_to_file(source_text, output_path, format=None, ppi=None,
+                           source_path=None):
     """Export *source_text* (ezmath) straight to *output_path*.
 
     Used by ``File → Export As…`` for untitled documents (no save needed).
@@ -183,6 +210,12 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
     """
     import tempfile
     import shutil
+
+    if source_path:
+        from compiler.pipeline import _paths_alias
+        if _paths_alias(source_path, output_path):
+            return {'ok': False, 'output': None, 'outputs': [],
+                    'log': '[Error] Output would overwrite input file'}
 
     fmt = format
     if fmt is None and output_path:
@@ -197,8 +230,13 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
         fmt = 'pdf'
     workdir = tempfile.mkdtemp(prefix='easymath-export-')
     try:
-        res = compile_source_to_format(source_text, workdir,
-                                       format=fmt, ppi=ppi)
+        # Give diagrams a document-specific basename so exporting a second
+        # document in the same folder cannot change the first one's images.
+        asset_stem = os.path.splitext(os.path.basename(output_path))[0].replace('{p}', 'page')
+        with COMPILE_LOCK:
+            res = _compile_source_to_format(
+                source_text, workdir, format=fmt, ppi=ppi, stem=asset_stem,
+                source_path=source_path)
         if not res.get('ok') or not res.get('files'):
             res['output'] = None
             res['outputs'] = []
@@ -207,7 +245,7 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
         src_files = list(res.get('files') or [])
         dst_abs = os.path.abspath(output_path)
         os.makedirs(os.path.dirname(dst_abs) or '.', exist_ok=True)
-        if fmt in ('png', 'svg') and len(src_files) > 1:
+        if fmt in ('png', 'svg') and (len(src_files) > 1 or '{p}' in dst_abs):
             dst_stem, dst_ext = os.path.splitext(dst_abs)
             if '{p}' in dst_abs:
                 dst_pattern = dst_abs
@@ -225,6 +263,17 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None):
             return res
         # Single file (pdf/html/typ/single-page image).
         shutil.copyfile(src_files[0], dst_abs)
+        if fmt in ('typ', 'html'):
+            image_dir = os.path.join(workdir, asset_stem + '-images')
+            if os.path.isdir(image_dir):
+                shutil.copytree(image_dir, os.path.join(os.path.dirname(dst_abs),
+                                                      asset_stem + '-images'),
+                                dirs_exist_ok=True)
+            for name in os.listdir(workdir):
+                if (name.startswith((asset_stem + '-plot-', asset_stem + '-vec-'))
+                        and name.endswith('.svg')):
+                    shutil.copyfile(os.path.join(workdir, name),
+                                    os.path.join(os.path.dirname(dst_abs), name))
         res['output'] = dst_abs
         res['outputs'] = [dst_abs]
         res['file'] = dst_abs

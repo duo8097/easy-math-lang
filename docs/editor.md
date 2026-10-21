@@ -77,6 +77,10 @@ use `Build → Restart Language Server`.
   Multi-page PNG/SVG writes `stem-1.ext`, `stem-2.ext`, … next to your
   chosen file. The same formats work from the terminal —
   see [Export](export.md).
+  For saved documents, relative `*image(...)` paths resolve from the
+  document's folder in both preview and export. Typst/HTML exports carry
+  diagram SVGs and a `<stem>-images/` folder for embedded image assets;
+  keep those assets beside the exported document when moving it.
 - `Build → Compile` (**Ctrl+B**) still writes a PDF next to your file
   (saved documents only).
 

@@ -109,7 +109,7 @@ def check_undefined_vars(text, line_no, ctx=None):
     matches = list(re.finditer(r'<([^<>]+)>', original))
     # Collect distinct undefined names first; apply replacements after
     # the loop so match offsets (from the original string) stay valid.
-    undefined = []
+    replacements = []
     seen = set()
     for match in matches:
         name = match.group(1)
@@ -137,15 +137,13 @@ def check_undefined_vars(text, line_no, ctx=None):
             continue
         if ctx is not None and stripped in ctx.defines:
             continue
-        key = f'<{name}>'
-        if key in seen:
-            continue
-        seen.add(key)
-        undefined.append((key, stripped))
-    for key, stripped in undefined:
-        print(
-            f'[Error] Line {line_no}: undefined variable <{stripped}>',
-            file=sys.stderr,
-        )
-        text = text.replace(key, f'[UNDEFINED: <{stripped}>]')
+        if stripped not in seen:
+            seen.add(stripped)
+            print(
+                f'[Error] Line {line_no}: undefined variable <{stripped}>',
+                file=sys.stderr,
+            )
+        replacements.append((match.start(), match.end(), stripped))
+    for start, end, stripped in reversed(replacements):
+        text = text[:start] + f'[UNDEFINED: <{stripped}>]' + text[end:]
     return text
