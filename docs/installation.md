@@ -110,6 +110,28 @@ finds its helper programs automatically.
 
 ---
 
+## Option A4 — Arch package
+
+x86_64 only.
+
+1. Download `easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst` from
+   the latest stable release on the
+   [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
+   (or the nightly artifact under Actions -> "Build Installers").
+2. Install it:
+   ```
+   sudo pacman -U easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst
+   ```
+3. Launch **Easy Math Editor** from your applications menu, or run
+   `easy-math-lang doc.ezmath` in a terminal.
+
+The package installs the same layout as the Debian/Fedora packages
+(`/usr/bin`, `/usr/lib/easy-math-lang`), so the editor finds its helper
+programs automatically. See [Packaging and releases](packaging.md) for
+how it is built.
+
+---
+
 ## Option B — Run from source (all platforms)
 
 ## What you need to install

@@ -20,74 +20,27 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "$srcdir/easy-math-lang"
-  git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  # A VCS checkout describes the commit; a plain source tarball (what the
+  # CI build packs, see installer/build_arch.sh) falls back to the
+  # version declared in pyproject.toml.
+  local v
+  if v=$(git describe --long --tags 2>/dev/null); then
+    echo "${v#v}" | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+  else
+    sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml
+  fi
 }
 
 build() {
   cd "$srcdir/easy-math-lang"
 
-  # `uv sync` installs the project editable, so the shims below can
+  # `uv sync` installs the project editable, so the shared builder can
   # `from compiler/editor/lsp import main` (same as CI).
   uv sync --frozen
 
-  cat > entry_compiler.py <<'EOF'
-from compiler import main
-if __name__ == "__main__":
-    main()
-EOF
-
-  cat > entry_lsp.py <<'EOF'
-from lsp.server import main
-if __name__ == "__main__":
-    main()
-EOF
-
-  cat > entry_editor.py <<'EOF'
-from editor.app import main
-if __name__ == "__main__":
-    main()
-EOF
-
-  cleanup() {
-    rm -f entry_compiler.py entry_lsp.py entry_editor.py
-  }
-  trap cleanup EXIT
-
-  uv run --frozen pyinstaller entry_compiler.py \
-    --name easy-math-lang \
-    --onefile \
-    --collect-all typst \
-    --collect-all numpy \
-    --collect-all matplotlib \
-    --noconfirm
-
-  # `ezmath` is the short CLI alias (pyproject [project.scripts]): the
-  # same binary under another name, so copy instead of rebuilding.
-  cp -f dist/easy-math-lang dist/ezmath
-
-  uv run --frozen pyinstaller entry_lsp.py \
-    --name easy-math-lsp \
-    --onefile \
-    --collect-all pygls \
-    --collect-all typst \
-    --collect-all numpy \
-    --noconfirm
-
-  uv run --frozen pyinstaller entry_editor.py \
-    --name easy-math-editor \
-    --onedir \
-    --windowed \
-    --hidden-import PySide6.QtPdf \
-    --hidden-import PySide6.QtPdfWidgets \
-    --hidden-import editor.app \
-    --hidden-import editor.editor_widget \
-    --hidden-import editor.lsp_client \
-    --hidden-import editor.main_window \
-    --collect-all PySide6 \
-    --collect-all typst \
-    --collect-all numpy \
-    --collect-all matplotlib \
-    --noconfirm
+  # The PyInstaller flags live in one place (see scripts/build_binaries.py).
+  # --full-pyside6 keeps the whole PySide6 package in the editor bundle.
+  uv run --frozen python scripts/build_binaries.py --full-pyside6
 
   chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp
   test -x dist/easy-math-editor/easy-math-editor

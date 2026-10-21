@@ -10,37 +10,9 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
-@(
-    @('entry_compiler.py', 'from compiler import main', 'main()'),
-    @('entry_lsp.py', 'from lsp.server import main', 'main()'),
-    @('entry_editor.py', 'from editor.app import main', 'main()')
-) | ForEach-Object {
-    $file, $importLine, $call = $_
-    Set-Content -Path $file -Value "$importLine`r`nif __name__ == '__main__':`r`n    $call`r`n" -Encoding Ascii
-}
-
-try {
-    uv run pyinstaller entry_compiler.py --name easy-math-lang --onefile `
-        --collect-all typst --collect-all numpy --collect-all matplotlib --noconfirm
-    if ($LASTEXITCODE -ne 0) { throw "compiler build failed" }
-
-    uv run pyinstaller entry_lsp.py --name easy-math-lsp --onefile `
-        --collect-all pygls --collect-all typst --collect-all numpy --noconfirm
-    if ($LASTEXITCODE -ne 0) { throw "lsp build failed" }
-
-    uv run pyinstaller entry_editor.py --name easy-math-editor --onedir `
-        --windowed --collect-all PySide6 --collect-all typst --collect-all numpy --collect-all matplotlib `
-        --hidden-import editor.app --hidden-import editor.editor_widget --hidden-import editor.lsp_client --hidden-import editor.main_window --noconfirm
-    if ($LASTEXITCODE -ne 0) { throw "editor build failed" }
-
-    # `ezmath` is the short CLI alias (pyproject [project.scripts]); it is
-    # the same binary under another name, so copy instead of rebuilding.
-    if (-not (Test-Path dist/easy-math-lang.exe)) { throw "compiler output missing" }
-    Copy-Item dist/easy-math-lang.exe dist/ezmath.exe -Force
-}
-finally {
-    Remove-Item entry_compiler.py, entry_lsp.py, entry_editor.py -ErrorAction SilentlyContinue
-}
+# The PyInstaller flags live in one place (see scripts/build_binaries.py).
+uv run python scripts/build_binaries.py
+if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 Write-Host 'Build OK:'
 Get-ChildItem dist/easy-math-lang.exe, dist/ezmath.exe, dist/easy-math-lsp.exe, dist/easy-math-editor/easy-math-editor.exe

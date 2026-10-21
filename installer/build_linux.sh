@@ -33,65 +33,9 @@ if ! command -v dpkg-deb >/dev/null 2>&1; then
   exit 1
 fi
 
-cat > entry_compiler.py <<'EOF'
-from compiler import main
-if __name__ == "__main__":
-    main()
-EOF
+# The PyInstaller flags live in one place (see scripts/build_binaries.py).
+uv run python scripts/build_binaries.py
 
-cat > entry_lsp.py <<'EOF'
-from lsp.server import main
-if __name__ == "__main__":
-    main()
-EOF
-
-cat > entry_editor.py <<'EOF'
-from editor.app import main
-if __name__ == "__main__":
-    main()
-EOF
-
-cleanup() {
-  rm -f entry_compiler.py entry_lsp.py entry_editor.py
-}
-trap cleanup EXIT
-
-uv run pyinstaller entry_compiler.py \
-  --name easy-math-lang \
-  --onefile \
-  --collect-all typst \
-  --collect-all numpy \
-  --collect-all matplotlib \
-  --noconfirm
-
-# `ezmath` is the short CLI alias (pyproject [project.scripts]); it is
-# the same binary under another name, so copy instead of rebuilding.
-cp -f dist/easy-math-lang dist/ezmath
-
-uv run pyinstaller entry_lsp.py \
-  --name easy-math-lsp \
-  --onefile \
-  --collect-all pygls \
-  --collect-all typst \
-  --collect-all numpy \
-  --noconfirm
-
-uv run pyinstaller entry_editor.py \
-  --name easy-math-editor \
-  --onedir \
-  --windowed \
-  --hidden-import PySide6.QtPdf \
-  --hidden-import PySide6.QtPdfWidgets \
-  --hidden-import editor.app \
-  --hidden-import editor.editor_widget \
-  --hidden-import editor.lsp_client \
-  --hidden-import editor.main_window \
-  --collect-all typst \
-  --collect-all numpy \
-  --collect-all matplotlib \
-  --noconfirm
-
-chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp
 test -x dist/easy-math-editor/easy-math-editor
 
 # --- Stage the FHS tree -------------------------------------------------

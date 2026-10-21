@@ -9,7 +9,7 @@ are built, how the editor finds them at runtime, and how to test all of it.
 ## What gets built (Windows)
 
 Three PyInstaller binaries, with the exact flags used by CI
-(`.github/workflows/build-installers.yml`):
+(`scripts/build_binaries.py`):
 
 | Binary | Mode | Contents |
 |---|---|---|
@@ -49,27 +49,31 @@ the admin's hive instead — an accepted edge case, same as most installers.
 
 ---
 
-## Building locally
+## The build scripts
 
-From the repo root (Windows):
+Every build path (CI and local) goes through the same shared scripts, so
+the PyInstaller flags exist exactly once:
 
-```
-powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1
-```
+| Script | Does |
+|---|---|
+| `scripts/build_binaries.py` | Freezes the three binaries with PyInstaller (entry points, per-platform flags, `ezmath` alias copy). The entry shims are written to a temp dir, so no `entry_*.py` is left in the repo. |
+| `scripts/package_macos.sh` | macOS only: bundles the helpers into the `.app`, prunes the nested Qt tool apps, signs the bundle inside-out and (with `--stage`) writes the DMG layout to `staging/`. |
+| `scripts/check_tag_version.py` | Release guard: fails the build when a `v*` tag does not match the `pyproject.toml` version. |
 
-From the repo root (macOS):
+The local drivers only orchestrate them:
 
-```
-bash scripts/build_macos.sh
-```
+| Local build | Command |
+|---|---|
+| Windows | `powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1` |
+| macOS | `bash scripts/build_macos.sh` |
+| Linux (`.deb` + `.rpm`) | `bash installer/build_linux.sh` |
+| Arch (`.pkg.tar.zst`) | `bash installer/build_arch.sh` (on Arch) |
 
-Both write temporary `entry_*.py` shims, run the same three PyInstaller
-commands as their CI workflow, remove the shims again, and leave the
-output in `dist/` (gitignored). Every push runs the steps in CI and
-uploads the installer(s) as run artifacts (14-day retention); tagging a
-commit `v*` additionally attaches them to a stable GitHub Release
-(hyphenated tags become prereleases). The nightly schedule, pull
-requests and manual dispatch build the same way.
+All of them leave their output in `dist/` (gitignored). Every push runs
+the same steps in CI and uploads the installer(s) as run artifacts
+(14-day retention); tagging a commit `v*` additionally attaches them to
+a stable GitHub Release (hyphenated tags become prereleases). The
+nightly schedule, pull requests and manual dispatch build the same way.
 
 ---
 
@@ -100,7 +104,8 @@ staging/
 ```
 
 `hdiutil` packs `staging/` into the single `EasyMathLang-macOS-arm64.dmg`.
-Signing is inside-out
+`scripts/package_macos.sh` does the bundling, the pruning and the
+signing — signing is inside-out
 (nested code, then the bundle — never recursive for the final sign) with
 `codesign --verify --deep --strict` afterwards, and the step has no
 leniency: a bad signature fails the job. Ad-hoc means first launch still
@@ -150,6 +155,31 @@ usr/
   of `examples/example.ezmath`) and inspects the `.rpm` payload
   (`rpm -qip` / `rpm -qlp`) before uploading artifacts. Static checks
   live in `tests/test_linux_packaging.py`.
+
+---
+
+## What gets built (Arch)
+
+`installer/PKGBUILD` builds the same three binaries for Arch and packs
+them into `easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst`.
+The installed layout is the FHS layout above
+(`/usr/bin/easy-math-lang`, `ezmath`, `easy-math-lsp`,
+`easy-math-editor` → `/usr/lib/easy-math-lang/…`).
+
+- `installer/build_arch.sh` (run from the repo root **on Arch**) packs
+  the checked-out tree into a source tarball, patches a copy of the
+  PKGBUILD to use it and runs `makepkg`; the finished package lands in
+  the repo root. The Arch build keeps the whole PySide6 package in the
+  editor bundle (`--full-pyside6`).
+- `pkgver()` describes the commit in a VCS checkout and falls back to
+  the `pyproject.toml` version for the tarball source the CI build uses
+  (a pull request is packaged exactly as checked out — no access to the
+  upstream repository is needed).
+- CI builds the package in an `archlinux:base` container (makepkg only
+  runs on Arch and refuses to run as root, so the build runs as an
+  unprivileged user) and uploads the `.pkg.tar.zst` as
+  `EasyMathLang-Arch-x86_64`; it is attached to the GitHub Release
+  like the other installers.
 
 ---
 

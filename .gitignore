@@ -35,6 +35,12 @@ MANIFEST
 # Inno Setup build output (rebuilt by CI / scripts; never commit binaries)
 installer/Output/
 
+# macOS release layout staged for the DMG (rebuilt by CI / scripts)
+staging/
+
+# Arch package built by installer/build_arch.sh
+*.pkg.tar.zst
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

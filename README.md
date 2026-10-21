@@ -36,17 +36,19 @@ The easiest way to use easy-math-lang — no Python needed:
 **Linux (x86_64):**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
-2. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint) or
-   `EasyMathLang-Fedora-amd64.rpm` (Fedora, RHEL, openSUSE)
+2. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint),
+   `EasyMathLang-Fedora-amd64.rpm` (Fedora, RHEL, openSUSE) or
+   `easy-math-lang-git-*.pkg.tar.zst` (Arch)
    from the latest stable release.
-3. Install it (`sudo dpkg -i EasyMathLang-Debian-amd64.deb` or
-   `sudo rpm -i EasyMathLang-Fedora-amd64.rpm`) and launch
+3. Install it (`sudo dpkg -i EasyMathLang-Debian-amd64.deb`,
+   `sudo rpm -i EasyMathLang-Fedora-amd64.rpm` or
+   `sudo pacman -U easy-math-lang-git-*.pkg.tar.zst`) and launch
    **Easy Math Editor** from your applications menu.
 
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).
 >
-> **Nightly builds:** every night CI rebuilds all three installers —
+> **Nightly builds:** every night CI rebuilds all the installers —
 > grab them from the latest "Build Installers" run's Artifacts
 > (expire after 14 days) under Actions.
 
@@ -151,8 +153,10 @@ src/
 tests/            # pytest suite (compiler, geometry, LSP, editor, packaging)
 examples/         # sample .ezmath documents with expected output
 docs/             # user guides (incl. export.md for PDF/PNG/SVG/HTML/Typst)
-installer/        # Inno Setup script for the Windows installer
-scripts/          # local packaging helpers (build_local.ps1, build_macos.sh)
+installer/        # Inno Setup script (Windows), PKGBUILD (Arch) and the
+                   # Linux/Arch package builders
+scripts/          # build helpers (build_binaries.py = shared PyInstaller
+                   # build, build_local.ps1, build_macos.sh, package_macos.sh)
 ```
 
 Packaged-binary tests are opt-in (they need a real build in `dist/`):

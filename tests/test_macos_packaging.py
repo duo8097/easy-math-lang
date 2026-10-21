@@ -1,4 +1,4 @@
-"""Static checks for the macOS build workflow + helper script."""
+"""Static checks for the macOS build workflow + helper scripts."""
 
 import os
 import re
@@ -10,6 +10,13 @@ WORKFLOW = os.path.abspath(
                  "workflows", "build-installers.yml"))
 SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "build_macos.sh"))
+BUILDER = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts", "build_binaries.py"))
+PACKAGE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts", "package_macos.sh"))
+GUARD = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts",
+                 "check_tag_version.py"))
 SMOKE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "scripts", "smoke_macos.sh"))
 INSTALL_DOC = os.path.abspath(
@@ -27,6 +34,24 @@ def workflow_text():
 @pytest.fixture(scope="module")
 def script_text():
     with open(SCRIPT, encoding="utf-8") as h:
+        return h.read()
+
+
+@pytest.fixture(scope="module")
+def builder_text():
+    with open(BUILDER, encoding="utf-8") as h:
+        return h.read()
+
+
+@pytest.fixture(scope="module")
+def package_text():
+    with open(PACKAGE, encoding="utf-8") as h:
+        return h.read()
+
+
+@pytest.fixture(scope="module")
+def guard_text():
+    with open(GUARD, encoding="utf-8") as h:
         return h.read()
 
 
@@ -53,6 +78,8 @@ def test_workflow_has_all_platform_jobs(workflow_text):
 def test_workflow_exists():
     assert os.path.isfile(WORKFLOW), "macOS workflow missing"
     assert os.path.isfile(SCRIPT), "macOS build script missing"
+    assert os.path.isfile(BUILDER), "shared binary builder missing"
+    assert os.path.isfile(PACKAGE), "macOS packaging script missing"
 
 
 def test_workflow_runs_on_every_commit(workflow_text):
@@ -99,16 +126,20 @@ def test_docs_are_arm64_only():
 
 def test_workflow_runs_tests_before_build(workflow_text):
     assert "pytest" in workflow_text
-    assert workflow_text.index("pytest") < workflow_text.index("pyinstaller")
+    assert workflow_text.index("pytest") < workflow_text.index(
+        "build_binaries.py")
 
 
-def test_workflow_builds_all_three_binaries(workflow_text):
+def test_workflow_builds_all_three_binaries(workflow_text, builder_text):
+    # The binary names live in the shared builder the workflow calls.
+    assert "build_binaries.py" in workflow_text
     for name in ("easy-math-lang", "easy-math-lsp", "easy-math-editor"):
-        assert name in workflow_text
+        assert name in builder_text
 
 
-def test_workflow_provides_ezmath_alias(workflow_text):
-    assert "ezmath" in workflow_text
+def test_workflow_provides_ezmath_alias(workflow_text, builder_text):
+    assert "ezmath" in builder_text
+    assert "build_binaries.py" in workflow_text
 
 
 def test_workflow_creates_dmg_only(workflow_text):
@@ -119,59 +150,57 @@ def test_workflow_creates_dmg_only(workflow_text):
     assert "ditto" not in macos
 
 
-def test_workflow_bundles_helpers_into_app(workflow_text):
+def test_packaging_bundles_helpers_into_app(package_text):
     # Helpers must live inside the .app (Contents/Resources/bin) so the
     # editor works when only the .app is dragged to /Applications.
-    assert "Contents/Resources/bin" in workflow_text
-    assert "easy-math-editor.app" in workflow_text
+    assert "Contents/Resources/bin" in package_text
+    assert "easy-math-editor.app" in package_text
     # The old EasyMath/{bin,editor} split duplicated Qt and broke the
     # app-alone layout; it must be gone.
-    assert "staging/EasyMath" not in workflow_text
+    assert "staging/EasyMath" not in package_text
 
 
-def test_workflow_ships_only_app(workflow_text):
-    assert 'cp -R "dist/easy-math-editor.app" staging/' in workflow_text
-    assert "staging/EasyMath/editor" not in workflow_text
+def test_packaging_ships_only_app(package_text):
+    assert 'cp -R "$APP" "$STAGE/"' in package_text
+    assert "staging/EasyMath/editor" not in package_text
 
 
-def test_workflow_has_applications_symlink(workflow_text):
-    assert "ln -s /Applications" in workflow_text
+def test_packaging_has_applications_symlink(package_text):
+    assert "ln -s /Applications" in package_text
 
 
-def test_workflow_builds_dmg_from_staged_app(workflow_text):
+def test_workflow_builds_dmg_from_staged_app(workflow_text, package_text):
     macos = job_section(workflow_text, "build-macos")
     assert "-srcfolder staging" in macos
-    assert "easy-math-editor.app" in macos
+    assert "package_macos.sh --stage" in macos
+    assert "easy-math-editor.app" in package_text
 
 
-def test_workflow_prunes_nested_dot_apps_before_sign(workflow_text):
-    assert "__dot__app" in workflow_text
-    assert "Remove nested Qt tool apps" in workflow_text
+def test_packaging_prunes_nested_dot_apps_before_sign(package_text):
+    assert "__dot__app" in package_text
     # Cleanup prints what it removes before deleting.
-    assert "-name '*__dot__app' -print" in workflow_text
-    # Cleanup runs after helpers are bundled, before signing.
-    assert workflow_text.index("Bundle helpers into the .app") < workflow_text.index(
-        "__dot__app"
-    )
-    assert workflow_text.index("__dot__app") < workflow_text.index(
-        "Sign bundle inside-out"
-    )
-    # Bundle size is logged before/after pruning and after the editor build.
-    assert "du -sh dist/easy-math-editor.app" in workflow_text
+    assert "-name '*__dot__app' -print" in package_text
+    # Pruning runs before signing.
+    assert package_text.index("__dot__app") < package_text.index(
+        'codesign --force --sign - "$APP"')
+    # Bundle size is logged.
+    assert 'du -sh "$APP"' in package_text
 
 
-def test_editor_build_drops_collect_all_pyside6(workflow_text, script_text):
-    # Scoped to the macOS job: the Windows job still needs
-    # --collect-all PySide6, which must never leak into the macOS bundle.
-    macos = job_section(workflow_text, "build-macos")
-    assert "--collect-all PySide6" not in macos
+def test_editor_build_drops_collect_all_pyside6(workflow_text, script_text,
+                                                 builder_text):
+    # The macOS bundle must not collect the whole PySide6 package: the
+    # nested Qt tool apps break codesign. The shared builder only does
+    # that on Windows (or with --full-pyside6).
+    assert "--collect-all PySide6" not in workflow_text
     assert "--collect-all PySide6" not in script_text
+    assert '"--collect-all", "PySide6"' in builder_text
+    assert 'os.name == "nt" or full_pyside6' in builder_text
     for hidden in ("PySide6.QtPdf", "PySide6.QtPdfWidgets"):
-        assert hidden in macos, f"macOS job missing {hidden}"
-        assert hidden in script_text, f"build script missing {hidden}"
+        assert hidden in builder_text, f"builder missing {hidden}"
     # Typst/numpy collection must stay.
-    assert "--collect-all typst" in macos
-    assert "--collect-all numpy" in macos
+    assert "typst" in builder_text
+    assert "numpy" in builder_text
 
 
 def test_smoke_checks_qt_platform_plugin():
@@ -181,44 +210,44 @@ def test_smoke_checks_qt_platform_plugin():
     assert "libqcocoa.dylib" in text
 
 
-def test_sign_step_fails_loudly(workflow_text):
-    assert "continue-on-error" not in workflow_text
-    assert "|| true" not in workflow_text
+def test_sign_step_fails_loudly(workflow_text, package_text):
+    for text in (workflow_text, package_text):
+        assert "continue-on-error" not in text
+        assert "|| true" not in text
 
 
-def test_sign_uses_macho_check_only(workflow_text):
+def test_sign_uses_macho_check_only(package_text):
     # Only real Mach-O files are signed; never plain directories.
-    assert 'file -b "$f"' in workflow_text
-    assert "Mach-O" in workflow_text
-    assert "-print0" in workflow_text
-    assert "read -r -d ''" in workflow_text
+    assert 'file -b "$f"' in package_text
+    assert "Mach-O" in package_text
+    assert "-print0" in package_text
+    assert "read -r -d ''" in package_text
     # Old approach signed directories and any +x file; it must be gone.
-    assert "-perm +111" not in workflow_text
-    assert "-maxdepth 1 -mindepth 1" not in workflow_text
+    assert "-perm +111" not in package_text
+    assert "-maxdepth 1 -mindepth 1" not in package_text
 
 
-def test_sign_macho_loop_before_bundle(workflow_text):
-    assert workflow_text.index("Mach-O") < workflow_text.index(
-        'codesign --force --sign - "$APP"'
-    )
+def test_sign_macho_loop_before_bundle(package_text):
+    assert package_text.index("Mach-O") < package_text.index(
+        'codesign --force --sign - "$APP"')
     # Bundled helpers are asserted executable before the loop covers them.
-    assert "Contents/Resources/bin" in workflow_text
+    assert "Contents/Resources/bin" in package_text
 
 
-def test_sign_failure_prints_diagnostics(workflow_text):
-    assert 'codesign -dvvv "$APP"' in workflow_text
-    assert 'find "$APP" -type l' in workflow_text
+def test_sign_failure_prints_diagnostics(package_text):
+    assert 'codesign -dvvv "$APP"' in package_text
+    assert 'find "$APP" -type l' in package_text
 
 
-def test_sign_verifies_everything(workflow_text):
-    assert "codesign --verify --deep --strict" in workflow_text
-    assert "codesign --verify --strict" in workflow_text
+def test_sign_verifies_everything(package_text):
+    assert "codesign --verify --deep --strict" in package_text
+    assert "codesign --verify --strict" in package_text
 
 
-def test_final_bundle_sign_avoids_deep(workflow_text):
+def test_final_bundle_sign_avoids_deep(package_text):
     hits = [
         line
-        for line in workflow_text.splitlines()
+        for line in package_text.splitlines()
         if line.strip().startswith("codesign")
         and "--verify" not in line
         and (".app" in line or "$APP" in line)
@@ -257,11 +286,16 @@ def test_workflow_uploads_after_smoke(workflow_text):
     )
 
 
-def test_script_mirrors_workflow(script_text, workflow_text):
+def test_script_mirrors_workflow(script_text, builder_text):
+    # The local driver only orchestrates; the PyInstaller flags live in
+    # the shared builder.
+    assert "scripts/build_binaries.py" in script_text
+    assert "scripts/package_macos.sh" in script_text
     for token in ("easy-math-lang", "easy-math-lsp", "easy-math-editor",
-                  "entry_compiler.py", "pyinstaller"):
+                  "ezmath", "PyInstaller"):
         assert token in script_text, f"script missing {token}"
-    assert "ezmath" in script_text
+    for token in ("entry", "PyInstaller", "ezmath"):
+        assert token in builder_text, f"builder missing {token}"
 
 
 def test_build_script_requires_arm64(script_text):
@@ -311,7 +345,8 @@ def test_workflow_runs_smoke_on_staged_app(workflow_text):
     assert "scripts/smoke_macos.sh" in workflow_text
     # Smoke runs after staging and before DMG creation so a broken
     # bundle never ships.
-    assert workflow_text.index("smoke_macos.sh") > workflow_text.index("Stage DMG")
+    assert workflow_text.index("smoke_macos.sh") > workflow_text.index(
+        "package_macos.sh")
     assert workflow_text.index("smoke_macos.sh") < workflow_text.index("hdiutil")
 
 
@@ -320,12 +355,14 @@ def test_release_marks_hyphen_tags_prerelease(workflow_text):
     assert "contains(github.ref_name, '-')" in workflow_text
 
 
-def test_release_guards_tag_matches_pyproject(workflow_text):
+def test_release_guards_tag_matches_pyproject(workflow_text, guard_text):
     assert "Guard tag matches pyproject version" in workflow_text
-    assert "pyproject.toml" in workflow_text
-    # Leading "v" is stripped before comparing with the project version.
-    assert "${TAG#v}" in workflow_text
-    assert "exit 1" in workflow_text
+    assert "check_tag_version.py" in workflow_text
+    # The guard reads the version from pyproject.toml and strips the
+    # leading "v" before comparing.
+    assert "pyproject.toml" in guard_text
+    assert 'removeprefix("v")' in guard_text
+    assert "return 1" in guard_text
 
 
 def test_installation_docs_cover_adhoc_first_launch():

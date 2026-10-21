@@ -10,8 +10,15 @@ WORKFLOW = os.path.abspath(
                  "workflows", "build-installers.yml"))
 SCRIPT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "installer", "build_linux.sh"))
+BUILDER = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts", "build_binaries.py"))
+GUARD = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts",
+                 "check_tag_version.py"))
 PKGBUILD = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "installer", "PKGBUILD"))
+ARCH_SCRIPT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "installer", "build_arch.sh"))
 INSTALL_DOC = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "docs", "installation.md"))
 PACKAGING_DOC = os.path.abspath(
@@ -34,9 +41,29 @@ def script_text():
         return h.read()
 
 
+@pytest.fixture(scope="module")
+def builder_text():
+    with open(BUILDER, encoding="utf-8") as h:
+        return h.read()
+
+
+def job_section(workflow_text, job_id):
+    """Steps of one job in the build workflow."""
+    import re
+    starts = [
+        m.start() for m in re.finditer(r"^  [\w-]+:", workflow_text, re.M)
+    ]
+    for i, s in enumerate(starts):
+        if workflow_text[s:].split(":", 1)[0].strip() == job_id:
+            end = starts[i + 1] if i + 1 < len(starts) else len(workflow_text)
+            return workflow_text[s:end]
+    raise AssertionError(f"job {job_id} missing from workflow")
+
+
 def test_files_exist():
     assert os.path.isfile(WORKFLOW), "Linux workflow missing"
     assert os.path.isfile(SCRIPT), "Linux build script missing"
+    assert os.path.isfile(BUILDER), "shared binary builder missing"
 
 
 def test_script_is_executable_bash():
@@ -59,19 +86,22 @@ def test_script_reads_version_from_pyproject(script_text):
     assert not re.search(r"\b4\.\d+\.\d+\b", script_text)
 
 
-def test_script_builds_all_three_binaries(script_text):
+def test_script_builds_all_three_binaries(script_text, builder_text):
+    # The script drives the shared builder, which owns the PyInstaller
+    # flags for the three binaries.
+    assert "scripts/build_binaries.py" in script_text
     for name in ("easy-math-lang", "easy-math-lsp", "easy-math-editor"):
-        assert name in script_text
-    assert "entry_compiler.py" in script_text
-    assert "pyinstaller" in script_text
-    assert "ezmath" in script_text
+        assert name in builder_text
+    assert "entry" in builder_text
+    assert "PyInstaller" in builder_text
+    assert "ezmath" in builder_text
 
 
-def test_script_collects_plot_and_pdf_backends(script_text):
+def test_script_collects_plot_and_pdf_backends(builder_text):
     # *plot(...) needs matplotlib; PDF export needs typst; geometry needs numpy.
-    for dep in ("--collect-all typst", "--collect-all numpy",
-                "--collect-all matplotlib"):
-        assert dep in script_text
+    for dep in ("typst", "numpy", "matplotlib"):
+        assert dep in builder_text
+    assert '"--collect-all"' in builder_text
 
 
 def test_script_stages_fhs_tree(script_text):
@@ -149,7 +179,11 @@ def test_workflow_runs_tests_before_build(workflow_text):
 
 def test_workflow_guards_tag_matches_pyproject(workflow_text):
     assert "Guard tag matches pyproject version" in workflow_text
-    assert "${TAG#v}" in workflow_text
+    assert "check_tag_version.py" in workflow_text
+    with open(GUARD, encoding="utf-8") as h:
+        guard = h.read()
+    assert 'removeprefix("v")' in guard
+    assert "pyproject.toml" in guard
 
 
 def test_workflow_smokes_installed_deb(workflow_text):
@@ -173,11 +207,53 @@ def test_workflow_uploads_and_releases(workflow_text):
     assert "contents: write" in workflow_text
 
 
-def test_pkgbuild_collects_matplotlib():
+def test_pkgbuild_uses_shared_builder():
     with open(PKGBUILD, encoding="utf-8") as h:
         text = h.read()
-    assert text.count("--collect-all matplotlib") >= 2, (
-        "PKGBUILD compiler+editor builds must collect matplotlib for *plot")
+    # The Arch recipe drives the same builder as CI (and keeps the full
+    # PySide6 collection).
+    assert "scripts/build_binaries.py" in text
+    assert "--full-pyside6" in text
+    # No PyInstaller invocation of its own.
+    assert "pyinstaller entry" not in text.lower()
+    assert "-m pyinstaller" not in text.lower()
+
+
+def test_pkgbuild_version_falls_back_to_pyproject():
+    with open(PKGBUILD, encoding="utf-8") as h:
+        text = h.read()
+    # A VCS checkout describes the commit; the CI source tarball has no
+    # git metadata and falls back to the declared project version.
+    assert "git describe" in text
+    assert "pyproject.toml" in text
+
+
+def test_arch_script_packs_the_checkout_and_runs_makepkg():
+    with open(ARCH_SCRIPT, encoding="utf-8") as h:
+        text = h.read()
+    assert "set -euo pipefail" in text
+    assert "makepkg" in text
+    assert "PKGDEST" in text
+    assert "installer/PKGBUILD" in text
+    # The working tree is packed, so the package never depends on the
+    # upstream repository or on git metadata.
+    assert "easy-math-lang.tar.gz" in text
+    assert "sha256sum" in text
+
+
+def test_workflow_builds_arch_package(workflow_text):
+    arch = job_section(workflow_text, "build-arch")
+    # makepkg only runs on Arch and refuses to run as root.
+    assert "archlinux" in arch
+    assert "useradd" in arch
+    assert "installer/build_arch.sh" in arch
+    assert "upload-artifact" in arch
+    assert "EasyMathLang-Arch-x86_64" in arch
+    assert "if-no-files-found: error" in arch
+    assert "retention-days: 14" in arch
+    # The release waits for the Arch package as well.
+    release = job_section(workflow_text, "release")
+    assert "build-arch" in release
 
 
 def test_installation_docs_cover_deb_and_rpm():
