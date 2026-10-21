@@ -234,7 +234,8 @@ def _expand_images(ctx, text, line_no, placeholders):
     idx = len(placeholders)
     source = getattr(ctx, 'source_file', '') or ''
     try:
-        base_dir = os.path.dirname(os.path.abspath(source)) or os.getcwd()
+        base_dir = (getattr(ctx, 'image_base_dir', None)
+                    or os.path.dirname(os.path.abspath(source)) or os.getcwd())
     except (TypeError, ValueError, OSError):
         base_dir = os.getcwd()
     typ_dir = getattr(ctx, 'plot_dir', None) or base_dir
@@ -295,6 +296,23 @@ def _expand_images(ctx, text, line_no, placeholders):
             out.append(f'[Image Error: {err}]')
             pos = call_end
             continue
+        if getattr(ctx, 'image_base_dir', None) is not None:
+            # A preview source lives in a temporary folder. Copy the image
+            # inside that root, keeping names distinct across source paths.
+            import hashlib
+            import shutil
+            digest = hashlib.sha256(os.fsencode(os.path.abspath(abs_path))).hexdigest()[:12]
+            rel = f'{ctx.plot_stem}-images/{digest}-{os.path.basename(abs_path)}'
+            staged = os.path.join(typ_dir, rel)
+            try:
+                os.makedirs(os.path.dirname(staged), exist_ok=True)
+                shutil.copyfile(abs_path, staged)
+            except OSError as exc:
+                print(f'[Error] Line {line_no}: cannot stage image: {exc}', file=sys.stderr)
+                out.append('[Image Error: cannot copy image]')
+                pos = call_end
+                continue
+            abs_path = staged
         ctx.image_files.append((abs_path, rel))
         if width is not None:
             typ = f'#image({_typst_string(rel)}, width: {width})'

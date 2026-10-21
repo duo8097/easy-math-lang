@@ -51,15 +51,16 @@ class _PreviewWorker(QtCore.QObject):
 
     finished = QtCore.Signal(int, dict)
 
-    @QtCore.Slot(int, str, str)
-    def render(self, version, text, workdir):
+    @QtCore.Slot(int, str, str, str)
+    def render(self, version, text, workdir, source_path):
         from .preview import compile_source_to_pdf
         try:
             # Live preview embeds invisible eml-src link annotations so
             # Ctrl+Click can navigate back to the .eml source. Export
             # builds (File -> Export As) keep links off for clean PDFs.
             result = compile_source_to_pdf(text, workdir, version=version,
-                                           source_links=True)
+                                           source_links=True,
+                                           source_path=source_path or None)
         except BaseException as exc:  # keep the editor alive on any failure
             result = {'ok': False, 'pdf': None, 'typ': '', 'log': str(exc)}
         try:
@@ -69,7 +70,7 @@ class _PreviewWorker(QtCore.QObject):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    _preview_request = QtCore.Signal(int, str, str)
+    _preview_request = QtCore.Signal(int, str, str, str)
 
     def __init__(self, start_lsp=True, parent=None, no_save_prompt=False):
         super().__init__(parent)
@@ -1278,7 +1279,8 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             from .preview import export_source_to_file
             res = export_source_to_file(
-                self.editor.toPlainText(), path, format=fmt, ppi=ppi)
+                self.editor.toPlainText(), path, format=fmt, ppi=ppi,
+                source_path=self._file_path)
         except Exception as exc:  # never crash the editor on export
             QtWidgets.QMessageBox.critical(
                 self, 'Export failed', f'Export failed: {exc}')
@@ -1706,7 +1708,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._last_preview_text = text
         self.preview.show_loading()
         self._preview_request.emit(
-            version, text, self._preview_workdir)
+            version, text, self._preview_workdir, self._file_path or '')
 
     def _on_preview_finished(self, version, result):
         if version != self._preview_version:

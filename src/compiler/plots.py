@@ -27,7 +27,7 @@ import operator
 import re
 import warnings
 
-from .safemath import numpy_consts, numpy_funcs, preprocess_math_expr
+from .safemath import bounded_power, numpy_consts, numpy_funcs, preprocess_math_expr
 
 PLOT_SAMPLES = 1000
 
@@ -40,7 +40,7 @@ _BINOPS = {
     ast.Div: operator.truediv,
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
+    ast.Pow: bounded_power,
 }
 
 _UNARYOPS = {
@@ -256,6 +256,7 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
     except ImportError:
         raise RuntimeError(
             'plotting needs matplotlib — run `uv sync` to install it')
+    fig = None
     try:
         with plt.rc_context({'svg.fonttype': 'none'}):
             fig, ax = plt.subplots(figsize=(5.5, 3.5))
@@ -275,9 +276,11 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
             ax.margins(0.05)
             fig.tight_layout()
             fig.savefig(out_path, format='svg', bbox_inches='tight')
-            plt.close(fig)
     except ValueError:
         raise
     except Exception as e:
         raise RuntimeError(f'could not generate plot SVG: {e}')
+    finally:
+        if fig is not None:
+            plt.close(fig)
     return raw_expr.strip()

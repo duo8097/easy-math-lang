@@ -1053,7 +1053,10 @@ def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
     """
     if output_pdf is None:
         base, _ = os.path.splitext(input_str)
-        out_path = base + '.pdf'
+        fmt = infer_export_format(base + '.pdf', explicit_format)
+        if fmt is None:
+            return None, None, None
+        out_path = base + '.' + fmt
     else:
         out_path = os.fspath(output_pdf)
     fmt = infer_export_format(out_path, explicit_format)
@@ -1062,10 +1065,13 @@ def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
     ppi = None
     if explicit_ppi is not None:
         try:
+            if isinstance(explicit_ppi, bool) or (
+                    isinstance(explicit_ppi, float) and not explicit_ppi.is_integer()):
+                raise ValueError('ppi must be an integer')
             ppi = int(explicit_ppi)
             if ppi <= 0 or ppi > 1200:
                 raise ValueError('ppi out of range')
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             print(
                 f"[Error] invalid --ppi {explicit_ppi!r} — "
                 f"expected an integer 1..1200",
@@ -1073,6 +1079,16 @@ def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
             )
             return None, None, None
     return out_path, fmt, ppi
+
+
+def _paths_alias(left, right):
+    """Compare destinations, including symlinks and existing hard links."""
+    if os.path.normcase(os.path.realpath(left)) == os.path.normcase(os.path.realpath(right)):
+        return True
+    try:
+        return os.path.samefile(left, right)
+    except (OSError, ValueError):
+        return False
 
 
 def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
@@ -1220,7 +1236,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
 def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi=None,
                    source_map=True, source_map_path=None,
                    embed_source_comments=False, embed_source_links=False,
-                   strict=False):
+                   strict=False, image_base_dir=None):
     """Compile an .ezmath document via an intermediate Typst file.
 
     Actual processing order (per text line, after comment stripping):
@@ -1279,6 +1295,10 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     returns False when any [Error] diagnostic was emitted (the PDF may
     still be written); default ``strict=False`` keeps backward compat
     (True even with errors, exit 0) for the editor and existing tests.
+
+    ``image_base_dir`` resolves *image paths for an editor's temporary
+    source copy. Images are staged beside the intermediate Typst source
+    so Typst never needs to read outside its document root.
     """
     # Backward compat: compile_ezmath(src, out.pdf) still works.
     if output is None:
@@ -1292,11 +1312,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     _explicit_format = format
     _explicit_ppi = ppi
     try:
-        if _out_arg is None:
-            # Default <base>.pdf (legacy behavior).
-            base, _ = os.path.splitext(os.fspath(input_file))
-            _out_arg = base + '.pdf'
-        else:
+        if _out_arg is not None:
             _out_arg = os.fspath(_out_arg)
         input_str = os.fspath(input_file)
     except (TypeError, ValueError) as e:
@@ -1308,6 +1324,30 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # output only embeds basenames so the build stays relocatable.
     _typ_base, _ = os.path.splitext(input_str)
     _typ_file_early = _typ_base + '.typ'
+    _out_path, _fmt, _ppi = _resolve_export(
+        _out_arg, _explicit_format, _explicit_ppi, input_str=input_str)
+    if _out_path is None:
+        return False
+    try:
+        _map_dest = (os.fspath(source_map_path) if source_map_path is not None
+                     else default_map_path(_typ_file_early) if source_map else None)
+    except (TypeError, ValueError) as exc:
+        print(f'[Error] Invalid source-map path: {exc}', file=sys.stderr)
+        return False
+    # Validate before generating diagrams, intermediate source or the map:
+    # an output alias must never destroy the user's input document.
+    for destination in (_out_path, _typ_file_early, _map_dest):
+        if destination is not None and _paths_alias(input_str, destination):
+            print(f'[Error] Output would overwrite input file {input_str!r}',
+                  file=sys.stderr)
+            return False
+    if ((_fmt != 'typ' and _paths_alias(_out_path, _typ_file_early))
+            or (_map_dest is not None and (
+                _paths_alias(_map_dest, _typ_file_early)
+                or _paths_alias(_map_dest, _out_path)))):
+        print('[Error] Output and intermediate/source-map paths must be distinct',
+              file=sys.stderr)
+        return False
     ctx.plot_dir = os.path.dirname(os.path.abspath(_typ_file_early)) or '.'
     ctx.plot_stem = os.path.splitext(
         os.path.basename(_typ_file_early))[0] or 'doc'
@@ -1331,6 +1371,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # editor maps it back to the live document by line/col).
     _src_id = os.path.abspath(input_str)
     ctx.source_file = _src_id
+    ctx.image_base_dir = image_base_dir
     draw_failed = False
     in_f_block = False
     block_type = None
@@ -1823,12 +1864,6 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # ------------------------------------------------------------------
     # Export resolution is centralized in _resolve_export() so the CLI,
     # the editor and direct API calls share format inference + pagination.
-    _out_path, _fmt, _ppi = _resolve_export(
-        _out_arg, _explicit_format, _explicit_ppi,
-        input_str=input_str,
-    )
-    if _out_path is None or _fmt is None:
-        return False
     return _run_typst_export(
         typst_file, _out_path, _fmt, _ppi, input_str=input_str,
         image_files=getattr(ctx, 'image_files', []),
@@ -2061,8 +2096,10 @@ def main():
     elif exp_output is not None:
         output_file = exp_output
     else:
-        base, _ = os.path.splitext(os.fspath(input_file))
-        output_file = base + '.pdf'
+        output_file, _, _ = _resolve_export(
+            None, exp_format, exp_ppi, input_str=os.fspath(input_file))
+        if output_file is None:
+            sys.exit(2)
     ok = compile_ezmath(input_file, output_file,
                         format=exp_format, ppi=exp_ppi,
                         strict=exp_strict)
