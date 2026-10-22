@@ -169,8 +169,8 @@ The installed layout is the FHS layout above
 - `installer/build_arch.sh` (run from the repo root **on Arch**) packs
   the checked-out tree into a source tarball, patches a copy of the
   PKGBUILD to use it and runs `makepkg`; the finished package lands in
-  the repo root. The Arch build keeps the whole PySide6 package in the
-  editor bundle (`--full-pyside6`).
+  the repo root. The editor uses selective Qt collection, including the
+  PDF preview modules, just like Windows and macOS.
 - `pkgver()` describes the commit in a VCS checkout and falls back to
   the `pyproject.toml` version for the tarball source the CI build uses
   (a pull request is packaged exactly as checked out — no access to the
@@ -240,3 +240,20 @@ PDF, a full stdio session with the frozen LSP, and the frozen editor
 and spawning `easy-math-lsp.exe` — the exact failure this setup once had.
 Without the env var (or without `dist/`) these tests skip with a message
 saying how to enable them.
+
+## Build performance
+
+The shared builder accepts `--jobs N` (default: 1). Installer CI uses two
+concurrent PyInstaller processes with separate work and binary-cache directories
+per target. Local Linux/Arch builds can opt in with `EASYMATH_BUILD_JOBS=2`.
+The `ezmath` alias is copied only after all three builds succeed.
+
+All platforms collect the Qt modules used by the editor rather than the entire
+PySide6 distribution. `--full-pyside6` remains a troubleshooting option (do not
+use it for macOS signing). Windows runs the opt-in packaged-binary smoke tests
+before compiling the installer; the existing macOS and Linux checks remain.
+
+Inno Setup uses `lzma2/fast`, trading some compression ratio for build speed.
+Artifact upload uses compression level 0 because installers are already
+compressed. Compare job step durations in Actions to measure the improvement;
+runner load and cold dependency caches affect total time.

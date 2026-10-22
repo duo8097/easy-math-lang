@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
+# Bound parallel freezing to avoid exhausting runner memory.
+env:
+  EASYMATH_BUILD_JOBS: "2"
+
 jobs:
   build-macos:
     name: Build macOS installer (arm64)
@@ -63,7 +67,7 @@ jobs:
       # (scripts/build_binaries.py), the same script the local build
       # scripts use.
       - name: Build binaries
-        run: uv run --frozen python scripts/build_binaries.py
+        run: uv run --frozen python scripts/build_binaries.py --jobs "$EASYMATH_BUILD_JOBS"
 
       # --- Package the .app --------------------------------------------------
       # Bundles the helpers into the .app, prunes the nested Qt tool apps
@@ -96,6 +100,8 @@ jobs:
           path: EasyMathLang-macOS-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: 14
+          # Installer payloads are already compressed.
+          compression-level: 0
 
   build-linux:
     name: Build Linux installers (amd64)
@@ -173,6 +179,8 @@ jobs:
           path: dist/EasyMathLang-Debian-amd64.deb
           if-no-files-found: error
           retention-days: 14
+          # Installer payloads are already compressed.
+          compression-level: 0
 
       - name: Upload Fedora installer artifact
         uses: actions/upload-artifact@v4
@@ -181,6 +189,8 @@ jobs:
           path: dist/EasyMathLang-Fedora-amd64.rpm
           if-no-files-found: error
           retention-days: 14
+          # Installer payloads are already compressed.
+          compression-level: 0
 
   build-windows:
     name: Build Windows installer
@@ -214,9 +224,14 @@ jobs:
 
       # --- PyInstaller builds ------------------------------------------------
       - name: Build binaries
-        run: uv run --frozen python scripts/build_binaries.py
+        run: uv run --frozen python scripts/build_binaries.py --jobs "$env:EASYMATH_BUILD_JOBS"
 
       # --- Inno Setup --------------------------------------------------------
+      - name: Smoke test frozen Windows binaries
+        env:
+          EASYMATH_RUN_BUILD_TESTS: "1"
+        run: uv run --frozen pytest tests/test_packaged_build.py -q
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
@@ -233,6 +248,8 @@ jobs:
           path: installer\Output\EasyMathLang-Windows-x64-Setup.exe
           if-no-files-found: error
           retention-days: 14
+          # Installer payloads are already compressed.
+          compression-level: 0
 
   build-arch:
     name: Build Arch package (x86_64)
@@ -284,6 +301,8 @@ jobs:
           path: "*.pkg.tar.zst"
           if-no-files-found: error
           retention-days: 14
+          # Installer payloads are already compressed.
+          compression-level: 0
 
   release:
     name: Publish GitHub Release

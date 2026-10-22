@@ -21,7 +21,7 @@ Outputs (in ``dist/``):
 =========================  ====================================
 
 ``--full-pyside6`` adds ``--collect-all PySide6`` to the editor build.
-Windows and Arch use it; macOS must not (the full PySide6 tree drags
+Use only for troubleshooting; macOS must not (the full PySide6 tree drags
 in the nested Qt tool apps that break ``codesign``).
 """
 
@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -69,9 +70,12 @@ def _executable(name: str) -> str:
     return f"{name}.exe" if os.name == "nt" else name
 
 
-def _run(cmd: list[str]) -> None:
+def _run(cmd: list[str], cache_dir: Path) -> None:
     print("$ " + " ".join(cmd), flush=True)
-    subprocess.run(cmd, cwd=ROOT, check=True)
+    # PyInstaller's binary cache is mutable; concurrent targets must not
+    # rewrite the same cached DLL/shared library.
+    env = dict(os.environ, PYINSTALLER_CONFIG_DIR=str(cache_dir))
+    subprocess.run(cmd, cwd=ROOT, check=True, env=env)
 
 
 def _build(name: str, import_line: str, full_pyside6: bool) -> None:
@@ -105,15 +109,15 @@ def _build(name: str, import_line: str, full_pyside6: bool) -> None:
         if name == "easy-math-editor":
             for mod in EDITOR_HIDDEN:
                 cmd += ["--hidden-import", mod]
-            if os.name == "nt" or full_pyside6:
+            if full_pyside6:
                 cmd += ["--collect-all", "PySide6"]
             else:
-                # macOS/Linux: collect only the Qt PDF modules instead of
+                # Collect only the Qt PDF modules instead of
                 # the whole PySide6 tree (see the module docstring).
                 cmd += ["--hidden-import", "PySide6.QtPdf"]
                 cmd += ["--hidden-import", "PySide6.QtPdfWidgets"]
 
-        _run(cmd)
+        _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 
 
 def _alias() -> None:
@@ -130,10 +134,15 @@ def _alias() -> None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
+        "--jobs", type=int, default=1,
+        help="number of independent PyInstaller processes (default: 1)")
+    parser.add_argument(
         "--full-pyside6", action="store_true",
         help="collect the whole PySide6 package in the editor build "
-             "(Windows/Arch; macOS must not use it)")
+             "(troubleshooting only; macOS must not use it)")
     args = parser.parse_args(argv[1:])
+    if args.jobs < 1:
+        parser.error("--jobs must be at least 1")
 
     try:
         import PyInstaller  # noqa: F401
@@ -143,8 +152,13 @@ def main(argv: list[str]) -> int:
         return 1
 
     DIST.mkdir(parents=True, exist_ok=True)
-    for name, import_line in ENTRIES.items():
-        _build(name, import_line, args.full_pyside6)
+    # Each target has its own named work directory and temporary spec/shim.
+    # Resolve every future before creating the alias: failed builds must fail CI.
+    with ThreadPoolExecutor(max_workers=min(args.jobs, len(ENTRIES))) as pool:
+        builds = [pool.submit(_build, name, import_line, args.full_pyside6)
+                  for name, import_line in ENTRIES.items()]
+        for build in builds:
+            build.result()
     _alias()
 
     print("\nBuild OK:")

@@ -34,7 +34,7 @@ if ! command -v dpkg-deb >/dev/null 2>&1; then
 fi
 
 # The PyInstaller flags live in one place (see scripts/build_binaries.py).
-uv run python scripts/build_binaries.py
+uv run --frozen python scripts/build_binaries.py --jobs "${EASYMATH_BUILD_JOBS:-1}"
 
 test -x dist/easy-math-editor/easy-math-editor
 

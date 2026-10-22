@@ -39,8 +39,7 @@ build() {
   uv sync --frozen
 
   # The PyInstaller flags live in one place (see scripts/build_binaries.py).
-  # --full-pyside6 keeps the whole PySide6 package in the editor bundle.
-  uv run --frozen python scripts/build_binaries.py --full-pyside6
+  uv run --frozen python scripts/build_binaries.py --jobs "${EASYMATH_BUILD_JOBS:-1}"
 
   chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp
   test -x dist/easy-math-editor/easy-math-editor
