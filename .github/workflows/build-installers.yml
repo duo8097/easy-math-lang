@@ -224,7 +224,7 @@ jobs:
 
       # --- PyInstaller builds ------------------------------------------------
       - name: Build binaries
-        run: uv run --frozen python scripts/build_binaries.py --jobs "$env:EASYMATH_BUILD_JOBS"
+        run: ./scripts/build_local.ps1 -Jobs "$env:EASYMATH_BUILD_JOBS"
 
       # --- Inno Setup --------------------------------------------------------
       - name: Smoke test frozen Windows binaries

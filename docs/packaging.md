@@ -243,9 +243,23 @@ saying how to enable them.
 
 ## Build performance
 
-The shared builder accepts `--jobs N` (default: 1). Installer CI uses two
-concurrent PyInstaller processes with separate work and binary-cache directories
-per target. Local Linux/Arch builds can opt in with `EASYMATH_BUILD_JOBS=2`.
+The shared builder and local scripts default to at most two CPU workers (one on
+single-CPU systems). `--jobs N` overrides `EASYMATH_BUILD_JOBS`, which overrides
+the automatic default. Installer CI explicitly uses two workers. Each target has
+its own work directory and binary cache.
+
+Windows: `powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1 -Jobs 2`.
+macOS: `bash scripts/build_macos.sh --jobs 2`.
+Linux: `bash installer/build_linux.sh --jobs 2`.
+Arch: `EASYMATH_BUILD_JOBS=2 bash installer/build_arch.sh`.
+Set jobs to 1 for lower memory use. All local wrappers use the frozen lockfile.
+
+Generated entry scripts and specs now live at stable paths under ignored
+`build/`; unchanged entry scripts are not rewritten. PyInstaller can therefore
+reuse Analysis/PYZ on subsequent builds, while still checking source changes.
+Delete `build/` for a clean rebuild. Arch packaging extracts a fresh source tree
+in a temporary directory, so it benefits from parallelism but does not retain
+this incremental work cache between package builds.
 The `ezmath` alias is copied only after all three builds succeed.
 
 All platforms collect the Qt modules used by the editor rather than the entire

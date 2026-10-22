@@ -58,3 +58,34 @@ def test_rejects_invalid_worker_count():
     with pytest.raises(SystemExit) as exc:
         builder.main(['builder', '--jobs', '0'])
     assert exc.value.code == 2
+
+
+def test_entrypoint_is_stable_until_contents_change(monkeypatch, tmp_path):
+    monkeypatch.setattr(builder, 'ROOT', tmp_path)
+    commands = []
+    monkeypatch.setattr(builder, '_run', lambda cmd, cache: commands.append(cmd))
+    builder._build('easy-math-lsp', builder.ENTRIES['easy-math-lsp'], False)
+    shim = Path(commands[0][3])
+    stamp = shim.stat().st_mtime_ns
+    builder._build('easy-math-lsp', builder.ENTRIES['easy-math-lsp'], False)
+    assert commands[0] == commands[1]
+    assert shim.stat().st_mtime_ns == stamp
+    builder._build('easy-math-lsp', 'from other_module import main', False)
+    assert 'other_module' in shim.read_text()
+
+
+@pytest.mark.parametrize('value', ['0', '-1', 'invalid'])
+def test_rejects_invalid_environment_jobs(monkeypatch, value):
+    monkeypatch.setenv('EASYMATH_BUILD_JOBS', value)
+    with pytest.raises(SystemExit) as exc:
+        builder.main(['builder'])
+    assert exc.value.code == 2
+
+
+def test_explicit_jobs_override_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv('EASYMATH_BUILD_JOBS', 'invalid')
+    monkeypatch.setitem(sys.modules, 'PyInstaller', types.ModuleType('PyInstaller'))
+    monkeypatch.setattr(builder, 'DIST', tmp_path)
+    monkeypatch.setattr(builder, '_build', lambda *args: None)
+    monkeypatch.setattr(builder, '_alias', lambda: None)
+    assert builder.main(['builder', '--jobs', '1']) == 0

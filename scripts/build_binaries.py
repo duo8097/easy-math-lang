@@ -9,7 +9,7 @@ so a flag change lands everywhere at once.
 
 Usage (from the repo root)::
 
-    uv run python scripts/build_binaries.py [--full-pyside6]
+    uv run --frozen python scripts/build_binaries.py [--jobs N] [--full-pyside6]
 
 Outputs (in ``dist/``):
 
@@ -32,7 +32,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -80,44 +79,41 @@ def _run(cmd: list[str], cache_dir: Path) -> None:
 
 def _build(name: str, import_line: str, full_pyside6: bool) -> None:
     """Freeze one binary with PyInstaller."""
-    with tempfile.TemporaryDirectory(prefix="easy-math-build-") as tmp:
-        # The shim lives in a temp dir: no entry_*.py left in the repo.
-        shim = Path(tmp) / f"{name.replace('-', '_')}_entry.py"
-        shim.write_text(
-            f"{import_line}\n"
-            "if __name__ == '__main__':\n"
-            "    main()\n",
-            encoding="utf-8",
-        )
+    # Stable paths and unchanged shim mtimes let PyInstaller reuse Analysis/PYZ.
+    generated = ROOT / "build" / "entrypoints" / name
+    generated.mkdir(parents=True, exist_ok=True)
+    shim = generated / f"{name.replace('-', '_')}_entry.py"
+    source = f"{import_line}\nif __name__ == '__main__':\n    main()\n"
+    if not shim.exists() or shim.read_text(encoding="utf-8") != source:
+        shim.write_text(source, encoding="utf-8")
 
-        cmd = [
-            sys.executable, "-m", "PyInstaller", str(shim),
-            "--name", name,
-            "--noconfirm",
-            "--distpath", str(DIST),
-            "--workpath", str(ROOT / "build"),
-            # The spec file belongs to the temp dir as well: nothing is
-            # left behind in the repository.
-            "--specpath", tmp,
-        ]
-        cmd += ["--onedir", "--windowed"] if name == "easy-math-editor" \
-            else ["--onefile"]
+    cmd = [
+        sys.executable, "-m", "PyInstaller", str(shim),
+        "--name", name,
+        "--noconfirm",
+        "--distpath", str(DIST),
+        "--workpath", str(ROOT / "build"),
+        # Generated files stay under the ignored build directory.
+        "--specpath", str(generated),
+    ]
+    cmd += ["--onedir", "--windowed"] if name == "easy-math-editor" \
+        else ["--onefile"]
 
-        for module in COLLECT[name]:
-            cmd += ["--collect-all", module]
+    for module in COLLECT[name]:
+        cmd += ["--collect-all", module]
 
-        if name == "easy-math-editor":
-            for mod in EDITOR_HIDDEN:
-                cmd += ["--hidden-import", mod]
-            if full_pyside6:
-                cmd += ["--collect-all", "PySide6"]
-            else:
-                # Collect only the Qt PDF modules instead of
-                # the whole PySide6 tree (see the module docstring).
-                cmd += ["--hidden-import", "PySide6.QtPdf"]
-                cmd += ["--hidden-import", "PySide6.QtPdfWidgets"]
+    if name == "easy-math-editor":
+        for mod in EDITOR_HIDDEN:
+            cmd += ["--hidden-import", mod]
+        if full_pyside6:
+            cmd += ["--collect-all", "PySide6"]
+        else:
+            # Collect only the Qt PDF modules instead of
+            # the whole PySide6 tree (see the module docstring).
+            cmd += ["--hidden-import", "PySide6.QtPdf"]
+            cmd += ["--hidden-import", "PySide6.QtPdfWidgets"]
 
-        _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
+    _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 
 
 def _alias() -> None:
@@ -134,13 +130,20 @@ def _alias() -> None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--jobs", type=int, default=1,
-        help="number of independent PyInstaller processes (default: 1)")
+        "--jobs", type=int,
+        help="number of independent PyInstaller processes; overrides "
+             "EASYMATH_BUILD_JOBS (default: up to 2 CPUs)")
     parser.add_argument(
         "--full-pyside6", action="store_true",
         help="collect the whole PySide6 package in the editor build "
              "(troubleshooting only; macOS must not use it)")
     args = parser.parse_args(argv[1:])
+    if args.jobs is None:
+        try:
+            args.jobs = int(os.environ.get(
+                "EASYMATH_BUILD_JOBS", str(min(2, os.cpu_count() or 1))))
+        except ValueError:
+            parser.error("EASYMATH_BUILD_JOBS must be a positive integer")
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
 
@@ -152,7 +155,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     DIST.mkdir(parents=True, exist_ok=True)
-    # Each target has its own named work directory and temporary spec/shim.
+    # Each target has its own named work directory and stable spec/shim.
     # Resolve every future before creating the alias: failed builds must fail CI.
     with ThreadPoolExecutor(max_workers=min(args.jobs, len(ENTRIES))) as pool:
         builds = [pool.submit(_build, name, import_line, args.full_pyside6)
