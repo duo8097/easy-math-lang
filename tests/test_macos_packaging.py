@@ -191,11 +191,11 @@ def test_editor_build_drops_collect_all_pyside6(workflow_text, script_text,
                                                  builder_text):
     # The macOS bundle must not collect the whole PySide6 package: the
     # nested Qt tool apps break codesign. The shared builder only does
-    # that on Windows (or with --full-pyside6).
+    # that with an explicit --full-pyside6 opt-in.
     assert "--collect-all PySide6" not in workflow_text
     assert "--collect-all PySide6" not in script_text
     assert '"--collect-all", "PySide6"' in builder_text
-    assert 'os.name == "nt" or full_pyside6' in builder_text
+    assert 'if full_pyside6:' in builder_text
     for hidden in ("PySide6.QtPdf", "PySide6.QtPdfWidgets"):
         assert hidden in builder_text, f"builder missing {hidden}"
     # Typst/numpy collection must stay.

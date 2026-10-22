@@ -5,7 +5,7 @@ PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLang-Windows-x64-Setup
-Compression=lzma2
+Compression=lzma2/fast
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 ; Broadcast WM_SETTINGCHANGE at the end of install/uninstall so running

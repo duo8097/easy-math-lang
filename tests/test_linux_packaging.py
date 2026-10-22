@@ -210,10 +210,9 @@ def test_workflow_uploads_and_releases(workflow_text):
 def test_pkgbuild_uses_shared_builder():
     with open(PKGBUILD, encoding="utf-8") as h:
         text = h.read()
-    # The Arch recipe drives the same builder as CI (and keeps the full
-    # PySide6 collection).
+    # The Arch recipe drives the same selective Qt builder as CI.
     assert "scripts/build_binaries.py" in text
-    assert "--full-pyside6" in text
+    assert "--full-pyside6" not in text
     # No PyInstaller invocation of its own.
     assert "pyinstaller entry" not in text.lower()
     assert "-m pyinstaller" not in text.lower()
