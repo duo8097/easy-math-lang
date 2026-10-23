@@ -1,6 +1,6 @@
 # Maintainer: duo8097 <Imanoob8097@gmail.com>
 pkgname=easy-math-lang-git
-pkgver=4.4.0
+pkgver=4.5.0
 pkgrel=1
 pkgdesc='Plain-text math documents to PDF, images, HTML and Typst (compiler, language server and desktop editor)'
 arch=('x86_64')
