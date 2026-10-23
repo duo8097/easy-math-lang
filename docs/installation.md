@@ -11,8 +11,8 @@ even if you have never set up a programming tool before.
 > release on the
 > [Releases page](https://github.com/duo8097/easy-math-lang/releases) —
 > see [Option A2](#option-a2--macos-disk-image-easiest) below.
-> No Python needed (Apple Silicon only, M1 or newer; does not run on
-> Intel Macs).
+> No Python needed (Apple Silicon only, M1 or newer, and requires
+> macOS 14 (Sonoma) or newer; does not run on Intel Macs).
 >
 > **On Linux?** Download the `.deb` (Debian/Ubuntu) or `.rpm`
 > (Fedora/RHEL/openSUSE) from the latest stable release on the
@@ -46,7 +46,8 @@ see [Desktop editor](editor.md#under-the-hood-helper-programs).
 
 ## Option A2 — macOS disk image (easiest)
 
-Apple Silicon only (M1 or newer); does not run on Intel Macs.
+Apple Silicon only (M1 or newer); requires macOS 14 (Sonoma) or newer;
+does not run on Intel Macs or on macOS 13 (Ventura).
 
 1. Download `EasyMathLang-macOS-arm64.dmg` from the latest stable release
    on the [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
@@ -161,6 +162,9 @@ You need **Python 3.12 or newer** (see `requires-python` in `pyproject.toml`).
 4. ⚠️ On the first screen, check **"Add Python to PATH"** before clicking Install
 
 ### macOS
+
+Requires macOS 14 (Sonoma) or newer (PySide6, the GUI toolkit, ships
+no macOS 13 wheels since 6.12 — earlier releases work on macOS 13).
 
 Open **Terminal** (press `Cmd + Space`, type "Terminal", press Enter) and run:
 

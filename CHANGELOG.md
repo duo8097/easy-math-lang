@@ -19,6 +19,11 @@ for those.
   `pyside6-webengine` sub-packages), `actions/checkout` v4 → v7,
   `actions/setup-python` v5 → v6 and `astral-sh/setup-uv` v3 → v7.
   Dependabot now batches minor/patch updates into grouped PRs.
+- **Minimum macOS version raised to 14 (Sonoma)**: PySide6 6.12
+  publishes only `macosx_14_0` wheels (no macOS 13 wheels, no sdists),
+  so neither `uv sync` nor the prebuilt app can run on macOS 13.
+  Documented in the README and installation guide; macOS 13 users
+  should stay on the previous release.
 - `*vec` now renders a math-mode column vector instead of an exported
   SVG arrow diagram. `*vec(a ; b [; c ...])` emits a Typst `vec(...)`
   call, works inside `\ ... \` math and `*matrix`/`*det` cells (it was

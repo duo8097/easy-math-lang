@@ -24,11 +24,11 @@ The easiest way to use easy-math-lang — no Python needed:
 3. Run `EasyMathLang-Windows-x64-Setup.exe` and follow the setup steps.
 4. Launch **Easy Math Editor** from the Start Menu.
 
-**macOS (Apple Silicon only, M1 or newer) — experimental until confirmed on real hardware:**
+**macOS 14+ (Apple Silicon only, M1 or newer) — experimental until confirmed on real hardware:**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLang-macOS-arm64.dmg` from the latest stable release.
-   Does not run on Intel Macs.
+   Requires macOS 14 (Sonoma) or newer; does not run on Intel Macs.
 3. Open the `.dmg` and drag `easy-math-editor.app` to `Applications`,
    then run it (right-click → **Open** on first launch — the app is
    ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
@@ -59,6 +59,7 @@ The easiest way to use easy-math-lang — no Python needed:
 | What | Version | Why you need it |
 |---|---|---|
 | **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
+| **macOS** | ≥ 14 (Sonoma), Apple Silicon — PySide6 6.12+ publishes no macOS 13 wheels | GUI (PySide6/Qt) |
 | **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
 | **Typst** | ≥ 0.15.0 (installed automatically via the `typst` PyPI package — no separate install needed) | Turns the intermediate `.typ` file into PDF |
 | **pygls** | ≥ 2.1.1 (installed automatically as a project dependency) | Editor support (language server) |
