@@ -301,17 +301,16 @@ Vector diagrams
 
 *vec(3 ; 4)
 
-2D vector arrow from the origin to (x, y), rendered with Matplotlib
-to <stem>-vec-<n>.svg and embedded as #image("...svg", width: 80%) —
-the same backend as *plot (numerical eval, SVG next to the .typ,
-basename embedded so the build stays relocatable). Components use
-calc-style syntax (+ - * / % ^, parentheses, pi/e, sin cos tan cot
-sec csc arcsin arccos arctan sinh cosh tanh coth sqrt cbrt log ln
-abs exp) and accept variables: *vec(<a> ; calc(<a> * 3)). Commas work
-too (*vec(3, 4)); ";" wins when present so *vec(100,000 ; 2) keeps
-100,000 intact. Exactly 2 numeric components; anything else emits
-[Vec Error: ...] inline and never aborts the build. Text mode only:
-*vec cannot be used inside \ ... \ or matrices (like *table).
+Column vector with vertical brackets and one component per row, emitted
+directly as a Typst vec(3, 4) call. Components are plain math-mode
+expressions (split on depth-0 ";", "," allowed when there's no ";"):
+*vec(1,000 ; 2,000) keeps 1,000 intact, *vec(*frac(1 ; 2) ; 3) nests,
+variables work (*vec(a ; b)), and block form puts one component per
+line. At least 2 components — fewer emits a warning and leaves the
+call as-is. Components are cleaned by the same converter as *det
+cells (underscores become \_, bare "e" becomes upright, etc.).
+No SVG diagram is exported anymore (the Matplotlib/Rust diagram
+backend was removed); vectors render entirely in Typst.
 
 
 Binomial coefficients
@@ -1244,8 +1243,7 @@ x, pi/e, sin cos tan cot sec csc arcsin arccos arctan sinh cosh
 tanh coth sqrt cbrt log (base 10) ln abs exp.
 Non-finite values skipped; curves break across large jumps so
 1/x draws no vertical line. Errors emit [Plot Error: ...] inline
-and never abort the build. *vec shares this backend (diagrams go to
-<stem>-vec-<n>.svg, failures emit [Vec Error: ...]).
+and never abort the build.
 
 Export (CLI / editor File -> Export As):
 
@@ -1258,7 +1256,7 @@ easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png
 easy-math-lang --list-formats
 
 On success the CLI removes intermediate files next to the input
-(.typ, .smap.json, -plot-/-vec-*.svg), leaving only the deliverable;
+(.typ, .smap.json, -plot-*.svg), leaving only the deliverable;
 failures keep them for debugging. Pass --save-build-artifacts to keep
 them (handy for debugging layout). The API (compile_ezmath) and the
 editor preview always keep intermediates.

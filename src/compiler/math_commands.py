@@ -23,7 +23,8 @@ approximate, the names are stable:
      742   *det (determinants)
      901   *set (set-builder vs listing)
      970   *align (rows aligned on '=')
-    1075   *pow helpers: group_power_base(), _format_pow()
+    ~1075   *vec (math-mode column vector, *matrix-style components)
+    ~1130   *pow helpers: group_power_base(), _format_pow()
 
 Adding a command? Prefer a spec entry in math_call_specs() (name,
 min_args, formatter); the replace_*_calls for int/diff/cases/det/
@@ -375,6 +376,7 @@ def _clean_inner_math(ctx, s, _depth=0):
     s = replace_det_calls(s, ctx, _depth)
     s = replace_set_calls(s, ctx, _depth)
     s = replace_align_calls(s, ctx, _depth)
+    s = replace_vec_calls(s, ctx, _depth=_depth)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
     # Escape thousands commas (100,000 -> 100\,000) so Typst does not
     # read them as argument separators. See escape_number_commas.
@@ -743,8 +745,8 @@ def _render_det_grid(ctx, grid_raw):
     """Render a raw det grid to Typst ``mat(delim: "|", ...)`` (no $).
 
     Returns None when the grid is empty (caller leaves input as-is).
-    Ragged rows are padded with 0 (warning), like *matrix. Text-mode
-    constructs (*vec, nested tables) warn like matrix cells do.
+    Ragged rows are padded with 0 (warning), like *matrix. Nested
+    tables warn like matrix cells do.
     Warnings carry no line number, like *cases.
     """
     import sys
@@ -771,13 +773,6 @@ def _render_det_grid(ctx, grid_raw):
             if not cell_raw.strip():
                 r_out.append('')
                 continue
-            if re.search(r'\*vec\s*\(', cell_raw):
-                print(
-                    '[Warning] *det(...) cell contains *vec(...) — vec is '
-                    'text mode (SVG diagram); only math commands are '
-                    'supported inside determinants — leaving as-is',
-                    file=sys.stderr,
-                )
             if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
                 print(
                     '[Warning] *det(...) cell contains a nested '
@@ -1068,6 +1063,84 @@ def replace_align_calls(text, ctx, _depth=0):
             else:
                 rendered.append(f'{left.strip()} &= {right.strip()}')
         out.append(f"$ {' \\ '.join(rendered)} $")
+        pos = i
+    return ''.join(out)
+
+
+def replace_vec_calls(text, ctx, line_no=None, _depth=0):
+    """Expand *vec(...) to a Typst math column vector.
+
+    Components split with the same friendly rule as *matrix cells: a
+    depth-0 ";" separates them ("," works when no ";" is present, so
+    ``*vec(100,000 ; 2)`` keeps ``100,000`` intact). At least 2
+    components are required — ``*vec(x1 ; x2 [; x3 ...])`` emits
+    ``$vec(x1, x2, ...)$`` (Typst column vector, any height >= 2).
+    Variables, calc() and nested math commands work inside components
+    (via clean_inner_math), so *vec nests inside \\ ... \\ math,
+    *matrix/*det cells and other math commands like the rest.
+    Empty calls, empty components or a single component warn (with
+    *line_no* when known) and stay as-is; warnings carry no line
+    number in nested contexts, like *cases/*det.
+    """
+    import sys
+    if _depth > 20:
+        print('[Warning] *vec(...) nested too deep — leaving as-is',
+              file=sys.stderr)
+        return text
+    loc = f'Line {line_no}: ' if line_no is not None else ''
+    pattern = re.compile(r'\*vec\s*\(')
+    pos = 0
+    out = []
+    while True:
+        match = pattern.search(text, pos)
+        if not match:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:match.start()])
+        start = match.end()
+        depth = 1
+        i = start
+        in_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+                in_quote = not in_quote
+            elif not in_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+            i += 1
+        if depth != 0:
+            print(
+                f'[Warning] {loc}unclosed *vec(... — missing closing parenthesis',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():match.end()])
+            pos = match.end()
+            continue
+        inner_raw = text[start:i - 1]
+        args = split_top_level_args(inner_raw)
+        if len(args) < 2:
+            print(
+                f'[Warning] {loc}*vec(...) expects at least 2 components, '
+                f'got {len(args)} — leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        if any(a == '' for a in args):
+            print(
+                f'[Warning] {loc}*vec(...) has empty component(s) — '
+                f'leaving as-is',
+                file=sys.stderr,
+            )
+            out.append(text[match.start():i])
+            pos = i
+            continue
+        rendered = [clean_inner_math(ctx, a) for a in args]
+        out.append(f"$vec({', '.join(rendered)})$")
         pos = i
     return ''.join(out)
 

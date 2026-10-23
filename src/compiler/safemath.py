@@ -1,4 +1,4 @@
-"""Shared safe math evaluator: function whitelist for calc/plot/vec.
+"""Shared safe math evaluator: function whitelist for calc/plot.
 
 Single source of truth for the single-argument function whitelist
 (``sin cos tan cot sec csc arcsin arccos arctan sinh cosh tanh coth
@@ -7,7 +7,7 @@ sqrt cbrt log ln abs exp``, where ``log`` is base-10 like Typst's
 ``pi`` and ``e``.
 
 - Scalar (stdlib :mod:`math`) implementations back ``calc()``.
-- NumPy implementations back ``*plot``/``*vec`` (elementwise).
+- NumPy implementations back ``*plot`` (elementwise).
 - Shared preprocessing: ``<vars>``/defines, ``*``-spellings
   (``*sin(x)``, ``*pi``), the custom multiplication symbol,
   thousands separators, decimal dots and ``^`` power.
@@ -96,7 +96,7 @@ def scalar_funcs():
 
 
 def numpy_funcs():
-    """Name -> callable for ``*plot``/``*vec`` (lazy NumPy import)."""
+    """Name -> callable for ``*plot`` (lazy NumPy import)."""
     import numpy as _np
     return {
         'sin': _np.sin,
@@ -122,7 +122,7 @@ def numpy_funcs():
 
 
 def numpy_consts():
-    """``{'pi': ..., 'e': ...}`` (lazy NumPy import, for plot/vec)."""
+    """``{'pi': ..., 'e': ...}`` (lazy NumPy import, for plot)."""
     import numpy as _np
     return {'pi': _np.pi, 'e': _np.e}
 
@@ -142,7 +142,7 @@ def preprocess_math_expr(ctx, raw, *, map_infinity=False):
     ``pi``), the custom multiplication symbol (spaced only, so
     decimals and words are safe), thousands separators (spaces and
     commas), and ``^`` power. ``*infinity`` -> ``inf`` only when
-    *map_infinity* is true (plots); ``calc()``/``*vec`` reject it.
+    *map_infinity* is true (plots); ``calc()`` rejects it.
     """
     from .variables import replace_defines, replace_vars
     expr = replace_vars(ctx, raw)

@@ -128,24 +128,23 @@ def test_cases_piecewise_real_pdf():
         shutil.rmtree(work, ignore_errors=True)
 
 
-def test_vec_basic_image(tmp_path, monkeypatch, capsys):
+def test_vec_column_vector(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n")
     assert ok is True
-    assert '#image("case-vec-1.svg"' in typ
-    assert (tmp_path / "case-vec-1.svg").is_file()
-    assert "$vec(" not in typ
-    assert "arrow(" not in typ
+    assert "$vec(3, 4)$" in typ
+    assert not list(tmp_path.glob("case-vec-*.svg"))
+    assert "#image(" not in typ
 
 
 def test_vec_comma_and_thousands(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(3, 4)\n")
     assert ok is True
-    assert '#image("case-vec-1.svg"' in typ
+    assert "$vec(3, 4)$" in typ
     ok, typ, err, out = _compile(
         tmp_path, monkeypatch, capsys, "*vec(100,000 ; 2)\n"
     )
     assert ok is True
-    assert '#image("case-vec-1.svg"' in typ
+    assert "100\\,000" in typ
 
 
 def test_vec_variables_and_calc(tmp_path, monkeypatch, capsys):
@@ -154,22 +153,22 @@ def test_vec_variables_and_calc(tmp_path, monkeypatch, capsys):
         "<a> = 2\n*vec(<a> ; calc(<a> * 3))\n",
     )
     assert ok is True
-    assert '#image("case-vec-1.svg"' in typ
+    assert "$vec(2, 6)$" in typ
 
 
-def test_vec_wrong_arity_is_error(tmp_path, monkeypatch, capsys):
-    for text in ("*vec(3)\n", "*vec(1 ; 2 ; 3)\n"):
-        ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, text)
-        assert ok is True, text
-        assert "Vec Error" in typ, text
-        assert "needs 2 arguments" in err, text
-        assert "#image(" not in typ, text
-
-
-def test_vec_symbolic_is_error(tmp_path, monkeypatch, capsys):
-    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(x ; y)\n")
+def test_vec_too_few_components_warns(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(tmp_path, monkeypatch, capsys, "*vec(3)\n")
     assert ok is True
-    assert "Vec Error" in typ
+    assert "at least 2 components" in err
+    assert "$vec(" not in typ
+
+
+def test_vec_three_components_ok(tmp_path, monkeypatch, capsys):
+    ok, typ, err, out = _compile(
+        tmp_path, monkeypatch, capsys, "*vec(x ; y ; z)\n"
+    )
+    assert ok is True
+    assert "$vec(x, y, z)$" in typ
     assert "#image(" not in typ
 
 
@@ -181,13 +180,13 @@ def test_vec_unclosed_warns(tmp_path, monkeypatch, capsys):
     assert "#image(" not in typ
 
 
-def test_vec_inline_math_warns(tmp_path, monkeypatch, capsys):
+def test_vec_inline_math_ok(tmp_path, monkeypatch, capsys):
     ok, typ, err, out = _compile(
         tmp_path, monkeypatch, capsys, "\\ v = *vec(3 ; 4) \\\n"
     )
     assert ok is True
-    assert "text mode" in err
-    assert "*vec" in typ
+    assert "text mode" not in err
+    assert "$v = vec(3, 4)$" in typ
     assert "#image(" not in typ
 
 

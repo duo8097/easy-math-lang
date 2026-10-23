@@ -140,7 +140,7 @@ Output:
 
 ### Functions and constants inside calc
 
-`calc` understands the same function whitelist as `*plot`/`*vec`
+`calc` understands the same function whitelist as `*plot`
 (`log` is base-10, `ln` is the natural log) plus `pi` and `e`:
 
 ```
@@ -427,25 +427,31 @@ Rows without `=` are kept as-is (they never crash the build); only
 the first `=` aligns, later ones stay literal. Variables, `calc()`,
 math and symbols work inside rows.
 
-### Vector diagrams
+### Column vectors
 
 ```
 *vec(3 ; 4)
-*vec(-2 ; 5)
+*vec(1 ; 2 ; 3)
 ```
 
-2D vector arrow from the origin to `(x, y)`, rendered with Matplotlib
-to `yourdoc-vec-1.svg` and embedded as `#image(...)` — the same
-backend as `*plot` (numerical eval, SVG next to the `.typ`, basename
-embedded so the build stays relocatable). Components use `calc`-style
-syntax (`+ - * / % ^`, parentheses, `pi`/`e`, `sin cos tan cot sec
-csc arcsin arccos arctan sinh cosh tanh coth sqrt cbrt log ln abs
-exp`) and accept variables (`*vec(<a> ; calc(<a> * 3))`). Commas work
-too (`*vec(3, 4)`); `;` wins when present so `*vec(100,000 ; 2)` keeps
-`100,000` intact. Exactly 2 numeric components; anything else emits a
-`[Vec Error: ...]` message instead of an image — the rest of the
-document still builds. Text mode only: `*vec` cannot be used inside
-`\ ... \` or matrices (like `*table`).
+A math-mode column vector (Typst `vec`): at least 2 components,
+split on `;` — or by `,` when no `;` is present — with the same
+quote/nesting rules as `*matrix` cells, so `*vec(100,000 ; 2)` keeps
+`100,000` intact. Variables, `calc()`, math commands and symbols work
+inside components, and `*vec` nests inside `\ ... \` math,
+`*matrix`/`*det` cells and other math commands. The multiline block
+form works like `*matrix` (one component per line):
+
+```
+*vec(
+    1
+    2
+    3
+)
+```
+
+Fewer than two components (or an empty component) warns and leaves
+the text as-is.
 
 ### Binomial coefficients
 
@@ -536,8 +542,6 @@ Limitations:
 * A plot whose expression has no finite values on the interval
   (e.g. `*plot(sqrt(x); -10; -1)`) emits a `[Plot Error: ...]`
   message instead of an image — the rest of the document still builds.
-  `*vec` shares this backend (diagrams go to `yourdoc-vec-1.svg`,
-  failures emit `[Vec Error: ...]`).
 
 ---
 
@@ -886,7 +890,7 @@ Typst page break (text mode only — not inside `\ ... \` math).
 
 Relative paths resolve from your `.ezmath` file's folder, and the
 document embeds the relative path so the build stays relocatable
-(same discipline as `*plot`/`*vec` SVGs). With `typ`/`html`
+(same discipline as `*plot` SVGs). With `typ`/`html`
 exports to another folder, the image file is copied along.
 
 The optional width is a percentage (`50%`), a length (`6cm`, `10pt`,

@@ -74,7 +74,7 @@ modules — never fork the syntax into a second implementation.
    sequence of phases on each ordinary line (each phase is one small
    module): `*p(...)` raw segments → `<variables>` → undefined check →
    defines → `calc()` → `\ … \` math pairs → `*det`/tables → `*plot` →
-   `*vec` → styling/`*image` → math commands → unknown-command warnings
+   styling/`*image` → math commands → unknown-command warnings
    → `*pi`/`*infinity` → merge math → subscripts → symbol shortcuts →
    multiplication symbol → escape to Typst.
 4. **Typst generation** — adds `#set text/page/document`, joins lines,
@@ -96,12 +96,12 @@ modules — never fork the syntax into a second implementation.
 | `statements.py` | `*define(...)`, `<x> = ...`, `let x = 5` normalization |
 | `variables.py` | `<name>` substitution + `undefined variable` errors |
 | `calc.py` | Safe `calc(...)` evaluation (AST whitelist, no `eval`) |
-| `safemath.py` | The shared function whitelist for `calc`/`*plot`/`*vec` |
+| `safemath.py` | The shared function whitelist for `calc`/`*plot` |
 | `math_commands.py` | `*frac`, `*pow`, `*sum`, `*int`, `*diff`, `*cases`, `*set`, `*align`, `*det`, … + argument splitting |
 | `inline_math.py` | `\ … \` math mode → Typst `$…$` |
 | `symbols.py` | ASCII → Unicode tables (`->` → →, `*alpha` → α) |
 | `tables.py` | `*table` / `*matrix` parsing and emission |
-| `plots.py`, `vectors.py` | `*plot` / `*vec` → Matplotlib SVG → `#image(...)` |
+| `plots.py` | `*plot` → Matplotlib SVG → `#image(...)` |
 | `text_commands.py` | `*bold/*italic/*underline`, `*newpage`, `*image` |
 | `escaping.py` | Escaping text so it is safe in Typst |
 | `diagnostics.py` | Unknown-command warnings + "did you mean …?" |

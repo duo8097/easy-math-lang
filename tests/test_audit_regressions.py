@@ -86,7 +86,7 @@ def test_preview_pages_numeric_order_and_no_stale_pages(tmp_path):
 def test_editor_typ_export_retains_diagram_assets(tmp_path):
     import typst
     output = tmp_path / 'lesson.typ'
-    result = export_source_to_file('*vec(3 ; 4)\n*plot(x ; -1 ; 1)', output)
+    result = export_source_to_file('*plot(x ; -1 ; 1)', output)
     assert result['ok']
     # Compile after the helper's temporary directory has been removed.
     typst.compile(str(output), str(tmp_path / 'lesson.pdf'), ignore_system_fonts=True)
@@ -96,10 +96,10 @@ def test_editor_typ_export_retains_diagram_assets(tmp_path):
 def test_separate_typ_exports_do_not_replace_each_others_assets(tmp_path):
     first = tmp_path / 'first.typ'
     second = tmp_path / 'second.typ'
-    assert export_source_to_file('*vec(3 ; 4)', first)['ok']
+    assert export_source_to_file('*plot(x ; -1 ; 1)', first)['ok']
     assets = {p: p.read_bytes() for p in tmp_path.glob('*.svg')}
     assert assets
-    assert export_source_to_file('*vec(8 ; 1)', second)['ok']
+    assert export_source_to_file('*plot(x ; -2 ; 2)', second)['ok']
     assert all(p.read_bytes() == data for p, data in assets.items())
 
 
@@ -122,22 +122,17 @@ else:
     subprocess.run([sys.executable, '-c', code], check=True, timeout=5)
 
 
-@pytest.mark.parametrize('kind', ['plot', 'vec'])
-def test_failed_diagram_render_closes_figure(tmp_path, monkeypatch, kind):
+def test_failed_diagram_render_closes_figure(tmp_path, monkeypatch):
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
     from compiler.plots import render_plot_svg
-    from compiler.vectors import render_vec_svg
     before = plt.get_fignums()
     def fail(*args, **kwargs):
         raise OSError('disk full')
     monkeypatch.setattr(Figure, 'savefig', fail)
     try:
         with pytest.raises(RuntimeError, match='disk full'):
-            if kind == 'plot':
-                render_plot_svg(CompileContext(), 'x', -1, 1, tmp_path / 'plot.svg')
-            else:
-                render_vec_svg(CompileContext(), 3, 4, tmp_path / 'vec.svg')
+            render_plot_svg(CompileContext(), 'x', -1, 1, tmp_path / 'plot.svg')
         assert plt.get_fignums() == before
     finally:
         for number in set(plt.get_fignums()) - set(before):

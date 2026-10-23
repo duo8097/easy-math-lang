@@ -21,12 +21,10 @@ class CompileContext:
         self.doc_font_size = None
         # Function-plot output (set by compile_ezmath before the line
         # loop; *_render_text_line* generates SVGs next to the .typ).
-        # Vector diagrams (*vec) share the same backend (see vectors.py).
         self.plot_dir = None
         self.plot_stem = 'doc'
         self.plot_index = 0
-        self.vec_index = 0
         # Image files used via *image(...) as (abs_path, typ_relpath)
         # pairs (set during the line loop; typ/html exports to other
-        # directories copy them along like plot/vec sidecars).
+        # directories copy them along like plot sidecars).
         self.image_files = []

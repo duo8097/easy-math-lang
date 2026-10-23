@@ -270,7 +270,7 @@ def export_source_to_file(source_text, output_path, format=None, ppi=None,
                                                       asset_stem + '-images'),
                                 dirs_exist_ok=True)
             for name in os.listdir(workdir):
-                if (name.startswith((asset_stem + '-plot-', asset_stem + '-vec-'))
+                if (name.startswith(asset_stem + '-plot-')
                         and name.endswith('.svg')):
                     shutil.copyfile(os.path.join(workdir, name),
                                     os.path.join(os.path.dirname(dst_abs), name))

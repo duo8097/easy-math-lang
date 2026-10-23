@@ -114,7 +114,7 @@ def test_pi_and_e():
     assert err == "" and float(res) == pytest.approx(_math.e)
     res, err = _eval("2 * pi")
     assert err == "" and float(res) == pytest.approx(2 * _math.pi)
-    # *spellings match plots/vecs.
+    # *spellings match plots.
     res, err = _eval("*sin(0)")
     assert (res, err) == ("0", "")
     res, err = _eval("*pi")
@@ -211,5 +211,6 @@ def test_vec_mult_before_const_fixed(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys, "*vec(2*pi ; 1)\n"
     )
     assert ok is True
+    # The preprocessor keeps the multiplication (Typst reads 2pi as 2·pi).
+    assert "$vec(2pi, 1)$" in typ
     assert "[Vec Error" not in typ
-    assert "#image(" in typ

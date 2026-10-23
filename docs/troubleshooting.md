@@ -105,9 +105,9 @@ The command needs more arguments than you gave it. Example:
 
 ### `[Warning] Line 9: *table(...) is text mode and cannot be used inside math \ ... \`
 
-`*table`, `*vec`, `*image` and `*newpage` don't work inside
-`\ … \` math mode. Move them outside the backslashes (`*matrix` *does*
-work there).
+`*table`, `*image` and `*newpage` don't work inside
+`\ … \` math mode. Move them outside the backslashes (`*matrix` and
+`*vec` *do* work there).
 
 ### `[Error] Line 9: unclosed math delimiter \ ... \ — missing closing \.`
 
@@ -142,12 +142,12 @@ When geometry fails hard, the build stops with:
 Fix the geometry errors above and retry.
 ```
 
-### `[Plot Error: …]`, `[Vec Error: …]`, `[Image Error: …]`
+### `[Plot Error: …]`, `[Image Error: …]`
 
 These appear **in the PDF** (and on the terminal) instead of the
 diagram/image. The rest of the document still builds:
 
-- **Plot/Vec** — usually no finite values in the range (e.g.
+- **Plot** — usually no finite values in the range (e.g.
   `*plot(sqrt(x); -10; -1)` — sqrt of a negative number) or wrong
   number of arguments. Check the expression and its interval.
 - **Image** — the file wasn't found (paths are relative to your

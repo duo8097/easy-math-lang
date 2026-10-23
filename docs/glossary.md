@@ -69,7 +69,7 @@ automatically; see [Installation](installation.md).)
 Higher = sharper and bigger. `--ppi 300` is print quality.
 
 **Intermediate files** — the temporary `.typ` file, source map
-(`.smap.json`), and `*-plot-*.svg` / `*-vec-*.svg` diagrams created
+(`.smap.json`), and `*-plot-*.svg` diagrams created
 during a build. They are deleted after a successful build; pass
 `--save-build-artifacts` to keep them for debugging.
 
