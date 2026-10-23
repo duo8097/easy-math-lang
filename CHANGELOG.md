@@ -14,6 +14,11 @@ for those.
 
 ### Changed
 
+- Dependency and CI action updates: numpy 2.5.3 → 2.5.4, PySide6
+  6.11.2 → 6.12.0 (which now also pulls the new `pyside6-pdf` and
+  `pyside6-webengine` sub-packages), `actions/checkout` v4 → v7,
+  `actions/setup-python` v5 → v6 and `astral-sh/setup-uv` v3 → v7.
+  Dependabot now batches minor/patch updates into grouped PRs.
 - `*vec` now renders a math-mode column vector instead of an exported
   SVG arrow diagram. `*vec(a ; b [; c ...])` emits a Typst `vec(...)`
   call, works inside `\ ... \` math and `*matrix`/`*det` cells (it was
