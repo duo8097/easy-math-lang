@@ -114,9 +114,10 @@ following Qt/NumPy library symlinks overstates the payload size.
 
 Same three binaries, macOS names, built by
 `.github/workflows/build-installers.yml` on `macos-15` (arm64,
-Apple Silicon only, M1 or newer; does not run on Intel Macs).
-Intel Macs can still run from source (`uv sync`). The build is still
-experimental / ad-hoc signed, not notarized:
+Apple Silicon only, M1 or newer; requires macOS 14 (Sonoma) or newer
+and does not run on Intel Macs). Intel Macs on macOS 14+ can still
+run from source (`uv sync`; the PySide6 wheels are universal2).
+The build is still experimental / ad-hoc signed, not notarized:
 
 | Binary | Mode | Contents |
 |---|---|---|
