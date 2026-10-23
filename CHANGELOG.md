@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-23
+
 ### Changed
 
 - Dependency and CI action updates: numpy 2.5.3 → 2.5.4, PySide6
@@ -24,14 +26,14 @@ for those.
   so neither `uv sync` nor the prebuilt app can run on macOS 13.
   Documented in the README and installation guide; macOS 13 users
   should stay on the previous release.
-- `*vec` now renders a math-mode column vector instead of an exported
-  SVG arrow diagram. `*vec(a ; b [; c ...])` emits a Typst `vec(...)`
-  call, works inside `\ ... \` math and `*matrix`/`*det` cells (it was
-  text-mode only before), and accepts symbolic components
-  (`*vec(a ; b)`). Diagram sidecars (`-vec-*.svg`), the
-  `[Vec Error: …]` inline literals and the `compiler.vectors` module
-  are gone; warnings (with line numbers) now cover too-few components,
-  empty components and unclosed calls.
+- **Breaking**: `*vec` now renders a math-mode column vector instead
+  of an exported SVG arrow diagram. `*vec(a ; b [; c ...])` emits a
+  Typst `vec(...)` call, works inside `\ ... \` math and
+  `*matrix`/`*det` cells (it was text-mode only before), and accepts
+  symbolic components (`*vec(a ; b)`). Diagram sidecars (`-vec-*.svg`),
+  the `[Vec Error: …]` inline literals and the `compiler.vectors`
+  module are gone; warnings (with line numbers) now cover
+  too-few components, empty components and unclosed calls.
 
 ### Added
 
@@ -88,7 +90,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...v5.0.0
 [4.5.0]: https://github.com/duo8097/easy-math-lang/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/duo8097/easy-math-lang/compare/v4.3.1...v4.4.0
 [4.3.1]: https://github.com/duo8097/easy-math-lang/compare/v4.3.0...v4.3.1
