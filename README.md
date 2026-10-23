@@ -208,12 +208,7 @@ If you have never used a terminal or installed programs before, start here:
 
 All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
-[Semantic Versioning](https://semver.org/)). The full release history
-is mirrored below; entries start at v4.3.0, and earlier releases
-(v0.1.0 … v4.2.0) are on the
-[GitHub releases page](https://github.com/duo8097/easy-math-lang/releases).
-
-### [Unreleased]
+[Semantic Versioning](https://semver.org/)). The latest release:
 
 ### [5.0.0] - 2026-10-23
 
@@ -251,47 +246,9 @@ is mirrored below; entries start at v4.3.0, and earlier releases
 - Full alias reference in [docs/algebra.md](docs/algebra.md) and a new
   aliases section in the [cheat sheet](docs/cheatsheet.md).
 
-### [4.5.0] - 2026-10-23
-
-#### Added
-
-- Contributor onboarding docs: `CONTRIBUTING.md`, architecture,
-  cheat sheet, glossary and troubleshooting guides.
-
-#### Changed
-
-- Smaller frozen builds: targeted PyInstaller hooks instead of
-  `--collect-all`, native library stripping on Linux, and the `ezmath`
-  CLI alias is now a symlink on POSIX instead of a copy (PR #4).
-
-#### Fixed
-
-- `installer/build_linux.sh` executable bit restored (broke shell
-  execution on Linux checkouts).
-
-### [4.4.0] - 2026-10-22
-
-#### Security
-
-- Upgraded Pillow to 13.0.0, resolving 28 Dependabot advisories.
-
-### [4.3.1] - 2026-10-22
-
-#### Changed
-
-- Faster builds everywhere: cached uv dependencies in installer CI,
-  compressed installer freezing, shared parallel build defaults and
-  incremental inputs (PR #3).
-- Builds centralized; Arch (`PKGBUILD`) packages added alongside
-  Debian/Fedora.
-
-### [4.3.0] - 2026-10-21
-
-#### Fixed
-
-- Audit regressions: source preservation through the text pipeline,
-  editor export asset handling, `//` comment stripping, plot/variable
-  edge cases (PR #1).
+Earlier releases (v4.5.0 and before) are listed in
+[CHANGELOG.md](CHANGELOG.md) and on the
+[GitHub releases page](https://github.com/duo8097/easy-math-lang/releases).
 
 ---
 
@@ -299,9 +256,4 @@ is mirrored below; entries start at v4.3.0, and earlier releases
 
 MIT
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...HEAD
 [5.0.0]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...v5.0.0
-[4.5.0]: https://github.com/duo8097/easy-math-lang/compare/v4.4.0...v4.5.0
-[4.4.0]: https://github.com/duo8097/easy-math-lang/compare/v4.3.1...v4.4.0
-[4.3.1]: https://github.com/duo8097/easy-math-lang/compare/v4.3.0...v4.3.1
-[4.3.0]: https://github.com/duo8097/easy-math-lang/releases/tag/v4.3.0
