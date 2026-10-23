@@ -1,0 +1,50 @@
+name: Bug report
+description: Something is not working as documented
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! The smaller the example, the faster the fix.
+        Not sure whether it is a bug? Ask anyway — unclear messages are
+        worth improving even when the behavior is "correct".
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `easy-math-lang --version` (or `uv run easy-math-lang --version`).
+      placeholder: "4.5.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Smallest `.ezmath` file that shows the problem
+      description: Paste the full file — trim anything unrelated to the bug.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: Full message text
+      description: Copy every `[Error]` / `[Warning]` line, or attach a screenshot.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?

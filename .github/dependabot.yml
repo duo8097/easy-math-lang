@@ -1,0 +1,15 @@
+# Keep dependencies and actions fresh. Weekly is enough for a project
+# this size; open PRs are limited per ecosystem to keep noise low.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

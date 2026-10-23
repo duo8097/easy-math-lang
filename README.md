@@ -179,8 +179,12 @@ Bug fixes, docs, tests and features are welcome — no expertise
 required. Start with:
 
 - 🤝 [Contributing](CONTRIBUTING.md) — setup, workflow, PR checklist
+- 📜 [Code of Conduct](CODE_OF_CONDUCT.md) — how we treat each other
+- 🔒 [Security policy](SECURITY.md) — how to report vulnerabilities
 - 🗺️ [Architecture](docs/architecture.md) — how the compiler, geometry
   solver, language server and editor fit together
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ---
 
