@@ -46,7 +46,7 @@ mkdir -p "$STAGE/usr/bin" "$STAGE/usr/lib/easy-math-lang" \
   "$STAGE/usr/share/licenses/easymath"
 
 install -m755 dist/easy-math-lang "$STAGE/usr/bin/easy-math-lang"
-install -m755 dist/ezmath "$STAGE/usr/bin/ezmath"
+ln -s easy-math-lang "$STAGE/usr/bin/ezmath"
 install -m755 dist/easy-math-lsp "$STAGE/usr/bin/easy-math-lsp"
 cp -a dist/easy-math-editor "$STAGE/usr/lib/easy-math-lang/"
 chmod +x "$STAGE/usr/lib/easy-math-lang/easy-math-editor/easy-math-editor"

@@ -15,7 +15,7 @@ Outputs (in ``dist/``):
 
 =========================  ====================================
 ``easy-math-lang[.exe]``   compiler CLI (onefile)
-``ezmath[.exe]``           short alias: a copy of the compiler
+``ezmath[.exe]``           short alias: symlink on POSIX, copy on Windows
 ``easy-math-lsp[.exe]``    language server (onefile)
 ``easy-math-editor/``      desktop editor (onedir, windowed)
 =========================  ====================================
@@ -45,14 +45,10 @@ ENTRIES = {
     "easy-math-editor": "from editor.app import main",
 }
 
-# Data files and submodules PyInstaller cannot detect on its own.
-# matplotlib is needed by *plot, typst by the PDF export, numpy by the
-# geometry solver.
-COLLECT = {
-    "easy-math-lang": ["typst", "numpy", "matplotlib"],
-    "easy-math-lsp": ["pygls", "typst", "numpy"],
-    "easy-math-editor": ["typst", "numpy", "matplotlib"],
-}
+# Prefer normal package hooks to collect-all (which includes tests/backends).
+# Geometry diagnostics need NumPy in the LSP but do not render PDFs/plots.
+COMMON_EXCLUDES = ["pytest", "numpy.tests", "numpy.f2py", "matplotlib.tests"]
+GUI_EXCLUDES = ["PySide6", "PyQt6", "PyQt5", "PySide2", "tkinter"]
 
 # The editor drives its own modules through Qt, so they must be hidden
 # imports; PySide6.QtPdf/QtPdfWidgets back the PDF preview.
@@ -77,7 +73,8 @@ def _run(cmd: list[str], cache_dir: Path) -> None:
     subprocess.run(cmd, cwd=ROOT, check=True, env=env)
 
 
-def _build(name: str, import_line: str, full_pyside6: bool) -> None:
+def _build(name: str, import_line: str, full_pyside6: bool,
+           strip_binaries: bool = False) -> None:
     """Freeze one binary with PyInstaller."""
     # Stable paths and unchanged shim mtimes let PyInstaller reuse Analysis/PYZ.
     generated = ROOT / "build" / "entrypoints" / name
@@ -95,12 +92,23 @@ def _build(name: str, import_line: str, full_pyside6: bool) -> None:
         "--workpath", str(ROOT / "build"),
         # Generated files stay under the ignored build directory.
         "--specpath", str(generated),
+        "--additional-hooks-dir", str(ROOT / "scripts" / "pyinstaller_hooks"),
     ]
     cmd += ["--onedir", "--windowed"] if name == "easy-math-editor" \
         else ["--onefile"]
+    if strip_binaries:
+        # PyInstaller strips cached native libraries BEFORE packing them.
+        # Never run strip on the finished onefile executable: its appended
+        # payload would be lost. Windows/macOS keep their default behavior.
+        cmd += ["--strip"]
 
-    for module in COLLECT[name]:
-        cmd += ["--collect-all", module]
+    excludes = list(COMMON_EXCLUDES)
+    if name != "easy-math-editor":
+        excludes += GUI_EXCLUDES
+    if name == "easy-math-lsp":
+        excludes += ["typst", "matplotlib"]
+    for module in excludes:
+        cmd += ["--exclude-module", module]
 
     if name == "easy-math-editor":
         for mod in EDITOR_HIDDEN:
@@ -117,14 +125,20 @@ def _build(name: str, import_line: str, full_pyside6: bool) -> None:
 
 
 def _alias() -> None:
-    """``ezmath`` is the short CLI alias: the same binary, copied."""
+    """Create a relocatable POSIX alias; Windows keeps a standalone copy."""
     source = DIST / _executable("easy-math-lang")
     if not source.is_file():
         print(f"::error::compiler output missing: {source}", file=sys.stderr)
         raise SystemExit(1)
     target = DIST / _executable("ezmath")
-    shutil.copy2(source, target)
-    target.chmod(0o755)
+    # Remove a previous copy/link first; copy2 must never follow a stale
+    # symlink and accidentally overwrite the real compiler.
+    target.unlink(missing_ok=True)
+    if os.name == "nt":
+        shutil.copy2(source, target)
+        target.chmod(0o755)
+    else:
+        target.symlink_to(source.name)
 
 
 def main(argv: list[str]) -> int:
@@ -137,6 +151,11 @@ def main(argv: list[str]) -> int:
         "--full-pyside6", action="store_true",
         help="collect the whole PySide6 package in the editor build "
              "(troubleshooting only; macOS must not use it)")
+    parser.add_argument(
+        "--strip", action=argparse.BooleanOptionalAction,
+        default=sys.platform.startswith("linux"),
+        help="strip native libraries before packing (default: Linux only); "
+             "--no-strip retains native symbols for debugging")
     args = parser.parse_args(argv[1:])
     if args.jobs is None:
         try:
@@ -146,6 +165,8 @@ def main(argv: list[str]) -> int:
             parser.error("EASYMATH_BUILD_JOBS must be a positive integer")
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
+    if args.strip and not shutil.which("strip"):
+        parser.error("strip not found; install binutils or pass --no-strip")
 
     try:
         import PyInstaller  # noqa: F401
@@ -158,7 +179,8 @@ def main(argv: list[str]) -> int:
     # Each target has its own named work directory and stable spec/shim.
     # Resolve every future before creating the alias: failed builds must fail CI.
     with ThreadPoolExecutor(max_workers=min(args.jobs, len(ENTRIES))) as pool:
-        builds = [pool.submit(_build, name, import_line, args.full_pyside6)
+        builds = [pool.submit(_build, name, import_line, args.full_pyside6,
+                              args.strip)
                   for name, import_line in ENTRIES.items()]
         for build in builds:
             build.result()

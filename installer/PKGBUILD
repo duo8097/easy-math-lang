@@ -50,7 +50,7 @@ package() {
 
   # Self-contained PyInstaller binaries: no Python runtime needed.
   install -Dm755 dist/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
-  install -Dm755 dist/ezmath "$pkgdir/usr/bin/ezmath"
+  ln -s easy-math-lang "$pkgdir/usr/bin/ezmath"
   install -Dm755 dist/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
 
   # Onedir GUI bundle; the editor finds the /usr/bin helpers via PATH

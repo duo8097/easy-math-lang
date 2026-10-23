@@ -149,6 +149,11 @@ jobs:
         shell: bash
         run: bash installer/build_linux.sh
 
+      - name: Smoke test frozen Linux binaries
+        env:
+          EASYMATH_RUN_BUILD_TESTS: "1"
+        run: uv run --frozen pytest tests/test_packaged_build.py -q
+
       # --- Smoke test the .deb (not dist/) -----------------------------------
       # Must run after packaging and before upload so a broken package
       # never ships.

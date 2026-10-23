@@ -28,9 +28,10 @@ import pytest
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DIST = os.path.join(REPO_ROOT, 'dist')
-LANG_EXE = os.path.join(DIST, 'easy-math-lang.exe')
-LSP_EXE = os.path.join(DIST, 'easy-math-lsp.exe')
-EDITOR_EXE = os.path.join(DIST, 'easy-math-editor', 'easy-math-editor.exe')
+EXE_SUFFIX = '.exe' if os.name == 'nt' else ''
+LANG_EXE = os.path.join(DIST, 'easy-math-lang' + EXE_SUFFIX)
+LSP_EXE = os.path.join(DIST, 'easy-math-lsp' + EXE_SUFFIX)
+EDITOR_EXE = os.path.join(DIST, 'easy-math-editor', 'easy-math-editor' + EXE_SUFFIX)
 
 RUN = os.environ.get('EASYMATH_RUN_BUILD_TESTS') == '1'
 
@@ -63,6 +64,62 @@ def test_compiler_binary_compiles(tmp_path):
                            text=True, timeout=300, cwd=str(tmp_path))
     assert built.returncode == 0, built.stderr[-2000:]
     assert (tmp_path / 'doc.pdf').is_file()
+
+
+@pytest.mark.parametrize('fmt', ['pdf', 'png', 'svg'])
+def test_frozen_alias_exports_plots_and_vectors(tmp_path, fmt):
+    _require_dist()
+    src = tmp_path / 'plots.ezmath'
+    src.write_text('*plot(sin(x) ; -5 ; 5)\n*vec(3 ; 4)\n', encoding='utf-8')
+    out = tmp_path / f'plots.{fmt}'
+    result = subprocess.run(
+        [os.path.join(DIST, 'ezmath' + EXE_SUFFIX), str(src), str(out)],
+        cwd=tmp_path, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert out.is_file() and out.stat().st_size > 0
+
+
+@pytest.mark.parametrize('binary,excluded', [
+    (LANG_EXE, ('PySide6', 'PyQt6', 'tkinter')),
+    (LSP_EXE, ('PySide6', 'PyQt6', 'tkinter', 'typst', 'matplotlib')),
+])
+def test_helpers_omit_unused_packages(binary, excluded):
+    _require_dist()
+    from PyInstaller.archive.readers import CArchiveReader
+    archive = CArchiveReader(binary)
+    modules = archive.open_embedded_archive('PYZ.pyz').toc
+    for package in excluded:
+        assert not any(m == package or m.startswith(package + '.') for m in modules)
+        assert not any(m.replace('\\', '/').startswith(package + '/') for m in archive.toc)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX process group cleanup')
+def test_frozen_editor_starts(tmp_path):
+    """The stripped Qt/PDF modules must still load when opening a document."""
+    _require_dist()
+    import signal
+    src = tmp_path / 'preview-probe.ezmath'
+    src.write_text('*plot(sin(x) ; -5 ; 5)\n*vec(3 ; 4)\n', encoding='utf-8')
+    env = dict(os.environ, QT_QPA_PLATFORM='offscreen', TMPDIR=str(tmp_path),
+               XDG_CONFIG_HOME=str(tmp_path / 'config'))
+    # A file avoids PIPE buffers filling up while Qt/LSP diagnostics are emitted.
+    with (tmp_path / 'editor.log').open('w+') as log:
+        editor = subprocess.Popen(
+            [EDITOR_EXE, '--no-save-prompt', str(src)], env=env,
+            stdout=log, stderr=log, start_new_session=True)
+        try:
+            try:
+                editor.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                return
+            log.seek(0)
+            pytest.fail('Frozen editor exited during startup: ' + log.read()[-4000:])
+        finally:
+            try:
+                os.killpg(editor.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            editor.wait(timeout=15)
 
 
 # --------------------------------------------------------------------------
@@ -151,6 +208,16 @@ def test_lsp_binary_full_session():
         assert any('oops' in d['message']
                    for d in diags['params']['diagnostics'])
 
+        client.notify('textDocument/didChange', {
+            'textDocument': {'uri': uri, 'version': 2},
+            'contentChanges': [{'text': '*draw(\n*point(A = 0, 0)\n'
+                                '*point(B = 3, 4)\n*length(A ; B)\n)\n'}],
+        })
+        geometry = client.wait_for(
+            lambda m: m.get('method') == 'textDocument/publishDiagnostics'
+            and m.get('params', {}).get('uri') == uri, 'geometry diagnostics')
+        assert geometry['params']['diagnostics'] == []
+
         resp = client.request('shutdown', None)
         assert resp.get('result') is None
         client.notify('exit', None)
@@ -204,6 +271,7 @@ def installer_layout():
     shutil.rmtree(bin_dir, ignore_errors=True)
 
 
+@pytest.mark.skipif(os.name != 'nt', reason='uses Windows tasklist/taskkill')
 def test_frozen_editor_spawns_bundled_lsp(installer_layout, tmp_path):
     _require_dist()
     env = dict(os.environ)

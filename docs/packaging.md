@@ -75,6 +75,39 @@ the same steps in CI and uploads the installer(s) as run artifacts
 a stable GitHub Release (hyphenated tags become prereleases). The
 nightly schedule, pull requests and manual dispatch build the same way.
 
+### Binary size
+
+The builder uses PyInstaller's normal dependency hooks rather than
+`--collect-all` for NumPy, Matplotlib, Typst and pygls. The custom Matplotlib
+backend hook keeps Agg and SVG for plots/vector diagrams. The CLI excludes
+Qt/Tk; the LSP also excludes Typst and Matplotlib but retains NumPy for
+geometry diagnostics. The editor keeps its PDF renderer and preview modules.
+
+Linux builds enable PyInstaller's `--strip`: native libraries are stripped in
+its cache **before** being packed into the executable. Install `binutils` if
+`strip` is unavailable, or use `python scripts/build_binaries.py --no-strip`
+to retain native symbols for debugging. Windows/macOS do not enable stripping
+by default. Never run `strip` directly on a completed onefile executable;
+that can destroy its appended archive.
+
+On Linux/macOS, `ezmath` is a relative symlink to `easy-math-lang`, including
+inside installers/the macOS app. Distribute the two names together; Windows
+keeps a standalone `.exe` copy. A symlink avoids storing the entire compiler
+twice and remains valid when the containing directory is moved.
+
+To validate a build on Linux, run:
+
+```bash
+EASYMATH_RUN_BUILD_TESTS=1 uv run --frozen pytest tests/test_packaged_build.py -q
+```
+
+These tests cover PDF/PNG/SVG plots and vectors through the alias, geometry
+diagnostics in the LSP, and editor startup with its Qt/PDF modules. Windows
+uses its existing editor/LSP process test instead of the POSIX startup test.
+
+For size comparisons, count regular files once and do not follow symlinks;
+following Qt/NumPy library symlinks overstates the payload size.
+
 ---
 
 ## What gets built (macOS)
@@ -88,7 +121,7 @@ experimental / ad-hoc signed, not notarized:
 | Binary | Mode | Contents |
 |---|---|---|
 | `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst) |
-| `ezmath` | onefile CLI | Same compiler copy (alias) |
+| `ezmath` | symlink | Relative alias to `easy-math-lang` |
 | `easy-math-lsp` | onefile CLI | Language server |
 | `easy-math-editor.app` | GUI bundle (`--onedir --windowed`) | Desktop editor; helpers bundled in `Contents/Resources/bin/` |
 
@@ -123,7 +156,7 @@ Same three binaries, Linux names, built by
 | Binary | Mode | Contents |
 |---|---|---|
 | `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
-| `ezmath` | onefile CLI | Same compiler copy (alias) |
+| `ezmath` | symlink | Relative alias to `easy-math-lang` |
 | `easy-math-lsp` | onefile CLI | Language server |
 | `easy-math-editor/` | onedir GUI | Desktop editor (PySide6) |
 

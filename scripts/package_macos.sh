@@ -38,7 +38,8 @@ done
 # language server must live inside it. editor/paths.py searches
 # Contents/Resources/bin, so no PATH setup is ever needed.
 mkdir -p "$BIN"
-cp -f dist/easy-math-lang dist/ezmath dist/easy-math-lsp "$BIN/"
+cp -f dist/easy-math-lang dist/easy-math-lsp "$BIN/"
+ln -sfn easy-math-lang "$BIN/ezmath"
 chmod +x "$BIN"/*
 ls -l "$BIN"
 
@@ -65,7 +66,6 @@ find "$APP/Contents" -name '*__dot__app' -print
 # plain directories or scripts): Frameworks holds plain directories such
 # as PySide6/numpy/typst that codesign rejects.
 codesign --force --sign - dist/easy-math-lang
-codesign --force --sign - dist/ezmath
 codesign --force --sign - dist/easy-math-lsp
 COUNT=0
 while IFS= read -r -d '' f; do

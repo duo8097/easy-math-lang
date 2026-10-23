@@ -5,7 +5,7 @@
 # Usage (macOS, from the repo root):
 #   bash scripts/build_macos.sh [--jobs 2]
 #
-# Output: dist/easy-math-lang, dist/ezmath (alias copy),
+# Output: dist/easy-math-lang, dist/ezmath (relative alias symlink),
 #         dist/easy-math-lsp, dist/easy-math-editor.app (helpers bundled
 #         into Contents/Resources/bin/, ad-hoc signed).
 set -euo pipefail
