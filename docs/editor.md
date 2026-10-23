@@ -175,3 +175,11 @@ on first launch.
 | Autocompletion | — (in editor) | auto after `*`/`<`, or Ctrl+Space |
 
 Supported files end in `.ezmath` or `.eml`.
+
+---
+
+## See also
+
+- [Troubleshooting and FAQ](troubleshooting.md) — `LSP: Disconnected`, preview issues, resets
+- [Cheat sheet](cheatsheet.md) — what to type in the editor
+- [Language server](lsp.md) — details of the error checking

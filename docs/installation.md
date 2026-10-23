@@ -277,3 +277,6 @@ You will see your finished document appear:
 | `Python not found` | Re-install Python and check "Add to PATH" |
 | PDF looks empty | Check your `.ezmath` file for typos |
 | Editor installed from setup says `LSP: Disconnected` | Keep the installed folders together (`editor/` next to `bin/`). Then use `Build → Restart Language Server`. If you moved the binaries, point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files — see [Desktop editor](editor.md#under-the-hood-helper-programs). |
+
+More problems and every compiler message explained:
+[Troubleshooting and FAQ](troubleshooting.md).

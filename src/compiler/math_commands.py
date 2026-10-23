@@ -1,4 +1,36 @@
-"""Math commands (*frac, *pow, *root, *sum, *prod, *lim, ...)."""
+"""Math commands (*frac, *pow, *root, *sum, *prod, *lim, ...).
+
+Table of contents for this ~1100-line file — line numbers are
+approximate, the names are stable:
+
+    ~line  section
+    -----  -------
+      42   _has_top_level_semi() / split_top_level_args() — shared
+           argument splitter: ';' wins at depth 0, else ',', quotes safe
+     129   MATH_ALIASES + normalize_friendly_calls() — friendly
+           aliases (fraction→frac, power→pow, integral→int, ...)
+     179   escape_number_commas() / space_out_bare_identifiers() —
+           keep 100,000 intact; make MD / 4ac readable to Typst
+     255   replace_math_call() — generic depth-aware *name(...) engine
+     333   clean_inner_math() — per-argument normalization (vars,
+           calc, symbols) shared by every command below
+     403   math_call_specs() — THE table of one-liner commands:
+           frac, abs, trig, sqrt/cbrt, log/ln, pow, root, sum, prod,
+           lim, binom, accents
+     452   *int / *oint (integrals)
+     559   *diff / *pdiff (derivatives)
+     651   *cases (piecewise / equation systems, rows on '|')
+     742   *det (determinants)
+     901   *set (set-builder vs listing)
+     970   *align (rows aligned on '=')
+    1075   *pow helpers: group_power_base(), _format_pow()
+
+Adding a command? Prefer a spec entry in math_call_specs() (name,
+min_args, formatter); the replace_*_calls for int/diff/cases/det/
+set/align show the manual pattern. Register the name in
+diagnostics.KNOWN_COMMANDS (unknown names warn "did you mean") and
+document it in rule.txt + docs/algebra.md.
+"""
 
 import re
 

@@ -57,6 +57,12 @@ yourself, include `{p}` in the output name: `out-{p}.png`.
   keeps working.
 - Geometry (`*draw`) renders identically in every format (CeTZ canvas).
 
+## See also
+
+- [Troubleshooting and FAQ](troubleshooting.md) — where did my PDF go? which messages mean what?
+- [Cheat sheet](cheatsheet.md) — quick reference for everyday commands
+- [Glossary](glossary.md) — PPI, intermediates, exit codes explained
+
 ## Honest status and --strict
 
 A document with `[Error]` diagnostics (undefined `<variable>`,

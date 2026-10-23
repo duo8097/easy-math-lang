@@ -1,4 +1,36 @@
-"""Main window: menus, docks, file handling and LSP wiring."""
+"""Main window: menus, docks, file handling and LSP wiring.
+
+Table of contents for this ~1900-line file — jump to the banner
+comments (line numbers approximate, names are stable):
+
+    ~line  section
+    -----  -------
+      81   _PreviewWorker — background compile for the live preview
+     107   class MainWindow.__init__ — builds the UI, docks, LSP
+           client and preview thread, then wires everything below
+     243   # LSP lifecycle — start/restart/handshake, didOpen/
+           didChange, diagnostics → Problems, symbols → Outline
+     456   # Navigation — LSP UTF-16 positions → QTextCursor;
+           open_source_location() resolves PDF click-back
+     592   # Completion + hover — LSP → QCompleter + tooltips
+     717   # Symbol Bar / Smart Symbol Palette
+     776   # Friendly extras — command palette, find, go-to-line,
+           recent files
+    1043   # File operations — new/open/save (atomic write), dirty `*`
+    1199   # Build — Ctrl+B runs easy-math-lang via QProcess; the
+           in-process sibling _export_as() (1264) is Export As…
+    1332   # Wiring — menus, editor signals, close handling
+    1468   # Editor text size / # Editor font family (1495) /
+           # Theme (1571)
+    1694   # Live preview — debounced versioned requests, stale
+           results dropped, source-map click-back to the editor
+    1850   closeEvent — save prompt, then wait for LSP shutdown
+
+Three subsystems leave this file: the compiler (out-of-process via
+paths.resolve_compiler_command), the preview (in-process
+compiler.pipeline on a worker QThread), and the LSP (an
+out-of-process LspClient). Picture version: docs/architecture.md.
+"""
 
 import html
 import os

@@ -1,4 +1,39 @@
-"""Document pipeline: line loop, text phases, Typst generation."""
+"""Document pipeline: line loop, text phases, Typst generation.
+
+New to this file? It runs the whole compile job end to end. The map
+below is a table of contents — line numbers are approximate (they
+drift; the function names do not):
+
+    ~line  section
+    -----  -------
+      51   _require_typst() — lazy Typst import (keeps startup cheap)
+      94   _DiagCounter / _with_diag_count — count [Error]/[Warning]
+           and implement --strict (strict + errors → return False)
+     182   text helpers: *p(...) raw segments, unescaped backslash scan
+     257   _expand_tables_and_matrices() — *table / *matrix / *mat
+     372   _expand_plots() — *plot(...) → Matplotlib SVG → #image
+     455   _expand_vecs() — *vec(...) → SVG (same backend)
+     541   _match_doc_title() / _match_doc_font() (613) — control
+           lines that are consumed, not printed
+     723   _render_text_line() — THE per-line phase chain (13 numbered
+           steps: vars → calc → math → tables → symbols → escape)
+     952   _try_friendly_block() — # headings, - lists, 1. enums
+     984   _parse_draw_safe() — *draw(...) → geometry package
+    1038   export formats: infer_export_format() / _resolve_export()
+    1129   _run_typst_export() — typst.compile() for pdf/png/svg/html
+    1271   compile_ezmath() — the public entry point; line loop,
+           Typst output and source map live in its body
+    1908   _print_usage() / _cleanup_build_artifacts()
+    2012   main() — CLI argument parsing (--format/--ppi/--strict/…)
+
+Phase order inside _render_text_line is load-bearing (variables
+before calc, symbol shortcuts after math, escaping last) — read the
+numbered step comments there before reordering anything. Sibling
+modules (math_commands, symbols, tables, calc, ...) do the actual
+text transforms; this file sequences them, writes doc.typ +
+doc.smap.json, and runs the Typst export. Picture version:
+docs/architecture.md.
+"""
 
 import os
 import re

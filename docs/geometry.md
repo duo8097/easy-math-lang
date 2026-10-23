@@ -339,3 +339,11 @@ A tangent line touches the circle at exactly one point (at a right angle to the 
 - Think of constraints as rules in plain language: "these sides are equal", "this angle is 90°".
 - The more constraints you give, the more precisely the figure is drawn.
 - Placement is deterministic: the same input always produces the same figure.
+
+---
+
+## See also
+
+- [Cheat sheet](cheatsheet.md) — geometry and math commands on one page
+- [Troubleshooting and FAQ](troubleshooting.md) — fixing `[GeometryError]` messages
+- [Glossary](glossary.md) — plain-language definitions (constraint solver, …)

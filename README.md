@@ -141,7 +141,8 @@ Run the test suite:
 uv run pytest tests/ -v
 ```
 
-Project layout:
+Project layout (see [Architecture](docs/architecture.md) for how the
+pieces fit together):
 
 ```
 src/
@@ -172,17 +173,31 @@ installer-layout, and runtime-resolution picture.
 
 ---
 
+## Contributing
+
+Bug fixes, docs, tests and features are welcome — no expertise
+required. Start with:
+
+- 🤝 [Contributing](CONTRIBUTING.md) — setup, workflow, PR checklist
+- 🗺️ [Architecture](docs/architecture.md) — how the compiler, geometry
+  solver, language server and editor fit together
+
+---
+
 ## Learn more
 
 If you have never used a terminal or installed programs before, start here:
 
 1. 📦 [Installation guide](docs/installation.md) — setup, step by step (Windows/macOS installers or from source)
-2. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols (incl. friendly shortcuts)
-3. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
-4. 🖼️ [Export](docs/export.md) — PDF, PNG/SVG images, HTML and Typst source
-5. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
-6. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor (incl. Export As…)
-7. 📦 [Packaging and releases](docs/packaging.md) — building the binaries and installers (developers)
+2. ⚡ [Cheat sheet](docs/cheatsheet.md) — everything you type most often, on one page
+3. ✏️ [Writing math](docs/algebra.md) — how to write formulas, variables, and symbols (incl. friendly shortcuts)
+4. 📐 [Drawing geometry](docs/geometry.md) — how to draw triangles, circles, and angles
+5. 🖼️ [Export](docs/export.md) — PDF, PNG/SVG images, HTML and Typst source
+6. 💡 [Language server](docs/lsp.md) — editor autocompletion and error checking
+7. 🖥️ [Desktop editor](docs/editor.md) — using the graphical editor (incl. Export As…)
+8. 🆘 [Troubleshooting and FAQ](docs/troubleshooting.md) — what each message means and how to fix it
+9. 📖 [Glossary](docs/glossary.md) — every term explained in plain language
+10. 📦 [Packaging and releases](docs/packaging.md) — building the binaries and installers (developers)
 
 ---
 

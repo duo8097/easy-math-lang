@@ -71,6 +71,9 @@ VS Code needs a small extension to launch a custom server. Options:
 | Server disconnects randomly | Something is writing to the server's stdout. Only stderr may be used for logs. |
 | Packaged app (installer/`dist/`): editor can't start the server or compile | The editor finds `easy-math-lsp` / `easy-math-lang` next to itself (`../bin` or side-by-side) without needing `PATH`. If you moved the binaries, keep them together or point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files. |
 
+More editor and compiler problems:
+[Troubleshooting and FAQ](troubleshooting.md).
+
 ---
 
 ## For developers

@@ -14,6 +14,10 @@ VS Code**, anything.
 > - `# Title`, `## Sub`, `- item`, `1. item` become headings/lists.
 > - `==` means `=` (single equals); unknown `*cmd` (with or without
 >   parens) suggests a fix.
+>
+> **Just want to look something up?** The [Cheat sheet](cheatsheet.md)
+> fits the everyday commands on one page. Hit an error message? See
+> [Troubleshooting and FAQ](troubleshooting.md).
 
 ---
 
@@ -964,3 +968,11 @@ Output in the PDF:
 > Area: 12 . 5 = 60 cm²
 >
 > Diagonal: √(144 + 25) cm
+
+---
+
+## See also
+
+- [Cheat sheet](cheatsheet.md) — all of the above on one page
+- [Troubleshooting and FAQ](troubleshooting.md) — fixing `[Error]`/`[Warning]` messages
+- [Glossary](glossary.md) — defines, variables, math mode, … explained
