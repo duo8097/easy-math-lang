@@ -20,7 +20,7 @@ def test_parallel_builds_finish_before_alias(monkeypatch, tmp_path):
     finished = set()
     lock = threading.Lock()
 
-    def build(name, import_line, full_pyside6):
+    def build(name, import_line, full_pyside6, strip_binaries):
         # The first pair must overlap; a serial implementation times out.
         if name != 'easy-math-editor':
             started.wait()
@@ -89,3 +89,39 @@ def test_explicit_jobs_override_environment(monkeypatch, tmp_path):
     monkeypatch.setattr(builder, '_build', lambda *args: None)
     monkeypatch.setattr(builder, '_alias', lambda: None)
     assert builder.main(['builder', '--jobs', '1']) == 0
+
+
+def test_posix_alias_survives_relocation_and_rebuild(monkeypatch, tmp_path):
+    if sys.platform == 'win32':
+        pytest.skip('POSIX symlink alias')
+    dist = tmp_path / 'dist'
+    dist.mkdir()
+    compiler = dist / 'easy-math-lang'
+    compiler.write_text('#!/bin/sh\necho alias-ok\n')
+    compiler.chmod(0o755)
+    monkeypatch.setattr(builder, 'DIST', dist)
+    builder._alias()
+    builder._alias()
+    assert (dist / 'ezmath').is_symlink()
+    relocated = tmp_path / 'relocated'
+    dist.rename(relocated)
+    import subprocess
+    assert subprocess.check_output([str(relocated / 'ezmath')], text=True).strip() == 'alias-ok'
+
+
+def test_windows_alias_replaces_old_symlink_without_overwriting_target(monkeypatch, tmp_path):
+    source = tmp_path / 'easy-math-lang.exe'
+    source.write_bytes(b'compiler')
+    unrelated = tmp_path / 'unrelated'
+    unrelated.write_bytes(b'preserve')
+    alias = tmp_path / 'ezmath.exe'
+    try:
+        alias.symlink_to(unrelated.name)
+    except OSError:
+        pytest.skip('symlink privilege unavailable')
+    monkeypatch.setattr(builder, 'DIST', tmp_path)
+    monkeypatch.setattr(builder, 'os', types.SimpleNamespace(name='nt'))
+    builder._alias()
+    assert not alias.is_symlink()
+    assert alias.read_bytes() == source.read_bytes()
+    assert unrelated.read_bytes() == b'preserve'
