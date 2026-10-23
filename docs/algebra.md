@@ -9,7 +9,8 @@ VS Code**, anything.
 > **New? Start with the friendly shortcuts** (all optional — classic `;`
 > syntax keeps working):
 > - Commas work like `;`: `*frac(2, 3)`, `*pow(x, 2)`, `*line(A, B)`.
-> - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root).
+> - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root),
+>   `*squareroot` → `*sqrt`, `*summation` → `*sum`, … (full list below).
 > - `let x = 5` / `var x = 5` / `*define x = 5` work like `<x> = 5`.
 > - `# Title`, `## Sub`, `- item`, `1. item` become headings/lists.
 > - `==` means `=` (single equals); unknown `*cmd` (with or without
@@ -235,9 +236,19 @@ Output:
 All math commands start with `*`. Arguments are separated by `;`
 — or by `,` if you prefer (`*frac(2, 3)` = `*frac(2 ; 3)`).
 When `;` is present it wins, so `*frac(100,000 ; 2)` keeps `100,000`
-as one number. Friendly aliases: `*fraction` (= `*frac`),
-`*power` (= `*pow`), `*cbrt(x)` (= `*root(3 ; x)`),
-`*integral(...)` (= `*int(...)`).
+as one number. Friendly aliases (same output, pick what reads best):
+
+| Alias | Same as |
+|---|---|
+| `*fraction(...)` | `*frac(...)` |
+| `*power(...)` | `*pow(...)` |
+| `*squareroot(x)`, `*square-root(x)` | `*sqrt(x)` |
+| `*cbrt(x)`, `*cuberoot(x)`, `*cube-root(x)` | `*root(3 ; x)` |
+| `*absolute(...)` | `*abs(...)` |
+| `*summation(...)` | `*sum(...)` |
+| `*product(...)` | `*prod(...)` |
+| `*limit(...)` | `*lim(...)` |
+| `*integral(...)` | `*int(...)` |
 
 ### Fractions
 
@@ -261,6 +272,9 @@ Displays as a proper fraction (2 over 3).
 The first number is the **index** (2 = square root, 3 = cube root), the second is
 what goes under the root sign.
 
+Shorthands: `*sqrt(x)` (square root), `*cbrt(x)` (cube root) — aliases
+`*squareroot`/`*square-root` and `*cuberoot`/`*cube-root` work too.
+
 ### Powers (exponents)
 
 ```
@@ -283,6 +297,8 @@ x_n     → xₙ
 ```
 *abs(x - 2)    // |x − 2|
 ```
+
+`*absolute(x - 2)` is an alias.
 
 ### Trigonometry
 
@@ -473,12 +489,15 @@ the text as-is.
 ```
 
 Means: the sum of `i`, where `i` goes from `1` to `n`.
+`*summation(...)` is an alias.
 
 ### Product (Π)
 
 ```
 *prod(i = 1 ; n ; i)
 ```
+
+`*product(...)` is an alias.
 
 ### Limits
 
@@ -487,6 +506,7 @@ Means: the sum of `i`, where `i` goes from `1` to `n`.
 ```
 
 Means: the limit of sin(x)/x as x approaches 0.
+`*limit(...)` is an alias.
 
 ### Constants
 
