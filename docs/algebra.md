@@ -9,7 +9,8 @@ VS Code**, anything.
 > **New? Start with the friendly shortcuts** (all optional — classic `;`
 > syntax keeps working):
 > - Commas work like `;`: `*frac(2, 3)`, `*pow(x, 2)`, `*line(A, B)`.
-> - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root).
+> - Aliases: `*fraction` → `*frac`, `*power` → `*pow`, `*cbrt(x)` (cube root),
+>   `*squareroot` → `*sqrt`, `*summation` → `*sum`, … (full list below).
 > - `let x = 5` / `var x = 5` / `*define x = 5` work like `<x> = 5`.
 > - `# Title`, `## Sub`, `- item`, `1. item` become headings/lists.
 > - `==` means `=` (single equals); unknown `*cmd` (with or without
@@ -140,7 +141,7 @@ Output:
 
 ### Functions and constants inside calc
 
-`calc` understands the same function whitelist as `*plot`/`*vec`
+`calc` understands the same function whitelist as `*plot`
 (`log` is base-10, `ln` is the natural log) plus `pi` and `e`:
 
 ```
@@ -235,9 +236,19 @@ Output:
 All math commands start with `*`. Arguments are separated by `;`
 — or by `,` if you prefer (`*frac(2, 3)` = `*frac(2 ; 3)`).
 When `;` is present it wins, so `*frac(100,000 ; 2)` keeps `100,000`
-as one number. Friendly aliases: `*fraction` (= `*frac`),
-`*power` (= `*pow`), `*cbrt(x)` (= `*root(3 ; x)`),
-`*integral(...)` (= `*int(...)`).
+as one number. Friendly aliases (same output, pick what reads best):
+
+| Alias | Same as |
+|---|---|
+| `*fraction(...)` | `*frac(...)` |
+| `*power(...)` | `*pow(...)` |
+| `*squareroot(x)`, `*square-root(x)` | `*sqrt(x)` |
+| `*cbrt(x)`, `*cuberoot(x)`, `*cube-root(x)` | `*root(3 ; x)` |
+| `*absolute(...)` | `*abs(...)` |
+| `*summation(...)` | `*sum(...)` |
+| `*product(...)` | `*prod(...)` |
+| `*limit(...)` | `*lim(...)` |
+| `*integral(...)` | `*int(...)` |
 
 ### Fractions
 
@@ -261,6 +272,9 @@ Displays as a proper fraction (2 over 3).
 The first number is the **index** (2 = square root, 3 = cube root), the second is
 what goes under the root sign.
 
+Shorthands: `*sqrt(x)` (square root), `*cbrt(x)` (cube root) — aliases
+`*squareroot`/`*square-root` and `*cuberoot`/`*cube-root` work too.
+
 ### Powers (exponents)
 
 ```
@@ -283,6 +297,8 @@ x_n     → xₙ
 ```
 *abs(x - 2)    // |x − 2|
 ```
+
+`*absolute(x - 2)` is an alias.
 
 ### Trigonometry
 
@@ -427,25 +443,31 @@ Rows without `=` are kept as-is (they never crash the build); only
 the first `=` aligns, later ones stay literal. Variables, `calc()`,
 math and symbols work inside rows.
 
-### Vector diagrams
+### Column vectors
 
 ```
 *vec(3 ; 4)
-*vec(-2 ; 5)
+*vec(1 ; 2 ; 3)
 ```
 
-2D vector arrow from the origin to `(x, y)`, rendered with Matplotlib
-to `yourdoc-vec-1.svg` and embedded as `#image(...)` — the same
-backend as `*plot` (numerical eval, SVG next to the `.typ`, basename
-embedded so the build stays relocatable). Components use `calc`-style
-syntax (`+ - * / % ^`, parentheses, `pi`/`e`, `sin cos tan cot sec
-csc arcsin arccos arctan sinh cosh tanh coth sqrt cbrt log ln abs
-exp`) and accept variables (`*vec(<a> ; calc(<a> * 3))`). Commas work
-too (`*vec(3, 4)`); `;` wins when present so `*vec(100,000 ; 2)` keeps
-`100,000` intact. Exactly 2 numeric components; anything else emits a
-`[Vec Error: ...]` message instead of an image — the rest of the
-document still builds. Text mode only: `*vec` cannot be used inside
-`\ ... \` or matrices (like `*table`).
+A math-mode column vector (Typst `vec`): at least 2 components,
+split on `;` — or by `,` when no `;` is present — with the same
+quote/nesting rules as `*matrix` cells, so `*vec(100,000 ; 2)` keeps
+`100,000` intact. Variables, `calc()`, math commands and symbols work
+inside components, and `*vec` nests inside `\ ... \` math,
+`*matrix`/`*det` cells and other math commands. The multiline block
+form works like `*matrix` (one component per line):
+
+```
+*vec(
+    1
+    2
+    3
+)
+```
+
+Fewer than two components (or an empty component) warns and leaves
+the text as-is.
 
 ### Binomial coefficients
 
@@ -467,12 +489,15 @@ document still builds. Text mode only: `*vec` cannot be used inside
 ```
 
 Means: the sum of `i`, where `i` goes from `1` to `n`.
+`*summation(...)` is an alias.
 
 ### Product (Π)
 
 ```
 *prod(i = 1 ; n ; i)
 ```
+
+`*product(...)` is an alias.
 
 ### Limits
 
@@ -481,6 +506,7 @@ Means: the sum of `i`, where `i` goes from `1` to `n`.
 ```
 
 Means: the limit of sin(x)/x as x approaches 0.
+`*limit(...)` is an alias.
 
 ### Constants
 
@@ -536,8 +562,6 @@ Limitations:
 * A plot whose expression has no finite values on the interval
   (e.g. `*plot(sqrt(x); -10; -1)`) emits a `[Plot Error: ...]`
   message instead of an image — the rest of the document still builds.
-  `*vec` shares this backend (diagrams go to `yourdoc-vec-1.svg`,
-  failures emit `[Vec Error: ...]`).
 
 ---
 
@@ -886,7 +910,7 @@ Typst page break (text mode only — not inside `\ ... \` math).
 
 Relative paths resolve from your `.ezmath` file's folder, and the
 document embeds the relative path so the build stays relocatable
-(same discipline as `*plot`/`*vec` SVGs). With `typ`/`html`
+(same discipline as `*plot` SVGs). With `typ`/`html`
 exports to another folder, the image file is copied along.
 
 The optional width is a percentage (`50%`), a length (`6cm`, `10pt`,

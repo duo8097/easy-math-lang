@@ -101,6 +101,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         replace_int_calls,
         replace_math_call,
         replace_set_calls,
+        replace_vec_calls,
         space_out_bare_identifiers,
     )
     from .symbols import replace_symbol_shortcuts
@@ -129,12 +130,6 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         print(
             f'[Warning] Line {line_no}: *table(...) is text mode and '
             f'cannot be used inside math \\ ... \\ — leaving as-is',
-            file=sys.stderr,
-        )
-    if re.search(r'\*vec\s*\(', inner):
-        print(
-            f'[Warning] Line {line_no}: *vec(...) is text mode (SVG diagram) '
-            f'and cannot be used inside math \\ ... \\ — leaving as-is',
             file=sys.stderr,
         )
     if re.search(r'\*image\s*\(', inner):
@@ -170,6 +165,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     inner = replace_det_calls(inner, ctx)
     inner = replace_set_calls(inner, ctx)
     inner = replace_align_calls(inner, ctx)
+    inner = replace_vec_calls(inner, ctx, line_no)
     if line_no is not None:
         # Unknown *cmd(...) inside math never reaches the text-pass
         # warning (it is hidden behind a math placeholder by then).

@@ -10,13 +10,13 @@
 - ``*image(path)`` / ``*image(path ; width)`` embeds an image file.
   Relative paths resolve from the ``.ezmath`` file's folder; the
   ``.typ`` embeds the typdir-relative path so the build stays
-  relocatable (same discipline as plots/vecs, which embed basenames).
+  relocatable (same discipline as plots, which embed basenames).
   Missing files and bad widths emit ``[Image Error: ...]`` inline
   plus an ``[Error]`` diagnostic without aborting the build.
 
 All three expand to placeholder-protected Typst (``#`` must survive
 the text escaper), restored by the pipeline after escaping — the
-same protocol as plots/vecs.
+same protocol as plots.
 """
 
 import os
@@ -49,7 +49,7 @@ _PAGEBREAK_BARE_RE = re.compile(
 )
 
 #: Placeholder marker for text-command Typst (plots use \x06, tables
-#: \x07, vecs \x0e; \x09 is free).
+#: \x07; \x0e was the old vec diagrams, now free).
 PLACEHOLDER_FMT = '\x09{}\x09'
 
 _IMAGE_WIDTH_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*(%|pt|mm|cm|in|em)?$')
@@ -223,7 +223,7 @@ def _expand_images(ctx, text, line_no, placeholders):
     build: an ``[Image Error: ...]`` literal is emitted and reported
     on stderr, mirroring ``*plot`` error UX. Used files are recorded
     on ``ctx.image_files`` so typ/html exports to other directories
-    can carry them along (like plot/vec sidecars).
+    can carry them along (like plot sidecars).
     """
     from .calc import apply_calc_in_string
     from .math_commands import split_top_level_args
@@ -329,7 +329,7 @@ def _expand_images(ctx, text, line_no, placeholders):
 def expand_text_commands(ctx, text, line_no, cleaner, _depth=0):
     """Expand styling, page breaks and images in one pass.
 
-    Runs AFTER vars/calc/inline-math/plots/vecs (like math commands)
+    Runs AFTER vars/calc/inline-math/plots (like math commands)
     so ``<vars>`` holding styled text still expand; styling args
     re-render through *cleaner* (the full text pipeline) so
     variables, ``calc()``, math and nesting work inside. Returns

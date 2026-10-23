@@ -34,7 +34,7 @@ def _run_main(monkeypatch, argv):
 
 def _write_doc(tmp_path, name="doc.ezmath"):
     src = tmp_path / name
-    src.write_text("*plot(x ; -5 ; 5)\n*vec(3 ; 4)\n", encoding="utf-8")
+    src.write_text("*plot(x ; -5 ; 5)\n", encoding="utf-8")
     return src
 
 
@@ -43,7 +43,6 @@ def _intermediates(tmp_path, stem="doc"):
         tmp_path / f"{stem}.typ",
         tmp_path / f"{stem}.smap.json",
         tmp_path / f"{stem}-plot-1.svg",
-        tmp_path / f"{stem}-vec-1.svg",
     ]
 
 
@@ -108,7 +107,6 @@ def test_cli_typ_export_keeps_output_and_live_svgs(tmp_path, monkeypatch,
     assert out.is_file()  # the deliverable is never removed
     # SVGs are live dependencies of the same-dir .typ output: kept.
     assert (tmp_path / "doc-plot-1.svg").is_file()
-    assert (tmp_path / "doc-vec-1.svg").is_file()
 
 
 def test_cli_help_mentions_flag(monkeypatch, capsys):
@@ -123,8 +121,7 @@ def test_cleanup_helper_never_removes_input_or_output(tmp_path):
     typ = tmp_path / "doc.typ"
     smap = tmp_path / "doc.smap.json"
     plot = tmp_path / "doc-plot-1.svg"
-    vec = tmp_path / "doc-vec-1.svg"
-    for path in (typ, smap, plot, vec):
+    for path in (typ, smap, plot):
         path.write_text("x", encoding="utf-8")
     src = tmp_path / "doc.ezmath"
     src.write_text("hello\n", encoding="utf-8")
@@ -133,8 +130,8 @@ def test_cleanup_helper_never_removes_input_or_output(tmp_path):
     removed = _pipeline._cleanup_build_artifacts(str(src), str(out), None)
     assert out.is_file()
     assert src.is_file()
-    assert len(removed) == 4
-    for path in (typ, smap, plot, vec):
+    assert len(removed) == 3
+    for path in (typ, smap, plot):
         assert not path.exists()
 
 

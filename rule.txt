@@ -232,6 +232,26 @@ Example:
 *abs(x - 2)
 
 
+Accents
+-------
+
+*hat(x)        x̂ (hat accent)
+*bar(x)        x̄ (bar accent)
+*tilde(x)      x̃ (tilde accent)
+*overline(AB)  AB with an overline (e.g. a segment)
+*dot(x)        ẋ (dot accent)
+
+All take exactly one argument and render as Typst math accents.
+
+Example:
+
+*hat(v)
+
+Output (Typst):
+
+$hat(v)$
+
+
 Trigonometric functions
 -----------------------
 
@@ -272,6 +292,44 @@ $integral_0^1 x^2 dif x$
 same 1-4 arguments. *integral(...) is an alias of *int(...).
 
 
+Derivatives
+-----------
+
+*diff(expression ; variable)
+*diff(expression ; variable ; order)
+*pdiff(expression ; variable)
+*pdiff(expression ; variable ; order)
+
+Leibniz notation with Typst's upright differential. *diff renders
+dif/dif, *pdiff renders the partial derivative (partial, a ∂).
+
+Examples:
+
+*diff(x^2 ; x)
+
+Output (Typst):
+
+$frac(dif x^2, dif x)$
+
+*diff(x^2 ; x ; 2)
+
+Output (Typst):
+
+$frac(dif^2 x^2, dif x^2)$
+
+*pdiff(x*y ; y)
+
+Output (Typst):
+
+$frac(partial x*y, partial y)$
+
+Rules:
+  - 2 arguments required, a 3rd (the order) is optional; more than 3
+    warns and ignores the extras.
+  - Friendly separators: ";" wins, "," works when no ";" is present.
+  - Variables, calc and math commands work inside each argument.
+
+
 Piecewise and equation systems
 ------------------------------
 
@@ -296,22 +354,72 @@ Multiline block form works too:
 )
 
 
-Vector diagrams
----------------
+Aligned equations
+-----------------
+
+*align(equation1 | equation2 | ...)
+
+Aligns multiple equations on their "=" sign (Typst "&=" marker).
+
+Example:
+
+*align(x + y = 3 | x - y = 1)
+
+Output (Typst):
+
+$ x + y &= 3 \ x - y &= 1 $
+
+Rules:
+  - Rows split on "|" (same quote/nesting rules as *matrix rows).
+  - Only the first "=" in a row aligns; the rest stay literal.
+  - Rows without "=" are emitted as-is (never crash the build).
+  - Multiline block form works too (lines joined with "|"), like *cases:
+
+*align(
+    x + y = 3
+    x - y = 1
+)
+
+
+Column vectors
+--------------
 
 *vec(3 ; 4)
 
-2D vector arrow from the origin to (x, y), rendered with Matplotlib
-to <stem>-vec-<n>.svg and embedded as #image("...svg", width: 80%) —
-the same backend as *plot (numerical eval, SVG next to the .typ,
-basename embedded so the build stays relocatable). Components use
-calc-style syntax (+ - * / % ^, parentheses, pi/e, sin cos tan cot
-sec csc arcsin arccos arctan sinh cosh tanh coth sqrt cbrt log ln
-abs exp) and accept variables: *vec(<a> ; calc(<a> * 3)). Commas work
-too (*vec(3, 4)); ";" wins when present so *vec(100,000 ; 2) keeps
-100,000 intact. Exactly 2 numeric components; anything else emits
-[Vec Error: ...] inline and never aborts the build. Text mode only:
-*vec cannot be used inside \ ... \ or matrices (like *table).
+Column vector with vertical brackets and one component per row, emitted
+directly as a Typst vec(3, 4) call. Components are plain math-mode
+expressions (split on depth-0 ";", "," allowed when there's no ";"):
+*vec(1,000 ; 2,000) keeps 1,000 intact, *vec(*frac(1 ; 2) ; 3) nests,
+variables work (*vec(a ; b)), and block form puts one component per
+line. At least 2 components — fewer emits a warning and leaves the
+call as-is. Components are cleaned by the same converter as *det
+cells (underscores become \_, bare "e" becomes upright, etc.).
+No SVG diagram is exported anymore (the Matplotlib/Rust diagram
+backend was removed); vectors render entirely in Typst.
+
+
+Determinants
+------------
+
+*det(1 ; 2 | 3 ; 4)
+*det(*matrix(1 ; 2 | 3 ; 4))
+
+A determinant with vertical bars, using the same rows/cells syntax
+as *matrix (rows on "|", cells on ";" — or "," when a row has no ";").
+
+Example:
+
+*det(1 ; 2 | 3 ; 4)
+
+Output (Typst):
+
+$mat(delim: "|", 1, 2; 3, 4)$
+
+Rules:
+  - Wrapping an already-written *matrix(...) works too.
+  - Ragged rows pad with 0 (warning), like *matrix.
+  - Empty calls warn and stay as-is. Nested tables warn like
+    matrix cells do. Variables, calc and math commands work inside.
 
 
 Binomial coefficients
@@ -1163,14 +1271,19 @@ as one number. *point(A = 0, 0) never splits on "," (x, y coords).
 
 Aliases (starred):
 
-*fraction(...) = *frac(...)
-*power(...)    = *pow(...)
-*cbrt(x)       = *root(3 ; x)
-*absolute(...) = *abs(...)
-*summation(...) = *sum(...)
-*product(...)   = *prod(...)
-*limit(...)     = *lim(...)
-*integral(...)  = *int(...)
+*fraction(...)   = *frac(...)
+*power(...)      = *pow(...)
+*squareroot(x)   = *sqrt(x)
+*square-root(x)  = *sqrt(x)
+*cbrt(x)         = *root(3 ; x)
+*cuberoot(x)     = *root(3 ; x)
+*cube-root(x)    = *root(3 ; x)
+*absolute(...)   = *abs(...)
+*summation(...)  = *sum(...)
+*product(...)    = *prod(...)
+*limit(...)      = *lim(...)
+*integral(...)   = *int(...)
+*mat(...)        = *matrix(...)
 
 Assignments:
 
@@ -1212,6 +1325,33 @@ their own symbols first).
 
 Unknown *command(...) suggests the closest known command.
 
+Text styling, page breaks and images
+------------------------------------
+
+*bold(text)       bold text; short alias *b(text)
+*italic(text)     italic text; short alias *i(text)
+*underline(text)  underlined text; short alias *u(text)
+
+Text-mode commands (Typst #strong / #emph / #underline) that also
+compile inside \ ... \ math. Nesting, variables and calc() work
+inside: *bold(Total: <area> cm²).
+
+*newpage
+*pagebreak
+
+Starts a new page (Typst #pagebreak()). Bare or with empty
+parentheses (*newpage()). *pagebreak is an alias. Text mode only —
+a warning is emitted inside \ ... \ math.
+
+*image(path)
+*image(path ; width)
+
+Embeds an image file (e.g. *image(diagram.png ; 50%)). Width may be
+a percentage or a length (6cm); when omitted, Typst's default width
+is used. Paths are relative to the .ezmath file's folder. Missing
+files, wrong arity or invalid widths emit an error inline
+([Image Error: ...]) and never abort the build. Text mode only.
+
 Tables and matrices
 -------------------
 
@@ -1244,8 +1384,7 @@ x, pi/e, sin cos tan cot sec csc arcsin arccos arctan sinh cosh
 tanh coth sqrt cbrt log (base 10) ln abs exp.
 Non-finite values skipped; curves break across large jumps so
 1/x draws no vertical line. Errors emit [Plot Error: ...] inline
-and never abort the build. *vec shares this backend (diagrams go to
-<stem>-vec-<n>.svg, failures emit [Vec Error: ...]).
+and never abort the build.
 
 Export (CLI / editor File -> Export As):
 
@@ -1258,7 +1397,7 @@ easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png
 easy-math-lang --list-formats
 
 On success the CLI removes intermediate files next to the input
-(.typ, .smap.json, -plot-/-vec-*.svg), leaving only the deliverable;
+(.typ, .smap.json, -plot-*.svg), leaving only the deliverable;
 failures keep them for debugging. Pass --save-build-artifacts to keep
 them (handy for debugging layout). The API (compile_ezmath) and the
 editor preview always keep intermediates.

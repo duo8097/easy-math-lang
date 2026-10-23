@@ -67,7 +67,7 @@ def test_compiler_binary_compiles(tmp_path):
 
 
 @pytest.mark.parametrize('fmt', ['pdf', 'png', 'svg'])
-def test_frozen_alias_exports_plots_and_vectors(tmp_path, fmt):
+def test_frozen_alias_exports_plots(tmp_path, fmt):
     _require_dist()
     src = tmp_path / 'plots.ezmath'
     src.write_text('*plot(sin(x) ; -5 ; 5)\n*vec(3 ; 4)\n', encoding='utf-8')

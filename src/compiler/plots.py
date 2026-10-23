@@ -93,7 +93,7 @@ def find_next_plot_call(text, start=0):
 
 def _preprocess_expression(ctx, raw):
     """Substitute vars/defines and normalize calc-style syntax."""
-    # Shared with calc()/vec (see safemath); plots additionally accept
+    # Shared with calc() (see safemath); plots additionally accept
     # *infinity (mapped to inf) inside the plotted expression.
     return preprocess_math_expr(ctx, raw, map_infinity=True)
 

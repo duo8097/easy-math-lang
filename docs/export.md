@@ -47,7 +47,7 @@ yourself, include `{p}` in the output name: `out-{p}.png`.
 - Unknown extensions (e.g. `out`) warn and assume PDF — add `--format`
   to be explicit.
 - Invalid `--format`/`--ppi` fails fast with exit code 2 and a hint.
-- Intermediates (`.typ`, `.smap.json`, `-plot-`/`-vec-*.svg` next to
+- Intermediates (`.typ`, `.smap.json`, `-plot-*.svg` next to
   the input) are removed on success; pass `--save-build-artifacts` to
   keep them for debugging layout. Failures always keep them. The
   `compile_ezmath()` API and the editor preview always keep them.

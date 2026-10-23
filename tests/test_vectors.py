@@ -1,7 +1,10 @@
-"""Tests for *vec(...) vector diagrams (NumPy + Matplotlib -> SVG -> Typst).
+"""Tests for *vec(...) — math-mode column vectors (Typst ``vec(...)``).
 
-Same backend as *plot: numerical evaluation, Matplotlib Agg rendering to
-``<stem>-vec-<n>.svg`` next to the .typ, embedded as ``#image``.
+*vec(a ; b [; c ...]) emits ``$vec(a, b, ...)$``. Components use the
+same friendly splitting and math conversion as *matrix/*det cells, so
+variables, calc(), nested commands, ``\\ ... \\`` math and *matrix
+cells all work. Fewer than 2 components, empty components or an
+unclosed call warn and leave the source as-is.
 """
 
 import os
@@ -12,7 +15,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from compiler import pipeline as _pipeline  # noqa: E402
-from compiler import vectors as _vecs  # noqa: E402
+from compiler.math_commands import replace_vec_calls  # noqa: E402
 from compiler.state import CompileContext  # noqa: E402
 
 
@@ -39,10 +42,6 @@ def _compile(tmp_path, monkeypatch, capsys, text, out_name="doc.pdf",
     return ok, typ, err
 
 
-def _svg(tmp_path, n=1):
-    return tmp_path / f"doc-vec-{n}.svg"
-
-
 # ----------------------------------------------------------------------
 # Happy paths
 # ----------------------------------------------------------------------
@@ -50,26 +49,25 @@ def _svg(tmp_path, n=1):
 def test_vec_basic(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n")
     assert ok is True, err.err
-    svg = _svg(tmp_path)
-    assert svg.is_file()
-    assert '#image("doc-vec-1.svg"' in typ
-    assert "$vec(" not in typ
-    assert "arrow(" not in typ
+    assert "$vec(3, 4)$" in typ
+    # No diagram sidecar is written anymore.
+    assert not list(tmp_path.glob("doc-vec-*.svg"))
+    assert "#image(" not in typ
 
 
 def test_vec_comma_syntax(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(3, 4)\n")
     assert ok is True, err.err
-    assert _svg(tmp_path).is_file()
-    assert '#image("doc-vec-1.svg"' in typ
+    assert "$vec(3, 4)$" in typ
 
 
 def test_vec_thousands_comma_kept(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
         tmp_path, monkeypatch, capsys, "*vec(100,000 ; 2)\n")
     assert ok is True, err.err
-    assert _svg(tmp_path).is_file()
-    assert '#image("doc-vec-1.svg"' in typ
+    # Friendly comma is escaped as a thin space inside the component.
+    assert "100\\,000" in typ
+    assert "$vec(100\\,000, 2)$" in typ
 
 
 def test_vec_variables_and_calc(tmp_path, monkeypatch, capsys):
@@ -77,71 +75,83 @@ def test_vec_variables_and_calc(tmp_path, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys,
         "<a> = 2\n*vec(<a> ; calc(<a> * 3))\n")
     assert ok is True, err.err
-    assert _svg(tmp_path).is_file()
-    assert '#image("doc-vec-1.svg"' in typ
+    assert "$vec(2, 6)$" in typ
 
 
 def test_vec_math_function_components(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
         tmp_path, monkeypatch, capsys, "*vec(*sin(0) ; *sqrt(4))\n")
     assert ok is True, err.err
-    assert _svg(tmp_path).is_file()
+    assert "$vec(" in typ
 
 
-def test_vec_negative_and_zero(tmp_path, monkeypatch, capsys):
+def test_vec_nested_command_component(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
-        tmp_path, monkeypatch, capsys, "*vec(-2 ; -5)\n")
+        tmp_path, monkeypatch, capsys, "*vec(*frac(1 ; 2) ; 3)\n")
     assert ok is True, err.err
-    assert _svg(tmp_path, 1).is_file()
+    assert "$vec(frac(1, 2), 3)$" in typ
+
+
+def test_vec_variables_work(tmp_path, monkeypatch, capsys):
+    # Symbolic components are fine now (unlike the old diagram backend).
+    ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(a ; b)\n")
+    assert ok is True, err.err
+    assert "$vec(a, b)$" in typ
+
+
+def test_vec_three_components(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
-        tmp_path, monkeypatch, capsys, "*vec(0 ; 0)\n")
+        tmp_path, monkeypatch, capsys, "*vec(1 ; 2 ; 3)\n")
     assert ok is True, err.err
+    assert "$vec(1, 2, 3)$" in typ
 
 
-def test_vec_multiple_numbering(tmp_path, monkeypatch, capsys):
+def test_vec_multiple_vectors(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
         tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n*vec(-2 ; 5)\n")
     assert ok is True, err.err
-    assert _svg(tmp_path, 1).is_file()
-    assert _svg(tmp_path, 2).is_file()
-    assert '#image("doc-vec-1.svg"' in typ
-    assert '#image("doc-vec-2.svg"' in typ
+    assert "$vec(3, 4)$" in typ
+    assert "$vec(-2, 5)$" in typ
 
 
-def test_vec_and_plot_counters_independent(tmp_path, monkeypatch, capsys):
+def test_vec_no_sidecars_next_to_plot(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(
         tmp_path, monkeypatch, capsys,
         "*plot(x ; -5 ; 5)\n*vec(3 ; 4)\n")
     assert ok is True, err.err
     assert (tmp_path / "doc-plot-1.svg").is_file()
-    assert (tmp_path / "doc-vec-1.svg").is_file()
     assert '#image("doc-plot-1.svg"' in typ
-    assert '#image("doc-vec-1.svg"' in typ
+    # *vec emits math, not a diagram.
+    assert "$vec(3, 4)$" in typ
+    assert not list(tmp_path.glob("doc-vec-*.svg"))
 
 
-# ----------------------------------------------------------------------
-# SVG content (structural only — never image comparison)
-# ----------------------------------------------------------------------
-
-def test_vec_svg_is_svg_with_text(tmp_path, monkeypatch, capsys):
-    ok, _, err = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n")
+def test_vec_in_inline_math(tmp_path, monkeypatch, capsys):
+    ok, typ, err = _compile(
+        tmp_path, monkeypatch, capsys, "\\ v = *vec(3 ; 4) \\\n")
     assert ok is True, err.err
-    content = _svg(tmp_path).read_text(encoding="utf-8")
-    assert "<svg" in content
-    # svg.fonttype == "none": labels stay <text>, not paths.
-    assert "<text" in content
+    assert "$v = vec(3, 4)$" in typ
+    # No "text mode" warning anymore.
+    assert "text mode" not in err.err
 
 
-def test_vec_typ_references_relative_svg(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4)\n")
+def test_vec_in_matrix(tmp_path, monkeypatch, capsys):
+    ok, typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        "*matrix(*vec(1 ; 2) ; 3 | 4 ; 5)\n")
     assert ok is True, err.err
-    assert '#image("doc-vec-1.svg", width: 80%)' in typ
-    assert "/tmp" not in typ and tmp_path.name not in typ.replace(
-        "doc-vec-1.svg", "")
+    assert "$mat(vec(1, 2), 3; 4, 5)$" in typ
+    assert "text mode" not in err.err
 
 
-def test_vec_svg_sidecar_copied_for_typ_export(tmp_path, monkeypatch,
-                                               capsys):
+def test_vec_block_form(tmp_path, monkeypatch, capsys):
+    ok, typ, err = _compile(
+        tmp_path, monkeypatch, capsys, "*vec(\n  1\n  2\n)\n")
+    assert ok is True, err.err
+    assert "$vec(1, 2)$" in typ
+
+
+def test_vec_export_typ_leaves_no_sidecars(tmp_path, monkeypatch, capsys):
     from compiler import compile_ezmath
     srcdir = tmp_path / "a"
     dstdir = tmp_path / "b"
@@ -162,135 +172,92 @@ def test_vec_svg_sidecar_copied_for_typ_export(tmp_path, monkeypatch,
     ok = compile_ezmath(str(src), str(dstdir / "doc.typ"), format="typ")
     capsys.readouterr()
     assert ok is True
-    assert (srcdir / "doc-vec-1.svg").is_file()
-    assert (dstdir / "doc-vec-1.svg").is_file()
+    assert not list(srcdir.glob("doc-vec-*.svg"))
+    assert not list(dstdir.glob("doc-vec-*.svg"))
 
 
 # ----------------------------------------------------------------------
-# Error handling (build continues, diagnostic on stderr + inline)
+# Error handling (build continues, warning on stderr, source kept as-is)
 # ----------------------------------------------------------------------
 
-def test_vec_wrong_arity_is_error(tmp_path, monkeypatch, capsys):
-    for text in ("*vec(3)\n", "*vec(1 ; 2 ; 3)\n",
-                 "*vec(1 ; 2 ; 3 ; 4 ; 5)\n", "*vec()\n"):
+def test_vec_too_few_components_warns(tmp_path, monkeypatch, capsys):
+    for text in ("*vec(3)\n", "*vec()\n"):
         ok, typ, err = _compile(tmp_path, monkeypatch, capsys, text)
         assert ok is True, text
-        assert "Vec Error" in typ, text
-        assert "needs 2 arguments" in err.err, text
-        assert '#image("doc-vec-' not in typ, text
+        assert "expects at least 2 components" in err.err, text
+        assert "Line 1" in err.err, text
+        assert "$vec(" not in typ, text
 
 
-def test_vec_symbolic_components_are_error(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(x ; y)\n")
-    assert ok is True
-    assert "Vec Error" in typ
-    assert "invalid components" in err.err
-    assert not _svg(tmp_path).exists()
-
-
-def test_vec_unknown_name_is_error(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(a ; b)\n")
-    assert ok is True
-    assert "Vec Error" in typ
-    assert "unknown name" in err.err
-    assert not _svg(tmp_path).exists()
-
-
-def test_vec_empty_component_is_error(tmp_path, monkeypatch, capsys):
+def test_vec_empty_component_warns(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(1 ; )\n")
     assert ok is True
-    assert "Vec Error" in typ
-    assert "numeric x and y" in err.err
-    assert not _svg(tmp_path).exists()
+    assert "empty component(s)" in err.err
+    assert "Line 1" in err.err
+    assert "$vec(" not in typ
 
 
-def test_vec_nonfinite_is_error(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(1/0 ; 2)\n")
-    assert ok is True
-    assert "Vec Error" in typ
-    assert not _svg(tmp_path).exists()
-
-
-def test_vec_unclosed_parenthesis(tmp_path, monkeypatch, capsys):
+def test_vec_unclosed_parenthesis_warns(tmp_path, monkeypatch, capsys):
     ok, typ, err = _compile(tmp_path, monkeypatch, capsys, "*vec(3 ; 4\n")
     assert ok is True
     assert "unclosed *vec" in err.err
-    assert "#image(" not in typ
-    assert not _svg(tmp_path).exists()
-
-
-def test_vec_in_inline_math_warns(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(
-        tmp_path, monkeypatch, capsys, "\\ v = *vec(3 ; 4) \\\n")
-    assert ok is True
-    assert "text mode" in err.err
-    assert "*vec" in typ
-    assert "#image(" not in typ
-    assert not _svg(tmp_path).exists()
-
-
-def test_vec_in_matrix_warns(tmp_path, monkeypatch, capsys):
-    ok, typ, err = _compile(
-        tmp_path, monkeypatch, capsys, "*matrix(*vec(3 ; 4) ; 2 | 3 ; 4)\n")
-    assert ok is True
-    assert "text mode" in err.err
+    assert "$vec(" not in typ
 
 
 # ----------------------------------------------------------------------
-# Unit-level evaluation checks
+# Unit-level: replace_vec_calls
 # ----------------------------------------------------------------------
 
-def test_vec_evaluate_operators_and_consts():
+def test_replace_vec_calls_basic():
     ctx = CompileContext()
-    assert _vecs.evaluate_vec_component(ctx, "1+2*3") == pytest.approx(7.0)
-    assert _vecs.evaluate_vec_component(ctx, "2^3") == pytest.approx(8.0)
-    assert _vecs.evaluate_vec_component(ctx, "100,000") == pytest.approx(100000.0)
-    assert _vecs.evaluate_vec_component(ctx, "sin(pi)") == pytest.approx(0.0, abs=1e-12)
-    assert _vecs.evaluate_vec_component(ctx, "-2.5") == pytest.approx(-2.5)
+    assert replace_vec_calls("*vec(3 ; 4)", ctx) == "$vec(3, 4)$"
+    assert replace_vec_calls("*vec(3, 4)", ctx) == "$vec(3, 4)$"
+    assert replace_vec_calls("*vec(1 ; 2 ; 3)", ctx) == "$vec(1, 2, 3)$"
 
 
-def test_vec_evaluate_rejects_raw_eval_vectors():
+def test_replace_vec_calls_line_number_in_warning(capsys):
     ctx = CompileContext()
-    with pytest.raises(ValueError):
-        _vecs.evaluate_vec_component(ctx, "__import__('os').system('x')")
-    with pytest.raises(ValueError):
-        _vecs.evaluate_vec_component(ctx, "x")
-    with pytest.raises(ValueError):
-        _vecs.evaluate_vec_component(ctx, "foo(1)")
-    with pytest.raises(ValueError):
-        _vecs.evaluate_vec_component(ctx, "1/0")
+    replace_vec_calls("*vec(1)", ctx, line_no=7)
+    err = capsys.readouterr()
+    assert "Line 7" in err.err
+    assert "at least 2 components" in err.err
 
 
-def test_vec_filename():
-    assert _vecs.vec_filename("doc", 1) == "doc-vec-1.svg"
-    assert _vecs.vec_filename("doc", 12) == "doc-vec-12.svg"
-
-
-def test_vec_render_writes_svg(tmp_path):
+def test_replace_vec_calls_leaves_text_alone():
     ctx = CompileContext()
-    out = tmp_path / "t-vec-1.svg"
-    label = _vecs.render_vec_svg(ctx, 3.0, 4.0, str(out))
-    assert out.is_file()
-    assert label == "vec(3, 4)"
-    content = out.read_text(encoding="utf-8")
-    assert "<svg" in content
+    text = "the vector *vec is mentioned, no call here"
+    assert replace_vec_calls(text, ctx) == text
 
 
-def test_vec_render_zero_vector(tmp_path):
+def test_replace_vec_calls_multiple_calls():
     ctx = CompileContext()
-    out = tmp_path / "t-vec-0.svg"
-    _vecs.render_vec_svg(ctx, 0.0, 0.0, str(out))
-    assert out.is_file()
-
-
-def test_vec_render_nonfinite_rejected(tmp_path):
-    ctx = CompileContext()
-    with pytest.raises(ValueError):
-        _vecs.render_vec_svg(ctx, float("inf"), 1.0, str(tmp_path / "x.svg"))
+    out = replace_vec_calls("*vec(1 ; 2) and *vec(3 ; 4)", ctx)
+    assert out == "$vec(1, 2)$ and $vec(3, 4)$"
 
 
 # ----------------------------------------------------------------------
-# Symbol palette (Insert Vec dialog)
+# LSP builtins (completion / hover)
+# ----------------------------------------------------------------------
+
+def test_vec_lsp_builtin_present():
+    from lsp import builtins
+    doc = builtins.MATH_DOCS['vec'][0]
+    assert doc.startswith("*vec(")
+    assert "column vector" in builtins.MATH_DOCS['vec'][1].lower()
+
+
+def test_vec_lsp_completion_and_hover():
+    from lsp import analysis
+    items = analysis.complete("*v\n", 0, 2)
+    labels = [item['label'] for item in items]
+    assert 'vec' in labels
+    found = analysis.hover("*vec(3 ; 4)\n", 0, 2)
+    assert found is not None
+    assert 'vec' in found['value']
+
+
+# ----------------------------------------------------------------------
+# Symbol palette (Insert Vector dialog)
 # ----------------------------------------------------------------------
 
 def test_vec_palette_builds_source():
@@ -315,12 +282,11 @@ def test_vec_palette_source_compiles(tmp_path, monkeypatch, capsys):
     src = build_source("vec", {"x1": "3", "x2": "4"}) + "\n"
     ok, typ, err = _compile(tmp_path, monkeypatch, capsys, src)
     assert ok is True, err.err
-    assert _svg(tmp_path).is_file()
-    assert '#image("doc-vec-1.svg"' in typ
+    assert "$vec(3, 4)$" in typ
 
 
 def test_vec_real_pdf_compile(tmp_path):
-    """Real Typst compile (no stub) for a vector diagram."""
+    """Real Typst compile (no stub) for a column vector."""
     pytest.importorskip("typst")
     import shutil
     import tempfile
@@ -333,7 +299,8 @@ def test_vec_real_pdf_compile(tmp_path):
             f.write("*vec(3 ; 4)\n")
         assert compile_ezmath(src, out) is True
         assert os.path.isfile(out)
-        assert os.path.isfile(os.path.join(work, "v-vec-1.svg"))
+        # No SVG diagram sidecar is produced.
+        assert not os.path.isfile(os.path.join(work, "v-vec-1.svg"))
     finally:
         shutil.rmtree(work, ignore_errors=True)
         # Never leave .typ/.pdf in the repo: workdir is a temp dir.

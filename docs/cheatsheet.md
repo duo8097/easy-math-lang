@@ -100,6 +100,25 @@ Full list with every argument pattern: [Writing math](algebra.md).
 
 ---
 
+## Aliases — same command, other names
+
+Like a word with two spellings? These all produce the same output:
+
+| You write | Same as |
+|---|---|
+| `*fraction(2, 3)` | `*frac(2, 3)` |
+| `*power(x, 2)` | `*pow(x, 2)` |
+| `*squareroot(x)` / `*square-root(x)` | `*sqrt(x)` |
+| `*cbrt(x)` / `*cuberoot(x)` / `*cube-root(x)` | `*root(3 ; x)` |
+| `*absolute(x - 2)` | `*abs(x - 2)` |
+| `*summation(i = 1 ; n ; i)` | `*sum(i = 1 ; n ; i)` |
+| `*product(i = 1 ; n ; i)` | `*prod(i = 1 ; n ; i)` |
+| `*limit(x -> 0 ; sin(x) / x)` | `*lim(x -> 0 ; sin(x) / x)` |
+| `*integral(0 ; 1 ; x^2)` | `*int(0 ; 1 ; x^2)` |
+| `*mat(1 ; 2 \| 3 ; 4)` | `*matrix(1 ; 2 \| 3 ; 4)` |
+
+---
+
 ## Text and structure
 
 | Write | Result |

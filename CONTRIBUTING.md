@@ -113,6 +113,10 @@ If your change affects users, update in the same PR:
 | New term | `docs/glossary.md` |
 | Editor/LSP behavior | `docs/editor.md` / `docs/lsp.md` |
 | Internal restructuring | `docs/architecture.md` |
+| Anything user-visible | `CHANGELOG.md` (Unreleased section) |
+
+Bug reports and feature requests use the templates in
+`.github/ISSUE_TEMPLATE/` — they ask for exactly what maintainers need.
 
 ---
 
@@ -124,6 +128,7 @@ Checklist:
       windows**, Python 3.12, `tests/test_packaged_build.py` ignored).
 - [ ] New behavior has tests; fixed bugs have a regression test.
 - [ ] User-facing docs updated (table above).
+- [ ] `CHANGELOG.md` updated (Unreleased section) for user-visible changes.
 - [ ] No new runtime dependencies without prior discussion — this
       project is small on purpose (and frozen-binary size matters).
 - [ ] Commit messages are short sentences describing the effect
@@ -149,6 +154,11 @@ with:
 
 Not sure whether it is a bug? Ask anyway — unclear errors are often
 worth improving even when the behavior is "correct".
+
+Security issues are **not** reported here — see the
+[Security policy](SECURITY.md) for the private contact address.
+
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 

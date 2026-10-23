@@ -3,8 +3,32 @@ name = "easy-math-lang"
 version = "4.5.0"
 description = "target to help new people easier to write math with code, maybe include more symbol for science"
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "duo8097", email = "Imanoob8097@gmail.com" }
+]
+keywords = [
+    "math",
+    "latex-alternative",
+    "typst",
+    "pdf",
+    "education",
+    "markdown",
+    "language-server",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Multimedia :: Graphics",
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -14,6 +38,13 @@ dependencies = [
     "pyside6>=6.11.2",
     "typst>=0.15.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/duo8097/easy-math-lang"
+Documentation = "https://github.com/duo8097/easy-math-lang#readme"
+Changelog = "https://github.com/duo8097/easy-math-lang/blob/main/CHANGELOG.md"
+Issues = "https://github.com/duo8097/easy-math-lang/issues"
+Source = "https://github.com/duo8097/easy-math-lang"
 
 [project.scripts]
 easy-math-lang = "compiler.pipeline:main"

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion
+    url: https://github.com/duo8097/easy-math-lang/issues
+    about: Not a bug or feature? Open an issue and say so — general questions are welcome.
+  - name: Security vulnerability
+    url: https://github.com/duo8097/easy-math-lang/blob/main/SECURITY.md
+    about: Please report security issues privately via email (see SECURITY.md).

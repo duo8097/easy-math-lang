@@ -1,0 +1,33 @@
+# Set consistent line endings and keep shell scripts runnable.
+# Let Git detect text files and normalize to LF in the repository;
+# working-tree checkout follows the platform default.
+* text=auto
+
+# Shell scripts must stay LF (a CRLF shebang fails on Linux/macOS) and
+# keep their executable bit — see commit 6dca06d, where a lost +x on
+# installer/build_linux.sh broke `bash installer/build_linux.sh` runs.
+*.sh text eol=lf
+
+# Windows-side PowerShell/batch scripts are fine with CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Inno Setup and packaging files.
+*.iss text eol=crlf
+
+# Binary assets — never line-convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.gif binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.whl binary
+*.exe binary
+*.dmg binary
+*.deb binary
+*.rpm binary
+*.zst binary
