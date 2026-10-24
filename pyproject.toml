@@ -59,8 +59,18 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/compiler", "src/editor", "src/geometry", "src/lsp"]
 
+[tool.pytest.ini_options]
+# -n auto: the suite is CPU-bound and embarrassingly parallel (each test builds
+# its own isolated MainWindow / temp dir). --dist loadfile keeps each file's
+# tests on one worker, which is required for reliability: the real-LSP tests
+# (test_lsp_server, test_editor_gui, test_editor_lspclient) time out under
+# --dist load because concurrent pylsp subprocesses oversubscribe the CPU.
+# Disable with -p no:xdist -o addopts= for serial debugging.
+addopts = "-n auto --dist loadfile"
+
 [dependency-groups]
 dev = [
     "pyinstaller>=6.22.3",
     "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
 ]

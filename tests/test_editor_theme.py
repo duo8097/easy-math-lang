@@ -26,12 +26,12 @@ def test_normalize_and_color_tables():
         app_theme.editor_colors('light')['editor_bg']
 
 
-def test_settings_roundtrip(qapp):
+def test_settings_roundtrip(qapp, tmp_path):
     from PySide6 import QtCore
+    # Per-test (and therefore per-xdist-worker) path: a fixed %TEMP% filename
+    # would be written concurrently by parallel workers.
     settings = QtCore.QSettings(
-        os.path.join(os.environ.get('RUNNER_TEMP',
-                                    os.path.expandvars('%TEMP%')),
-                     'easymath-theme-test.ini'),
+        str(tmp_path / 'easymath-theme-test.ini'),
         QtCore.QSettings.IniFormat)
     settings.clear()
     assert app_theme.load_theme_name(settings) == 'light'

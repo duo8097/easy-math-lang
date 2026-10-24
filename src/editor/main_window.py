@@ -38,6 +38,7 @@ import re
 import shutil
 import sys
 import tempfile
+import weakref
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -1331,6 +1332,29 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     # Wiring: menus, editor signals, close
     # ------------------------------------------------------------------
+    def _weak_slot(self, meth, *bound):
+        """Connect a bound method to a long-lived signal without leaking self.
+
+        PySide keeps a connected *lambda/closure* alive for as long as the
+        connection exists, and menu QActions/QShortcuts live as long as the
+        window's menubar — so a plain ``lambda: self._foo()`` would keep the
+        whole MainWindow (and its ~9 top-level widgets) alive after the caller
+        drops it. Bound ``self._foo`` methods are exempt (PySide holds QObject
+        receivers weakly), but lambdas that take extra args are not. This
+        helper stores only a *weakref* to the receiver plus the bare function,
+        so the action can never keep the window alive.
+
+        See tests/test_main_window_leak.py.
+        """
+        func = meth.__func__                 # bare function: no strong self ref
+        ref = weakref.ref(meth.__self__)
+
+        def slot(*_ignored):
+            obj = ref()
+            if obj is not None:
+                return func(obj, *bound)
+        return slot
+
     def _create_menus(self):
         file_menu = self.menuBar().addMenu('&File')
         new_action = file_menu.addAction('&New')
@@ -1363,8 +1387,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ):
             _act = export_menu.addAction(_label)
             _act.setStatusTip(f'Export the document as {_fmt.upper()}')
-            _act.triggered.connect(
-                lambda _checked=False, f=_fmt: self._export_as(f))
+            _act.triggered.connect(self._weak_slot(self._export_as, _fmt))
         file_menu.addSeparator()
         exit_action = file_menu.addAction('E&xit')
         exit_action.setShortcut(QtGui.QKeySequence.Quit)
@@ -1422,11 +1445,11 @@ class MainWindow(QtWidgets.QMainWindow):
         zoom_in_action = view_menu.addAction('Zoom &In')
         zoom_in_action.setShortcuts(['Ctrl+=', 'Ctrl++'])
         zoom_in_action.setStatusTip('Make the editor text bigger')
-        zoom_in_action.triggered.connect(lambda: self._zoom(1))
+        zoom_in_action.triggered.connect(self._weak_slot(self._zoom, 1))
         zoom_out_action = view_menu.addAction('Zoom &Out')
         zoom_out_action.setShortcut('Ctrl+-')
         zoom_out_action.setStatusTip('Make the editor text smaller')
-        zoom_out_action.triggered.connect(lambda: self._zoom(-1))
+        zoom_out_action.triggered.connect(self._weak_slot(self._zoom, -1))
         zoom_reset_action = view_menu.addAction('&Reset Zoom')
         zoom_reset_action.setShortcut('Ctrl+0')
         zoom_reset_action.setStatusTip('Restore the default text size')
@@ -1459,10 +1482,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         find_next_shortcut = QtGui.QShortcut(
             QtGui.QKeySequence.StandardKey.FindNext, self)
-        find_next_shortcut.activated.connect(lambda: self._find_again(1))
+        find_next_shortcut.activated.connect(self._weak_slot(self._find_again, 1))
         find_prev_shortcut = QtGui.QShortcut(
             QtGui.QKeySequence.StandardKey.FindPrevious, self)
-        find_prev_shortcut.activated.connect(lambda: self._find_again(-1))
+        find_prev_shortcut.activated.connect(self._weak_slot(self._find_again, -1))
 
     # ------------------------------------------------------------------
     # Editor text size
@@ -1835,6 +1858,18 @@ class MainWindow(QtWidgets.QMainWindow):
         workdir = getattr(self, '_preview_workdir', None)
         if workdir:
             shutil.rmtree(workdir, ignore_errors=True)
+
+    def __del__(self):
+        # Destroying a MainWindow via Python GC (tests drop the reference
+        # without calling close()) must still stop the preview worker QThread
+        # — a QThread parented to a QWidget is destroyed with it, and Qt is
+        # fatal if that thread is still running. closeEvent covers the
+        # interactive path; this covers the GC path. Idempotent via the
+        # _preview_shutdown guard in _shutdown_preview().
+        try:
+            self._shutdown_preview()
+        except Exception:
+            pass
 
     def open_path(self, path):
         """Open a file (used for a launch argument)."""
