@@ -110,7 +110,17 @@ def render_thumbnail(entry_id: str) -> tuple[QtGui.QPixmap, bool]:
     pix.fill(QtGui.QColor(TILE_BG))
     painter = QtGui.QPainter(pix)
     try:
-        renderer.render(painter, QtCore.QRectF(0, 0, THUMB_W, THUMB_H))
+        # Letterbox: previews vary in aspect (auto-sized pages), the
+        # tile is fixed — scale to fit without distortion.
+        view = renderer.viewBoxF()
+        if view.isValid() and view.width() > 0 and view.height() > 0:
+            scale = min(THUMB_W / view.width(), THUMB_H / view.height())
+            w, h = view.width() * scale, view.height() * scale
+            target = QtCore.QRectF((THUMB_W - w) / 2.0,
+                                    (THUMB_H - h) / 2.0, w, h)
+        else:
+            target = QtCore.QRectF(0, 0, THUMB_W, THUMB_H)
+        renderer.render(painter, target)
     finally:
         painter.end()
     return pix, True

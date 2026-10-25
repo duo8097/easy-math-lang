@@ -158,16 +158,20 @@ def test_previews_and_manifest_are_current():
     import json
     with open(manifest_path, encoding='utf-8') as fh:
         manifest = json.load(fh)
-    entries = manifest.get('previews', manifest)
+    entries = manifest.get('examples', manifest)
     for entry in CATALOG:
         assert entry.id in entries, entry.id
+        record = entries[entry.id]
+        # Example hash: a catalog example change forces a re-render.
+        example_digest = hashlib.sha256(
+            entry.example.encode('utf-8')).hexdigest()
+        stored_example = record['sha256'] if isinstance(record, dict) else None
+        assert stored_example == example_digest, entry.id
         path = os.path.join(draw_gallery.PREVIEW_DIR, f'{entry.id}.svg')
         assert os.path.isfile(path), path
         with open(path, 'rb') as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
-        record = entries[entry.id]
-        stored = record['sha256'] if isinstance(record, dict) else record
-        assert stored == digest, entry.id
+        assert record['svg_sha256'] == digest, entry.id
 
 
 # ----------------------------------------------------------------------
