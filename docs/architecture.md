@@ -175,7 +175,9 @@ Supporting modules worth knowing:
 | `preview.py` | Qt-free in-process compile for preview/export (serializes with a lock) |
 | `preview_panel.py` | PDF viewer dock, zoom, Ctrl+Click source links |
 | `lsp_client.py` | Async LSP client over `QProcess` (state machine + watchdogs) |
-| `symbol_registry.py` | The symbol palette catalogue (with a `_cross_check` against compiler specs) |
+| `symbol_registry.py` | The symbol palette catalogue (with a `_cross_check` against compiler specs); the `draw-gallery` symbol opens the geometry gallery |
+| `draw_catalog.py` | Qt-free gallery data: one entry per geometry command (group, title, syntax from `GEOMETRY_DOCS`, example), enclosing `*draw` block detection and insertion math |
+| `draw_gallery.py` | The non-modal `*draw` gallery dialog: cards, search + group filter, thumbnails rendered from `assets/draw_previews/<id>.svg` (`QSvgRenderer`, placeholder when missing). **Lazily imported** on first click — keep it out of editor startup |
 | `theme.py`, `editor_widget.py`, `syntax_highlighter.py` | Colors, text area, highlighting |
 | `problems_panel.py`, `outline_panel.py`, `command_palette.py`, `find_bar.py` | The panels and pickers |
 | `positions.py`, `protocol.py`, `pdf_links.py` | Qt-free helpers: UTF-16 ↔ code-point, LSP framing, PDF link parsing — all unit-testable without a GUI |
@@ -227,6 +229,7 @@ Run everything with `uv run pytest tests/ -v`.
 | Add a symbol (`*foo` → glyph, or `->` → →) | `compiler/symbols.py` (`SYMBOL_REPLACEMENTS` / `WORD_REPLACEMENTS`) — completion picks it up from `symbol_registry.py` / `lsp/builtins.py` |
 | Change how lines are processed | `compiler/pipeline.py` (`_render_text_line` phases — keep the order, it is documented in the docstring) |
 | Add a geometry command | `geometry/commands.py` (+ `KNOWN_GEOMETRY_COMMANDS`), codegen in `geometry/codegen.py` |
+| Add/change a `*draw` gallery card (example, group, wording) | `editor/draw_catalog.py` (`_EXAMPLES` + specs) and `lsp/builtins.py` (`GEOMETRY_DOCS`), then re-render the thumbnails: `uv run python scripts/build_draw_previews.py` — the manifest hash mismatch fails `tests/test_draw_catalog.py` until you do |
 | Fix an error message / add a hint | `compiler/diagnostics.py` (and the matching row in `docs/troubleshooting.md`) |
 | Improve completion/hover | `lsp/builtins.py` text; behavior in `lsp/analysis.py` |
 | Add an editor feature | `editor/main_window.py` (wire it in `_create_menus`), keep new logic in its own Qt-light module |

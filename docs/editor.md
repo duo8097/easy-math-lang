@@ -54,6 +54,35 @@ use `Build → Restart Language Server`.
 
 ---
 
+## The `*draw` geometry gallery
+
+- The **`*draw`** button on the Symbol Bar (or `View → Geometry
+  Gallery…`, **Ctrl+Shift+G`, or the command palette entry
+  `Draw: Geometry Gallery…`) opens a **non-modal** window that lists
+  every geometry command — a thumbnail of what it draws, its syntax,
+  and a one-line description. The editor stays usable behind it, and a
+  second click just re-raises the same window.
+- **Search** (by command, title or description) and the **group**
+  dropdown (Shapes / Angles / Constraints / Measure & Label) narrow
+  the list.
+- Each card offers two actions:
+  - **Insert example** — a complete, validated `*draw(...)` block.
+    Inside an existing block the command is appended before the
+    closing `)` (single-line blocks are expanded first); anywhere else
+    it becomes its own block. The whole insertion is **one undo
+    step**.
+  - **Insert command…** — opens the usual parameter dialog for that
+    command (greyed out for commands without one yet, e.g.
+    `*equal-angle`).
+- **Insert empty block** puts the old bare `*draw(...)` skeleton at
+  the cursor, so the previous `*draw` button behavior is still one
+  click away.
+- Thumbnails are pre-rendered SVGs shipped with the editor (no
+  network, no compile while browsing); a missing file simply shows a
+  neutral placeholder tile.
+
+---
+
 ## Live preview
 
 - `View → Live Preview` (**Ctrl+Shift+V**) opens a PDF preview dock on the
@@ -168,6 +197,7 @@ on first launch.
 | Find in File | Edit | Ctrl+F, F3 / Shift+F3, Esc |
 | Go to Line | Edit | Ctrl+G |
 | Command Palette | View | Ctrl+Shift+P |
+| Geometry Gallery (`*draw`) | View | Ctrl+Shift+G |
 | Toggle Outline / Problems / Preview, Zoom, Dark Mode | View | Ctrl+=, Ctrl+-, Ctrl+0, Ctrl+Shift+V, Ctrl+Shift+D |
 | Compile to PDF | Build | Ctrl+B |
 | Refresh Preview | Build | F5 |
