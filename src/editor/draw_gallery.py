@@ -5,8 +5,12 @@ command as a card — thumbnail, syntax, description — with a search box
 and group filter. Like ``SymbolBar`` it emits signals and lets the
 host window (MainWindow) own insertion:
 
+- ``templateRequested(str entry_id)`` — the card's ``Insert
+  example…`` button: the host opens the template window
+  (``draw_template.DrawTemplateDialog``) where the example can be
+  previewed/edited before it is inserted.
 - ``exampleRequested(str)`` — a full ``*draw(...)`` example block to
-  insert (also used for the "empty block" action).
+  insert (the "empty block" action).
 - ``commandRequested(str symbol_name)`` — a ``geo-*`` palette id; the
   host runs the existing ``SymbolDialog`` parameter dialog.
 
@@ -74,9 +78,10 @@ def preview_path(entry_id: str) -> str:
 # Thumbnail rendering
 # ----------------------------------------------------------------------
 
-def _placeholder_pixmap() -> QtGui.QPixmap:
+def _placeholder_pixmap(width: int = THUMB_W,
+                        height: int = THUMB_H) -> QtGui.QPixmap:
     """Neutral tile used when an SVG is missing or unreadable."""
-    pix = QtGui.QPixmap(THUMB_W, THUMB_H)
+    pix = QtGui.QPixmap(width, height)
     pix.fill(QtGui.QColor(PLACEHOLDER_BG))
     painter = QtGui.QPainter(pix)
     try:
@@ -85,19 +90,23 @@ def _placeholder_pixmap() -> QtGui.QPixmap:
         pen.setStyle(QtCore.Qt.DashLine)
         pen.setWidth(1)
         painter.setPen(pen)
-        painter.drawRect(4, 4, THUMB_W - 9, THUMB_H - 9)
-        painter.drawLine(6, 6, THUMB_W - 7, THUMB_H - 7)
-        painter.drawLine(THUMB_W - 7, 6, 6, THUMB_H - 7)
+        painter.drawRect(4, 4, width - 9, height - 9)
+        painter.drawLine(6, 6, width - 7, height - 7)
+        painter.drawLine(width - 7, 6, 6, height - 7)
     finally:
         painter.end()
     return pix
 
 
-def render_thumbnail(entry_id: str) -> tuple[QtGui.QPixmap, bool]:
+def render_thumbnail(entry_id: str, width: int = THUMB_W,
+                     height: int = THUMB_H) -> tuple[QtGui.QPixmap, bool]:
     """Render ``<entry_id>.svg`` on a fixed light tile.
 
     Returns ``(pixmap, has_preview)``; ``has_preview`` is False when
     the file is missing/invalid (a placeholder tile is returned then).
+    *width*/*height* size the tile — the gallery cards use the fixed
+    168×112 thumbnail, the template window a larger preview of the
+    same file.
     """
     path = preview_path(entry_id)
     try:
@@ -105,8 +114,8 @@ def render_thumbnail(entry_id: str) -> tuple[QtGui.QPixmap, bool]:
     except Exception:  # unreadable/corrupt file — fall back
         renderer = None
     if renderer is None or not renderer.isValid():
-        return _placeholder_pixmap(), False
-    pix = QtGui.QPixmap(THUMB_W, THUMB_H)
+        return _placeholder_pixmap(width, height), False
+    pix = QtGui.QPixmap(width, height)
     pix.fill(QtGui.QColor(TILE_BG))
     painter = QtGui.QPainter(pix)
     try:
@@ -114,12 +123,12 @@ def render_thumbnail(entry_id: str) -> tuple[QtGui.QPixmap, bool]:
         # tile is fixed — scale to fit without distortion.
         view = renderer.viewBoxF()
         if view.isValid() and view.width() > 0 and view.height() > 0:
-            scale = min(THUMB_W / view.width(), THUMB_H / view.height())
+            scale = min(width / view.width(), height / view.height())
             w, h = view.width() * scale, view.height() * scale
-            target = QtCore.QRectF((THUMB_W - w) / 2.0,
-                                    (THUMB_H - h) / 2.0, w, h)
+            target = QtCore.QRectF((width - w) / 2.0,
+                                    (height - h) / 2.0, w, h)
         else:
-            target = QtCore.QRectF(0, 0, THUMB_W, THUMB_H)
+            target = QtCore.QRectF(0, 0, width, height)
         renderer.render(painter, target)
     finally:
         painter.end()
@@ -185,10 +194,11 @@ class DrawCard(QtWidgets.QFrame):
 
         buttons = QtWidgets.QHBoxLayout()
         buttons.setSpacing(6)
-        self.example_btn = QtWidgets.QPushButton('Insert example', self)
+        self.example_btn = QtWidgets.QPushButton('Insert example…', self)
         self.example_btn.setObjectName('insert-example')
         self.example_btn.setAccessibleName(f'Insert {entry.title} example')
-        self.example_btn.setToolTip(f'Insert the example *draw block for *{entry.command}')
+        self.example_btn.setToolTip(
+            f'Preview and edit the example *draw block for *{entry.command}')
         buttons.addWidget(self.example_btn)
 
         self.command_btn = QtWidgets.QPushButton('Insert command…', self)
@@ -202,7 +212,7 @@ class DrawCard(QtWidgets.QFrame):
             self.command_btn.setEnabled(False)
             self.command_btn.setToolTip(
                 f'No parameter dialog for *{entry.command} yet — '
-                'use Insert example')
+                'use Insert example…')
         buttons.addWidget(self.command_btn)
         layout.addLayout(buttons)
         layout.addStretch(1)
@@ -221,6 +231,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
 
     exampleRequested = QtCore.Signal(str)
     commandRequested = QtCore.Signal(str)
+    templateRequested = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -330,8 +341,8 @@ class DrawGalleryDialog(QtWidgets.QDialog):
                 continue
             card = DrawCard(entry, self._container)
             card.example_btn.clicked.connect(
-                lambda _checked=False, e=entry: self.exampleRequested.emit(
-                    e.example))
+                lambda _checked=False, e=entry: self.templateRequested.emit(
+                    e.id))
             if entry.symbol:
                 card.command_btn.clicked.connect(
                     lambda _checked=False, s=entry.symbol:

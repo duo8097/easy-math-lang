@@ -9,6 +9,9 @@ plus the pure functions the gallery needs:
 - :func:`build_insert_text` — where an example block / command line
   goes: inside an existing block it lands just before the closing
   ``)``; outside it becomes its own ``*draw(...)`` block.
+- :func:`commands_in` / :func:`symbol_for_command` — which commands
+  the template window's palette pins to the top (the ones the code
+  uses), and which commands have a ``geo-*`` parameter dialog.
 
 Sources of truth — never duplicated here:
 
@@ -357,6 +360,50 @@ def get_entry(key: str) -> CatalogEntry:
         if entry.id == key or entry.command == key:
             return entry
     raise KeyError(f'unknown draw catalog entry {key!r}')
+
+
+def symbol_for_command(command: str) -> str | None:
+    """Palette id of the ``geo-*`` parameter dialog for *command*.
+
+    ``None`` when the command has no dialog (e.g. ``equal-angle``) or
+    is not a geometry command at all — the template window's palette
+    uses this to grey out rows it cannot open.
+    """
+    return _symbol_map().get(command)
+
+
+#: A call-like ``name(`` occurrence (``*point(``, nested ``line(``).
+_COMMAND_CALL_RE = re.compile(r'([A-Za-z][A-Za-z0-9-]*)\s*\(')
+
+
+def commands_in(text: str) -> list[str]:
+    """Geometry commands called in *text*, first-appearance order.
+
+    Identifies the commands the template window's palette pins to the
+    top — the palette lists every catalog command, these are the ones
+    actually used in the (editable) snippet: wrapped
+    (``*point(...)``) or nested (the unstarred ``line(...)`` inside
+    ``intersection``), each exactly once where it is first used.
+    Non-geometry calls (``draw(``, ``calc(``, user functions …) are
+    not catalog commands and drop out, and so do commands mentioned
+    only in ``//`` comments or fenced code blocks — the same line
+    rules ``find_enclosing_draw_block`` applies.
+    """
+    text = text if isinstance(text, str) else str(text or '')
+    known = {entry.command for entry in CATALOG}
+    seen: list[str] = []
+    in_fence = False
+    for raw in text.split('\n'):
+        if raw.strip().startswith('```'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for match in _COMMAND_CALL_RE.finditer(_strip_line_comment(raw)):
+            name = match.group(1)
+            if name in known and name not in seen:
+                seen.append(name)
+    return seen
 
 
 # ----------------------------------------------------------------------

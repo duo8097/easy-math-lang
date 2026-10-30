@@ -52,13 +52,15 @@ GUI_EXCLUDES = ["PySide6", "PyQt6", "PyQt5", "PySide2", "tkinter"]
 
 # The editor drives its own modules through Qt, so they must be hidden
 # imports; PySide6.QtPdf/QtPdfWidgets back the PDF preview and
-# PySide6.QtSvg the *draw gallery thumbnails (both imported lazily).
+# PySide6.QtSvg the *draw gallery/template thumbnails (both imported
+# lazily).
 EDITOR_HIDDEN = [
     "editor.app",
     "editor.editor_widget",
     "editor.lsp_client",
     "editor.main_window",
     "editor.draw_gallery",
+    "editor.draw_template",
 ]
 
 # Gallery thumbnails: data files -> <bundle>/editor/assets/draw_previews

@@ -393,6 +393,54 @@ def test_insert_result_is_a_valid_block_for_the_compiler():
 
 
 # ----------------------------------------------------------------------
+# Template-window palette helpers (commands_in / symbol_for_command)
+# ----------------------------------------------------------------------
+
+def test_commands_in_reports_catalog_calls_in_order():
+    from editor.draw_catalog import commands_in
+    # First-appearance order, deduped: the *perp example.
+    assert commands_in(get_entry('perp').example) == [
+        'point', 'distance', 'perp', 'triangle', 'right-angle']
+    # Nested (unstarred) calls count; *draw itself is not a catalog
+    # command; unknown calls (variables, calc, user fns) drop out.
+    nested = ('*draw(\n'
+              '    *intersection(P ; line(A ; D) ; line(B ; C))\n'
+              '    *foo(A)\n'
+              ')')
+    assert commands_in(nested) == ['intersection', 'line']
+    assert commands_in('*draw(\n)') == []
+    assert commands_in('') == []
+    assert commands_in(None) == []
+
+
+def test_commands_in_ignores_comments_and_fenced_blocks():
+    from editor.draw_catalog import commands_in
+    # Commands only MENTIONED in a // comment are not used code —
+    # pinning them would bold rows the snippet never calls.  Same
+    # line rules as find_enclosing_draw_block (comment stripping).
+    commented = ('*draw(\n'
+                 '    *point(A = 0, 0) // sketch the circle(\n'
+                 '    // *line(A ; B)\n'
+                 ')')
+    assert commands_in(commented) == ['point']
+    assert commands_in('// see https://example.com/x( and *line(\n'
+                       '*draw(\n)') == []
+    # Fenced code blocks are documentation, not the snippet itself.
+    fenced = '```\n*circle(O ; A)\n```\n*draw(\n    *line(A ; B)\n)'
+    assert commands_in(fenced) == ['line']
+
+
+def test_symbol_for_command_maps_to_geo_dialog_or_none():
+    from editor.draw_catalog import symbol_for_command
+    assert symbol_for_command('perp') == 'geo-perp'
+    assert symbol_for_command('point') == 'geo-point'
+    # equal-angle is [planned]: no geo-* symbol in the registry.
+    assert symbol_for_command('equal-angle') is None
+    assert symbol_for_command('draw') is None
+    assert symbol_for_command('nope') is None
+
+
+# ----------------------------------------------------------------------
 # Preview manifest (stale detection) — skipped until generated
 # ----------------------------------------------------------------------
 

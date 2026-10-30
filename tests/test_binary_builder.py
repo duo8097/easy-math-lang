@@ -138,6 +138,7 @@ def test_editor_build_ships_gallery_previews_and_qtsvg(monkeypatch):
     cmd = commands[0]
     assert 'PySide6.QtSvg' in cmd
     assert 'editor.draw_gallery' in cmd
+    assert 'editor.draw_template' in cmd
     add_data = [cmd[i + 1] for i, flag in enumerate(cmd)
                 if flag == '--add-data']
     assert add_data, 'editor build passes no --add-data'

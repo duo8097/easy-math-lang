@@ -176,8 +176,9 @@ Supporting modules worth knowing:
 | `preview_panel.py` | PDF viewer dock, zoom, Ctrl+Click source links |
 | `lsp_client.py` | Async LSP client over `QProcess` (state machine + watchdogs) |
 | `symbol_registry.py` | The symbol palette catalogue (with a `_cross_check` against compiler specs); the `draw-gallery` symbol opens the geometry gallery |
-| `draw_catalog.py` | Qt-free gallery data: one entry per geometry command (group, title, syntax from `GEOMETRY_DOCS`, example), enclosing `*draw` block detection and insertion math |
+| `draw_catalog.py` | Qt-free gallery data: one entry per geometry command (group, title, syntax from `GEOMETRY_DOCS`, example), enclosing `*draw` block detection, insertion math, and the template palette helpers (`commands_in`, `symbol_for_command`) |
 | `draw_gallery.py` | The non-modal `*draw` gallery dialog: cards, search + group filter, thumbnails rendered from `assets/draw_previews/<id>.svg` (`QSvgRenderer`, placeholder when missing). **Lazily imported** on first click — keep it out of editor startup |
+| `draw_template.py` | The non-modal template window a gallery card's `Insert example…` opens: static SVG preview over the editable bare code to insert, plus a fuzzy palette of all geometry commands (in-code ones pinned bold first; parameter-dialog picks land in the code area). **Lazily imported** with the gallery |
 | `theme.py`, `editor_widget.py`, `syntax_highlighter.py` | Colors, text area, highlighting |
 | `problems_panel.py`, `outline_panel.py`, `command_palette.py`, `find_bar.py` | The panels and pickers |
 | `positions.py`, `protocol.py`, `pdf_links.py` | Qt-free helpers: UTF-16 ↔ code-point, LSP framing, PDF link parsing — all unit-testable without a GUI |

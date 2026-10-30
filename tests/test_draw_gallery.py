@@ -25,6 +25,24 @@ from editor.main_window import MainWindow  # noqa: E402
 IDS = [entry.id for entry in CATALOG]
 
 
+def insert_example(window, gallery, entry_id):
+    """Card button → template window → Insert commits it.
+
+    ``Insert example…`` no longer writes to the document directly;
+    it opens the template window (see tests/test_draw_template.py)
+    whose Insert button does.  The document must not change between
+    the two clicks, and Insert must close the window behind it.
+    """
+    document = window.editor.toPlainText()
+    gallery.card_for(entry_id).example_btn.click()
+    template = window._draw_template
+    assert template is not None and template.isVisible()
+    assert window.editor.toPlainText() == document   # not yet inserted
+    template.insert_btn.click()
+    assert not template.isVisible()                  # closes after Insert
+    return template
+
+
 @pytest.fixture()
 def window(qapp):
     win = MainWindow(start_lsp=False, no_save_prompt=True)
@@ -32,6 +50,7 @@ def window(qapp):
     yield win
     win.close()
     win._draw_gallery = None
+    win._draw_template = None
 
 
 @pytest.fixture()
@@ -199,12 +218,13 @@ def test_gallery_import_is_lazy(window):
         "import sys; sys.path.insert(0, 'src');"
         "import editor.main_window;"
         "print('editor.draw_gallery' in sys.modules,"
+        " 'editor.draw_template' in sys.modules,"
         " 'PySide6.QtSvg' in sys.modules)")
     proc = subprocess.run([sys.executable, '-c', code],
                           capture_output=True, text=True,
                           cwd=os.path.join(os.path.dirname(__file__), '..'))
     assert proc.returncode == 0, proc.stderr[-1000:]
-    assert proc.stdout.strip() == 'False False'
+    assert proc.stdout.strip() == 'False False False'
 
 
 def test_menu_and_palette_expose_gallery(window):
@@ -244,7 +264,7 @@ def test_example_outside_block_wraps_and_single_undo(gallery):
     window.editor.textCursor().setPosition(0)
     window.editor.setTextCursor(window.editor.textCursor())
     before = window.editor.toPlainText()
-    dlg.card_for('line').example_btn.click()
+    insert_example(window, dlg, 'line')
     text = window.editor.toPlainText()
     assert text.startswith('*draw(')
     assert text.endswith('Hello\n')
@@ -261,7 +281,7 @@ def test_example_inside_block_appends_before_closer(gallery):
     cursor = window.editor.textCursor()
     cursor.setPosition(len('*draw(\n    *point(A = 0, 0)\n'))
     window.editor.setTextCursor(cursor)
-    dlg.card_for('circle').example_btn.click()
+    insert_example(window, dlg, 'circle')
     text = window.editor.toPlainText()
     lines = text.split('\n')
     assert lines[0] == '*draw('
@@ -281,7 +301,7 @@ def test_single_line_block_is_expanded(gallery):
     cursor = window.editor.textCursor()
     cursor.setPosition(6)
     window.editor.setTextCursor(cursor)
-    dlg.card_for('perp').example_btn.click()
+    insert_example(window, dlg, 'perp')
     text = window.editor.toPlainText()
     assert text.startswith('*draw(\n')
     assert text.rstrip().endswith(')')
@@ -300,7 +320,7 @@ def test_selection_replaced_by_insert_in_one_step(gallery):
     cursor.setPosition(0)
     cursor.setPosition(3, QtGui.QTextCursor.KeepAnchor)
     window.editor.setTextCursor(cursor)
-    dlg.card_for('point').example_btn.click()
+    insert_example(window, dlg, 'point')
     text = window.editor.toPlainText()
     assert text.startswith('*draw(')
     assert 'old' not in text and ' text\n' in text
@@ -349,3 +369,19 @@ def test_dialog_command_outside_block_becomes_own_block(window):
     assert text.count('*draw(') == 1
     assert '    *line(A ; B)' in text
     assert text.split('\n')[-2] == ')'
+
+
+def test_inserter_rejects_invalid_source_with_status_not_edit(window):
+    """Defensive branch: an unacceptable source leaves the document
+    untouched and explains why in the status bar (no exception, no
+    half-edit, no single-undo corruption)."""
+    window.editor.setPlainText('Hello\n')
+    cursor = window.editor.textCursor()
+    cursor.setPosition(0)
+    window.editor.setTextCursor(cursor)
+    window._insert_draw_gallery_source('*draw(')     # unterminated
+    assert window.editor.toPlainText() == 'Hello\n'  # not edited
+    assert 'unterminated' in window.statusBar().currentMessage()
+    window._insert_draw_gallery_source('   ')        # whitespace-only
+    assert window.editor.toPlainText() == 'Hello\n'
+    assert 'nothing to insert' in window.statusBar().currentMessage()

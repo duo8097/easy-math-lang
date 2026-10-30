@@ -136,10 +136,12 @@ class MainWindow(QtWidgets.QMainWindow):
         central_layout.addWidget(self._symbol_bar)
         central_layout.addWidget(self.editor, 1)
         self.setCentralWidget(central)
-        # Lazily created *draw gallery: non-modal, one instance per
-        # window (re-raised on the second click). The module itself is
-        # imported on first open to keep startup imports light.
+        # Lazily created *draw gallery + template window: non-modal, one
+        # instance per window (re-raised on the second click). The
+        # modules themselves are imported on first open to keep startup
+        # imports light.
         self._draw_gallery = None
+        self._draw_template = None
 
         self.outline = OutlinePanel(self)
         self._outline_dock = QtWidgets.QDockWidget('Outline', self)
@@ -793,7 +795,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editor.setFocus()
 
     # ------------------------------------------------------------------
-    # *draw gallery (non-modal, lazily imported)
+    # *draw gallery + template window (non-modal, lazily imported)
     # ------------------------------------------------------------------
     def _open_draw_gallery(self):
         """Show — or re-raise — this window's geometry gallery."""
@@ -803,9 +805,23 @@ class MainWindow(QtWidgets.QMainWindow):
             dlg = DrawGalleryDialog(self)
             dlg.exampleRequested.connect(self._insert_draw_gallery_source)
             dlg.commandRequested.connect(self._on_gallery_command)
+            dlg.templateRequested.connect(self._open_draw_template)
             self._draw_gallery = dlg
         self._draw_gallery.show()
         self._draw_gallery.raise_and_activate()
+
+    def _open_draw_template(self, key):
+        """Show — or re-load — the preview/edit window for one template."""
+        from .draw_template import DrawTemplateDialog
+
+        if self._draw_template is None:
+            dlg = DrawTemplateDialog(self)
+            dlg.insertRequested.connect(self._insert_draw_gallery_source)
+            dlg.commandRequested.connect(self._on_template_command)
+            self._draw_template = dlg
+        self._draw_template.open_template(key)
+        self._draw_template.show()
+        self._draw_template.raise_and_activate()
 
     def _on_gallery_command(self, name):
         """A gallery card asked for a command's parameter dialog."""
@@ -816,6 +832,37 @@ class MainWindow(QtWidgets.QMainWindow):
         if symbol.requires_dialog:
             self._prompt_symbol_dialog(symbol,
                                        insert=self._insert_draw_gallery_source)
+
+    def _on_template_command(self, name):
+        """The template window's palette asked for a command dialog.
+
+        The built command lands in the template's *code area* (see
+        ``DrawTemplateDialog.insert_code``) — the document only sees
+        it after Insert.
+        """
+        try:
+            symbol = get_symbol(name)
+        except KeyError:
+            return
+        if symbol.requires_dialog:
+            self._prompt_symbol_dialog(symbol,
+                                       insert=self._insert_into_template_code)
+            # The modal dialog is done; keep focus in the template
+            # window instead of the document behind it.
+            if (self._draw_template is not None
+                    and self._draw_template.isVisible()):
+                self._draw_template.code.setFocus()
+
+    def _insert_into_template_code(self, text):
+        """Route a palette-built command into the template's code area.
+
+        The counterpart of ``_insert_draw_gallery_source``: nothing
+        reaches the document here — the template window shows exactly
+        what Insert will later commit (see
+        ``DrawTemplateDialog.insert_code``).
+        """
+        if self._draw_template is not None:
+            self._draw_template.insert_code(text)
 
     def _insert_draw_gallery_source(self, source):
         """Insert a gallery example/command as ONE undo step.

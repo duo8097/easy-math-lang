@@ -66,11 +66,26 @@ use `Build → Restart Language Server`.
   dropdown (Shapes / Angles / Constraints / Measure & Label) narrow
   the list.
 - Each card offers two actions:
-  - **Insert example** — a complete, validated `*draw(...)` block.
-    Inside an existing block the command is appended before the
-    closing `)` (single-line blocks are expanded first); anywhere else
-    it becomes its own block. The whole insertion is **one undo
-    step**.
+  - **Insert example…** — opens the **template window** for that
+    command: a large preview of the figure on the left with the
+    complete, validated `*draw(...)` block **underneath — editable**,
+    so what you insert is exactly what you see. On the right a
+    **command palette** lists **all** geometry commands — the ones
+    already used in the code are pinned to the top in **bold** and
+    stay there while the list fuzzy-filters as you type; commands
+    without a parameter dialog are greyed out. Picking one (double-
+    click or **Enter**) opens its usual parameter dialog and the
+    built command lands in the *code area* (before the closing `)`),
+    never in the document — Enter runs *only* the pick, never the
+    insert. **Insert** commits the code at the cursor — inside an
+    existing block it is appended before the closing `)` (single-line
+    blocks are expanded first), anywhere else it becomes its own
+    block, always **one undo step** — and closes the window; it
+    stays greyed out while the code could not be inserted (e.g. an
+    unterminated `*draw(` block), so edits are never silently lost.
+    **Cancel** (or Esc) closes without touching the document, and
+    re-clicking the same card keeps your in-progress edits (another
+    card reloads its example).
   - **Insert command…** — opens the usual parameter dialog for that
     command (greyed out for commands without one yet, e.g.
     `*equal-angle`).
