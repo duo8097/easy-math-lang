@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-10-30
+
 ### Added
 
 - **`*draw` geometry gallery** — the Symbol Bar's `*draw` button now
@@ -126,7 +128,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...HEAD
+[5.1.0]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...v5.0.0
 [4.5.0]: https://github.com/duo8097/easy-math-lang/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/duo8097/easy-math-lang/compare/v4.3.1...v4.4.0

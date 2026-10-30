@@ -14,7 +14,7 @@ body:
     attributes:
       label: Version
       description: Output of `easy-math-lang --version` (or `uv run easy-math-lang --version`).
-      placeholder: "5.0.0"
+      placeholder: "5.1.0"
     validations:
       required: true
   - type: dropdown
