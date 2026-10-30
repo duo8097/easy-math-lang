@@ -1,0 +1,85 @@
+{
+  "examples": {
+    "angle": {
+      "sha256": "4cea0e18e06a52fe8870e2d73428699eb5f4832159c7e5c37720b495171d916d",
+      "svg_sha256": "e688bb541fd52fa331f6a58e08259c2e322634bb17a99face5a956cc1a231ea8"
+    },
+    "angle-value": {
+      "sha256": "8d30221ec701dbc4c029deaca916034dc6d38883c094f7b41b423f1f58dabb00",
+      "svg_sha256": "6fe705bbd40043dc5d1393dfebae6dedc1c02d1e9670203d80e377e3cc3b1b34"
+    },
+    "arc": {
+      "sha256": "3857a4b1c07944d0372cefa86ea0105831f4556f09f9943de79e22b48fd7ebce",
+      "svg_sha256": "e1c6f91a01e05a37b03334088e0d6c06ad831ec29a01c2922822a2db191e2569"
+    },
+    "circle": {
+      "sha256": "d3f23f96e874ef105fb911ccc6ac1fa360c14ce80c9e305c259cab9c077bd281",
+      "svg_sha256": "274cf3416e27850e4865881d4367944b7562ee10d7a49e7b7c98ec37ca476ab9"
+    },
+    "distance": {
+      "sha256": "8c1f89b0daa9b39adf4fe2859367ab1d392d5a1a47b7574e4fdbfbf2a6c1a7a9",
+      "svg_sha256": "ef2264aa27b8b39606b874d2aa3aa25b94d242421371b0be1be2056bb193e395"
+    },
+    "equal-angle": {
+      "sha256": "cc59fdbb605da9015166eb264ca03401e3bdefe63d132a615f8d43bb82657a77",
+      "svg_sha256": "1e2d91bcbbf9d8ff0519a9346c9e7a6c1639f8a248a50b0f7c5fa9517522c610"
+    },
+    "equal-length": {
+      "sha256": "28ad0440a59b4876a1d566789be7cbb9820e5f801b1f171b46a5fd64db719b5a",
+      "svg_sha256": "9ef5389d2cbcdc5a45070894a90fd4b7a87cc682ecfbfbac498e2bac7b1cc4f7"
+    },
+    "intersection": {
+      "sha256": "109d1534b0530cfce8c6d7ccc651a151362e89e89023e56300e0123746e456c8",
+      "svg_sha256": "4270706f19cc75053b6e924074460dae001b69aca2665b1e22d0aaf33ed68f2b"
+    },
+    "label": {
+      "sha256": "5b697aa5ecfb6f0a2d18abeae5204a78eca18ab23069772eae372a26524d62a2",
+      "svg_sha256": "044d2b2403aa21ab6aa4c9e3efd0c37ec66ba4178cec14a1dd37bd5916ac1937"
+    },
+    "length": {
+      "sha256": "34438792bbc8cc057280086e4ac4f8a49378bf2df66852b68d42a9219a9ab7b7",
+      "svg_sha256": "b978fb0159460d24d3396a200cb805e657eed0ebc83258f1f2888fcc68e1102d"
+    },
+    "line": {
+      "sha256": "75188edb82ce49ce4940d84271a9f6dfa7b8aa3375b503c05a3cbfda195d1301",
+      "svg_sha256": "011a77649b64a7390be68e109a51a7a5306b9ad45be192292daacc1c8619edd3"
+    },
+    "midpoint": {
+      "sha256": "fd21368a9bf15b44ccec8e63c1c7d18778eaf9947cfb0f88e6cbd787464fb2d3",
+      "svg_sha256": "009c8dd91057c5dcf6f5d13c8cbf65e13a575acf733098c367da8aca1204da28"
+    },
+    "on-circle": {
+      "sha256": "337f8cf8103b7da809bd7936700285114c2ead9902bdf6389a2482f671ae404f",
+      "svg_sha256": "3a71418d7263ed0222083a483cdf1201f5d471eaee6c905880bc47ab1a1064db"
+    },
+    "on-line": {
+      "sha256": "b828b06a80e8caf4b47b826b304bd28ac8bcfd46a7ed96ff7cf89f9124329cf0",
+      "svg_sha256": "5213a8ab1bef4581896eb247f9a149b268cde7281555ee56f20de641848f6dfd"
+    },
+    "parallel": {
+      "sha256": "9a4fac4d2b26a7e895b0e769ca6b8ba49bc3cb15b69dff7aea81d5e8e379dfb3",
+      "svg_sha256": "c3c405748ad42b8688d1343d56a5b41808bf1ca09c15491d5471b49ce9160146"
+    },
+    "perp": {
+      "sha256": "00819e09dfc63beb2ad000c8f594035098356989c7b066957c1d48f9bf648f75",
+      "svg_sha256": "b9290a7338e776ac419151eb345d4fc5025b4a6d5522dbc7a917f28bcba6f1e4"
+    },
+    "point": {
+      "sha256": "b5240f10596368290bb727d99cefd0abfca976d04c2328c9fc7c92f385d548df",
+      "svg_sha256": "5f09b7a33cd4bf94fcd4b046c0282f650518df211c7f35d6f3609e0bf68d6875"
+    },
+    "ray": {
+      "sha256": "ebcce154ac959b8d86e2a326ac9bb685272087ca301959d3326b727a3eda9aa2",
+      "svg_sha256": "13351bf7f27b44b849795c0b9287ed95189b17e0d3772849c44043921ba78d65"
+    },
+    "right-angle": {
+      "sha256": "cc8ff6b2e925c33da0bd6a52f9d2d2636e6d03697e166b1a5bc5158129438be2",
+      "svg_sha256": "e6a6d1612877f86a51c51b6695e1a571908a874807eaf11492d105d2bf4de9d5"
+    },
+    "triangle": {
+      "sha256": "4fb5f21fcad5cb5854f96d28646c1d0e630c4d603f5370b714a83be70b4b8d09",
+      "svg_sha256": "7871a41fcfa88d231911053fe66cfded9dffbd76c85e1c3f1e94057859451322"
+    }
+  },
+  "version": 1
+}

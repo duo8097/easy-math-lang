@@ -456,9 +456,16 @@ def _build_symbols() -> list[Symbol]:
                  _req('value', 'Value', '3.14')]),
 
         # -- Geometry (all wrapped in *draw for validity) --
+        # The *draw button opens the geometry gallery (special-cased in
+        # MainWindow._on_symbol_activated before any insertion); its
+        # insert_text is only a fallback and never used directly.
+        _direct('draw-gallery', '*draw', '*draw(\n)',
+                'Geometry', '*draw(...)',
+                'Draw gallery — browse every geometry command with a '
+                'preview; insert an example or a single command.'),
         # Cursor lands just inside the closing paren so follow-up
         # commands stay inside the draw block (no snippet engine).
-        _direct('draw-skeleton', '*draw', '*draw(\n*point(A = 0, 0)\n*point(B = 3, 0)\n*line(A ; B)\n)',
+        _direct('draw-skeleton', '*draw {}', '*draw(\n*point(A = 0, 0)\n*point(B = 3, 0)\n*line(A ; B)\n)',
                 'Geometry', '*draw(...)',
                 'Draw skeleton — a minimal valid draw block.',
                 cursor_offset=len('*draw(\n*point(A = 0, 0)\n*point(B = 3, 0)\n*line(A ; B)\n)') - 1),

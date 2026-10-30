@@ -125,3 +125,24 @@ def test_windows_alias_replaces_old_symlink_without_overwriting_target(monkeypat
     assert not alias.is_symlink()
     assert alias.read_bytes() == source.read_bytes()
     assert unrelated.read_bytes() == b'preserve'
+
+
+def test_editor_build_ships_gallery_previews_and_qtsvg(monkeypatch):
+    """The frozen editor must bundle the *draw gallery assets + QtSvg."""
+    import os
+    commands = []
+    monkeypatch.setattr(builder, '_run',
+                        lambda cmd, cache: commands.append(cmd))
+    builder._build('easy-math-editor', builder.ENTRIES['easy-math-editor'],
+                   False)
+    cmd = commands[0]
+    assert 'PySide6.QtSvg' in cmd
+    assert 'editor.draw_gallery' in cmd
+    assert 'editor.draw_template' in cmd
+    add_data = [cmd[i + 1] for i, flag in enumerate(cmd)
+                if flag == '--add-data']
+    assert add_data, 'editor build passes no --add-data'
+    source = add_data[0].split(';' if os.name == 'nt' else ':', 1)[0]
+    assert source.endswith(os.path.join('assets', 'draw_previews'))
+    assert os.path.isdir(source), source
+    assert any(name.endswith('.svg') for name in os.listdir(source))

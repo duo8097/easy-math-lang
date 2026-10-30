@@ -51,13 +51,22 @@ COMMON_EXCLUDES = ["pytest", "numpy.tests", "numpy.f2py", "matplotlib.tests"]
 GUI_EXCLUDES = ["PySide6", "PyQt6", "PyQt5", "PySide2", "tkinter"]
 
 # The editor drives its own modules through Qt, so they must be hidden
-# imports; PySide6.QtPdf/QtPdfWidgets back the PDF preview.
+# imports; PySide6.QtPdf/QtPdfWidgets back the PDF preview and
+# PySide6.QtSvg the *draw gallery/template thumbnails (both imported
+# lazily).
 EDITOR_HIDDEN = [
     "editor.app",
     "editor.editor_widget",
     "editor.lsp_client",
     "editor.main_window",
+    "editor.draw_gallery",
+    "editor.draw_template",
 ]
+
+# Gallery thumbnails: data files -> <bundle>/editor/assets/draw_previews
+# (editor.paths.resource_path resolves them when frozen).
+DRAW_PREVIEW_DATA = Path("src") / "editor" / "assets" / "draw_previews"
+DRAW_PREVIEW_TARGET = "editor/assets/draw_previews"
 
 
 def _executable(name: str) -> str:
@@ -116,10 +125,15 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if full_pyside6:
             cmd += ["--collect-all", "PySide6"]
         else:
-            # Collect only the Qt PDF modules instead of
+            # Collect only the Qt PDF/SVG modules instead of
             # the whole PySide6 tree (see the module docstring).
             cmd += ["--hidden-import", "PySide6.QtPdf"]
             cmd += ["--hidden-import", "PySide6.QtPdfWidgets"]
+            cmd += ["--hidden-import", "PySide6.QtSvg"]
+        previews = ROOT / DRAW_PREVIEW_DATA
+        if previews.is_dir():
+            sep = ";" if os.name == "nt" else ":"
+            cmd += ["--add-data", f"{previews}{sep}{DRAW_PREVIEW_TARGET}"]
 
     _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 
