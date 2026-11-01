@@ -57,7 +57,6 @@ ln -s /usr/lib/easy-math-lang/easy-math-lang "$STAGE/usr/bin/easy-math-lang"
 ln -s easy-math-lang "$STAGE/usr/bin/ezmath"
 ln -s /usr/lib/easy-math-lang/easy-math-lsp "$STAGE/usr/bin/easy-math-lsp"
 ln -s /usr/lib/easy-math-lang/easy-math-editor "$STAGE/usr/bin/easy-math-editor"
-chmod +x "$STAGE/usr/bin"/*
 ls -l "$STAGE/usr/bin" "$STAGE/usr/lib/easy-math-lang"
 
 install -m644 installer/easy-math-editor.desktop \

@@ -174,10 +174,10 @@ def _assemble() -> None:
     """
     editor_bundle = STAGING / "easy-math-editor"
     editor_app = editor_bundle / "easy-math-editor.app"
-    cli_exe = STAGING / "easy-math-lang" / "easy-math-lang"
-    lsp_exe = STAGING / "easy-math-lsp" / "easy-math-lsp"
+    cli_exe = STAGING / "easy-math-lang" / _executable("easy-math-lang")
+    lsp_exe = STAGING / "easy-math-lsp" / _executable("easy-math-lsp")
     for path in (cli_exe, lsp_exe):
-        if not path.exists():
+        if not path.is_file():
             print(f"::error::missing build output: {path}", file=sys.stderr)
             raise SystemExit(1)
 
@@ -185,23 +185,29 @@ def _assemble() -> None:
     if shared.exists():
         shutil.rmtree(shared)
     shared.mkdir(parents=True)
-    shutil.copy2(cli_exe, shared / "easy-math-lang")
-    shutil.copy2(lsp_exe, shared / "easy-math-lsp")
+    shutil.copy2(cli_exe, shared / _executable("easy-math-lang"))
+    shutil.copy2(lsp_exe, shared / _executable("easy-math-lsp"))
 
+    editor_dest = shared / _executable("easy-math-editor")
     if editor_app.is_dir():
         # macOS: the editor ships as an .app bundle; its ``Contents/Frameworks``
         # directory is the shared library directory. Helper executables placed
         # in the bundle's ``Contents/MacOS`` (see scripts/package_macos.sh) share
-        # it with the editor.
-        editor_libs = editor_app / "Contents" / "Frameworks"
-        shutil.copytree(editor_libs, shared / "_internal", dirs_exist_ok=True)
+        # it with the editor. The .app itself is emitted at ``dist/`` root so the
+        # packaging/signing step can bundle the helpers into it.
+        shutil.copytree(editor_app / "Contents" / "Frameworks",
+                        shared / "_internal", dirs_exist_ok=True)
+        app_dest = DIST / "easy-math-editor.app"
+        if app_dest.exists():
+            shutil.rmtree(app_dest)
+        shutil.copytree(editor_app, app_dest)
     else:
-        editor_exe = editor_bundle / "easy-math-editor"
-        if not editor_exe.exists():
+        editor_exe = editor_bundle / _executable("easy-math-editor")
+        if not editor_exe.is_file():
             print(f"::error::missing build output: {editor_exe}",
                   file=sys.stderr)
             raise SystemExit(1)
-        shutil.copy2(editor_exe, shared / "easy-math-editor")
+        shutil.copy2(editor_exe, editor_dest)
         shutil.copytree(editor_bundle / "_internal", shared / "_internal",
                         dirs_exist_ok=True)
 
@@ -221,7 +227,7 @@ def _alias() -> None:
     alias = shared / _executable("ezmath")
     alias.unlink(missing_ok=True)
     if os.name == "nt":
-        shutil.copy2(shared / "easy-math-lang", alias)
+        shutil.copy2(shared / _executable("easy-math-lang"), alias)
         alias.chmod(0o755)
     else:
         alias.symlink_to("easy-math-lang")

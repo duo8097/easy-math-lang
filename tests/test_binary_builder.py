@@ -122,17 +122,17 @@ def test_posix_alias_survives_relocation_and_rebuild(monkeypatch, tmp_path):
 def test_windows_alias_replaces_old_symlink_without_overwriting_target(monkeypatch, tmp_path):
     shared = tmp_path / 'easy-math-lang'
     shared.mkdir()
-    source = shared / 'easy-math-lang'
+    monkeypatch.setattr(builder, 'DIST', tmp_path)
+    monkeypatch.setattr(builder, 'os', types.SimpleNamespace(name='nt'))
+    source = shared / builder._executable('easy-math-lang')
     source.write_bytes(b'compiler')
     unrelated = tmp_path / 'unrelated'
     unrelated.write_bytes(b'preserve')
-    alias = shared / 'ezmath.exe'
+    alias = shared / builder._executable('ezmath')
     try:
         alias.symlink_to(unrelated.name)
     except OSError:
         pytest.skip('symlink privilege unavailable')
-    monkeypatch.setattr(builder, 'DIST', tmp_path)
-    monkeypatch.setattr(builder, 'os', types.SimpleNamespace(name='nt'))
     builder._alias()
     assert not alias.is_symlink()
     assert alias.read_bytes() == source.read_bytes()

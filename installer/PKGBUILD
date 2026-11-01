@@ -57,6 +57,10 @@ package() {
   install -Dm755 dist/easy-math-lang/easy-math-lsp "$pkgdir/usr/lib/easy-math-lang/easy-math-lsp"
   install -Dm755 dist/easy-math-lang/easy-math-editor "$pkgdir/usr/lib/easy-math-lang/easy-math-editor"
 
+  # /usr/bin holds symlinks into /usr/lib (the shared onedir bundle); the
+  # bundle itself is what carries the executable bits.
+  mkdir -p "$pkgdir/usr/bin" "$pkgdir/usr/lib/easy-math-lang"
+
   ln -s /usr/lib/easy-math-lang/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
   ln -s easy-math-lang "$pkgdir/usr/bin/ezmath"
   ln -s /usr/lib/easy-math-lang/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
