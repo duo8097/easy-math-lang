@@ -293,7 +293,10 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         query = self.search.text().strip().lower()
         related = commands_in(self.code_text())
         related_set = set(related)
-        entries = catalog_entries()
+        # Construction cards are *point right-hand sides, not commands
+        # of their own: the palette keeps one row per command (the
+        # *point row; constructions come from the gallery cards).
+        entries = [e for e in catalog_entries() if e.construction is None]
         by_command = {e.command: e for e in entries}
         ordered = [by_command[command] for command in related]
         ordered.extend(e for e in entries if e.command not in related_set)

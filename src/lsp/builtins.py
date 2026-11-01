@@ -108,6 +108,21 @@ GEOMETRY_DOCS = {
     'angle-value': ('*angle-value(A ; B ; C)', 'Show the measured angle at B.'),
 }
 
+# Constructors usable on the right side of *point(NAME = ...) — computed
+# analytically, not commands of their own (kept out of
+# KNOWN_GEOMETRY_COMMANDS/GEOMETRY_DOCS on purpose; see docs/geometry.md
+# "Construction points"). Hover/completion read this table.
+GEOMETRY_CONSTRUCTION_DOCS = {
+    'midpoint': ('midpoint(A ; B)', 'Midpoint of segment AB. In *point(M = ...).'),
+    'foot': ('foot(P ; line(A ; B))', 'Perpendicular foot of P on line AB.'),
+    'reflect': ('reflect(P ; line(A ; B)) / reflect(P ; O)', 'Reflect P in a line, or through a point O.'),
+    'intersect': ('intersect(line(A ; B) ; line(C ; D)) / intersect(... ; circle(...) ; k)', 'Intersection of two lines or circles (k = 1 or 2 picks the solution).'),
+    'centroid': ('centroid(A ; B ; C)', 'Center of mass of the triangle ABC.'),
+    'circumcenter': ('circumcenter(A ; B ; C)', 'Center of the circle through A, B, C.'),
+    'incenter': ('incenter(A ; B ; C)', 'Center of the incircle of triangle ABC.'),
+    'orthocenter': ('orthocenter(A ; B ; C)', 'Intersection of the triangle\'s altitudes.'),
+}
+
 # Sanity: every builtin we advertise must exist in the compiler tables, and
 # every compiler math command must be advertised (no silent divergence).
 _CROSS_CHECK = (

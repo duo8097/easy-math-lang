@@ -789,6 +789,10 @@ def complete(text, line, character):
     for name in sorted(builtins.GEOMETRY_DOCS):
         sig, _desc = builtins.GEOMETRY_DOCS[name]
         items.append({'label': name, 'kind': 'function', 'detail': f'geometry: {sig}'})
+    for name in sorted(builtins.GEOMETRY_CONSTRUCTION_DOCS):
+        sig, _desc = builtins.GEOMETRY_CONSTRUCTION_DOCS[name]
+        items.append({'label': name, 'kind': 'function',
+                      'detail': f'geometry construction (in *point): {sig}'})
     if not in_p and 'draw' not in builtins.GEOMETRY_DOCS:
         # *draw(...) is the geometry wrapper itself (not an inner solver
         # command, so it stays out of GEOMETRY_DOCS on purpose); suggest
@@ -841,6 +845,11 @@ def hover(text, line, character):
     if name in builtins.GEOMETRY_DOCS:
         sig, desc = builtins.GEOMETRY_DOCS[name]
         return {'value': f'**{name}**\n\nGeometry command\n\n{sig}\n\n{desc}',
+                'start': token.start(), 'end': token.end()}
+    if name in builtins.GEOMETRY_CONSTRUCTION_DOCS:
+        sig, desc = builtins.GEOMETRY_CONSTRUCTION_DOCS[name]
+        return {'value': f'**{name}**\n\nGeometry construction '
+                         f'(used inside *point)\n\n{sig}\n\n{desc}',
                 'start': token.start(), 'end': token.end()}
     for word, glyph in builtins.symbol_entries():
         if name == word:

@@ -1,8 +1,10 @@
 """Qt-free catalog + insertion math for the editor's *draw gallery.
 
 One entry per command in ``geometry.commands.KNOWN_GEOMETRY_COMMANDS``
-covering the gallery cards (group, title, syntax, description, example)
-plus the pure functions the gallery needs:
+plus one per point construction (``*point(M = midpoint(A ; B))`` —
+``geometry.constructions.CONSTRUCTION_NAMES``), covering the gallery
+cards (group, title, syntax, description, example) plus
+the pure functions the gallery needs:
 
 - :func:`find_enclosing_draw_block` — span of the ``*draw(...)`` block
   containing an offset (mirrors ``compiler.pipeline``'s detection).
@@ -17,8 +19,10 @@ Sources of truth — never duplicated here:
 
 - the command list: ``geometry.commands.KNOWN_GEOMETRY_COMMANDS``
 - syntax + one-line description: ``lsp.builtins.GEOMETRY_DOCS``
+  (``lsp.builtins.GEOMETRY_CONSTRUCTION_DOCS`` for constructions)
 - ``geo-*`` dialog mapping: ``editor.symbol_registry`` (None when a
-  command has no parameter dialog, e.g. ``equal-angle``).
+  command has no parameter dialog, e.g. ``equal-angle``, and for
+  constructions, which are ``*point`` right-hand sides, not commands).
 
 Examples are validated by the tests through
 ``geometry.parse_draw_block`` — the ONE geometry parser; this module
@@ -36,9 +40,10 @@ except Exception:  # pragma: no cover - defensive
     _GEO_KNOWN = frozenset()
 
 try:
-    from lsp.builtins import GEOMETRY_DOCS
+    from lsp.builtins import GEOMETRY_CONSTRUCTION_DOCS, GEOMETRY_DOCS
 except Exception:  # pragma: no cover - defensive
     GEOMETRY_DOCS = {}
+    GEOMETRY_CONSTRUCTION_DOCS = {}
 
 # ----------------------------------------------------------------------
 # Groups
@@ -47,10 +52,12 @@ except Exception:  # pragma: no cover - defensive
 GROUP_SHAPES = 'Shapes'
 GROUP_ANGLES = 'Angles'
 GROUP_CONSTRAINTS = 'Constraints'
+GROUP_CONSTRUCTIONS = 'Constructions'
 GROUP_MEASURE = 'Measure & Label'
 
 #: Stable gallery order.
-GROUPS = (GROUP_SHAPES, GROUP_ANGLES, GROUP_CONSTRAINTS, GROUP_MEASURE)
+GROUPS = (GROUP_SHAPES, GROUP_ANGLES, GROUP_CONSTRAINTS,
+          GROUP_CONSTRUCTIONS, GROUP_MEASURE)
 
 #: Indentation used for generated ``*draw(...)`` blocks and for lines
 #: added to a block that has no content yet.
@@ -63,16 +70,17 @@ DEFAULT_INDENT = '    '
 
 @dataclass(frozen=True)
 class CatalogEntry:
-    """One geometry command as shown on a gallery card."""
+    """One gallery card: a geometry command or a point construction."""
 
     id: str            # unique; also the thumbnail file name (<id>.svg)
-    command: str       # compiler command name (no '*')
+    command: str       # compiler command name (no '*'); 'point' for constructions
     group: str         # one of GROUPS
     title: str         # short human title
-    syntax: str        # from GEOMETRY_DOCS (never hand-written)
-    description: str   # one line, from GEOMETRY_DOCS (never hand-written)
+    syntax: str        # from GEOMETRY_DOCS / GEOMETRY_CONSTRUCTION_DOCS
+    description: str   # one line, from the same tables (never hand-written)
     example: str       # full multi-line *draw(...) block, validated in tests
     symbol: str | None  # geo-* palette id with a dialog, else None
+    construction: str | None = None  # constructor name, for *point RHS cards
 
     @property
     def search_text(self) -> str:
@@ -311,6 +319,109 @@ _EXAMPLES: dict[str, str] = {
 }
 
 
+# (id, constructor, title) — one card per point construction
+# (``*point(NAME = ...)`` right-hand sides, geometry.constructions).
+# Their ``command`` is 'point'; the id prefix keeps ids unique and
+# filename-safe. Tests cross-check ids against CONSTRUCTION_NAMES.
+_CONSTRUCTION_SPECS: tuple[tuple[str, str, str], ...] = (
+    ('point-midpoint', 'midpoint', 'Midpoint (constructed)'),
+    ('point-foot', 'foot', 'Foot of a perpendicular'),
+    ('point-reflect', 'reflect', 'Reflection in a line / point'),
+    ('point-intersect', 'intersect', 'Intersection (constructed)'),
+    ('point-centroid', 'centroid', 'Triangle centroid'),
+    ('point-circumcenter', 'circumcenter', 'Triangle circumcenter'),
+    ('point-incenter', 'incenter', 'Triangle incenter'),
+    ('point-orthocenter', 'orthocenter', 'Triangle orthocenter'),
+)
+
+#: Full ``*draw(...)`` blocks for the construction cards, same rules as
+#: ``_EXAMPLES`` (validated by tests through the ONE geometry parser).
+_CONSTRUCTION_EXAMPLES: dict[str, str] = {
+    'point-midpoint': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 5)\n'
+        '    *point(M = midpoint(A ; B))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *line(C ; M)\n'
+        ')'
+    ),
+    'point-foot': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 4)\n'
+        '    *point(F = foot(A ; line(B ; C)))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *line(A ; F)\n'
+        ')'
+    ),
+    'point-reflect': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(P = 2, 3)\n'
+        '    *point(P2 = reflect(P ; line(A ; B)))\n'
+        '    *line(A ; B)\n'
+        '    *line(P ; P2)\n'
+        ')'
+    ),
+    'point-intersect': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 0, 4)\n'
+        '    *point(D = 6, 4)\n'
+        '    *point(P = intersect(line(A ; D) ; line(B ; C)))\n'
+        '    *line(A ; D)\n'
+        '    *line(B ; C)\n'
+        ')'
+    ),
+    'point-centroid': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 4)\n'
+        '    *point(G = centroid(A ; B ; C))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *line(A ; G)\n'
+        ')'
+    ),
+    'point-circumcenter': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 4)\n'
+        '    *point(O = circumcenter(A ; B ; C))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *circle(O ; A)\n'
+        ')'
+    ),
+    'point-incenter': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 4)\n'
+        '    *point(I = incenter(A ; B ; C))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *line(A ; I)\n'
+        ')'
+    ),
+    'point-orthocenter': (
+        '*draw(\n'
+        '    *point(A = 0, 0)\n'
+        '    *point(B = 6, 0)\n'
+        '    *point(C = 2, 4)\n'
+        '    *point(H = orthocenter(A ; B ; C))\n'
+        '    *triangle(A ; B ; C)\n'
+        '    *line(A ; H)\n'
+        '    *line(B ; H)\n'
+        ')'
+    ),
+}
+
+
 def _symbol_map() -> dict[str, str]:
     """command name -> palette id of its ``geo-*`` dialog symbol."""
     try:
@@ -339,6 +450,20 @@ def _build_catalog() -> tuple[CatalogEntry, ...]:
             description=description or title,
             example=_EXAMPLES[command],
             symbol=symbols.get(command),
+        ))
+    for cid, constructor, title in _CONSTRUCTION_SPECS:
+        syntax, description = GEOMETRY_CONSTRUCTION_DOCS.get(
+            constructor, (f'{constructor}(...)', ''))
+        entries.append(CatalogEntry(
+            id=cid,
+            command='point',           # constructions are *point right-hand sides
+            group=GROUP_CONSTRUCTIONS,
+            title=title,
+            syntax=syntax or f'{constructor}(...)',
+            description=description or title,
+            example=_CONSTRUCTION_EXAMPLES[cid],
+            symbol=None,               # no parameter dialog (yet)
+            construction=constructor,
         ))
     return tuple(entries)
 
