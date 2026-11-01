@@ -168,6 +168,27 @@ Tables by category (arrows, Greek, set theory, delimiters, spacing):
 You describe **relationships**; the solver finds the positions.
 Full guide: [Drawing geometry](geometry.md).
 
+### Construction points
+
+A point can be computed instead of free — write a constructor on the
+right of `=`:
+
+| You type | Meaning |
+|---|---|
+| `*point(M = midpoint(A ; B))` | halfway between A and B |
+| `*point(F = foot(P ; line(A ; B)))` | perpendicular foot of P |
+| `*point(R = reflect(P ; line(A ; B)))` | P mirrored across the line |
+| `*point(P = intersect(line(A ; B) ; line(C ; D)))` | where two lines cross |
+| `*point(P = intersect(line(A ; B) ; circle(O ; 3) ; 1))` | `k = 1 or 2` picks the solution |
+| `*point(G = centroid(A ; B ; C))` | triangle center of mass |
+| `*point(O = circumcenter(A ; B ; C))` | circle-through-the-corners center |
+| `*point(I = incenter(A ; B ; C))` | inscribed-circle center |
+| `*point(H = orthocenter(A ; B ; C))` | altitudes' meeting point |
+
+Constructors nest inside constructors (`midpoint(A ; midpoint(B ; C))`),
+and constraints may use the derived points. Ordering rules and error
+cases: [Construction points → geometry.md](geometry.md#construction-points).
+
 ---
 
 ## Plot a function

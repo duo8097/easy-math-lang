@@ -73,7 +73,7 @@ def dialog(qapp):
 # ----------------------------------------------------------------------
 
 def test_dialog_lists_every_catalog_command(dialog):
-    assert len(dialog.cards) == len(CATALOG) == 20
+    assert len(dialog.cards) == len(CATALOG) == 28
     assert dialog.visible_ids() == IDS
     assert dialog.status.text() == f'{len(CATALOG)} commands'
     # Not modal: the editor stays usable behind it.
@@ -94,9 +94,12 @@ def test_dialog_groups_match_catalog_groups(dialog):
 
 def test_search_filters_by_command_title_and_description(dialog):
     dialog.search.setText('perpendicular')
-    assert dialog.visible_ids() == ['perp']
+    # perp + the foot construction (its description says
+    # "Perpendicular foot of P on line AB").
+    assert dialog.visible_ids() == ['perp', 'point-foot']
     dialog.search.setText('midpoint')
-    assert dialog.visible_ids() == ['midpoint']
+    # the *midpoint constraint + the midpoint construction card.
+    assert dialog.visible_ids() == ['midpoint', 'point-midpoint']
     dialog.search.setText('no-such-thing')
     assert dialog.visible_ids() == []
     assert dialog.status.text() == f'0 of {len(CATALOG)} commands'

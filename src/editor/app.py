@@ -18,7 +18,7 @@ def _app_version():
             return found.strip()
     except Exception:
         pass
-    return '5.1.0'
+    return '5.2.0'
 
 
 def parse_args(argv=None):

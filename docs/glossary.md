@@ -123,6 +123,12 @@ generate Typst). See [Architecture](architecture.md).
 **Constraint solver** — the geometry engine. You state rules ("AC = 3",
 "AB ⊥ AC") and it computes where each point must go.
 
+**Constructed point** — a point defined by a formula instead of
+coordinates or rules: `*point(M = midpoint(A ; B))`. The program
+computes its position from the other points, and it always follows
+them — it is never placed by the solver itself. See
+[Construction points](geometry.md#construction-points).
+
 **Repository (repo)** — the project's folder under version control
 (`git`); `git clone` copies it to your computer.
 

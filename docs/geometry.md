@@ -71,6 +71,110 @@ figures out a valid position for C.
 
 ---
 
+## Construction points
+
+A point can also be **defined by a construction**: a formula that computes
+its position from other points. Write the constructor call on the right
+side of `=`:
+
+```
+*point(M = midpoint(A ; B))          // halfway between A and B
+*point(F = foot(C ; line(A ; B)))    // where C projects onto line AB
+*point(R = reflect(C ; line(A ; B))) // C mirrored across the line
+*point(P = intersect(line(A ; B) ; line(C ; D)))
+```
+
+A constructed point is **derived**, not a free variable: it always equals
+its formula, and it follows its inputs automatically — if a solver
+constraint moves A, the midpoint moves too. Constraints may reference
+constructed points:
+
+```
+*point(C)                      // free point, solver places it
+*point(M = midpoint(A ; C))    // derived from A and C
+*distance(B ; M ; 5)           // the constraint moves C; M follows
+```
+
+The eight
+constructors:
+
+| Constructor | Meaning |
+|---|---|
+| `midpoint(A ; B)` | halfway between A and B |
+| `foot(P ; line(A ; B))` | the perpendicular foot of P on line AB |
+| `reflect(P ; line(A ; B))` | P mirrored across the line |
+| `reflect(P ; O)` | P mirrored through the point O |
+| `intersect(...)` | where two lines/circles cross (see below) |
+| `centroid(A ; B ; C)` | center of mass of the triangle |
+| `circumcenter(A ; B ; C)` | center of the circle through A, B, C |
+| `incenter(A ; B ; C)` | center of the inscribed circle |
+| `orthocenter(A ; B ; C)` | where the three altitudes meet |
+
+Constructors may be **nested inside other constructors**:
+
+```
+*point(M = midpoint(A ; midpoint(B ; C)))
+```
+
+(The restriction is about *commands*: a construction may only appear on
+the right side of `*point(NAME = ...)`, never inside `*line(...)` or
+`*circle(...)` — those take plain point names. Referenced points may be
+defined later; the program sorts dependencies for you.)
+
+### Picking an intersection
+
+Two intersecting lines cross exactly once, so no choice is needed — and
+passing one is an error:
+
+```
+*point(P = intersect(line(A ; B) ; line(C ; D)))
+```
+
+A line and a circle cross up to twice, and two circles up to twice, so
+you must say **which** solution with `k = 1` or `k = 2`:
+
+```
+*point(P1 = intersect(line(A ; B) ; circle(O ; 3) ; 1))
+*point(P2 = intersect(circle(O ; 3) ; circle(Q ; A) ; 2))
+```
+
+- **Line + circle:** `k = 1` is the intersection reached first walking
+  from A toward B along the line; `k = 2` is the second. (Swapping the
+  line's two points swaps the order.)
+- **Circle + circle:** `k = 1` is on the **left** (counterclockwise)
+  side of the direction from the first circle's center to the second's;
+  `k = 2` is on the right.
+
+### When things go wrong
+
+Construction errors are reported like any other geometry error, with the
+offending `*point(...)` named:
+
+- **Parallel (or coincident) lines** — `intersect` of two lines has no
+  unique solution.
+- **A line misses a circle / circles don't cross** — no intersection.
+- **Degenerate line** — `line(A ; A)` (the same point twice).
+- **Collinear triangle** — no circumcenter or orthocenter.
+- **Unknown constructor** — with a suggestion:
+  `unknown construction 'midpint' — did you mean 'midpoint'?`
+- **Wrong arity** — e.g. `midpoint requires 2 arguments: midpoint(A ; B)`.
+- **Missing or invalid `k`** — required for two-solution cases, rejected
+  for line + line, and must be 1 or 2.
+- **A constructed point given coordinates too** (or built twice) — a
+  derived point is computed, never free.
+- **Construction cycles** — a point that (directly or through others)
+  depends on itself: `construction cycle: M -> N -> M`.
+
+The three-argument *constraint* form `*midpoint(A ; B ; M)` is unchanged:
+it makes M a free solver point, whereas `*point(M = midpoint(A ; B))`
+computes M directly.
+
+A complete runnable file:
+[`examples/construction_points.ezmath`](../examples/construction_points.ezmath)
+(the orthocenter built from two altitude feet).
+
+---
+
 ## Lines
 
 A `*draw(...)` block can also be written on a single line:

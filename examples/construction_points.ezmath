@@ -1,0 +1,26 @@
+// Construction points: the orthocenter of a triangle, built from
+// two altitude feet and their intersection.
+
+*draw(
+    // Free vertices (fixed here so the diagram is exact).
+    *point(A = 0, 0)
+    *point(B = 6, 0)
+    *point(C = 2, 5)
+
+    // The two altitude feet — both are constructions.
+    *point(Ha = foot(A ; line(B ; C)))
+    *point(Hb = foot(B ; line(A ; C)))
+
+    // The altitudes meet at the orthocenter H.
+    *point(H = intersect(line(A ; Ha) ; line(B ; Hb)))
+
+    *triangle(A ; B ; C)
+    *line(A ; Ha)
+    *line(B ; Hb)
+    *label(A ; A)
+    *label(B ; B)
+    *label(C ; C)
+    *label(Ha ; H_a)
+    *label(Hb ; H_b)
+    *label(H ; H)
+)

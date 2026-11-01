@@ -68,6 +68,38 @@
       "sha256": "b5240f10596368290bb727d99cefd0abfca976d04c2328c9fc7c92f385d548df",
       "svg_sha256": "5f09b7a33cd4bf94fcd4b046c0282f650518df211c7f35d6f3609e0bf68d6875"
     },
+    "point-centroid": {
+      "sha256": "82d5c4bfd3bfec59d9466739c98e865920dd5553aa72f106e212998d367b94a4",
+      "svg_sha256": "882d4a73d4719dbe9e9989d447717205f3fda431c9d73148a2114ff55347e347"
+    },
+    "point-circumcenter": {
+      "sha256": "41f82b4e3341a66075846c14642cb78bcc5bb8d28f571f24aa1e07656f864f4b",
+      "svg_sha256": "bb968b1b8fbe5077550d56c9053ca0cc38c7d0ce71282370bea591925e0f81d2"
+    },
+    "point-foot": {
+      "sha256": "8f24c0b9de7f71e5b00ade507975b8dec05c72c59c6bf06960febd018bcab504",
+      "svg_sha256": "3857867e2b88bfc45e44198aa37e2b5cf90087b6fc6802473e7a4eda9d4ec5a8"
+    },
+    "point-incenter": {
+      "sha256": "2e456c381d00df0508ee4c4f737cb799bbdbd287a6cf6e454b5fe4127717ea13",
+      "svg_sha256": "4dcf3f9604b38ff9711cb0ba444c6e04f0b38f567cbcd919a785fa91c90fd3c3"
+    },
+    "point-intersect": {
+      "sha256": "18e1cb484d18bd94ba0c203eeb98b6283062047b63aaae96c00614d8c280b462",
+      "svg_sha256": "7cb7b564675ec8fc40170ea9db5972ff2b79ac9725f76997fbe6ab2a39c29aa2"
+    },
+    "point-midpoint": {
+      "sha256": "9f16777c4379f616894c82eef5864272a6a45ce72c18de4b3e6ae3f8c8e95c53",
+      "svg_sha256": "5566aebe1f4eac0a106d10152fad7638a7f81f792db4499d1b26e5703b0a2078"
+    },
+    "point-orthocenter": {
+      "sha256": "5123beb35ba3e297458280d90496b49e09b2bd7aeefa38cc7a28cc37108462d2",
+      "svg_sha256": "a77d9d21831c4d2addfa6a453bddc86f4b4043a7d786cf8959bbbb019e178ea2"
+    },
+    "point-reflect": {
+      "sha256": "db0468828b980600256da4dce630f53ce895f4c5fe8194ae897100ee6da468ee",
+      "svg_sha256": "b647cb5537d6e832658de83a226b350709f4d7c7bd91552da21ed704500d7a16"
+    },
     "ray": {
       "sha256": "ebcce154ac959b8d86e2a326ac9bb685272087ca301959d3326b727a3eda9aa2",
       "svg_sha256": "13351bf7f27b44b849795c0b9287ed95189b17e0d3772849c44043921ba78d65"

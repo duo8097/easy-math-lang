@@ -193,7 +193,10 @@ def test_missing_preview_shows_placeholder(window, gallery, tmp_path,
 
 def test_palette_lists_all_commands_in_code_ones_first(template):
     rows = palette_commands(template)
-    assert len(rows) == len(CATALOG) == 20
+    # One row per command: construction cards share the *point command,
+    # so the palette has one row per known geometry command (28 cards
+    # = 20 commands + 8 constructions).
+    assert len(rows) == len({e.command for e in CATALOG}) == 20
     # Commands used in the code are pinned to the top, in the order
     # they first appear …
     used = ['point', 'distance', 'perp', 'triangle', 'right-angle']
@@ -216,7 +219,7 @@ def test_palette_follows_code_edits_and_filter(template):
     template.search.setText('no-such-thing')
     assert palette_commands(template) == []
     template.search.setText('on-c')
-    expected = [e.command for e in CATALOG
+    expected = [e.command for e in CATALOG if e.construction is None
                 if fuzzy_score('on-c', f'{e.title} {e.command}') is not None]
     assert palette_commands(template) == expected
     assert 'on-circle' in expected
@@ -225,7 +228,8 @@ def test_palette_follows_code_edits_and_filter(template):
     # No commands in the code: still the whole catalog, nothing bold.
     template.search.clear()
     template.code.setPlainText('no geometry at all')
-    assert len(palette_commands(template)) == len(CATALOG)
+    assert len(palette_commands(template)) == \
+        len({e.command for e in CATALOG})
     assert not item_for(template, 'point').font().bold()
 
 
@@ -251,9 +255,11 @@ def test_pinned_commands_stay_on_top_while_filtering(window, template):
 
 
 def test_palette_lists_every_catalog_command_once(template):
-    """All 20 rows, exactly once — even commands the code never uses."""
+    """All 20 command rows, exactly once — even commands the code never
+    uses.  (Construction cards fold into the *point row: they are
+    right-hand sides, not commands of their own.)"""
     rows = palette_commands(template)
-    assert sorted(rows) == sorted(e.command for e in CATALOG)
+    assert sorted(rows) == sorted({e.command for e in CATALOG})
     # equal-angle has no parameter dialog yet: present, disabled and
     # (not being in this code) not bold.
     item = item_for(template, 'equal-angle')
@@ -482,11 +488,12 @@ def test_typing_in_filter_reaches_the_line_edit_and_narrows(
         template, qapp):
     """Real letter keys must pass through eventFilter to the widget
     (only Enter is consumed) — typing filters the palette live."""
-    assert len(palette_commands(template)) == len(CATALOG)
+    assert len(palette_commands(template)) == \
+        len({e.command for e in CATALOG})
     QtTest.QTest.keyClicks(template.search, 'on-c')
     qapp.processEvents()
     assert template.search.text() == 'on-c'
-    expected = [e.command for e in CATALOG
+    expected = [e.command for e in CATALOG if e.construction is None
                 if fuzzy_score('on-c', f'{e.title} {e.command}') is not None]
     assert palette_commands(template) == expected
     assert 'on-circle' in expected

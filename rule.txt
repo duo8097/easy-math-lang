@@ -863,6 +863,46 @@ Example:
 The system can determine C from the given geometric constraints when possible.
 
 
+Point constructions
+-------------------
+
+*point(NAME = constructor(...))
+
+Defines a point as a construction: its position is computed from other
+points instead of being free (or given as coordinates).
+
+Example:
+
+*point(A = 0, 0)
+*point(B = 6, 0)
+*point(M = midpoint(A ; B))
+
+Constructors:
+
+*midpoint(A ; B)                    — halfway between A and B
+*foot(P ; line(A ; B))              — perpendicular foot of P on line AB
+*reflect(P ; line(A ; B))           — P mirrored across the line
+*reflect(P ; O)                     — P mirrored through the point O
+*intersect(object1 ; object2 [; k]) — where two lines/circles cross
+*centroid(A ; B ; C)                — center of mass of the triangle
+*circumcenter(A ; B ; C)            — center of the circle through A, B, C
+*incenter(A ; B ; C)                — center of the inscribed circle
+*orthocenter(A ; B ; C)             — where the three altitudes meet
+
+Constructors can be nested (``midpoint(A ; midpoint(B ; C))``), points
+referenced before they are defined are resolved automatically, and
+constraints may use the constructed point.
+
+Two intersecting lines cross once, so intersect(line ; line) takes no
+k. A line and a circle (or two circles) can cross twice, so k is
+required: k = 1 picks the first crossing walking from A toward B (line
+case) or the one on the left side of O1->O2 (circle case), k = 2 the
+other.
+
+The three-argument *midpoint(A ; B ; C) constraint (C is the midpoint
+of AB, solved) is a different thing: it leaves C free for the solver.
+
+
 Lines and segments
 ------------------
 

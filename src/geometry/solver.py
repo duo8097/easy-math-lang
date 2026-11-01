@@ -8,13 +8,34 @@ from .errors import GeometryError, GeometryWarning
 from .vectors import _norm
 
 
+class _DerivedPoint:
+    """A constructed point: computed analytically, never a free variable.
+
+    ``compute(pts)`` maps the solver's points to the new position (see
+    ``geometry.constructions.Construction``); ``deps`` are the point
+    names it reads, used to order the computations.
+    """
+
+    __slots__ = ('deps', 'compute', 'label')
+
+    def __init__(self, deps, compute, label):
+        self.deps = frozenset(deps)
+        self.compute = compute
+        self.label = label
+
+
 class GeometrySolver:
     def __init__(self):
         self.points = {}        # name -> np.array([x, y])
         self.fixed = set()
+        self.derived = {}       # name -> _DerivedPoint (constructed points)
         self.constraints = []   # list of (label, lambda P: cost)
         self.draw_commands = []  # list of (cmd, args)
         self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
+
+    def _is_free(self, name):
+        """True when the solver may move *name* (not fixed, not constructed)."""
+        return name not in self.fixed and name not in self.derived
 
     def add_point(self, name, x=None, y=None):
         # Local import: keeps `import geometry` free of NumPy until the
@@ -28,6 +49,12 @@ class GeometrySolver:
         if x is not None and y is not None:
             import math as _math
 
+            if name in self.derived:
+                raise GeometryError(
+                    f"point '{name}' is constructed by *point({name} = ...) — "
+                    f"remove the extra coordinates (a constructed point is "
+                    f"computed, not free)"
+                )
             fx, fy = float(x), float(y)
             if not (_math.isfinite(fx) and _math.isfinite(fy)):
                 raise GeometryError(f"invalid coordinates for point '{name}': ({x}, {y}) must be finite")
@@ -62,6 +89,63 @@ class GeometrySolver:
 
     def add_constraint(self, label, fn):
         self.constraints.append((label, fn))
+
+    def add_derived_point(self, name, deps, compute, label=None):
+        """Register a constructed point (computed analytically).
+
+        The point is seeded with the usual deterministic placeholder so
+        validation and codegen always see it, but it is never a free
+        variable: every cost evaluation recomputes it from *deps* in
+        dependency order (see :meth:`_derived_order`).
+        """
+        if name in self.fixed:
+            raise GeometryError(
+                f"point '{name}' already has coordinates — it cannot also "
+                f"be constructed"
+            )
+        if name in self.derived:
+            raise GeometryError(
+                f"constructed point '{name}' is defined twice"
+            )
+        self.add_point(name)  # placeholder position until solve()
+        self.derived[name] = _DerivedPoint(
+            deps, compute, label or f'point {name}'
+        )
+
+    def _derived_order(self):
+        """Topological order of constructed points (dependencies first).
+
+        Reports self-references and cycles — a construction that needs
+        itself (directly or through other constructions) can never be
+        computed, i.e. it is a use-before-define paradox.
+        """
+        order = []
+        state = {}   # name -> True while visiting, False once done
+        stack = []
+
+        def visit(name):
+            st = state.get(name)
+            if st is False:
+                return
+            if st is True:
+                cycle = stack[stack.index(name):] + [name]
+                raise GeometryError(
+                    "construction cycle: "
+                    + " -> ".join(cycle)
+                    + " — a constructed point cannot depend on itself"
+                )
+            state[name] = True
+            stack.append(name)
+            for dep in sorted(self.derived[name].deps):
+                if dep in self.derived:
+                    visit(dep)
+            stack.pop()
+            state[name] = False
+            order.append(name)
+
+        for name in sorted(self.derived):
+            visit(name)
+        return order
 
     def validate(self):
         """Check for undefined points before solving."""
@@ -142,9 +226,26 @@ class GeometrySolver:
 
         lr = 0.01
         momentum = 0.9
-        velocity = {p: np.zeros(2) for p in self.points if p not in self.fixed}
+        derived_order = self._derived_order()
+        velocity = {p: np.zeros(2) for p in self.points if self._is_free(p)}
 
         def eval_constraints(pts):
+            # Constructed points track their inputs: recompute them
+            # before every cost evaluation so gradients flow *through*
+            # them to the free points they depend on. pts is always
+            # self.points (constraints index it by name at call time).
+            for pname in derived_order:
+                entry = self.derived[pname]
+                try:
+                    val = entry.compute(pts)
+                except GeometryError:
+                    raise
+                except Exception as e:
+                    raise GeometryError(
+                        f"construction for point '{pname}' "
+                        f"({entry.label}) failed: {e}"
+                    )
+                pts[pname] = np.asarray(val, dtype=float)
             total = 0.0
             for _label, fn in self.constraints:
                 total += fn(pts)
@@ -173,9 +274,9 @@ class GeometrySolver:
             if base_cost < 1e-4:
                 break
 
-            grads = {p: np.zeros(2) for p in self.points if p not in self.fixed}
+            grads = {p: np.zeros(2) for p in self.points if self._is_free(p)}
             for p in self.points:
-                if p in self.fixed:
+                if not self._is_free(p):
                     continue
                 orig = self.points[p].copy()
 
@@ -191,7 +292,7 @@ class GeometrySolver:
                 grads[p][1] = (cy - base_cost) / eps
 
             for p in self.points:
-                if p not in self.fixed:
+                if self._is_free(p):
                     step = momentum * velocity[p] - lr * grads[p]
                     # Gradient clipping: a coincident-segment cliff can
                     # otherwise fling points to infinity in one step.
