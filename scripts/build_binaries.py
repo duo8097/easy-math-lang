@@ -173,7 +173,12 @@ def _assemble() -> None:
     heavy library in the final install).
     """
     editor_bundle = STAGING / "easy-math-editor"
-    editor_app = editor_bundle / "easy-math-editor.app"
+    # macOS: PyInstaller's BUNDLE emits the app at ``<distpath>/<name>.app``
+    # (e.g. build/dist-staging/easy-math-editor.app); Linux/Windows get a plain
+    # onedir executable + ``_internal`` inside the COLLECT directory.
+    editor_app = STAGING / f"{_executable('easy-math-editor')}.app"
+    if not editor_app.is_dir():
+        editor_app = editor_bundle / f"{_executable('easy-math-editor')}.app"
     cli_exe = STAGING / "easy-math-lang" / _executable("easy-math-lang")
     lsp_exe = STAGING / "easy-math-lsp" / _executable("easy-math-lsp")
     for path in (cli_exe, lsp_exe):
