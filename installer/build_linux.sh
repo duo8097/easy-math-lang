@@ -14,7 +14,9 @@
 #
 # Installed FHS layout (same as installer/PKGBUILD):
 #   /usr/bin/easy-math-lang, ezmath, easy-math-lsp, easy-math-editor -> lib
-#   /usr/lib/easy-math-lang/easy-math-editor/   (onedir GUI bundle)
+#   /usr/lib/easy-math-lang/easy-math-editor, easy-math-lang, easy-math-lsp
+#     + one shared _internal/ (the PyInstaller onedir bundle for the
+#     compiler CLI, the language server and the desktop editor)
 #   /usr/share/applications/easy-math-editor.desktop
 #   /usr/share/doc/easymath/                    (README, copyright)
 #   /usr/share/licenses/easymath/               (LICENSE, for RPM)
@@ -36,7 +38,7 @@ fi
 # The PyInstaller flags live in one place (see scripts/build_binaries.py).
 uv run --frozen python scripts/build_binaries.py "$@"
 
-test -x dist/easy-math-editor/easy-math-editor
+test -x dist/easy-math-lang/easy-math-lang
 
 # --- Stage the FHS tree -------------------------------------------------
 STAGE="dist/linux-stage/easymath_${VER}_amd64"
@@ -45,13 +47,18 @@ mkdir -p "$STAGE/usr/bin" "$STAGE/usr/lib/easy-math-lang" \
   "$STAGE/usr/share/applications" "$STAGE/usr/share/doc/easymath" \
   "$STAGE/usr/share/licenses/easymath"
 
-install -m755 dist/easy-math-lang "$STAGE/usr/bin/easy-math-lang"
+# Shared PyInstaller onedir bundle (one _internal for CLI + LSP + editor).
+cp -a dist/easy-math-lang/. "$STAGE/usr/lib/easy-math-lang/"
+chmod +x "$STAGE/usr/lib/easy-math-lang/easy-math-lang" \
+  "$STAGE/usr/lib/easy-math-lang/easy-math-lsp" \
+  "$STAGE/usr/lib/easy-math-lang/easy-math-editor"
+
+ln -s /usr/lib/easy-math-lang/easy-math-lang "$STAGE/usr/bin/easy-math-lang"
 ln -s easy-math-lang "$STAGE/usr/bin/ezmath"
-install -m755 dist/easy-math-lsp "$STAGE/usr/bin/easy-math-lsp"
-cp -a dist/easy-math-editor "$STAGE/usr/lib/easy-math-lang/"
-chmod +x "$STAGE/usr/lib/easy-math-lang/easy-math-editor/easy-math-editor"
-ln -s /usr/lib/easy-math-lang/easy-math-editor/easy-math-editor \
-  "$STAGE/usr/bin/easy-math-editor"
+ln -s /usr/lib/easy-math-lang/easy-math-lsp "$STAGE/usr/bin/easy-math-lsp"
+ln -s /usr/lib/easy-math-lang/easy-math-editor "$STAGE/usr/bin/easy-math-editor"
+chmod +x "$STAGE/usr/bin"/*
+ls -l "$STAGE/usr/bin" "$STAGE/usr/lib/easy-math-lang"
 
 install -m644 installer/easy-math-editor.desktop \
   "$STAGE/usr/share/applications/easy-math-editor.desktop"

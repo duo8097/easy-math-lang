@@ -12,8 +12,9 @@ optdepends=('libgl: hardware-accelerated rendering in the desktop editor'
             'fontconfig: font discovery in the desktop editor')
 provides=('easy-math-lang')
 conflicts=('easy-math-lang')
-# Do not strip: the onefile binaries carry a payload archive after the
-# ELF image, which `strip` would corrupt.
+# Do not strip: PyInstaller onedir executables carry the payload archive
+# (and the bootloader resolves it) such that `strip` can corrupt the build;
+# the build scripts already avoid stripping finished binaries.
 options=('!strip')
 source=('easy-math-lang::git+https://github.com/duo8097/easy-math-lang.git')
 sha256sums=('SKIP')
@@ -41,25 +42,25 @@ build() {
   # The PyInstaller flags live in one place (see scripts/build_binaries.py).
   uv run --frozen python scripts/build_binaries.py
 
-  chmod +x dist/easy-math-lang dist/ezmath dist/easy-math-lsp
-  test -x dist/easy-math-editor/easy-math-editor
+  chmod +x dist/easy-math-lang/easy-math-lang dist/easy-math-lang/easy-math-lsp \
+    dist/easy-math-lang/easy-math-editor
+  test -x dist/easy-math-lang/easy-math-lang
 }
 
 package() {
   cd "$srcdir/easy-math-lang"
 
   # Self-contained PyInstaller binaries: no Python runtime needed.
-  install -Dm755 dist/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
-  ln -s easy-math-lang "$pkgdir/usr/bin/ezmath"
-  install -Dm755 dist/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
+  # The shared onedir bundle carries the CLI, the LSP and the editor exe
+  # plus one _internal/ with all heavy libraries.
+  install -Dm755 dist/easy-math-lang/easy-math-lang "$pkgdir/usr/lib/easy-math-lang/easy-math-lang"
+  install -Dm755 dist/easy-math-lang/easy-math-lsp "$pkgdir/usr/lib/easy-math-lang/easy-math-lsp"
+  install -Dm755 dist/easy-math-lang/easy-math-editor "$pkgdir/usr/lib/easy-math-lang/easy-math-editor"
 
-  # Onedir GUI bundle; the editor finds the /usr/bin helpers via PATH
-  # (see src/editor/paths.py), so no wrapper script is needed.
-  mkdir -p "$pkgdir/usr/lib/easy-math-lang"
-  cp -a dist/easy-math-editor "$pkgdir/usr/lib/easy-math-lang/"
-  chmod +x "$pkgdir/usr/lib/easy-math-lang/easy-math-editor/easy-math-editor"
-  ln -s /usr/lib/easy-math-lang/easy-math-editor/easy-math-editor \
-    "$pkgdir/usr/bin/easy-math-editor"
+  ln -s /usr/lib/easy-math-lang/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
+  ln -s easy-math-lang "$pkgdir/usr/bin/ezmath"
+  ln -s /usr/lib/easy-math-lang/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
+  ln -s /usr/lib/easy-math-lang/easy-math-editor "$pkgdir/usr/bin/easy-math-editor"
 
   install -Dm644 installer/easy-math-editor.desktop \
     "$pkgdir/usr/share/applications/easy-math-editor.desktop"

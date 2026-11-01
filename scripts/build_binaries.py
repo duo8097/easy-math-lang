@@ -7,18 +7,32 @@ Single source of truth for the PyInstaller flags: the CI workflow
 ``installer/build_linux.sh``, ``installer/PKGBUILD``) call this script,
 so a flag change lands everywhere at once.
 
+This implementation (Approach A) keeps 3 separate executables but ships
+them from ONE shared library directory: the CLI and the language server
+reuse the desktop editor's collected libraries instead of each carrying
+their own copy (NumPy, Matplotlib, Typst, PySide6, …). The editor stays
+the "owner" of the library set because it is the only target that needs
+the GUI modules.
+
 Usage (from the repo root)::
 
     uv run --frozen python scripts/build_binaries.py [--jobs N] [--full-pyside6]
 
 Outputs (in ``dist/``):
 
-=========================  ====================================
-``easy-math-lang[.exe]``   compiler CLI (onefile)
-``ezmath[.exe]``           short alias: symlink on POSIX, copy on Windows
-``easy-math-lsp[.exe]``    language server (onefile)
-``easy-math-editor/``      desktop editor (onedir, windowed)
-=========================  ====================================
+========================  ====================================
+``easy-math-lang/``         shared onedir bundle directory:
+                            ``easy-math-lang`` (compiler CLI),
+                            ``easy-math-lsp`` (language server),
+                            ``easy-math-editor`` (desktop editor) and a
+                            single ``_internal/`` with all heavy libraries
+``easy-math-lang/ezmath``   short alias: symlink on POSIX, copy on Windows
+========================  ====================================
+
+The three executables live next to one ``_internal`` directory, which is
+how PyInstaller's onedir layout shares libraries: the bootloader resolves
+``sys._MEIPASS`` from the executable's own location, so every executable
+in the same directory reuses the same library copy.
 
 ``--full-pyside6`` adds ``--collect-all PySide6`` to the editor build.
 Use only for troubleshooting; macOS must not (the full PySide6 tree drags
@@ -37,8 +51,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
+STAGING = ROOT / "build" / "dist-staging"
 
-# One frozen entry point per binary.
+# Final shared bundle directory (contains the exes + one _internal).
+SHARED_DIR = "easy-math-lang"
+
+
+# One frozen entry point per binary. All of them are assembled into the
+# same shared onedir directory at the end of the build.
 ENTRIES = {
     "easy-math-lang": "from compiler import main",
     "easy-math-lsp": "from lsp.server import main",
@@ -63,11 +83,6 @@ EDITOR_HIDDEN = [
     "editor.draw_template",
 ]
 
-# Gallery thumbnails: data files -> <bundle>/editor/assets/draw_previews
-# (editor.paths.resource_path resolves them when frozen).
-DRAW_PREVIEW_DATA = Path("src") / "editor" / "assets" / "draw_previews"
-DRAW_PREVIEW_TARGET = "editor/assets/draw_previews"
-
 
 def _executable(name: str) -> str:
     """Platform file name of a built binary (``foo`` or ``foo.exe``)."""
@@ -84,7 +99,7 @@ def _run(cmd: list[str], cache_dir: Path) -> None:
 
 def _build(name: str, import_line: str, full_pyside6: bool,
            strip_binaries: bool = False) -> None:
-    """Freeze one binary with PyInstaller."""
+    """Freeze one binary with PyInstaller into its own staging bundle."""
     # Stable paths and unchanged shim mtimes let PyInstaller reuse Analysis/PYZ.
     generated = ROOT / "build" / "entrypoints" / name
     generated.mkdir(parents=True, exist_ok=True)
@@ -97,14 +112,22 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         sys.executable, "-m", "PyInstaller", str(shim),
         "--name", name,
         "--noconfirm",
-        "--distpath", str(DIST),
+        "--distpath", str(STAGING),
         "--workpath", str(ROOT / "build"),
         # Generated files stay under the ignored build directory.
         "--specpath", str(generated),
         "--additional-hooks-dir", str(ROOT / "scripts" / "pyinstaller_hooks"),
     ]
-    cmd += ["--onedir", "--windowed"] if name == "easy-math-editor" \
-        else ["--onefile"]
+    # Switch CLI and LSP from onefile to onedir to share heavy libraries
+    # with the editor. The editor remains onedir for GUI functionality.
+    # Each target freezes into its own staging bundle; _assemble() later
+    # merges them into the shared dist bundle.
+    if name == "easy-math-editor":
+        cmd += ["--onedir", "--windowed"]
+    elif name in ("easy-math-lang", "easy-math-lsp"):
+        cmd += ["--onedir", "--console"]
+    else:
+        raise AssertionError(f"unknown entry point: {name}")
     if strip_binaries:
         # PyInstaller strips cached native libraries BEFORE packing them.
         # Never run strip on the finished onefile executable: its appended
@@ -130,29 +153,78 @@ def _build(name: str, import_line: str, full_pyside6: bool,
             cmd += ["--hidden-import", "PySide6.QtPdf"]
             cmd += ["--hidden-import", "PySide6.QtPdfWidgets"]
             cmd += ["--hidden-import", "PySide6.QtSvg"]
-        previews = ROOT / DRAW_PREVIEW_DATA
+        previews = ROOT / "src" / "editor" / "assets" / "draw_previews"
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
-            cmd += ["--add-data", f"{previews}{sep}{DRAW_PREVIEW_TARGET}"]
+            cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
 
     _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 
 
-def _alias() -> None:
-    """Create a relocatable POSIX alias; Windows keeps a standalone copy."""
-    source = DIST / _executable("easy-math-lang")
-    if not source.is_file():
-        print(f"::error::compiler output missing: {source}", file=sys.stderr)
-        raise SystemExit(1)
-    target = DIST / _executable("ezmath")
-    # Remove a previous copy/link first; copy2 must never follow a stale
-    # symlink and accidentally overwrite the real compiler.
-    target.unlink(missing_ok=True)
-    if os.name == "nt":
-        shutil.copy2(source, target)
-        target.chmod(0o755)
+def _assemble() -> None:
+    """Merge the staged builds into one shared onedir bundle directory.
+
+    The desktop editor build carries the full heavy library set (PySide6,
+    NumPy, Matplotlib, Typst, …). The CLI and LSP builds carry smaller,
+    more focused sets, so their executables are placed next to the editor's
+    collected libraries: every executable in a directory reuses that
+    directory as ``sys._MEIPASS``, which is exactly the PyInstaller onedir
+    "shared library directory" behavior we want (one physical copy of each
+    heavy library in the final install).
+    """
+    editor_bundle = STAGING / "easy-math-editor"
+    editor_app = editor_bundle / "easy-math-editor.app"
+    cli_exe = STAGING / "easy-math-lang" / "easy-math-lang"
+    lsp_exe = STAGING / "easy-math-lsp" / "easy-math-lsp"
+    for path in (cli_exe, lsp_exe):
+        if not path.exists():
+            print(f"::error::missing build output: {path}", file=sys.stderr)
+            raise SystemExit(1)
+
+    shared = DIST / SHARED_DIR
+    if shared.exists():
+        shutil.rmtree(shared)
+    shared.mkdir(parents=True)
+    shutil.copy2(cli_exe, shared / "easy-math-lang")
+    shutil.copy2(lsp_exe, shared / "easy-math-lsp")
+
+    if editor_app.is_dir():
+        # macOS: the editor ships as an .app bundle; its ``Contents/Frameworks``
+        # directory is the shared library directory. Helper executables placed
+        # in the bundle's ``Contents/MacOS`` (see scripts/package_macos.sh) share
+        # it with the editor.
+        editor_libs = editor_app / "Contents" / "Frameworks"
+        shutil.copytree(editor_libs, shared / "_internal", dirs_exist_ok=True)
     else:
-        target.symlink_to(source.name)
+        editor_exe = editor_bundle / "easy-math-editor"
+        if not editor_exe.exists():
+            print(f"::error::missing build output: {editor_exe}",
+                  file=sys.stderr)
+            raise SystemExit(1)
+        shutil.copy2(editor_exe, shared / "easy-math-editor")
+        shutil.copytree(editor_bundle / "_internal", shared / "_internal",
+                        dirs_exist_ok=True)
+
+    # Short alias for the compiler: inside the shared bundle it reuses the
+    # same _internal directory as the real executable.
+    _alias()
+
+
+def _alias() -> None:
+    """Create the short compiler alias inside the shared bundle.
+
+    The CLI is an onedir executable living in the shared bundle directory
+    next to the single ``_internal`` library directory; the alias reuses
+    that same library directory.
+    """
+    shared = DIST / SHARED_DIR
+    alias = shared / _executable("ezmath")
+    alias.unlink(missing_ok=True)
+    if os.name == "nt":
+        shutil.copy2(shared / "easy-math-lang", alias)
+        alias.chmod(0o755)
+    else:
+        alias.symlink_to("easy-math-lang")
 
 
 def main(argv: list[str]) -> int:
@@ -190,20 +262,21 @@ def main(argv: list[str]) -> int:
         return 1
 
     DIST.mkdir(parents=True, exist_ok=True)
+    STAGING.mkdir(parents=True, exist_ok=True)
     # Each target has its own named work directory and stable spec/shim.
-    # Resolve every future before creating the alias: failed builds must fail CI.
+    # Resolve every future before assembling: failed builds must fail CI.
     with ThreadPoolExecutor(max_workers=min(args.jobs, len(ENTRIES))) as pool:
         builds = [pool.submit(_build, name, import_line, args.full_pyside6,
                               args.strip)
                   for name, import_line in ENTRIES.items()]
         for build in builds:
             build.result()
+    _assemble()
     _alias()
 
     print("\nBuild OK:")
-    for name in ("easy-math-lang", "ezmath", "easy-math-lsp"):
-        print(f"  {DIST / _executable(name)}")
-    print(f"  {DIST / 'easy-math-editor'}")
+    print(f"  {DIST / SHARED_DIR}/")  # shared onedir bundle (one _internal)
+    print(f"  {DIST / SHARED_DIR / _executable('ezmath')} (alias)")
     return 0
 
 

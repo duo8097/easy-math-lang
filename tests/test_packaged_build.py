@@ -29,9 +29,13 @@ import pytest
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DIST = os.path.join(REPO_ROOT, 'dist')
 EXE_SUFFIX = '.exe' if os.name == 'nt' else ''
-LANG_EXE = os.path.join(DIST, 'easy-math-lang' + EXE_SUFFIX)
-LSP_EXE = os.path.join(DIST, 'easy-math-lsp' + EXE_SUFFIX)
-EDITOR_EXE = os.path.join(DIST, 'easy-math-editor', 'easy-math-editor' + EXE_SUFFIX)
+# Shared PyInstaller onedir bundle (CLI + LSP + editor + one _internal).
+SHARED_DIR = os.path.join(DIST, 'easy-math-lang')
+LANG_EXE = os.path.join(SHARED_DIR, 'easy-math-lang' + EXE_SUFFIX)
+LSP_EXE = os.path.join(SHARED_DIR, 'easy-math-lsp' + EXE_SUFFIX)
+EDITOR_EXE = os.path.join(SHARED_DIR, 'easy-math-editor' + EXE_SUFFIX)
+ALIAS_EXE = os.path.join(SHARED_DIR, 'ezmath' + EXE_SUFFIX)
+EDITOR_INTERNAL = os.path.join(SHARED_DIR, '_internal')
 
 RUN = os.environ.get('EASYMATH_RUN_BUILD_TESTS') == '1'
 
@@ -40,11 +44,11 @@ pytestmark = pytest.mark.skipif(
 
 
 def _require_dist():
-    missing = [p for p in (LANG_EXE, LSP_EXE, EDITOR_EXE)
+    missing = [p for p in (LANG_EXE, LSP_EXE, EDITOR_EXE, ALIAS_EXE)
                if not os.path.isfile(p)]
     if missing:
         pytest.skip(
-            f'missing build output (run scripts/build_local.ps1): {missing}')
+            f'missing build output (run scripts/build_binaries.py): {missing}')
 
 
 # --------------------------------------------------------------------------
@@ -73,7 +77,7 @@ def test_frozen_alias_exports_plots(tmp_path, fmt):
     src.write_text('*plot(sin(x) ; -5 ; 5)\n*vec(3 ; 4)\n', encoding='utf-8')
     out = tmp_path / f'plots.{fmt}'
     result = subprocess.run(
-        [os.path.join(DIST, 'ezmath' + EXE_SUFFIX), str(src), str(out)],
+        [ALIAS_EXE, str(src), str(out)],
         cwd=tmp_path, capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, result.stdout + result.stderr
     assert out.is_file() and out.stat().st_size > 0
@@ -256,16 +260,19 @@ def _lsp_pids():
 def installer_layout():
     """Replicate the installer tree inside ``dist/``: ``bin/*.exe``.
 
-    The frozen editor lives in ``dist/easy-math-editor/``, so its
-    ``../bin`` lookup probes ``dist/bin``. Copying only the small onefile
-    tools there (the big editor onedir stays put) exercises exactly the
-    installer-layout branch. Removed again on teardown.
+    The frozen editor lives in the shared bundle dir (``dist/easy-math-lang``),
+    so its sibling lookup probes the bundle dir and the installer-style
+    ``dist/bin`` copy. Copying the small onedir tool exes plus the shared
+    ``_internal`` there exercises exactly the installer-layout branch.
+    Removed again on teardown.
     """
     _require_dist()
     bin_dir = os.path.join(DIST, 'bin')
     os.makedirs(bin_dir, exist_ok=True)
     for exe in (LANG_EXE, LSP_EXE):
         shutil.copy(exe, os.path.join(bin_dir, os.path.basename(exe)))
+        shutil.copytree(EDITOR_INTERNAL, os.path.join(bin_dir, '_internal'),
+                        dirs_exist_ok=True)
     yield {'bin_dir': bin_dir,
            'lsp': os.path.join(bin_dir, 'easy-math-lsp.exe')}
     shutil.rmtree(bin_dir, ignore_errors=True)
