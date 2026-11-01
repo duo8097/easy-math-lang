@@ -59,18 +59,22 @@ use `Build → Restart Language Server`.
 - The **`*draw`** button on the Symbol Bar (or `View → Geometry
   Gallery…`, **Ctrl+Shift+G`, or the command palette entry
   `Draw: Geometry Gallery…`) opens a **non-modal** window that lists
-  every geometry command — a thumbnail of what it draws, its syntax,
+  every geometry command **and point construction** (28 cards) — a
+  thumbnail of what it draws, its syntax,
   and a one-line description. The editor stays usable behind it, and a
   second click just re-raises the same window.
 - **Search** (by command, title or description) and the **group**
-  dropdown (Shapes / Angles / Constraints / Measure & Label) narrow
-  the list.
+  dropdown (Shapes / Angles / Constraints / Constructions /
+  Measure & Label) narrow
+  the list. The **Constructions** cards insert a computed point —
+  `*point(M = midpoint(A ; B))` — instead of a command of their own.
 - Each card offers two actions:
   - **Insert example…** — opens the **template window** for that
     command: a large preview of the figure on the left with the
     complete, validated `*draw(...)` block **underneath — editable**,
     so what you insert is exactly what you see. On the right a
-    **command palette** lists **all** geometry commands — the ones
+    **command palette** lists **all** geometry commands (one row per
+    command — point constructions come through the `*point` row) — the ones
     already used in the code are pinned to the top in **bold** and
     stay there while the list fuzzy-filters as you type; commands
     without a parameter dialog are greyed out. Picking one (double-

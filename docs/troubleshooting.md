@@ -135,6 +135,35 @@ Your geometry rules contradict each other (e.g. `*distance(A ; B ; 5)`
 together with `*distance(A ; B ; 9)`). Reread the rules and remove the
 one that can't be true — the message names the constraints involved.
 
+### `[GeometryError] *point(P = midpint(A ; B)): unknown construction '…'`
+
+The right side of a `*point` starts with `name(` but the constructor
+name isn't one of the eight (`midpoint`, `foot`, `reflect`, `intersect`,
+`centroid`, `circumcenter`, `incenter`, `orthocenter`). Fix the typo —
+the message suggests the closest match — or, if you meant to give
+coordinates, write them as `*point(P = x, y)`.
+
+### `[GeometryError] … construction cycle: M -> N -> M`
+
+The constructed points depend on each other in a loop, so no position
+can ever be computed (`M = midpoint(N ; A)` and
+`N = midpoint(M ; B)`). A construction may only depend on *other*
+points — break the loop.
+
+### `[GeometryError] *point(P = intersect(…)): … requires k = 1 or 2`
+
+A `line + circle` or `circle + circle` intersection can cross twice,
+so you must pick one with `k = 1` or `k = 2` (and only those —
+`intersect(line ; line)` crosses once and rejects any k). Add the
+argument: `*point(P = intersect(line(A ; B) ; circle(O ; 3) ; 1))`.
+
+### `[GeometryError] … parallel … / no intersection / degenerate line`
+
+`intersect` couldn't find a unique crossing: the lines are parallel or
+coincident, a line misses the circle, the circles don't cross, or a
+line was built from the same point twice. Check the points you fed the
+construction — the message names them.
+
 When geometry fails hard, the build stops with:
 
 ```

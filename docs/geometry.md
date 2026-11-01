@@ -169,6 +169,10 @@ The three-argument *constraint* form `*midpoint(A ; B ; M)` is unchanged:
 it makes M a free solver point, whereas `*point(M = midpoint(A ; B))`
 computes M directly.
 
+A complete runnable file:
+[`examples/construction_points.ezmath`](../examples/construction_points.ezmath)
+(the orthocenter built from two altitude feet).
+
 ---
 
 ## Lines
