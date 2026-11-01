@@ -79,15 +79,37 @@ def _process_command(solver, cmd, args):
             name, coords = args[0].split('=', 1)
             name = name.strip()
             _check_point_name(name)
-            try:
-                # Split on the LAST comma: x may itself use thousands
-                # separators ("1,000, 0" -> x=1,000 y=0), consistent
-                # with parse_numeric_arg used by distance/circle.
-                x_str, y_str = coords.rsplit(',', 1)
-                solver.add_point(name, parse_numeric_arg(x_str),
-                                 parse_numeric_arg(y_str))
-            except (ValueError, TypeError) as e:
-                raise GeometryError(f"invalid coordinates: {e}")
+            rhs = coords.strip()
+            if re.match(r'^[A-Za-z][A-Za-z0-9_]*\s*\(', rhs):
+                # Construction: *point(M = midpoint(A ; B)) — the point
+                # is computed analytically from its inputs (derived,
+                # never a free variable for the solver). Imported here
+                # (not at module top) so the editor/LSP can reference
+                # command tables without pulling the construction parser.
+                from .constructions import parse_construction
+
+                construction = parse_construction(rhs)
+                # Referenced inputs auto-create like everywhere else
+                # (coordinates are optional); explicit coordinates
+                # given later still win.
+                for dep in sorted(construction.deps):
+                    solver.add_point(dep)
+                solver.add_derived_point(
+                    name,
+                    construction.deps,
+                    construction.compute,
+                    f"*point({name} = {construction.text})",
+                )
+            else:
+                try:
+                    # Split on the LAST comma: x may itself use thousands
+                    # separators ("1,000, 0" -> x=1,000 y=0), consistent
+                    # with parse_numeric_arg used by distance/circle.
+                    x_str, y_str = coords.rsplit(',', 1)
+                    solver.add_point(name, parse_numeric_arg(x_str),
+                                     parse_numeric_arg(y_str))
+                except (ValueError, TypeError) as e:
+                    raise GeometryError(f"invalid coordinates: {e}")
         else:
             name = args[0].strip()
             _check_point_name(name)
