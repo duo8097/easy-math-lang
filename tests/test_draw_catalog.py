@@ -43,9 +43,26 @@ PLANNED_COMMANDS = {'equal-angle'}
 # ----------------------------------------------------------------------
 
 def test_catalog_covers_known_geometry_commands_exactly():
+    from editor.draw_catalog import _CONSTRUCTION_SPECS
+
     commands = {e.command for e in CATALOG}
     assert commands == set(KNOWN_GEOMETRY_COMMANDS)
-    assert len(CATALOG) == len(KNOWN_GEOMETRY_COMMANDS)
+    # One card per command, plus one card per point construction (all
+    # with command 'point' — constructions are *point right-hand sides).
+    assert len(CATALOG) == (len(KNOWN_GEOMETRY_COMMANDS)
+                            + len(_CONSTRUCTION_SPECS))
+
+
+def test_construction_cards_match_geometry_constructions():
+    from geometry.constructions import CONSTRUCTION_NAMES
+
+    cards = [e for e in CATALOG if e.construction]
+    assert {e.construction for e in cards} == set(CONSTRUCTION_NAMES)
+    for entry in cards:
+        assert entry.group == 'Constructions'
+        assert entry.command == 'point'
+        assert entry.symbol is None
+        assert entry.construction in entry.example
 
 
 def test_catalog_ids_unique_and_stable():
@@ -69,19 +86,28 @@ def test_catalog_groups_are_known_and_ordered():
     assert 'triangle' in by_group['Shapes']
     assert 'angle-value' in by_group['Measure & Label']
     assert 'right-angle' in by_group['Angles']
+    ids_by_group = {g: [e.id for e in catalog_entries(g)] for g in GROUPS}
+    assert 'point-foot' in ids_by_group['Constructions']
+    # Construction cards sit after the plain constraints, before labels.
+    assert GROUPS.index('Constructions') > GROUPS.index('Constraints')
+    assert GROUPS.index('Constructions') < GROUPS.index('Measure & Label')
     # catalog_entries(None/'All') returns everything.
     assert len(catalog_entries(None)) == len(CATALOG)
     assert len(catalog_entries('All')) == len(CATALOG)
 
 
 def test_catalog_reuses_geometry_docs_text():
-    """Syntax + description come from GEOMETRY_DOCS — never duplicated."""
-    from lsp.builtins import GEOMETRY_DOCS
+    """Syntax + description come from GEOMETRY(_CONSTRUCTION)_DOCS —
+    never duplicated."""
+    from lsp.builtins import GEOMETRY_CONSTRUCTION_DOCS, GEOMETRY_DOCS
     assert set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS)
     for entry in CATALOG:
-        syntax, description = GEOMETRY_DOCS[entry.command]
-        assert entry.syntax == syntax, entry.command
-        assert entry.description == description, entry.command
+        docs = (GEOMETRY_CONSTRUCTION_DOCS if entry.construction
+                else GEOMETRY_DOCS)
+        key = entry.construction or entry.command
+        syntax, description = docs[key]
+        assert entry.syntax == syntax, entry.id
+        assert entry.description == description, entry.id
         assert entry.syntax and entry.description
 
 
@@ -90,15 +116,22 @@ def test_catalog_symbol_mapping_matches_registry():
     geo_dialogs = {s.command: s.name for s in list_symbols()
                    if s.requires_dialog and s.wrap_draw and s.command}
     for entry in CATALOG:
+        if entry.construction:
+            # Construction cards are *point right-hand sides, not
+            # dialog-driven symbols of their own.
+            assert entry.symbol is None, entry.id
+            continue
         if entry.symbol is None:
             assert entry.command not in geo_dialogs, entry.command
             continue
         assert geo_dialogs.get(entry.command) == entry.symbol
         sym = get_symbol(entry.symbol)
         assert sym.wrap_draw and sym.command == entry.command
-    # Commands with no parameter dialog yet.
-    assert {e.command for e in CATALOG if e.symbol is None} == \
-        {'equal-angle'}
+    # Cards with no symbol: equal-angle (no geo-* dialog) and every
+    # construction card (all command 'point', keyed by construction name).
+    no_symbol = {e.id for e in CATALOG if e.symbol is None}
+    assert no_symbol == {'equal-angle'} | {e.id for e in CATALOG
+                                           if e.construction}
 
 
 def test_every_example_shows_its_own_command():
@@ -106,6 +139,12 @@ def test_every_example_shows_its_own_command():
         assert isinstance(entry.example, str)
         assert entry.example.startswith('*draw(')
         assert entry.example.endswith(')')
+        if entry.construction:
+            # Construction cards show the *point( wrapper and the
+            # constructor call it contains.
+            assert '*point(' in entry.example, entry.id
+            assert f'{entry.construction}(' in entry.example, entry.id
+            continue
         assert f'*{entry.command}(' in entry.example, entry.command
 
 
