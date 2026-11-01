@@ -12,6 +12,46 @@ for those.
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-11-01
+
+### Added
+
+- **Construction points** — a point can now be *computed* instead of
+  free: `*point(NAME = constructor(...))` on the right-hand side of
+  `*point` defines a **derived** point (never a solver variable) from
+  other points. Eight constructors: `midpoint(A ; B)`,
+  `foot(P ; line(A ; B))`, `reflect(P ; line(A ; B))` /
+  `reflect(P ; O)`, `intersect(...)`, `centroid(A ; B ; C)`,
+  `circumcenter(A ; B ; C)`, `incenter(A ; B ; C)` and
+  `orthocenter(A ; B ; C)`; constructors nest inside constructors
+  (`midpoint(A ; midpoint(B ; C))`), referenced points may be defined
+  later (dependencies are topologically sorted), and constraints may
+  reference constructed points — they are recomputed on every solver
+  step, so a derived point always tracks its inputs. Disambiguation is
+  exact: `NAME = x, y` stays coordinates (thousands-commas intact),
+  `NAME = ident(` is a construction, so existing `*point` behavior and
+  the 3-argument `*midpoint(A ; B ; M)` constraint are unchanged.
+  `intersect(line ; circle ; k)` picks the k-th crossing walking from A
+  toward B, `intersect(circle ; circle ; k)` the k-th on the left
+  (counterclockwise) side of O1→O2, and k is required for the
+  two-solution cases (an error for line + line); documented errors
+  cover parallel lines, missed intersections, degenerate lines,
+  collinear triangles, unknown constructors (with a suggestion), wrong
+  arity and construction cycles. Constructors appear in the LSP's
+  completion and hover (`GEOMETRY_CONSTRUCTION_DOCS`) without ever
+  raising a false "undefined point" diagnostic.
+- **Gallery: Constructions group** — the *draw gallery grew from 20 to
+  28 cards with a new **Constructions** group (8 construction cards,
+  each with a pre-rendered SVG preview, examples using only fixed
+  points); the template window's command palette keeps one row per
+  command, with constructions reached through the `*point` row.
+- **Docs** — a *Construction points* section in
+  [docs/geometry.md](docs/geometry.md) (examples, intersection
+  ordering rules, error cases), a quick table in the
+  [cheatsheet](docs/cheatsheet.md), and the runnable example
+  `examples/construction_points.ezmath` (orthocenter of a triangle
+  from two altitude feet).
+
 ## [5.1.0] - 2026-10-30
 
 ### Added
@@ -128,7 +168,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...HEAD
+[5.2.0]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...v5.0.0
 [4.5.0]: https://github.com/duo8097/easy-math-lang/compare/v4.4.0...v4.5.0
