@@ -45,6 +45,7 @@ import sys
 # _require_typst() returns any non-None value as-is.
 typst = None
 _typst_import_failed = False
+_TYPST_COMPILER = None
 
 
 def _require_typst():
@@ -1041,13 +1042,6 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
     *image_files* (``(abs_path, typ_relpath)`` pairs from ``*image``)
     travel with ``typ``/``html`` exports like plot sidecars.
     """
-
-    - ``typ``: just copy the intermediate file to *output_path*.
-    - ``pdf``/``html``: single-file compile.
-    - ``png``/``svg``: single-file when the doc fits one page; when
-      Typst reports "multiple pages", retry with a ``stem-{p}.ext``
-      pattern so every page lands on disk (Typst requires ``{p}``).
-    """
     import shutil
     label = {'pdf': 'PDF', 'png': 'PNG image(s)', 'svg': 'SVG image(s)',
              'html': 'HTML', 'typ': 'Typst'} .get(fmt, fmt.upper())
@@ -1098,7 +1092,14 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
             file=sys.stderr,
         )
         return False
+    global _TYPST_COMPILER
     _backend = typst
+    if _TYPST_COMPILER is None:
+        try:
+            _TYPST_COMPILER = _backend.Compiler(ignore_system_fonts=True)
+        except Exception:
+            # Fallback to direct compile if Compiler is unsupported
+            _TYPST_COMPILER = None
     if fmt == 'typ':
         try:
             parent = os.path.dirname(os.path.abspath(output_path))
@@ -1131,7 +1132,17 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         if fmt == 'png' and ppi is not None:
             kwargs['ppi'] = ppi
         try:
-            _backend.compile(typst_file, output_path, **kwargs)
+            root_dir = os.path.dirname(os.path.abspath(typst_file)) or '.'
+            if _TYPST_COMPILER is not None:
+                _compile_kwargs = dict(kwargs)
+                _compile_kwargs.pop('ignore_system_fonts', None)
+                _compile_kwargs['root'] = root_dir
+                _compile_kwargs['input'] = typst_file
+                _compile_kwargs['output'] = output_path
+                _TYPST_COMPILER.compile(**_compile_kwargs)
+            else:
+                kwargs['root'] = root_dir
+                _backend.compile(typst_file, output_path, **kwargs)
         except RuntimeError as e:
             # Typst PNG/SVG multi-page error: retry with {p} pattern.
             if fmt in ('png', 'svg') and 'multiple pages' in str(e).lower() \
