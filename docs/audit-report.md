@@ -351,8 +351,8 @@ Evidence:
 
 Evidence:
 - Read `editor/main_window.py` (partial), `editor/app.py`, `editor/preview.py`, `editor/lsp_client.py`, `lsp/server.py`, `lsp/analysis.py`.
-- Threading: `main_window.py` uses `QThread` for live preview (`compile_ezmath` called directly). **No cancellation mechanism or timeout** visible. Confirmed by reading source; no `threading.Event` or `QThread` termination check before `.typ` write.
-- Resource leaks: `QProcess` started for compiler and LSP; `main_window.py` closes windows but does **not explicitly kill child processes** (`kill()` not called in `closeEvent`). Confirmed.
+- Threading: `main_window.py` uses `QThread` (`_preview_thread`) with cancellation (`quit()` then `terminate()` after 3s in `_shutdown_preview`). Confirmed by source read (`main_window.py` 1984-1999). Regression test (`test_preview_shutdown_flag_exists_in_source`) verifies `closeEvent` calls `_shutdown_preview`. Status: fixed (regression test added).
+- Resource leaks / process cleanup: build process killed (`_build_process.kill()` in `closeEvent`, 2045-2054). LSP shutdown uses async handshake (`lsp.stop()` + 5s watchdog in `closeEvent`, 2059-2068), not a direct `kill()` in the normal close path. Confirmed. Remaining direct LSP `kill()` deferred with severity Medium.
 - LSP protocol conformance: `lsp/server.py` uses `pygls`. No custom protocol violations observed. Confirmed.
 - Race when file closed mid-compile: **not covered** by adversarial test (would require GUI interaction). Confirmed unverified.
 
