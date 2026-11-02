@@ -12,6 +12,18 @@ for those.
 
 ## [Unreleased]
 
+### Added
+- Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
+- Clear offline error message for first `*draw(...)` when `@preview/cetz` download fails.
+
+### Changed
+- LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.
+- `docs/editor.md`: `*equal-angle` labelled as planned (not yet implemented).
+
+### Fixed
+- Preview manifest (`manifest.json`) now regenerated automatically in test setup; stale-preview bugs no longer hidden by skips.
+- Duplicate docstring removed from `pipeline.py`.
+
 ### Changed
 
 - **Smaller installers** — the packaged binaries no longer ship three
