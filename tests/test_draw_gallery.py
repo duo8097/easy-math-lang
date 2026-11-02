@@ -174,8 +174,6 @@ def test_previews_and_manifest_are_current():
     example so a catalog change forces a re-render.
     """
     manifest_path = os.path.join(draw_gallery.PREVIEW_DIR, 'manifest.json')
-    if not os.path.isfile(manifest_path):
-        pytest.skip('previews not generated yet (scripts/build_draw_previews.py)')
     import hashlib
     import json
     with open(manifest_path, encoding='utf-8') as fh:
