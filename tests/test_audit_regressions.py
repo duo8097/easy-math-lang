@@ -227,3 +227,28 @@ def test_fenced_code_preserves_literal_comments():
     from compiler.comments import strip_comments
     text = '```\na // literal\n\\\n```\nnext // hidden'
     assert strip_comments(text) == '```\na // literal\n\\\n```\nnext '
+
+
+# --- AUDIT-001 regression: degenerate segment division-by-zero guard ---
+
+def test_bad_len_degenerate_segment():
+    """A zero-length segment must be caught by _bad_len."""
+    import numpy as np
+    from geometry.vectors import _norm
+    from geometry.commands import _bad_len
+    P = {'A': np.array([0.0, 0.0]), 'B': np.array([0.0, 0.0])}
+    assert _bad_len(_norm(P['B'] - P['A'])) is True
+
+
+def test_degenerate_perp_does_not_crash():
+    """*perp with coincident points must not raise ZeroDivisionError."""
+    from geometry.solver import GeometrySolver
+    from geometry.commands import _process_command
+    solver = GeometrySolver()
+    solver.add_point('A', 0, 0)
+    solver.add_point('B', 0, 0)
+    solver.add_point('C', 1, 0)
+    try:
+        _process_command(solver, 'perp', ['A', 'B', 'C'])
+    except ZeroDivisionError:
+        raise AssertionError("Division by zero in degenerate *perp")
