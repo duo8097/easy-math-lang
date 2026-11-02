@@ -205,7 +205,9 @@ def _assemble() -> None:
         app_dest = DIST / "easy-math-editor.app"
         if app_dest.exists():
             shutil.rmtree(app_dest)
-        shutil.copytree(editor_app, app_dest)
+        # symlinks=True: the .app bundle holds framework symlinks
+        # (Versions/Current -> A) that codesign requires to stay symlinks.
+        shutil.copytree(editor_app, app_dest, symlinks=True)
     else:
         editor_exe = editor_bundle / _executable("easy-math-editor")
         if not editor_exe.is_file():
