@@ -356,6 +356,12 @@ Evidence:
 - LSP protocol conformance: `lsp/server.py` uses `pygls`. No custom protocol violations observed. Confirmed.
 - Race when file closed mid-compile: **not covered** by adversarial test (would require GUI interaction). Confirmed unverified.
 
+### 7.4 Fuzz-style adversarial run (`scripts/fuzz_audit.py`, seed=42)
+
+- 1000 generated inputs, 13 categories (`empty`, `newline`, `backslash`, `math_unclosed`, `block_unclosed`, `plot_bad_expr`, `plot_bad_bounds`, `table_deep`, `image_bad`, `unicode`, `crlf`, `large_num`, `calc_nested`).
+- Results: **0 crashes**, **0 hangs** (>10s). All errors emitted as `[Error]` diagnostics (division by zero, unclosed math, bad plot bounds, path traversal blocked by Typst, unclosed block). Confirmed by `scripts/fuzz_audit.py` output.
+- Any uncaught exception or hang >10s would have been recorded. None occurred.
+
 ---
 
 ---
