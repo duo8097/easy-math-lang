@@ -342,7 +342,7 @@ def test_preview_shutdown_flag_exists_in_source():
     from editor import main_window
     # Verify source code contains cancellation logic.
     source = inspect.getsource(main_window.MainWindow.closeEvent)
-    assert '_preview_shutdown' in source
+    assert '_shutdown_preview' in source or '_preview_shutdown' in source
     assert 'quit()' in source or 'terminate()' in source
 
 
