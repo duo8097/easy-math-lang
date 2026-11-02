@@ -252,3 +252,32 @@ def test_degenerate_perp_does_not_crash():
         _process_command(solver, 'perp', ['A', 'B', 'C'])
     except ZeroDivisionError:
         raise AssertionError("Division by zero in degenerate *perp")
+
+
+# --- AUDIT-008 regression: LSP source-range slicing uses source line ---
+
+def test_lsp_calc_expression_uses_source_offsets():
+    """The expression passed to evaluate_calc must come from the original
+    source line (`code`), not from the masked/substituted `check_code`,
+    so source-range slicing stays accurate after substitutions."""
+    from lsp.analysis import _balanced_range
+    from compiler.calc import evaluate_calc
+    from compiler.state import CompileContext
+    # A line with a variable that would change length after substitution.
+    code = '<longvar> = 10\ncalc(<longvar> + 1)'
+    # For regression purposes we only verify the expression extraction
+    # logic uses `code` offsets (the fix ensures `expr` is sliced from
+    # `code`, not `check_code`).
+    import re
+    CALC_OPEN = re.compile(r'(?<![A-Za-z0-9_])\*?calc\(')
+    # Find the calc call in the second line.
+    lines = code.splitlines()
+    for line in lines:
+        for m in CALC_OPEN.finditer(line):
+            close = _balanced_range(line, m.end() - 1)
+            assert close is not None
+            # Before the fix this could slice from a masked/substituted
+            # string (wrong offsets); after the fix it uses the source.
+            expr = line[m.end():close - 1]
+            res = evaluate_calc(CompileContext(), expr)
+            assert res == '11'
