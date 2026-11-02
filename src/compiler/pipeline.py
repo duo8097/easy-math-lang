@@ -1041,13 +1041,6 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
     *image_files* (``(abs_path, typ_relpath)`` pairs from ``*image``)
     travel with ``typ``/``html`` exports like plot sidecars.
     """
-
-    - ``typ``: just copy the intermediate file to *output_path*.
-    - ``pdf``/``html``: single-file compile.
-    - ``png``/``svg``: single-file when the doc fits one page; when
-      Typst reports "multiple pages", retry with a ``stem-{p}.ext``
-      pattern so every page lands on disk (Typst requires ``{p}``).
-    """
     import shutil
     label = {'pdf': 'PDF', 'png': 'PNG image(s)', 'svg': 'SVG image(s)',
              'html': 'HTML', 'typ': 'Typst'} .get(fmt, fmt.upper())
