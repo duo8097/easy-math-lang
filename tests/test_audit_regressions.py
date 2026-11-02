@@ -311,6 +311,29 @@ def test_plot_cache_miss_different_expression(tmp_path):
     assert out2.is_file()
 
 
+def test_plot_cache_regenerates_deleted_svg(tmp_path):
+    """If the cached SVG file is deleted, the next call regenerates it."""
+    from compiler.plots import render_plot_svg
+    from compiler.state import CompileContext
+    out = tmp_path / 'regenerated.svg'
+    render_plot_svg(CompileContext(), 'x', -1, 1, out)
+    out.unlink()
+    assert not out.is_file()
+    render_plot_svg(CompileContext(), 'x', -1, 1, out)
+    assert out.is_file()
+
+
+def test_plot_cache_miss_on_options_change(tmp_path):
+    """Different samples or bounds change the hash key (miss)."""
+    from compiler.plots import render_plot_svg
+    from compiler.state import CompileContext
+    out1 = tmp_path / 'plot_samples.svg'
+    out2 = tmp_path / 'plot_samples2.svg'
+    render_plot_svg(CompileContext(), 'x', -1, 1, out1, samples=500)
+    render_plot_svg(CompileContext(), 'x', -1, 1, out2, samples=500)
+    assert out1.is_file() and out2.is_file()
+
+
 def test_plot_cache_before_after_timing():
     import time, tempfile, os
     from compiler.plots import render_plot_svg
