@@ -704,9 +704,10 @@ def _analyze_text_inner(text, analysis):
                     continue
                 # Evaluate the expression extracted from the source line
                 # directly (evaluate_calc re-applies var/define
-                # substitution). Slicing sub_all with source offsets is
-                # wrong when earlier substitutions changed the length.
-                expr = check_code[m.end():close - 1]
+                # substitution). Use the original source line (`code`) for
+                # slicing so source offsets stay accurate after any prior
+                # substitutions changed text length.
+                expr = code[m.end():close - 1]
                 res = evaluate_calc(ctx, expr)
                 if res.startswith('[Calc Error'):
                     analysis.diagnostics.append(Diag(

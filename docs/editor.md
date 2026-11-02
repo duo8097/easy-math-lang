@@ -92,7 +92,7 @@ use `Build → Restart Language Server`.
     card reloads its example).
   - **Insert command…** — opens the usual parameter dialog for that
     command (greyed out for commands without one yet, e.g.
-    `*equal-angle`).
+    `*equal-angle` — planned, not yet implemented).
 - **Insert empty block** puts the old bare `*draw(...)` skeleton at
   the cursor, so the previous `*draw` button behavior is still one
   click away.

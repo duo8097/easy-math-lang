@@ -112,7 +112,7 @@ def _clip_line_to_box(px, py, dx, dy, xmin, ymin, xmax, ymax):
 
 def generate_typst(solver, errors=None):
     lines = []
-    lines.append('#import "@preview/cetz:0.4.2"')
+    lines.append('#import "@preview/cetz:0.4.2"  // first *draw may download cetz; offline? rerun once online')
     lines.append('#align(center)[#cetz.canvas({')
     lines.append('  import cetz.draw: *')
 

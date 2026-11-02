@@ -490,9 +490,6 @@ _MANIFEST = os.path.join(os.path.dirname(__file__), '..', 'src', 'editor',
 def test_examples_match_preview_manifest():
     """Each example's hash must match the committed manifest (the SVG
     previews were rendered from those exact examples)."""
-    if not os.path.isfile(_MANIFEST):
-        pytest.skip('no manifest.json — run scripts/build_draw_previews.py '
-                    'to (re)generate previews')
     with open(_MANIFEST, encoding='utf-8') as handle:
         manifest = json.load(handle)
     entries = manifest.get('examples', manifest)
