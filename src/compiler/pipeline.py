@@ -1175,7 +1175,15 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         return False
     except Exception as e:
         # typst.TypstError (bad markup) and any other compile failure.
-        print(f'\n[ERROR] Typst compilation failed: {e}', file=sys.stderr)
+        msg = str(e)
+        if 'cetz' in msg.lower() or 'download' in msg.lower() or 'package' in msg.lower():
+            print(
+                f'\n[ERROR] Typst compilation failed: the *draw geometry package '
+                f'(@preview/cetz:0.4.2) could not be downloaded. '
+                f'First use requires an internet connection; rerun once online. '
+                f'Full error: {msg}', file=sys.stderr)
+        else:
+            print(f'\n[ERROR] Typst compilation failed: {msg}', file=sys.stderr)
         return False
 
 
