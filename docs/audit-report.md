@@ -300,17 +300,13 @@ Findings fixed (with IDs in commit messages):
 - AUDIT-010: stop hiding stale-preview bugs (remove skips)
 - ...
 
-Findings deferred / won't fix / needs decision:
-- **AUDIT-001** (Medium): fixed (regression test added, passes).
-- **AUDIT-002** (Medium): not reproducible; time-boxed (5 runs + isolation + clean config + full suite). Status: deferred (do not skip).
-- **AUDIT-003** (High): fixed (expression hash cache; timing median 0.007s -> 0.003s; regression tests pass).
-- **AUDIT-004** (High): fixed (reuse `typst.Compiler`; timing shows clear gain).
-- **AUDIT-005** (High): fixed (clear offline message added to `geometry/codegen.py` and `pipeline.py` error handler).
-- **AUDIT-006** (Medium): fixed (duplicate docstring removed).
-- **AUDIT-007** (Medium): deferred (see Section 8; recommended option b: remove from docs until implemented).
-- **AUDIT-008** (Medium): fixed (LSP slicing uses source line; regression test passes).
+Findings fixed (with IDs in commit messages):
+- AUDIT-001, AUDIT-003, AUDIT-004, AUDIT-005, AUDIT-006, AUDIT-008, AUDIT-010.
+
+Findings deferred / won't fix / needs decision (do NOT implement yet):
+- **AUDIT-002** (Medium): not reproducible; time-boxed.
+- **AUDIT-007** (Medium): deferred (recommended option b: label in docs only).
 - **AUDIT-009** (Medium): deferred (dependency pins; needs release lock strategy).
-- **AUDIT-010** (Medium): fixed (manifest skips removed; masked failure now fails visibly).
 
 Test results:
 Before: 1016 passed, 9 skipped (37.74s)
