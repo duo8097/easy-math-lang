@@ -1041,7 +1041,6 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
     *image_files* (``(abs_path, typ_relpath)`` pairs from ``*image``)
     travel with ``typ``/``html`` exports like plot sidecars.
     """
-    """Run typst.compile() for one export; True on success.
 
     - ``typ``: just copy the intermediate file to *output_path*.
     - ``pdf``/``html``: single-file compile.

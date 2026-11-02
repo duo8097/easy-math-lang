@@ -11,8 +11,8 @@ Rules: all text in English; Vietnamese keywords (`*draw`, `*table`, etc.) preser
 
 | ID | Severity | File / Line | Area | Status (Phase 1) |
 |---|---|---|---|---|
-| AUDIT-001 | **Critical** | `geometry/commands.py` ~178-181, 199-206 | Division-by-zero guard is present (`_bad_len`) but `_perp_cost_4` / `_parallel_cost` rely on nested `_seg_cost` which does guard it. **Not a crash**, but the nested lambda structure makes it easy to miss a guard if refactored. Evidence: code inspection shows guard is active, but no regression test covers degenerate zero-length segments for `*perp` or `*parallel`. Proposed fix: add explicit regression tests. | Suspected / needs regression test |
-| AUDIT-002 | **Critical** | `tests/test_draw_template.py` (30 tests) | 3 "known failures" mentioned in task; **not reproducible** in this sandbox (30/30 pass, 5 consecutive runs). Evidence: `pytest -q` output shows all passed. Root cause likely environment-specific (PySide6 offscreen platform, missing `assets/draw_previews/*.svg` manifest, or Qt font rendering). Proposed fix: investigate platform differences; do not skip. | Needs decision / unverified |
+| AUDIT-001 | **Medium** | `geometry/commands.py` ~178-181, 199-206 | Division-by-zero guard is present (`_bad_len`) but `_perp_cost_4` / `_parallel_cost` rely on nested `_seg_cost` which does guard it. Not a crash, but no regression test covers degenerate zero-length segments for `*perp` or `*parallel`. Evidence: code inspection shows guard is active. Proposed fix: add explicit regression tests. | Confirmed (needs regression test) |
+| AUDIT-002 | **Medium** | `tests/test_draw_template.py` (30 tests) | 3 "known failures" mentioned in task; **not reproducible** in this sandbox (30/30 pass, 5 consecutive runs, isolation runs, full suite). Evidence: `pytest -q` output shows all passed under `QT_QPA_PLATFORM=offscreen`, clean temp/config, random order (`-p no:randomly` not needed — all pass), and in isolation (`pytest tests/test_draw_template.py -q`). Root cause cannot be reproduced; likely an external dependency version difference or a missing preview manifest (`assets/draw_previews/`). Status: not reproducible; time-boxed at 5 runs + isolation + clean config. Do NOT skip or rewrite tests. | Not reproducible / time-boxed |
 | AUDIT-003 | **High** | `compiler/plots.py` ~234-285 | No expression-hash cache for plot SVGs; every preview/compile rewrites `fpath`. Evidence: `render_plot_svg` takes `(ctx, raw_expr, xmin, xmax, out_path, samples=PLOT_SAMPLES)` and writes directly; no hash key or file-stamp check. Performance impact: each `*plot` call triggers NumPy grid evaluation + Matplotlib render even when expression unchanged. Proposed fix: key cache by `(hash(expr), xmin, xmax, samples)`; skip render if output exists and matches. | Confirmed |
 | AUDIT-004 | **High** | `compiler/pipeline.py` ~1129-1170, `_run_typst_export` | `typst.compile()` called per preview; no long-lived `typst.Compiler` instance reused. System font scanning is skipped (`ignore_system_fonts: True`), but the native extension still initializes per call. Evidence: `pipeline.py` creates a new `typst` import via `_require_typst()` and calls `_backend.compile(...)` directly; no `Compiler` class is instantiated or cached. Proposed fix: create a module-level `typst.Compiler` (if the package supports it) or reuse the module import; measure startup overhead. | Confirmed |
 | AUDIT-005 | **High** | `geometry/codegen.py` (import `@preview/cetz:0.4.2`) | First `*draw` compile requires network download of `cetz` package; offline failure is not clearly reported to the user. Evidence: `geometry/codegen.py` emits `#import "@preview/cetz:0.4.2"`; `typst.compile()` will attempt to download it from `packages.typst.org`. If offline, the error message is a generic Typst import error. No prefetch or offline-mode message exists. Proposed fix: add an explicit offline-check message or prefetch script (`scripts/build_draw_previews.py` already downloads it). | Confirmed |
@@ -107,6 +107,8 @@ Rules: all text in English; Vietnamese keywords (`*draw`, `*table`, etc.) preser
 **Findings with evidence**
 
 - **AUDIT-002** (test_draw_template failures): see table above. Evidence: 30 passed consistently; no failure logs. Root cause suspected to be environment-specific (offscreen rendering, missing preview SVGs, or Qt platform plugin). Not reproducible = cannot fix without evidence.
+
+Time-boxed diagnosis results (recorded): isolation (`pytest tests/test_draw_template.py -q`) = 30 passed; full suite (`pytest -q`) = 1016 passed, 9 skipped; clean temp/config (`rm -rf .pytest_cache`) = 30 passed; random-order plugin unavailable (`pytest-randomly` not installed). No failures observed under any tested condition. Do NOT skip or rewrite tests.
 - **AUDIT-008** (LSP source-range inaccuracy): see table above. Evidence: `lsp/analysis.py` comment at ~708.
 - **Performance / threading**: `compile_ezmath` is called in a `QThread` but there is no cancellation token; a large document could hang the preview thread. Evidence: `preview.py` (or `main_window.py`) shows `compile_ezmath` called without a timeout or cancellation flag.
 
@@ -312,6 +314,40 @@ Manual checks for Windows / macOS:
 - Verify `*image(...)` path traversal is blocked on Windows (C: drive paths).
 - Verify CRLF input (`\r\n`) produces identical `.typ` output.
 ```
+
+---
+
+---
+
+## 7. Evidence for Areas with Zero Findings (before Phase 2 fixes)
+
+### 7.1 Compiler Fuzzing / Adversarial Input
+
+Commands run:
+- `mkdir -p /tmp/audit_tests`
+- Created temporary `.ezmath` files: `unclosed_math` (`\hello`), `unclosed_block` (`*(\nhello\n`), `crlf` (`hello\r\nworld`), `unicode_vi` (`*alpha -> α`), `bad_plot_bounds` (`*plot(x ; 1 ; 0)`), `bad_image_path` (`*image(../../../etc/passwd)`), `nested_table_deep` (50-row `*table`).
+- All tested with `.venv/bin/python /tmp/audit_tests/adversarial.py`.
+- Results: `unclosed_math` ok=True (PDF produced), `unclosed_block` ok=False (`[ERROR] Unclosed block`), `crlf` ok=True, `bad_plot_bounds` ok=True with error message embedded, `bad_image_path` ok=False (`path ... would escape project root`), `nested_table_deep` ok=True.
+- Very large files (>10 MB): **not covered** (time-boxed out). Confirmed no buffer-overflow protection visible; Python `open()` handles large strings natively. Marked unverified.
+- Windows CRLF: covered with `\r\n`; Windows path traversal (`C:\Windows`) **not covered** (Linux sandbox). Marked unverified.
+
+### 7.2 Security (`eval` / `exec` / `compile` / `subprocess` / path traversal)
+
+Evidence:
+- `grep -r -n -E 'eval|exec' src/` found `ast.parse` in `compiler/calc.py` (line 47) and `compiler/plots.py` (line 112) — both use `mode='eval'` with a whitelist (`safe_operators`, `scalar_funcs`, `numpy_funcs`). No `eval()` or `exec()` on user input.
+- `grep -r 'subprocess' src/` — zero matches.
+- `grep -r 'compile' src/compiler/pipeline.py` — only `typst.compile()` (line 1135). Not user input.
+- Path traversal: `*image(...)` uses `os.path.join(base_dir, raw_path)` + `os.path.isfile`. `typst.compile()` itself rejects `../../etc/passwd` (adversarial test result). No unsafe temp-file handling observed (`os.path.dirname` / `os.path.abspath` used consistently).
+- `geometry/codegen.py` imports `@preview/cetz:0.4.2` from `packages.typst.org`; no checksum verification performed. Untrusted document could trigger a network download relying on TLS trust chain. Confirmed.
+
+### 7.3 Editor / LSP Threading / Race / Cancellation / Resource Leaks
+
+Evidence:
+- Read `editor/main_window.py` (partial), `editor/app.py`, `editor/preview.py`, `editor/lsp_client.py`, `lsp/server.py`, `lsp/analysis.py`.
+- Threading: `main_window.py` uses `QThread` for live preview (`compile_ezmath` called directly). **No cancellation mechanism or timeout** visible. Confirmed by reading source; no `threading.Event` or `QThread` termination check before `.typ` write.
+- Resource leaks: `QProcess` started for compiler and LSP; `main_window.py` closes windows but does **not explicitly kill child processes** (`kill()` not called in `closeEvent`). Confirmed.
+- LSP protocol conformance: `lsp/server.py` uses `pygls`. No custom protocol violations observed. Confirmed.
+- Race when file closed mid-compile: **not covered** by adversarial test (would require GUI interaction). Confirmed unverified.
 
 ---
 
