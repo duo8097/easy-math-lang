@@ -301,10 +301,11 @@ Findings fixed (with IDs in commit messages):
 - ...
 
 Findings fixed (with IDs in commit messages):
-- AUDIT-001, AUDIT-003, AUDIT-004, AUDIT-005, AUDIT-006, AUDIT-008, AUDIT-010.
+- AUDIT-001, AUDIT-003, AUDIT-005, AUDIT-006, AUDIT-008, AUDIT-010.
 
 Findings deferred / won't fix / needs decision (do NOT implement yet):
 - **AUDIT-002** (Medium): not reproducible; time-boxed.
+- **AUDIT-004** (High): reverted / won't fix. Measured full CLI compile before (median 0.260s) vs after reuse (median 0.226s) — gain ~13%, below 20% threshold. Reverted in `revert(AUDIT-004)`.
 - **AUDIT-007** (Medium): deferred (recommended option b: label in docs only).
 - **AUDIT-009** (Medium): deferred (dependency pins; needs release lock strategy).
 
