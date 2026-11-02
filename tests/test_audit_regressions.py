@@ -334,6 +334,21 @@ def test_plot_cache_miss_on_options_change(tmp_path):
     assert out1.is_file() and out2.is_file()
 
 
+# --- AUDIT-011 regression: editor threading — preview cancellation ---
+
+def test_preview_thread_terminated_on_shutdown():
+    """Closing the window must terminate the preview QThread."""
+    import pytest
+    pytest.importorskip('PySide6')
+    from editor.main_window import MainWindow
+    win = MainWindow(start_lsp=False, no_save_prompt=True)
+    assert win._preview_thread is not None
+    win.close()
+    assert win._preview_shutdown is True
+
+
+# --- AUDIT-002: deferred — threading/resource leaks (unverified in GUI) ---
+
 def test_plot_cache_before_after_timing():
     import time, tempfile, os
     from compiler.plots import render_plot_svg
