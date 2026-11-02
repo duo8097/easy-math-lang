@@ -23,13 +23,16 @@ vertical line.
 """
 
 import ast
+import hashlib
 import operator
+import os
 import re
 import warnings
 
 from .safemath import bounded_power, numpy_consts, numpy_funcs, preprocess_math_expr
 
 PLOT_SAMPLES = 1000
+_PLOT_CACHE = {}
 
 _PLOT_CALL_RE = re.compile(r'\*plot\s*\(')
 
@@ -235,9 +238,19 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
                     samples=PLOT_SAMPLES):
     """Numerically evaluate and render one plot; return the expression.
 
+    Uses an in-memory hash cache (`_PLOT_CACHE`) so identical
+    (expression, bounds, samples) calls skip the expensive Matplotlib
+    render when the output file already exists.
+
     Raises ValueError (bad expression/bounds) or OSError/RuntimeError
     (SVG backend failure) with user-facing messages.
     """
+    key = hashlib.md5(
+        f"{raw_expr}:{xmin}:{xmax}:{samples}".encode()
+    ).hexdigest()
+    if key in _PLOT_CACHE and _PLOT_CACHE[key] == out_path:
+        if os.path.isfile(out_path):
+            return raw_expr.strip()
     import numpy as _np
     x = _np.linspace(float(xmin), float(xmax), int(samples), dtype=float)
     y = evaluate_on_grid(ctx, raw_expr, x)
@@ -283,4 +296,5 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
     finally:
         if fig is not None:
             plt.close(fig)
+    _PLOT_CACHE[key] = out_path
     return raw_expr.strip()

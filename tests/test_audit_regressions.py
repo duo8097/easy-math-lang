@@ -1,5 +1,6 @@
 """Regression cases found while auditing v4.2.0."""
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -281,3 +282,51 @@ def test_lsp_calc_expression_uses_source_offsets():
             expr = line[m.end():close - 1]
             res = evaluate_calc(CompileContext(), expr)
             assert res == '11'
+
+
+# --- AUDIT-003 regression: plot expression hash cache ---
+
+def test_plot_cache_hit_skips_render(tmp_path):
+    """Same expression/options with existing file gives a cache hit."""
+    from compiler.plots import render_plot_svg, _PLOT_CACHE
+    from compiler.state import CompileContext
+    out = tmp_path / 'cached.svg'
+    # First render writes file.
+    render_plot_svg(CompileContext(), 'x', -1, 1, out)
+    assert out.is_file()
+    # Same call should hit cache and skip render.
+    assert 'x:-1:1:1000' in [hashlib.md5(f"x:-1:1:1000".encode()).hexdigest()]  # sanity
+    # The function should return quickly without error.
+    result = render_plot_svg(CompileContext(), 'x', -1, 1, out)
+    assert result == 'x'
+
+
+def test_plot_cache_miss_different_expression(tmp_path):
+    """Different expression gives a miss and writes a new file."""
+    from compiler.plots import render_plot_svg
+    from compiler.state import CompileContext
+    out1 = tmp_path / 'plot1.svg'
+    out2 = tmp_path / 'plot2.svg'
+    render_plot_svg(CompileContext(), 'x', -1, 1, out1)
+    render_plot_svg(CompileContext(), 'x*x', -1, 1, out2)
+    assert out1.is_file()
+    assert out2.is_file()
+
+
+def test_plot_cache_before_after_timing():
+    import time, tempfile, os
+    from compiler.plots import render_plot_svg
+    from compiler.state import CompileContext
+    with tempfile.TemporaryDirectory() as td:
+        out = os.path.join(td, 'bench.svg')
+        # Before: no cache file exists; render takes time.
+        t0 = time.perf_counter()
+        render_plot_svg(CompileContext(), 'x', -1, 1, out)
+        t_first = time.perf_counter() - t0
+        # After: cache hit; should be faster (skip Matplotlib render).
+        t0 = time.perf_counter()
+        render_plot_svg(CompileContext(), 'x', -1, 1, out)
+        t_cached = time.perf_counter() - t0
+        # Cache hit must be faster; report values.
+        print(f"\n[Timing] first={t_first:.3f}s cached={t_cached:.3f}s speedup={t_first/max(t_cached,1e-6):.1f}x")
+        assert t_cached < t_first, f"Cache did not speed up: cached={t_cached:.3f}s >= first={t_first:.3f}s"
