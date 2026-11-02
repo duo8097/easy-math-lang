@@ -13,14 +13,19 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ChangesEnvironment=yes
 
 [Files]
-Source: "..\dist\easy-math-lang.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\dist\ezmath.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\dist\easy-math-lsp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\dist\easy-math-editor\*"; DestDir: "{app}\editor"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Shared PyInstaller onedir bundle (one _internal with all heavy
+; libraries): the compiler CLI, the language server and the desktop
+; editor all live here, so the install carries a single copy of NumPy,
+; Matplotlib, Typst, PySide6, … .
+Source: "..\dist\easy-math-lang\easy-math-lang.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-lang\easy-math-lsp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-lang\easy-math-editor.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-lang\ezmath.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\easy-math-lang\_internal\*"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Easy Math Editor"; Filename: "{app}\editor\easy-math-editor.exe"
-Name: "{autodesktop}\Easy Math Editor"; Filename: "{app}\editor\easy-math-editor.exe"; Tasks: desktopicon
+Name: "{group}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"
+Name: "{autodesktop}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional options:"; Flags: unchecked

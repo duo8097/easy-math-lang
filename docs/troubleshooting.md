@@ -43,7 +43,7 @@ During a build you may see lines like this:
 | `Python not found` during setup | Re-run the Python installer and make sure **"Add Python to PATH"** is ticked. |
 | `easy-math-lang: command not found` | You skipped `uv sync`, or you're not in the project folder. From source, always run `uv run easy-math-lang …`. |
 | macOS blocks the app on first launch | Right-click the app → **Open** → **Open** again (the app is ad-hoc signed, not notarized). See [Installation → macOS](installation.md#option-a2--macos-disk-image-easiest). |
-| Windows installer: `LSP: Disconnected` | Keep the installed `editor/` and `bin/` folders together, then **Build → Restart Language Server**. Details: [Desktop editor → helper programs](editor.md#under-the-hood-helper-programs). |
+| Windows installer: `LSP: Disconnected` | The installed editor and its helpers now ship in one folder; if the `LSP: Disconnected` persists, use **Build → Restart Language Server**. Details: [Desktop editor → helper programs](editor.md#under-the-hood-helper-programs). |
 | Arch/Debian package installed but the editor doesn't see the helpers | The packages install to `/usr/bin` + `/usr/lib/easy-math-lang`; if you moved files, set `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` to point at them. |
 
 Step-by-step from scratch: [Installation guide](installation.md).

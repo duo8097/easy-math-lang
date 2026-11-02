@@ -5,16 +5,16 @@
 # Usage (macOS, from the repo root, after the binaries were built):
 #   bash scripts/package_macos.sh [--stage]
 #
-# Input:  dist/easy-math-lang, dist/ezmath, dist/easy-math-lsp,
-#         dist/easy-math-editor.app
+# Input:  dist/easy-math-lang/easy-math-lang, dist/easy-math-lang/easy-math-lsp,
+#        dist/easy-math-lang/easy-math-editor.app
 # Output: a signed dist/easy-math-editor.app whose helpers live in
-#         Contents/Resources/bin. With --stage the release layout is
-#         written to staging/ (the folder the DMG is packed from).
+#        Contents/MacOS. With --stage the release layout is
+#        written to staging/ (the folder the DMG is packed from).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP="dist/easy-math-editor.app"
-BIN="$APP/Contents/Resources/bin"
+BIN="$APP/Contents/MacOS"
 STAGE="staging"
 
 STAGE_IT=0
@@ -28,18 +28,23 @@ done
 fail() { echo "::error::$*" >&2; exit 1; }
 
 # --- Inputs ----------------------------------------------------------------
-for f in dist/easy-math-lang dist/ezmath dist/easy-math-lsp; do
+for f in dist/easy-math-lang/easy-math-lang dist/easy-math-lang/easy-math-lsp; do
   [ -x "$f" ] || fail "missing $f (run scripts/build_binaries.py first)"
 done
 [ -d "$APP" ] || fail "expected $APP (PyInstaller --windowed --onedir must emit a bundle)"
 
 # --- Bundle the helpers into the .app --------------------------------------
 # A user may drag just the .app to /Applications, so the compiler and the
-# language server must live inside it. editor/paths.py searches
-# Contents/Resources/bin, so no PATH setup is ever needed.
+# language server must live inside it. The helpers are onedir executables
+# that reuse the editor's library directory (the .app's Contents/Frameworks
+# via the bootloader app-bundle mode), so placing them next to the editor
+# executable in Contents/MacOS gives them -- and the editor -- one shared
+# copy of the heavy libraries. editor/paths.py searches Contents/MacOS,
+# so no PATH setup is ever needed.
 mkdir -p "$BIN"
-cp -f dist/easy-math-lang dist/easy-math-lsp "$BIN/"
-ln -sfn easy-math-lang "$BIN/ezmath"
+cp -f dist/easy-math-lang/easy-math-lang "$BIN/easy-math-lang"
+cp -f dist/easy-math-lang/easy-math-lsp "$BIN/easy-math-lsp"
+cp -f dist/easy-math-lang/easy-math-lang "$BIN/ezmath"
 chmod +x "$BIN"/*
 ls -l "$BIN"
 
@@ -65,8 +70,7 @@ find "$APP/Contents" -name '*__dot__app' -print
 # build with a bad signature. Only real Mach-O files are signed (never
 # plain directories or scripts): Frameworks holds plain directories such
 # as PySide6/numpy/typst that codesign rejects.
-codesign --force --sign - dist/easy-math-lang
-codesign --force --sign - dist/easy-math-lsp
+codesign --force --sign - "$APP"
 COUNT=0
 while IFS= read -r -d '' f; do
   if file -b "$f" | grep -q "Mach-O"; then
@@ -76,10 +80,7 @@ while IFS= read -r -d '' f; do
   fi
 done < <(find "$APP/Contents" -type f -print0)
 echo "signed $COUNT Mach-O files under $APP/Contents"
-codesign --force --sign - "$APP"
-if codesign --verify --deep --strict --verbose=2 "$APP"; then
-  echo "bundle verification OK"
-else
+if ! codesign --verify --deep --strict --verbose=2 "$APP"; then
   echo "::error::verification failed for $APP"
   set +e
   codesign -dvvv "$APP"
@@ -88,7 +89,11 @@ else
   exit 1
 fi
 codesign --verify --strict --verbose=2 \
-  dist/easy-math-lang dist/ezmath dist/easy-math-lsp
+  "$APP/Contents/MacOS/easy-math-editor" \
+  "$APP/Contents/MacOS/easy-math-lang" \
+  "$APP/Contents/MacOS/easy-math-lsp" \
+  "$APP/Contents/MacOS/ezmath"
+echo "bundle verification OK"
 
 du -sh "$APP"
 
@@ -105,16 +110,16 @@ if [ "$STAGE_IT" = 1 ]; then
   # Small README so DMG browsers know what to do.
   cat > "$STAGE/README.txt" <<'EOF'
 Easy Math Lang (macOS)
-======================
+=====================
 - Drag "easy-math-editor.app" to the Applications folder
   (a shortcut is included in this disk image), or run it
   straight from here.
 - First launch: right-click the app -> Open (ad-hoc signed,
   not notarized — see docs/installation.md).
 - Helpers (compiler/LSP) live inside the app bundle:
-    easy-math-editor.app/Contents/Resources/bin/
+    easy-math-editor.app/Contents/MacOS/
   Terminal use:
-    BIN="$PWD/easy-math-editor.app/Contents/Resources/bin"
+    BIN="$PWD/easy-math-editor.app/Contents/MacOS"
     "$BIN/easy-math-lang" doc.ezmath
   or: export PATH="$BIN:$PATH"
   Export images etc.: easy-math-lang doc.ezmath out.png --format png

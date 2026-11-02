@@ -13,25 +13,32 @@ Three PyInstaller binaries, with the exact flags used by CI
 
 | Binary | Mode | Contents |
 |---|---|---|
-| `easy-math-lang.exe` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
-| `ezmath.exe` | onefile CLI | Same compiler binary under the short alias name (file copy, not a rebuild) |
-| `easy-math-lsp.exe` | onefile CLI | Language server (compiler bundled in-process) |
-| `easy-math-editor/` | onedir GUI (`--windowed`) | Desktop editor (PySide6) |
+| `easy-math-lang/` (shared bundle) | onedir CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
+| `ezmath` | symlink / file copy | Short alias to the compiler (POSIX: relative symlink; Windows: copy) |
+| `easy-math-lsp/` (shared bundle) | onedir CLI | Language server (compiler bundled in-process) |
+| `easy-math-editor` (shared bundle) | onedir GUI (`--windowed`) | Desktop editor (PySide6) |
 
-Inno Setup (`installer/setup.iss`) packs them into `EasyMathLang-Windows-x64-Setup.exe`
-with this installed layout:
+All three executables are assembled into ONE shared bundle directory
+(`dist/easy-math-lang/` with a single `_internal/`) by
+`scripts/build_binaries.py` (Approach A): the CLI and the language server
+reuse the desktop editor's collected libraries instead of each carrying
+their own copy, so an install holds exactly one copy of NumPy, Matplotlib,
+Typst, PySide6, …
+
+Inno Setup (`installer/setup.iss`) packs the shared bundle into
+`EasyMathLang-Windows-x64-Setup.exe` with this installed layout:
 
 ```
 {app}/
-├── bin/
-│   ├── easy-math-lang.exe
-│   ├── ezmath.exe
-│   └── easy-math-lsp.exe
-└── editor/
-    └── easy-math-editor.exe (+ support files)
+└── bin/
+    ├── easy-math-lang.exe
+    ├── easy-math-lsp.exe
+    ├── easy-math-editor.exe
+    ├── ezmath.exe
+    └── _internal/ (+ editor assets)
 ```
 
-The editor shortcut points at `{app}\editor\easy-math-editor.exe`.
+The editor shortcut points at `{app}\bin\easy-math-editor.exe`.
 Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
 **per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`
 so new terminals pick it up) — the editor must work without it (see below).
@@ -56,7 +63,7 @@ the PyInstaller flags exist exactly once:
 
 | Script | Does |
 |---|---|
-| `scripts/build_binaries.py` | Freezes the three binaries with PyInstaller (entry points, per-platform flags, `ezmath` alias copy). The entry shims are written to a temp dir, so no `entry_*.py` is left in the repo. |
+| `scripts/build_binaries.py` | Freezes the three binaries with PyInstaller (entry points, per-platform flags, `ezmath` alias, shared-bundle assembly) into `dist/easy-math-lang/` (one `_internal/` for the CLI, the LSP and the editor). The entry shims are written to a temp dir, so no `entry_*.py` is left in the repo. |
 | `scripts/package_macos.sh` | macOS only: bundles the helpers into the `.app`, prunes the nested Qt tool apps, signs the bundle inside-out and (with `--stage`) writes the DMG layout to `staging/`. |
 | `scripts/check_tag_version.py` | Release guard: fails the build when a `v*` tag does not match the `pyproject.toml` version. |
 
@@ -87,8 +94,8 @@ Linux builds enable PyInstaller's `--strip`: native libraries are stripped in
 its cache **before** being packed into the executable. Install `binutils` if
 `strip` is unavailable, or use `python scripts/build_binaries.py --no-strip`
 to retain native symbols for debugging. Windows/macOS do not enable stripping
-by default. Never run `strip` directly on a completed onefile executable;
-that can destroy its appended archive.
+by default. Never run `strip` directly on a completed onedir executable or
+onefile executable; that can destroy its appended archive.
 
 On Linux/macOS, `ezmath` is a relative symlink to `easy-math-lang`, including
 inside installers/the macOS app. Distribute the two names together; Windows
@@ -121,10 +128,10 @@ The build is still experimental / ad-hoc signed, not notarized:
 
 | Binary | Mode | Contents |
 |---|---|---|
-| `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst) |
+| `easy-math-lang` | onedir CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst) |
 | `ezmath` | symlink | Relative alias to `easy-math-lang` |
-| `easy-math-lsp` | onefile CLI | Language server |
-| `easy-math-editor.app` | GUI bundle (`--onedir --windowed`) | Desktop editor; helpers bundled in `Contents/Resources/bin/` |
+| `easy-math-lsp` | onedir CLI | Language server |
+| `easy-math-editor.app` | GUI bundle (`--onedir --windowed`) | Desktop editor; helpers bundled in `Contents/MacOS/` |
 
 Staged DMG layout (only the `.app` ships, so dragging it alone to
 `/Applications` keeps working — `editor/paths.py` finds the helpers
@@ -132,7 +139,7 @@ inside the bundle without `PATH`):
 
 ```
 staging/
-├── easy-math-editor.app   (Contents/Resources/bin/easy-math-lang, …)
+├── easy-math-editor.app   (Contents/MacOS/easy-math-lang, …)
 ├── Applications -> /Applications (symlink for drag-and-drop install)
 └── README.txt
 ```
@@ -156,22 +163,24 @@ Same three binaries, Linux names, built by
 
 | Binary | Mode | Contents |
 |---|---|---|
-| `easy-math-lang` | onefile CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
+| `easy-math-lang` | onedir CLI | Compiler (`.ezmath` → PDF/PNG/SVG/HTML/Typst via Typst) |
 | `ezmath` | symlink | Relative alias to `easy-math-lang` |
-| `easy-math-lsp` | onefile CLI | Language server |
-| `easy-math-editor/` | onedir GUI | Desktop editor (PySide6) |
+| `easy-math-lsp` | onedir CLI | Language server |
+| `easy-math-editor` | onedir GUI | Desktop editor (PySide6) |
 
 Both packages install the same FHS layout (mirroring
-`installer/PKGBUILD` for Arch):
+`installer/PKGBUILD` for Arch): the exes live in `/usr/lib/easy-math-lang/`
+together with one shared `_internal/`, and `/usr/bin` holds the command
+symlinks:
 
 ```
 usr/
 ├── bin/
-│   ├── easy-math-lang
-│   ├── ezmath
-│   ├── easy-math-lsp
-│   └── easy-math-editor -> /usr/lib/easy-math-lang/easy-math-editor/easy-math-editor
-├── lib/easy-math-lang/easy-math-editor/   (onedir GUI bundle)
+│   ├── easy-math-lang -> /usr/lib/easy-math-lang/easy-math-lang
+│   ├── ezmath -> easy-math-lang
+│   ├── easy-math-lsp -> /usr/lib/easy-math-lang/easy-math-lsp
+│   └── easy-math-editor -> /usr/lib/easy-math-lang/easy-math-editor
+├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal)
 ├── share/applications/easy-math-editor.desktop
 ├── share/doc/easymath/                    (README, copyright)
 └── share/licenses/easymath/               (LICENSE)
@@ -224,7 +233,8 @@ cheaply). Order for each of `easy-math-lsp` / `easy-math-lang`:
 
 1. `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` environment override.
 2. Binaries next to the running executable: the venv `Scripts/` dir from
-   source; the installer's `../bin` or a side-by-side `dist/` when frozen.
+   source; the installer's `bin/` folder (which holds the editor and the
+   shared `_internal/`), or a side-by-side `dist/` when frozen.
 3. `PATH` via `shutil.which`.
 4. Source only: `[sys.executable, '-m', ...]` (needs
    `src/compiler/__main__.py` for `python -m compiler`).
@@ -236,7 +246,8 @@ Rules that bit us before (do not regress):
 - **Never run `[sys.executable, '-m'/'-c', ...]` when frozen** —
   `sys.executable` is then the bundled binary itself, not a Python
   interpreter.
-- **Never assume `bin/` is on `PATH`** — it is opt-in during setup.
+- **Never assume any install folder is on `PATH`** — it is opt-in during
+  setup (the editor itself never needs it).
 - The LSP needs no subprocess to reach the compiler: it imports
   `compiler`/`geometry` in-process, so both must stay bundled in
   `easy-math-lsp.exe` (they are picked up automatically via

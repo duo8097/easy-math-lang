@@ -12,6 +12,19 @@ for those.
 
 ## [Unreleased]
 
+### Changed
+
+- **Smaller installers** — the packaged binaries no longer ship three
+  separate copies of the heavy runtime libraries. The compiler CLI, the
+  language server and the desktop editor are now assembled into one shared
+  PyInstaller onedir bundle (`dist/easy-math-lang/` with a single `_internal/`
+  directory holding NumPy, Matplotlib, Typst, PySide6, …) instead of three
+  independent library sets. The CLI and the LSP reuse the desktop editor's
+  collected libraries, so an install now contains exactly one copy of each.
+  User-facing commands (`easy-math-lang`, `ezmath`, `easy-math-lsp`) and
+  behavior are unchanged; the LSP starts slightly faster with the shared
+  library directory.
+
 ## [5.2.0] - 2026-11-01
 
 ### Added
