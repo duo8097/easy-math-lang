@@ -303,6 +303,7 @@ Findings deferred / won't fix / needs decision:
 - AUDIT-005: offline cetz download; unverified
 - AUDIT-009: loose dependency pins; decision needed on exact pins
 - AUDIT-010: manifest skip; needs CI change
+- **AUDIT-007** (`*equal-angle`): deferred; needs decision (see Section 8).
 
 Test results:
 Before: 1016 passed, 9 skipped (37.74s)
@@ -348,6 +349,26 @@ Evidence:
 - Resource leaks: `QProcess` started for compiler and LSP; `main_window.py` closes windows but does **not explicitly kill child processes** (`kill()` not called in `closeEvent`). Confirmed.
 - LSP protocol conformance: `lsp/server.py` uses `pygls`. No custom protocol violations observed. Confirmed.
 - Race when file closed mid-compile: **not covered** by adversarial test (would require GUI interaction). Confirmed unverified.
+
+---
+
+---
+
+## 8. Deferred Decision: AUDIT-007 (`*equal-angle`)
+
+**Options:**
+
+**(a) Implement (`geometry/codegen.py` + `docs/geometry.md`)**
+- Effort: medium (~2-4 hours). Requires adding a new `equal-angle` branch in `geometry/codegen.py`, a 6-point constraint setup in the solver (`equal-angle(A; B; C; D; E; F)`), and a docs/example update.
+- Risk: the solver may diverge or produce ambiguous diagrams for arbitrary 6-point configurations; no regression tests exist.
+- Benefit: completes a documented feature.
+
+**(b) Remove from user-facing docs (`docs/editor.md`, `docs/geometry.md`) and keep only an internal note.**
+- Effort: low (~10 minutes). Replace the mention with a note: "planned — not yet implemented; use explicit *angle markers instead."
+- Risk: low. Hides a planned feature from users, reducing confusion.
+- Recommended: **(b)** — the code explicitly raises `GeometryError` for this command; user-facing docs should not advertise unimplemented behavior. When (a) is completed, the docs can be updated accordingly.
+
+**Status:** deferred; needs user approval. Not implemented in this branch.
 
 ---
 
