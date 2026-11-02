@@ -351,3 +351,22 @@ def test_plot_cache_before_after_timing():
         # Cache hit must be faster; report values.
         print(f"\n[Timing] first={t_first:.3f}s cached={t_cached:.3f}s speedup={t_first/max(t_cached,1e-6):.1f}x")
         assert t_cached < t_first, f"Cache did not speed up: cached={t_cached:.3f}s >= first={t_first:.3f}s"
+
+
+# --- AUDIT-005 regression: offline cetz error message ---
+
+def test_offline_cetz_error_message(monkeypatch, capsys):
+    import tempfile, os
+    from compiler import pipeline
+    def fail_compile(*args, **kwargs):
+        raise RuntimeError('failed to download @preview/cetz:0.4.2')
+    monkeypatch.setattr(pipeline.typst, 'compile', fail_compile, raising=True)
+    with tempfile.TemporaryDirectory() as td:
+        src = os.path.join(td, 'draw.ezmath')
+        with open(src, 'w') as f:
+            f.write('*draw(\n*line(A;B)\n)')
+        result = pipeline.compile_ezmath(src, output=os.path.join(td, 'draw.pdf'), format='pdf')
+        assert result is False
+        captured = capsys.readouterr()
+        combined = (captured.out or '') + (captured.err or '')
+        assert 'offline' in combined.lower() or 'download cetz' in combined.lower() or '@preview/cetz' in combined
