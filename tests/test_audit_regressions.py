@@ -340,10 +340,11 @@ def test_preview_shutdown_flag_exists_in_source():
     """The preview shutdown mechanism exists and is called by closeEvent."""
     import inspect
     from editor import main_window
-    # Verify source code contains cancellation logic.
-    source = inspect.getsource(main_window.MainWindow.closeEvent)
-    assert '_shutdown_preview' in source or '_preview_shutdown' in source
-    assert 'quit()' in source or 'terminate()' in source
+    # Verify source code contains cancellation logic (in closeEvent or _shutdown_preview).
+    close_src = inspect.getsource(main_window.MainWindow.closeEvent)
+    shutdown_src = inspect.getsource(main_window.MainWindow._shutdown_preview)
+    assert '_preview_shutdown' in close_src or '_preview_shutdown' in shutdown_src
+    assert 'quit()' in shutdown_src or 'terminate()' in shutdown_src
 
 
 # --- AUDIT-002: deferred — threading/resource leaks (unverified in GUI) ---
