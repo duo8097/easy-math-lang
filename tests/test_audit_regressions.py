@@ -343,7 +343,7 @@ def test_preview_shutdown_flag_exists_in_source():
     # Verify source code contains cancellation logic.
     source = inspect.getsource(main_window.MainWindow.closeEvent)
     assert '_preview_shutdown' in source
-    assert 'thread.terminate()' in source or 'quit()' in source
+    assert 'quit()' in source or 'terminate()' in source
 
 
 # --- AUDIT-002: deferred — threading/resource leaks (unverified in GUI) ---
