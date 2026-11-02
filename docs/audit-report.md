@@ -384,4 +384,6 @@ Evidence:
 
 ---
 
-*Audit completed on 2026-11-02. Ready for user approval of which findings to fix in Phase 2.*
+- **Full-suite note**: `tests/test_draw_template.py::test_real_enter_in_filter_runs_dialog_but_never_inserts` fails when `QT_QPA_PLATFORM` is not set to `offscreen` (environment-specific). It passes with `QT_QPA_PLATFORM=offscreen`. This is the only known environment-dependent failure; it is not a code bug. Confirmed by user instruction.
+
+*Audit completed on 2026-11-02. All approved fixes applied; deferred items labelled; no packaging files changed; no version bump.*
