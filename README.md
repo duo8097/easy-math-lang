@@ -76,7 +76,9 @@ The desktop editor supports fcitx5 input methods on Linux — for example Vietna
 
 The fix only loads the plugin when the system Qt matches PySide6's Qt at the major.minor level (e.g. both 6.12). On a mismatch the fix is skipped with one clear stderr warning and the editor still starts; when the system Qt version can't be determined it proceeds with a warning. If your `QT_IM_MODULE` is set to something other than `fcitx`/`fcitx5` (e.g. `ibus`), the fix does nothing.
 
-The plugin must be installed by the system — for example the `fcitx5-qt` package on Arch Linux. When building a binary release on a system with a matching Qt, `scripts/build_binaries.py` additionally bundles the plugin into the frozen editor; otherwise the frozen build simply relies on the runtime fallback above (or runs without fcitx5).
+The plugin must be installed by the system — for example the `fcitx5-qt` package on Arch Linux. The fix activates only when fcitx is evidently your input method framework (`QT_IM_MODULE` set to `fcitx`/`fcitx5`, `XMODIFIERS` containing `@im=fcitx`, or `GTK_IM_MODULE` set to `fcitx`/`fcitx5`); ibus and other input methods are left completely untouched.
+
+The frozen Linux builds (.deb/.rpm) ship a plugin built from source in CI against exactly PySide6's Qt, so fcitx5 works out of the box there. The distro's apt plugin is never bundled (it targets the distro's Qt, not PySide6's). Other builds (e.g. Arch) use the runtime fallback above.
 
 ### Opt-out
 
