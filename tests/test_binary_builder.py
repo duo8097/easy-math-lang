@@ -27,16 +27,22 @@ def test_parallel_builds_finish_before_alias(monkeypatch, tmp_path):
         with lock:
             finished.add(name)
 
-    aliases = []
+    assembled = []
+    aliased = []
+
+    def assemble():
+        assembled.append(True)
 
     def alias():
         assert finished == set(builder.ENTRIES)
-        aliases.append(True)
+        aliased.append(True)
 
     monkeypatch.setattr(builder, '_build', build)
+    monkeypatch.setattr(builder, '_assemble', assemble)
     monkeypatch.setattr(builder, '_alias', alias)
     assert builder.main(['builder', '--jobs', '2']) == 0
-    assert aliases == [True]
+    assert assembled == [True]
+    assert aliased == [True]
 
 
 def test_failed_worker_never_creates_alias(monkeypatch, tmp_path):
@@ -46,12 +52,13 @@ def test_failed_worker_never_creates_alias(monkeypatch, tmp_path):
     def fail(*args):
         raise RuntimeError('freeze failed')
 
-    aliases = []
+    called = []
     monkeypatch.setattr(builder, '_build', fail)
-    monkeypatch.setattr(builder, '_alias', lambda: aliases.append(True))
+    monkeypatch.setattr(builder, '_assemble', lambda: called.append('assemble'))
+    monkeypatch.setattr(builder, '_alias', lambda: called.append('alias'))
     with pytest.raises(RuntimeError, match='freeze failed'):
         builder.main(['builder', '--jobs', '2'])
-    assert not aliases
+    assert called == []
 
 
 def test_rejects_invalid_worker_count():
@@ -87,6 +94,7 @@ def test_explicit_jobs_override_environment(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, 'PyInstaller', types.ModuleType('PyInstaller'))
     monkeypatch.setattr(builder, 'DIST', tmp_path)
     monkeypatch.setattr(builder, '_build', lambda *args: None)
+    monkeypatch.setattr(builder, '_assemble', lambda: None)
     monkeypatch.setattr(builder, '_alias', lambda: None)
     assert builder.main(['builder', '--jobs', '1']) == 0
 
@@ -95,32 +103,36 @@ def test_posix_alias_survives_relocation_and_rebuild(monkeypatch, tmp_path):
     if sys.platform == 'win32':
         pytest.skip('POSIX symlink alias')
     dist = tmp_path / 'dist'
-    dist.mkdir()
-    compiler = dist / 'easy-math-lang'
+    shared = dist / 'easy-math-lang'
+    shared.mkdir(parents=True)
+    compiler = shared / 'easy-math-lang'
     compiler.write_text('#!/bin/sh\necho alias-ok\n')
     compiler.chmod(0o755)
     monkeypatch.setattr(builder, 'DIST', dist)
     builder._alias()
     builder._alias()
-    assert (dist / 'ezmath').is_symlink()
+    alias = shared / 'ezmath'
+    assert alias.is_symlink()
     relocated = tmp_path / 'relocated'
     dist.rename(relocated)
     import subprocess
-    assert subprocess.check_output([str(relocated / 'ezmath')], text=True).strip() == 'alias-ok'
+    assert subprocess.check_output([str(relocated / 'easy-math-lang' / 'ezmath')], text=True).strip() == 'alias-ok'
 
 
 def test_windows_alias_replaces_old_symlink_without_overwriting_target(monkeypatch, tmp_path):
-    source = tmp_path / 'easy-math-lang.exe'
+    shared = tmp_path / 'easy-math-lang'
+    shared.mkdir()
+    monkeypatch.setattr(builder, 'DIST', tmp_path)
+    monkeypatch.setattr(builder, 'os', types.SimpleNamespace(name='nt'))
+    source = shared / builder._executable('easy-math-lang')
     source.write_bytes(b'compiler')
     unrelated = tmp_path / 'unrelated'
     unrelated.write_bytes(b'preserve')
-    alias = tmp_path / 'ezmath.exe'
+    alias = shared / builder._executable('ezmath')
     try:
         alias.symlink_to(unrelated.name)
     except OSError:
         pytest.skip('symlink privilege unavailable')
-    monkeypatch.setattr(builder, 'DIST', tmp_path)
-    monkeypatch.setattr(builder, 'os', types.SimpleNamespace(name='nt'))
     builder._alias()
     assert not alias.is_symlink()
     assert alias.read_bytes() == source.read_bytes()

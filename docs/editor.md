@@ -92,7 +92,7 @@ use `Build → Restart Language Server`.
     card reloads its example).
   - **Insert command…** — opens the usual parameter dialog for that
     command (greyed out for commands without one yet, e.g.
-    `*equal-angle`).
+    `*equal-angle` — planned, not yet implemented).
 - **Insert empty block** puts the old bare `*draw(...)` skeleton at
   the cursor, so the previous `*draw` button behavior is still one
   click away.
@@ -151,15 +151,17 @@ program in this order:
 
 1. The `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` environment variable,
    if you set one.
-2. Next to the editor itself — the installer's `bin/` folder, or the
-   `Scripts/` folder of your Python environment when running from source.
+2. Next to the editor itself — the installer's `bin/` folder (which also
+   holds the editor executable and the shared `_internal/` library
+   directory), or the `Scripts/` folder of your Python environment when
+   running from source.
 3. Anywhere on your `PATH`.
 4. Only when running from source: the current Python (`python -m lsp` /
    `python -m compiler`).
 
 That means the installed app works even when `bin/` was **not** added to
-`PATH` during setup — just keep the installed `editor/` and `bin/`
-folders together.
+`PATH` during setup — the editor and its helpers always ship together
+now, sharing one library directory.
 
 ---
 

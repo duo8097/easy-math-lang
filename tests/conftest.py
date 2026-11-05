@@ -21,6 +21,19 @@ def qapp():
 
 
 @pytest.fixture(scope='session', autouse=True)
+def _ensure_manifest(tmp_path_factory):
+    import subprocess, sys
+    manifest = os.path.join('src', 'editor', 'assets', 'draw_previews', 'manifest.json')
+    if not os.path.isfile(manifest):
+        result = subprocess.run(
+            [sys.executable, 'scripts/build_draw_previews.py'],
+            capture_output=True, text=True)
+        # If it fails, fail loudly instead of skipping.
+        assert result.returncode == 0, (
+            f"build_draw_previews.py failed (manifest missing): {result.stderr}")
+
+
+@pytest.fixture(scope='session', autouse=True)
 def _isolated_user_config(tmp_path_factory):
     """Redirect ~/.config/ezmath to a temp dir for the test session.
 
