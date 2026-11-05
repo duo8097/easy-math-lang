@@ -149,34 +149,59 @@ jobs:
       # EXACTLY the Qt PySide6 bundles (detected, never hardcoded), so the
       # frozen editor works with fcitx5 out of the box. The distro's apt
       # plugin targets the distro's Qt and is never bundled.
+      # The fcitx5-qt ref lives in scripts/fcitx5_qt_ref.txt; the Qt SDK
+      # and the built plugin are cached across runs (keyed on the Qt
+      # version, the plugin ref and the runner image).
       - name: Detect PySide6 Qt version
         id: qtver
         run: |
           set -euo pipefail
           QT_VERSION="$(uv run --frozen python -c "from PySide6.QtCore import qVersion; print(qVersion())")"
           echo "qt_version=$QT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "PySide6 Qt version: $QT_VERSION"
+          echo "QT_ROOT_DIR=$RUNNER_TEMP/qt/$QT_VERSION/gcc_64" >> "$GITHUB_ENV"
+          FCITX5_QT_REF="$(tr -d '[:space:]' < scripts/fcitx5_qt_ref.txt)"
+          echo "fcitx5_qt_ref=$FCITX5_QT_REF" >> "$GITHUB_OUTPUT"
+          echo "PySide6 Qt version: $QT_VERSION; fcitx5-qt ref: $FCITX5_QT_REF"
+
+      - name: Cache the Qt SDK
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qt
+          key: qt-sdk-${{ steps.qtver.outputs.qt_version }}-${{ matrix.runner }}
 
       - name: Install exact Qt SDK with headers, cmake config and private headers
+        if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           QT_VERSION="${{ steps.qtver.outputs.qt_version }}"
           uv tool run --from aqtinstall aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 \
             --archives qtbase qtwayland icu -O "$RUNNER_TEMP/qt"
-          QT_ROOT_DIR="$RUNNER_TEMP/qt/$QT_VERSION/gcc_64"
-          "$QT_ROOT_DIR/bin/qmake" -query QT_VERSION
-          test "$("$QT_ROOT_DIR/bin/qmake" -query QT_VERSION)" = "$QT_VERSION"
-          echo "QT_ROOT_DIR=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+
+      - name: Verify the Qt SDK (fresh install or cache hit)
+        run: |
+          set -euo pipefail
+          test "$("$QT_ROOT_DIR/bin/qmake" -query QT_VERSION)" = "${{ steps.qtver.outputs.qt_version }}"
+          echo "Qt SDK OK: $("$QT_ROOT_DIR/bin/qmake" -query QT_VERSION)"
 
       - name: Install fcitx5-qt build dependencies
         run: sudo apt-get update && sudo apt-get install -y extra-cmake-modules libxkbcommon-dev libxcb1-dev libx11-dev
 
+      - name: Cache the fcitx5-qt build
+        id: cache-fcitx5qt
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/fcitx5-qt
+          key: fcitx5-qt-${{ steps.qtver.outputs.fcitx5_qt_ref }}-qt-${{ steps.qtver.outputs.qt_version }}-${{ matrix.runner }}
+
       - name: Build fcitx5 Qt plugin from source
-        id: fcitx5qt
+        id: fcitx5qt-build
+        if: steps.cache-fcitx5qt.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/fcitx5-qt"
-          git clone --depth 1 --branch 5.1.16 https://github.com/fcitx/fcitx5-qt.git "$RUNNER_TEMP/fcitx5-qt"
+          git clone --depth 1 --branch "${{ steps.qtver.outputs.fcitx5_qt_ref }}" \
+            https://github.com/fcitx/fcitx5-qt.git "$RUNNER_TEMP/fcitx5-qt"
           cmake -S "$RUNNER_TEMP/fcitx5-qt" -B "$RUNNER_TEMP/fcitx5-qt/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_QT4=OFF -DENABLE_QT5=OFF -DENABLE_QT6=ON \
@@ -186,6 +211,11 @@ jobs:
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
           cmake --build "$RUNNER_TEMP/fcitx5-qt/build"
+
+      - name: Verify the fcitx5 plugin (fresh build or cache hit)
+        id: fcitx5qt
+        run: |
+          set -euo pipefail
           PLUGIN="$(find "$RUNNER_TEMP/fcitx5-qt/build" -name 'libfcitx5platforminputcontextplugin.so' -print -quit)"
           test -n "$PLUGIN"
           test -f "$PLUGIN"
