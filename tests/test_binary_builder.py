@@ -1,5 +1,6 @@
 """Scheduling and failure handling for independent frozen entry points."""
 import importlib.util
+import os
 from pathlib import Path
 import sys
 import threading
@@ -189,7 +190,8 @@ def test_system_fcitx5_plugin_bundled_when_qt_matches(monkeypatch, tmp_path):
     monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
     args = builder._system_fcitx5_plugin_adddata()
     assert args[0] == '--add-data'
-    src, dest = args[1].split(':', 1) if ':' in args[1] else args[1].split(';', 1)
+    sep = ';' if os.name == 'nt' else ':'
+    src, dest = args[1].split(sep, 1)
     assert src == str(plugin)
     assert dest == 'PySide6/Qt/plugins/platforminputcontexts'
 
@@ -215,9 +217,10 @@ def test_system_fcitx5_plugin_skipped_on_unknown_versions(monkeypatch, tmp_path)
     assert builder._system_fcitx5_plugin_adddata() == []
 
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='the CI-built plugin path is Linux-only')
 def test_ci_plugin_preferred_over_system(monkeypatch, tmp_path):
     """With EASYMATH_FCITX5_PLUGIN set, the CI-built plugin wins."""
-    import os
     commands = []
     ci_plugin = _fake_plugin(tmp_path / 'ci')
     system_plugin = _fake_plugin(tmp_path / 'sys')

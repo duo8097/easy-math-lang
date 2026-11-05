@@ -38,10 +38,11 @@ def make_bundle(base: Path) -> Path:
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Ensure QT_*/GTK_*/XMODIFIERS/EZMATH_* env vars don't leak in."""
+    """Isolate env vars and pin sys.platform to linux for activation tests."""
     for var in ("EZMATH_NO_IME_FIX", "QT_IM_MODULE", "QT_PLUGIN_PATH",
                 "XDG_CACHE_HOME", "XMODIFIERS", "GTK_IM_MODULE"):
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
     return monkeypatch
 
 
@@ -300,16 +301,19 @@ class TestEnsurePluginSymlink:
         assert linux_ime._ensure_plugin_symlink(plugin, target_dir) is True
         link = target_dir / PLUGIN_NAME
         assert link.is_symlink()
-        assert link.readlink() == plugin.resolve()
+        assert os.path.realpath(link) == os.path.realpath(plugin)
 
-    def test_idempotent(self, tmp_path):
+    def test_idempotent(self, tmp_path, monkeypatch):
         plugin = make_plugin(tmp_path / "src")
         target_dir = tmp_path / "dst"
         target_dir.mkdir()
         assert linux_ime._ensure_plugin_symlink(plugin, target_dir) is True
-        first_inode = (target_dir / PLUGIN_NAME).lstat().st_ino
+        # A second call must NOT re-create the link (st_ino is not
+        # portable across platforms, so spy on symlink_to instead).
+        monkeypatch.setattr(
+            Path, "symlink_to",
+            lambda self, target: (_ for _ in ()).throw(AssertionError("re-created")))
         assert linux_ime._ensure_plugin_symlink(plugin, target_dir) is True
-        assert (target_dir / PLUGIN_NAME).lstat().st_ino == first_inode
 
     def test_replaces_stale_symlink(self, tmp_path):
         old_plugin = make_plugin(tmp_path / "old")
@@ -318,7 +322,7 @@ class TestEnsurePluginSymlink:
         target_dir.mkdir()
         assert linux_ime._ensure_plugin_symlink(old_plugin, target_dir) is True
         assert linux_ime._ensure_plugin_symlink(new_plugin, target_dir) is True
-        assert (target_dir / PLUGIN_NAME).readlink() == new_plugin.resolve()
+        assert os.path.realpath(target_dir / PLUGIN_NAME) == os.path.realpath(new_plugin)
 
     def test_replaces_broken_symlink(self, tmp_path):
         plugin = make_plugin(tmp_path / "src")
@@ -327,7 +331,7 @@ class TestEnsurePluginSymlink:
         link = target_dir / PLUGIN_NAME
         link.symlink_to(tmp_path / "does-not-exist.so")
         assert linux_ime._ensure_plugin_symlink(plugin, target_dir) is True
-        assert link.readlink() == plugin.resolve()
+        assert os.path.realpath(link) == os.path.realpath(plugin)
 
     def test_replaces_regular_file(self, tmp_path):
         plugin = make_plugin(tmp_path / "src")
@@ -389,7 +393,7 @@ class TestSetupFcitx5Ime:
         assert os.environ["QT_IM_MODULE"] == "fcitx"
         link = expected_parent / "platforminputcontexts" / PLUGIN_NAME
         assert link.is_symlink()
-        assert link.readlink() == plugin.resolve()
+        assert os.path.realpath(link) == os.path.realpath(plugin)
 
     def test_prepends_to_existing_qt_plugin_path(self, clean_env, patched):
         _, expected_parent = patched
@@ -470,7 +474,7 @@ class TestSetupFcitx5Ime:
         link = (tmp_path / "cache" / "easy-math-lang" / "qt-plugins"
                 / "platforminputcontexts" / PLUGIN_NAME)
         assert link.is_symlink()
-        assert link.readlink() == bundled.resolve()
+        assert os.path.realpath(link) == os.path.realpath(bundled)
 
     def test_frozen_build_without_bundle_falls_back_to_system(
             self, clean_env, monkeypatch, tmp_path):
@@ -484,7 +488,7 @@ class TestSetupFcitx5Ime:
         assert linux_ime._setup_fcitx5_ime() is True
         link = (tmp_path / "cache" / "easy-math-lang" / "qt-plugins"
                 / "platforminputcontexts" / PLUGIN_NAME)
-        assert link.readlink() == system_plugin.resolve()
+        assert os.path.realpath(link) == os.path.realpath(system_plugin)
 
     def test_entry_point_never_raises(self, monkeypatch):
         monkeypatch.setattr(linux_ime, "_setup_fcitx5_ime",

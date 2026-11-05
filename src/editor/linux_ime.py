@@ -306,7 +306,7 @@ def _ensure_plugin_symlink(plugin_path: Path, target_dir: Path) -> bool:
     try:
         if target_file.is_symlink() or target_file.exists():
             if target_file.is_symlink():
-                if target_file.readlink() == plugin_path:
+                if os.path.realpath(target_file) == os.path.realpath(plugin_path):
                     logger.debug(f"Symlink already points to {plugin_path}")
                     return True
                 logger.debug(f"Replacing stale symlink: {target_file}")
