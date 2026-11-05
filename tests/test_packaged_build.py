@@ -348,6 +348,13 @@ def test_fcitx5_plugin_bundled_and_resolvable():
     ldd = shutil.which('ldd')
     if ldd is None:
         pytest.skip('ldd not available')
+    # The bundle's Qt libraries live in _internal, not in the system
+    # linker path (Qt resolves them in-process when loading the plugin);
+    # point LD_LIBRARY_PATH at them for the resolution check.
+    qt_lib = os.path.join(EDITOR_INTERNAL, 'PySide6', 'Qt', 'lib')
+    env = dict(os.environ)
+    env['LD_LIBRARY_PATH'] = os.pathsep.join(
+        p for p in (qt_lib, env.get('LD_LIBRARY_PATH', '')) if p)
     out = subprocess.run([ldd, plugin], capture_output=True, text=True,
-                         timeout=60).stdout
+                         timeout=60, env=env).stdout
     assert 'not found' not in out, f'unresolved libraries:\n{out}'
