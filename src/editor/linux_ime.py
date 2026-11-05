@@ -2,10 +2,12 @@
 
 PySide6 bundles Qt with only the ibus and compose platforminputcontexts
 plugins, so on Linux systems running fcitx5 (e.g. for Vietnamese Telex via
-fcitx5-lotus) no input method works out of the box. This module locates the
-system's fcitx5 platform input context plugin and symlinks it into a private
-plugin directory that is prepended to ``QT_PLUGIN_PATH`` before QApplication
-is created.
+fcitx5-lotus) no input method works out of the box. This module makes the
+fcitx5 plugin loadable: in frozen builds it uses the plugin CI built
+against exactly PySide6's Qt; otherwise it locates the system's fcitx5
+plugin (with a major.minor Qt version match) and symlinks it into a
+private plugin directory that is prepended to ``QT_PLUGIN_PATH`` before
+QApplication is created.
 
 The fix:
 
