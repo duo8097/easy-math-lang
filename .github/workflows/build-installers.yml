@@ -183,8 +183,11 @@ jobs:
             -DBUILD_ONLY_PLUGIN=ON \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
           cmake --build "$RUNNER_TEMP/fcitx5-qt/build"
-          PLUGIN="$(find "$RUNNER_TEMP/fcitx5-qt/build" -name 'fcitx5platforminputcontextplugin.so' -print -quit)"
+          PLUGIN="$(find "$RUNNER_TEMP/fcitx5-qt/build" -name 'libfcitx5platforminputcontextplugin.so' -print -quit)"
           test -n "$PLUGIN"
+          test -f "$PLUGIN"
+          # The frozen runtime looks for exactly this basename.
+          test "$(basename "$PLUGIN")" = "libfcitx5platforminputcontextplugin.so"
           echo "plugin=$PLUGIN" >> "$GITHUB_OUTPUT"
           echo "Built fcitx5 plugin: $PLUGIN"
 
