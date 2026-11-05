@@ -325,7 +325,10 @@ jobs:
         run: |
           # base-devel ships makepkg (via pacman), shadow the useradd
           # used below, uv the Python toolchain the PKGBUILD calls.
-          pacman -Syu --noconfirm --needed base-devel git uv python shadow
+          # fcitx5-qt provides the system Qt6 input-method plugin that
+          # build_binaries.py bundles ONLY when its Qt major.minor
+          # matches PySide6's (mismatch skips silently, never fails).
+          pacman -Syu --noconfirm --needed base-devel git uv python shadow fcitx5-qt
           # makepkg refuses to run as root: build as an unprivileged user.
           useradd -m -u 1000 builder
 

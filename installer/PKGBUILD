@@ -7,9 +7,10 @@ arch=('x86_64')
 url='https://github.com/duo8097/easy-math-lang'
 license=('MIT')
 depends=()
-makedepends=('git' 'uv')
+makedepends=('git' 'uv' 'fcitx5-qt')
 optdepends=('libgl: hardware-accelerated rendering in the desktop editor'
-            'fontconfig: font discovery in the desktop editor')
+            'fontconfig: font discovery in the desktop editor'
+            'fcitx5-qt: fcitx5 input method (e.g. Vietnamese Telex) in the editor — bundled only when the system Qt matches PySide6')
 provides=('easy-math-lang')
 conflicts=('easy-math-lang')
 # Do not strip: PyInstaller onedir executables carry the payload archive
