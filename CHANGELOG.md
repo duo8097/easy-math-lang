@@ -15,6 +15,7 @@ for those.
 ### Added
 - Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
 - Clear offline error message for first `*draw(...)` when `@preview/cetz` download fails.
+- Vietnamese input on Linux (fcitx5) — the desktop editor now supports fcitx5 IME methods (e.g., fcitx5-lotus Vietnamese Telex) via automatic Qt plugin setup at startup. Frozen builds bundle the system plugin when it matches PySide6's Qt; `EZMATH_NO_IME_FIX=1` opts out.
 
 ### Changed
 - LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.

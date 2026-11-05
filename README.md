@@ -66,6 +66,35 @@ The easiest way to use easy-math-lang — no Python needed:
 
 ---
 
+## Vietnamese input on Linux (fcitx5)
+
+The desktop editor supports fcitx5 input methods on Linux — for example Vietnamese Telex via `fcitx5-lotus`. Out of the box, PySide6's bundled Qt ships only the ibus and compose input-method plugins, so fcitx5 is invisible until the system plugin is wired in. On Linux the editor does this automatically at startup, before the Qt application is created:
+
+- Locates the system `libfcitx5platforminputcontextplugin.so` (searching `$QT_PLUGIN_PATH`, then the standard system Qt6 plugin directories)
+- Symlinks it into a private cache directory (`~/.cache/easy-math-lang/qt-plugins/platforminputcontexts/`, honoring `$XDG_CACHE_HOME`) — falling back to copying when symlinks aren't possible; the symlink is refreshed if the system plugin changes
+- Prepends the private directory's parent to `QT_PLUGIN_PATH` (keeping any of your own entries) and defaults `QT_IM_MODULE` to `fcitx` via `os.environ.setdefault`, so your own `QT_IM_MODULE` is always respected
+
+The fix only loads the plugin when the system Qt matches PySide6's Qt at the major.minor level (e.g. both 6.12). On a mismatch the fix is skipped with one clear stderr warning and the editor still starts; when the system Qt version can't be determined it proceeds with a warning. If your `QT_IM_MODULE` is set to something other than `fcitx`/`fcitx5` (e.g. `ibus`), the fix does nothing.
+
+The plugin must be installed by the system — for example the `fcitx5-qt` package on Arch Linux. When building a binary release on a system with a matching Qt, `scripts/build_binaries.py` additionally bundles the plugin into the frozen editor; otherwise the frozen build simply relies on the runtime fallback above (or runs without fcitx5).
+
+### Opt-out
+
+Set the following before running the editor to disable the fix entirely:
+
+```bash
+EZMATH_NO_IME_FIX=1
+```
+
+### Debugging
+
+- Run with `QT_DEBUG_PLUGINS=1` to see Qt's plugin loading diagnostics.
+- Check stderr for the `easy-math-lang` logger messages about the plugin path and Qt versions.
+- Verify your system Qt matches PySide6's Qt (`qmake6 -query QT_VERSION` vs. the Qt version PySide6 reports).
+- On failure the editor still starts; only fcitx5 input is unavailable.
+
+---
+
 ## What does it look like?
 
 You write something like this in a text file:
