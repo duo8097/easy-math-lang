@@ -181,6 +181,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_QT4=OFF -DENABLE_QT5=OFF -DENABLE_QT6=ON \
             -DBUILD_ONLY_PLUGIN=ON \
+            -DCMAKE_BUILD_RPATH="" \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
           cmake --build "$RUNNER_TEMP/fcitx5-qt/build"
           PLUGIN="$(find "$RUNNER_TEMP/fcitx5-qt/build" -name 'libfcitx5platforminputcontextplugin.so' -print -quit)"
