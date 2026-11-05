@@ -42,7 +42,6 @@ in the nested Qt tool apps that break ``codesign``).
 from __future__ import annotations
 
 import argparse
-import logging
 import os
 import shutil
 import subprocess
@@ -91,39 +90,32 @@ def _executable(name: str) -> str:
     return f"{name}.exe" if os.name == "nt" else name
 
 
-def _fcitx5_plugin_adddata() -> list[str]:
-    """``--add-data`` args to bundle a compatible system fcitx5 Qt plugin.
+def _ci_fcitx5_plugin_adddata() -> list[str]:
+    """``--add-data`` args to bundle the CI-built fcitx5 Qt plugin.
 
-    Returns the args only on Linux, only when the system
-    ``libfcitx5platforminputcontextplugin.so`` exists AND its Qt
-    major.minor matches the bundled PySide6's Qt. Anything else returns
-    ``[]`` — the build must not depend on the plugin being present, and
-    an incompatible plugin must never be bundled (or committed).
+    Linux frozen builds ship a plugin built from source in CI against
+    exactly PySide6's Qt; CI passes its path in ``EASYMATH_FCITX5_PLUGIN``.
+    A system/distro plugin is NEVER bundled: it targets the distro's Qt,
+    not PySide6's, so it would be useless.
+
+    Returns ``[]`` when the env var is unset or the file is missing —
+    the build must not depend on the plugin being present.
     """
     if not sys.platform.startswith("linux"):
         return []
-    try:
-        sys.path.insert(0, str(ROOT / "src"))
-        from editor import linux_ime
-
-        # A missing plugin is a normal situation: keep the build log quiet.
-        linux_ime.logger.setLevel(logging.CRITICAL)
-        plugin = linux_ime._find_fcitx5_plugin()
-        system_version = linux_ime._get_system_qt_version()
-        pyside6_version = linux_ime._get_pyside6_qt_version()
-    except Exception:
+    plugin = os.environ.get("EASYMATH_FCITX5_PLUGIN", "").strip()
+    if not plugin:
         return []
-    if not plugin or not system_version or not pyside6_version:
+    plugin_path = Path(plugin)
+    if not plugin_path.is_file():
+        print(f"note: EASYMATH_FCITX5_PLUGIN={plugin} does not exist; "
+              f"not bundling the fcitx5 plugin")
         return []
-    if linux_ime._major_minor(system_version) != linux_ime._major_minor(pyside6_version):
-        print(f"note: system fcitx5 plugin is built for Qt {system_version}, "
-              f"bundled PySide6 ships Qt {pyside6_version}; not bundling")
-        return []
-    print(f"Bundling system fcitx5 Qt plugin (Qt {system_version}) "
-          f"into the editor bundle")
+    print(f"Bundling CI-built fcitx5 Qt plugin into the editor bundle: "
+          f"{plugin_path}")
     sep = ";" if os.name == "nt" else ":"
     return ["--add-data",
-            f"{plugin}{sep}PySide6/Qt/plugins/platforminputcontexts"]
+            f"{plugin_path}{sep}PySide6/Qt/plugins/platforminputcontexts"]
 
 
 def _run(cmd: list[str], cache_dir: Path) -> None:
@@ -194,7 +186,7 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
-        cmd += _fcitx5_plugin_adddata()
+        cmd += _ci_fcitx5_plugin_adddata()
 
     _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 
