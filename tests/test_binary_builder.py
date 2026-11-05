@@ -184,6 +184,8 @@ def test_system_fcitx5_plugin_disabled_by_default(monkeypatch, tmp_path):
     assert builder._system_fcitx5_plugin_adddata() == []
 
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='the system-plugin bundling path is Linux-only')
 def test_system_fcitx5_plugin_bundled_when_qt_matches(monkeypatch, tmp_path):
     plugin = _fake_plugin(tmp_path)
     _patch_linux_ime(monkeypatch, plugin, '6.12.0', '6.12.0')

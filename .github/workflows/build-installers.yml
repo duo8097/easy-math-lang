@@ -187,7 +187,9 @@ jobs:
       - name: Install fcitx5-qt build dependencies
         # libgl*/libopengl/libegl-dev: Qt6Gui's cmake config requires
         # find_package(WrapOpenGL) to succeed (headers + GL/libGL.so stubs).
-        run: sudo apt-get update && sudo apt-get install -y extra-cmake-modules libxkbcommon-dev libxcb1-dev libx11-dev libgl-dev libopengl-dev libegl-dev libglx-dev
+        # libwayland-dev: Qt6WaylandClient's cmake config requires Wayland
+        # client/cursor/server/egl dev files (headers + .so + .pc).
+        run: sudo apt-get update && sudo apt-get install -y extra-cmake-modules libxkbcommon-dev libxcb1-dev libx11-dev libgl-dev libopengl-dev libegl-dev libglx-dev libwayland-dev
 
       - name: Cache the fcitx5-qt build
         id: cache-fcitx5qt
