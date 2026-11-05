@@ -11,8 +11,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 @pytest.fixture(scope='session')
 def qapp():
     pytest.importorskip('PySide6')
-    if not os.environ.get('DISPLAY'):
-        os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    # Default to the offscreen platform everywhere (CI and local runs,
+    # even on machines with DISPLAY); an explicit QT_QPA_PLATFORM wins.
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     from PySide6 import QtWidgets
     app = QtWidgets.QApplication.instance()
     if app is None:

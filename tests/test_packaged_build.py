@@ -21,6 +21,7 @@ import os
 import queue
 import shutil
 import subprocess
+import sys
 import threading
 import time
 
@@ -324,3 +325,29 @@ def test_frozen_editor_spawns_bundled_lsp(installer_layout, tmp_path):
                                    capture_output=True, timeout=60)
                 except Exception:
                     pass
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='fcitx5 bundle assertion is Linux-only')
+def test_fcitx5_plugin_bundled_and_resolvable():
+    """The frozen Linux bundle ships the CI-built fcitx5 Qt plugin.
+
+    Built from source against PySide6's Qt in CI (see build-installers.yml),
+    and expected inside ``_internal/PySide6/Qt/plugins/platforminputcontexts``.
+    ``ldd`` must resolve every library (the bundle ships the Qt libs; the
+    xkbcommon/GL libs come from the OS).
+    """
+    _require_dist()
+    plugin = os.path.join(EDITOR_INTERNAL, 'PySide6', 'Qt', 'plugins',
+                          'platforminputcontexts',
+                          'libfcitx5platforminputcontextplugin.so')
+    assert os.path.isfile(plugin), (
+        f'fcitx5 plugin missing from the frozen bundle: {plugin}\n'
+        'Linux builds are expected to bundle it (EASYMATH_FCITX5_PLUGIN in CI, '
+        'or a matching system plugin on Arch).')
+    ldd = shutil.which('ldd')
+    if ldd is None:
+        pytest.skip('ldd not available')
+    out = subprocess.run([ldd, plugin], capture_output=True, text=True,
+                         timeout=60).stdout
+    assert 'not found' not in out, f'unresolved libraries:\n{out}'
