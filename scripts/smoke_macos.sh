@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 
 STAGING="${1:-staging}"
 APP="$STAGING/easy-math-editor.app"
-BIN="$APP/Contents/Resources/bin"
+BIN="$APP/Contents/MacOS"
 EDITOR_BIN="$APP/Contents/MacOS/easy-math-editor"
 
 fail() { echo "::error::$*" >&2; exit 1; }

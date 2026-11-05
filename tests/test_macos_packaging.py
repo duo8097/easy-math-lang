@@ -151,9 +151,9 @@ def test_workflow_creates_dmg_only(workflow_text):
 
 
 def test_packaging_bundles_helpers_into_app(package_text):
-    # Helpers must live inside the .app (Contents/Resources/bin) so the
+    # Helpers must live inside the .app (Contents/MacOS) so the
     # editor works when only the .app is dragged to /Applications.
-    assert "Contents/Resources/bin" in package_text
+    assert "Contents/MacOS" in package_text
     assert "easy-math-editor.app" in package_text
     # The old EasyMath/{bin,editor} split duplicated Qt and broke the
     # app-alone layout; it must be gone.
@@ -231,7 +231,7 @@ def test_sign_macho_loop_before_bundle(package_text):
     assert package_text.index("Mach-O") < package_text.index(
         'codesign --force --sign - "$APP"')
     # Bundled helpers are asserted executable before the loop covers them.
-    assert "Contents/Resources/bin" in package_text
+    assert "Contents/MacOS" in package_text
 
 
 def test_sign_failure_prints_diagnostics(package_text):
@@ -337,7 +337,7 @@ def test_smoke_script_tests_staged_app_not_dist():
         text = h.read()
     # Helpers/editor resolve through the staged .app bundle layout.
     assert 'APP="$STAGING/easy-math-editor.app"' in text
-    assert "Contents/Resources/bin" in text
+    assert "Contents/MacOS" in text
     assert "Contents/MacOS/easy-math-editor" in text
 
 

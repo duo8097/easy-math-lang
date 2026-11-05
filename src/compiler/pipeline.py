@@ -1041,14 +1041,6 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
     *image_files* (``(abs_path, typ_relpath)`` pairs from ``*image``)
     travel with ``typ``/``html`` exports like plot sidecars.
     """
-    """Run typst.compile() for one export; True on success.
-
-    - ``typ``: just copy the intermediate file to *output_path*.
-    - ``pdf``/``html``: single-file compile.
-    - ``png``/``svg``: single-file when the doc fits one page; when
-      Typst reports "multiple pages", retry with a ``stem-{p}.ext``
-      pattern so every page lands on disk (Typst requires ``{p}``).
-    """
     import shutil
     label = {'pdf': 'PDF', 'png': 'PNG image(s)', 'svg': 'SVG image(s)',
              'html': 'HTML', 'typ': 'Typst'} .get(fmt, fmt.upper())
@@ -1165,7 +1157,15 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         return False
     except Exception as e:
         # typst.TypstError (bad markup) and any other compile failure.
-        print(f'\n[ERROR] Typst compilation failed: {e}', file=sys.stderr)
+        msg = str(e)
+        if 'cetz' in msg.lower() or 'download' in msg.lower() or 'package' in msg.lower():
+            print(
+                f'\n[ERROR] Typst compilation failed: the *draw geometry package '
+                f'(@preview/cetz:0.4.2) could not be downloaded. '
+                f'First use requires an internet connection; rerun once online. '
+                f'Full error: {msg}', file=sys.stderr)
+        else:
+            print(f'\n[ERROR] Typst compilation failed: {msg}', file=sys.stderr)
         return False
 
 

@@ -12,6 +12,31 @@ for those.
 
 ## [Unreleased]
 
+### Added
+- Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
+- Clear offline error message for first `*draw(...)` when `@preview/cetz` download fails.
+
+### Changed
+- LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.
+- `docs/editor.md`: `*equal-angle` labelled as planned (not yet implemented).
+
+### Fixed
+- Preview manifest (`manifest.json`) now regenerated automatically in test setup; stale-preview bugs no longer hidden by skips.
+- Duplicate docstring removed from `pipeline.py`.
+
+### Changed
+
+- **Smaller installers** — the packaged binaries no longer ship three
+  separate copies of the heavy runtime libraries. The compiler CLI, the
+  language server and the desktop editor are now assembled into one shared
+  PyInstaller onedir bundle (`dist/easy-math-lang/` with a single `_internal/`
+  directory holding NumPy, Matplotlib, Typst, PySide6, …) instead of three
+  independent library sets. The CLI and the LSP reuse the desktop editor's
+  collected libraries, so an install now contains exactly one copy of each.
+  User-facing commands (`easy-math-lang`, `ezmath`, `easy-math-lsp`) and
+  behavior are unchanged; the LSP starts slightly faster with the shared
+  library directory.
+
 ## [5.2.0] - 2026-11-01
 
 ### Added

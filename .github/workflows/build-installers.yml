@@ -94,7 +94,7 @@ jobs:
 
       # --- Artifacts ---------------------------------------------------------
       - name: Upload installer artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EasyMathLang-macOS-${{ matrix.arch }}
           path: EasyMathLang-macOS-${{ matrix.arch }}.dmg
@@ -178,7 +178,7 @@ jobs:
 
       # --- Artifacts (one per distro family) ---------------------------------
       - name: Upload Debian installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EasyMathLang-Debian-amd64
           path: dist/EasyMathLang-Debian-amd64.deb
@@ -188,7 +188,7 @@ jobs:
           compression-level: 0
 
       - name: Upload Fedora installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EasyMathLang-Fedora-amd64
           path: dist/EasyMathLang-Fedora-amd64.rpm
@@ -247,7 +247,7 @@ jobs:
 
       # --- Artifact ----------------------------------------------------------
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EasyMathLang-Windows-x64
           path: installer\Output\EasyMathLang-Windows-x64-Setup.exe
@@ -300,7 +300,7 @@ jobs:
 
       # --- Artifact ----------------------------------------------------------
       - name: Upload the package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EasyMathLang-Arch-x86_64
           path: "*.pkg.tar.zst"

@@ -4,8 +4,9 @@
 # Usage (Windows, from the repo root):
 #   powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1 [-Jobs 2]
 #
-# Output: dist/easy-math-lang.exe, dist/ezmath.exe (alias copy),
-#         dist/easy-math-lsp.exe, dist/easy-math-editor/easy-math-editor.exe
+# Output: dist/easy-math-lang/ (shared onedir bundle: the easy-math-lang,
+#        ezmath and easy-math-lsp executables plus the shared _internal/
+#        directory), dist/easy-math-lang/easy-math-editor (editor).
 
 param(
     [ValidateRange(1, 2147483647)]
@@ -24,4 +25,4 @@ uv run @buildArgs
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 Write-Host 'Build OK:'
-Get-ChildItem dist/easy-math-lang.exe, dist/ezmath.exe, dist/easy-math-lsp.exe, dist/easy-math-editor/easy-math-editor.exe
+Get-ChildItem -Path dist/easy-math-lang -Name | ForEach-Object { Write-Host "  $_" }

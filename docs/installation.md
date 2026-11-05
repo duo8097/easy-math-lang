@@ -40,7 +40,9 @@ even if you have never set up a programming tool before.
 
 No further setup is needed: the editor finds its helper programs
 (`easy-math-lsp`, `easy-math-lang`) next to itself automatically —
-see [Desktop editor](editor.md#under-the-hood-helper-programs).
+see [Desktop editor](editor.md#under-the-hood-helper-programs). All of
+them (editor + helpers) install into the same folder, which also holds
+the single shared library directory.
 
 ---
 
@@ -57,7 +59,7 @@ does not run on Intel Macs or on macOS 13 (Ventura).
    The disk image contains:
    ```
    easy-math-editor.app   (helpers live inside the bundle:
-                           Contents/Resources/bin/easy-math-lang, …)
+                           Contents/MacOS/easy-math-lang, …)
    README.txt
    ```
 3. Run the app from `Applications`.
@@ -70,7 +72,7 @@ does not run on Intel Macs or on macOS 13 (Ventura).
    After the first launch it opens normally.
 4. Optional terminal use — the helpers live inside the app bundle:
    ```
-   BIN="/Applications/easy-math-editor.app/Contents/Resources/bin"
+   BIN="/Applications/easy-math-editor.app/Contents/MacOS"
    "$BIN/easy-math-lang" doc.ezmath
    ```
    or add it to `PATH` (`export PATH="$BIN:$PATH"`), then
