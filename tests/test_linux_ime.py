@@ -5,6 +5,7 @@ Qt, or a display. All filesystem and environment interaction goes through
 ``tmp_path`` and ``monkeypatch``.
 """
 
+import logging
 import os
 import sys
 import types
@@ -26,42 +27,85 @@ def make_plugin(base: Path) -> Path:
     return plugin
 
 
+def make_bundle(base: Path) -> Path:
+    """Create a fake frozen bundle with the CI-built plugin in Qt's dir."""
+    plugin = (base / "PySide6" / "Qt" / "plugins"
+              / "platforminputcontexts" / PLUGIN_NAME)
+    plugin.parent.mkdir(parents=True, exist_ok=True)
+    plugin.write_bytes(b"\x7fELF fake bundled plugin")
+    return plugin
+
+
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Ensure QT_* / EZMATH_* env vars don't leak in from the host."""
-    for var in ("EZMATH_NO_IME_FIX", "QT_IM_MODULE", "QT_PLUGIN_PATH", "XDG_CACHE_HOME"):
+    """Ensure QT_*/GTK_*/XMODIFIERS/EZMATH_* env vars don't leak in."""
+    for var in ("EZMATH_NO_IME_FIX", "QT_IM_MODULE", "QT_PLUGIN_PATH",
+                "XDG_CACHE_HOME", "XMODIFIERS", "GTK_IM_MODULE"):
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
 
 
-# ---------------------------------------------------------------- platform / skip
+# ------------------------------------------------------- activation / skip
 
 class TestShouldSkip:
     def test_not_linux(self, clean_env, monkeypatch):
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
         monkeypatch.setattr(sys, "platform", "darwin")
         assert linux_ime._should_skip() is True
 
     def test_opt_out_env(self, clean_env):
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
         clean_env.setenv("EZMATH_NO_IME_FIX", "1")
         assert linux_ime._should_skip() is True
 
-    def test_qt_im_module_ibus_skips(self, clean_env):
-        clean_env.setenv("QT_IM_MODULE", "ibus")
-        assert linux_ime._should_skip() is True
-
-    def test_qt_im_module_fcitx_allowed(self, clean_env):
+    def test_qt_im_module_fcitx_activates(self, clean_env):
         clean_env.setenv("QT_IM_MODULE", "fcitx")
         assert linux_ime._should_skip() is False
 
-    def test_qt_im_module_fcitx5_allowed(self, clean_env):
+    def test_qt_im_module_fcitx5_activates(self, clean_env):
         clean_env.setenv("QT_IM_MODULE", "fcitx5")
         assert linux_ime._should_skip() is False
 
-    def test_qt_im_module_unset_allowed(self, clean_env):
+    def test_xmodifiers_only_activates(self, clean_env):
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
         assert linux_ime._should_skip() is False
 
+    def test_xmodifiers_fcitx5_prefix_activates(self, clean_env):
+        clean_env.setenv("XMODIFIERS", "@im=fcitx5")
+        assert linux_ime._should_skip() is False
 
-# ---------------------------------------------------------------- Qt version check
+    def test_xmodifiers_case_insensitive(self, clean_env):
+        clean_env.setenv("XMODIFIERS", "@IM=FCITX")
+        assert linux_ime._should_skip() is False
+
+    def test_gtk_im_module_fcitx_activates(self, clean_env):
+        clean_env.setenv("GTK_IM_MODULE", "fcitx")
+        assert linux_ime._should_skip() is False
+
+    def test_gtk_im_module_fcitx5_activates(self, clean_env):
+        clean_env.setenv("GTK_IM_MODULE", "fcitx5")
+        assert linux_ime._should_skip() is False
+
+    def test_nothing_set_does_not_activate(self, clean_env):
+        """An fcitx5 install on disk must not switch on the fix by itself."""
+        assert linux_ime._should_skip() is True
+
+    def test_ibus_everywhere_does_not_activate(self, clean_env):
+        clean_env.setenv("QT_IM_MODULE", "ibus")
+        clean_env.setenv("GTK_IM_MODULE", "ibus")
+        clean_env.setenv("XMODIFIERS", "@im=ibus")
+        assert linux_ime._should_skip() is True
+
+    def test_qt_im_module_ibus_without_other_evidence(self, clean_env):
+        clean_env.setenv("QT_IM_MODULE", "ibus")
+        assert linux_ime._should_skip() is True
+
+    def test_xim_does_not_activate(self, clean_env):
+        clean_env.setenv("XMODIFIERS", "@im=xim")
+        assert linux_ime._should_skip() is True
+
+
+# ------------------------------------------------------- Qt version check
 
 def fake_subprocess(run_impl):
     return types.SimpleNamespace(
@@ -144,20 +188,54 @@ class TestVersionMatch:
     def test_unknown_pyside6_version_proceeds(self):
         assert linux_ime._check_version_match("6.12.0", None) is True
 
+    def test_mismatch_warning_mentions_ibus(self, caplog):
+        with caplog.at_level(logging.WARNING, logger=linux_ime.__name__):
+            assert linux_ime._check_version_match("6.11.0", "6.12.0") is False
+        assert "IBus" in caplog.text
+        assert "6.11.0" in caplog.text
+        assert "6.12.0" in caplog.text
 
-# ---------------------------------------------------------------- plugin lookup
 
-class TestFindPlugin:
+# ------------------------------------------------------------ plugin lookup
+
+class TestFindFrozenPlugin:
+    def test_not_frozen_returns_none(self, clean_env, monkeypatch):
+        monkeypatch.delattr(sys, "frozen", raising=False)
+        assert linux_ime._find_frozen_plugin() is None
+
+    def test_finds_bundled_plugin_in_meipass(self, clean_env, monkeypatch, tmp_path):
+        bundle = tmp_path / "_internal"
+        expected = make_bundle(bundle)
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+        assert linux_ime._find_frozen_plugin() == expected.resolve()
+
+    def test_finds_bundled_plugin_next_to_executable(self, clean_env, monkeypatch, tmp_path):
+        exe = tmp_path / "easy-math-editor"
+        exe.write_bytes(b"fake exe")
+        expected = make_bundle(tmp_path / "_internal")
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+        monkeypatch.setattr(sys, "executable", str(exe))
+        assert linux_ime._find_frozen_plugin() == expected.resolve()
+
+    def test_frozen_without_bundled_plugin_returns_none(self, clean_env, monkeypatch, tmp_path):
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "empty"), raising=False)
+        assert linux_ime._find_frozen_plugin() is None
+
+
+class TestFindSystemPlugin:
     def test_found_in_qt_plugin_path(self, clean_env, tmp_path):
         plugin = make_plugin(tmp_path / "custom")
         clean_env.setenv("QT_PLUGIN_PATH", str(tmp_path / "custom"))
-        assert linux_ime._find_fcitx5_plugin() == plugin.resolve()
+        assert linux_ime._find_system_plugin() == plugin.resolve()
 
     def test_found_in_second_qt_plugin_path_entry(self, clean_env, tmp_path):
         make_plugin(tmp_path / "second")
         entries = os.pathsep.join([str(tmp_path / "missing"), str(tmp_path / "second")])
         clean_env.setenv("QT_PLUGIN_PATH", entries)
-        result = linux_ime._find_fcitx5_plugin()
+        result = linux_ime._find_system_plugin()
         assert result == (tmp_path / "second" / "platforminputcontexts" / PLUGIN_NAME).resolve()
 
     def test_found_in_standard_dirs(self, clean_env, monkeypatch, tmp_path):
@@ -165,7 +243,7 @@ class TestFindPlugin:
         second = tmp_path / "dir2"
         make_plugin(second)
         monkeypatch.setattr(linux_ime, "_STANDARD_PLUGIN_DIRS", (first, second))
-        assert linux_ime._find_fcitx5_plugin() == (second / "platforminputcontexts" / PLUGIN_NAME).resolve()
+        assert linux_ime._find_system_plugin() == (second / "platforminputcontexts" / PLUGIN_NAME).resolve()
 
     def test_qt_plugin_path_wins_over_standard_dirs(self, clean_env, monkeypatch, tmp_path):
         custom = tmp_path / "custom"
@@ -174,12 +252,12 @@ class TestFindPlugin:
         make_plugin(standard)
         clean_env.setenv("QT_PLUGIN_PATH", str(custom))
         monkeypatch.setattr(linux_ime, "_STANDARD_PLUGIN_DIRS", (standard,))
-        assert linux_ime._find_fcitx5_plugin() == custom_plugin.resolve()
+        assert linux_ime._find_system_plugin() == custom_plugin.resolve()
 
     def test_not_found_returns_none(self, clean_env, monkeypatch, tmp_path):
         monkeypatch.setattr(linux_ime, "_STANDARD_PLUGIN_DIRS",
                             (tmp_path / "nope", tmp_path / "nada"))
-        assert linux_ime._find_fcitx5_plugin() is None
+        assert linux_ime._find_system_plugin() is None
 
     def test_symlinked_plugin_is_resolved(self, clean_env, tmp_path):
         real_dir = tmp_path / "real"
@@ -189,16 +267,16 @@ class TestFindPlugin:
         link_plugin.parent.mkdir(parents=True)
         link_plugin.symlink_to(real_plugin)
         clean_env.setenv("QT_PLUGIN_PATH", str(link_dir))
-        result = linux_ime._find_fcitx5_plugin()
+        result = linux_ime._find_system_plugin()
         assert result == real_plugin.resolve()
 
     def test_empty_qt_plugin_path_entries_ignored(self, clean_env, tmp_path):
         plugin = make_plugin(tmp_path / "real")
         clean_env.setenv("QT_PLUGIN_PATH", os.pathsep.join(["", "  ", str(tmp_path / "real")]))
-        assert linux_ime._find_fcitx5_plugin() == plugin.resolve()
+        assert linux_ime._find_system_plugin() == plugin.resolve()
 
 
-# ---------------------------------------------------------------- private dir + symlink
+# --------------------------------------------- private dir + symlink tests
 
 class TestPrivatePluginDir:
     def test_uses_xdg_cache_home(self, clean_env, tmp_path):
@@ -289,26 +367,29 @@ class TestEnsurePluginSymlink:
         assert linux_ime._ensure_plugin_symlink(plugin, target_dir) is False
 
 
-# ---------------------------------------------------------------- end-to-end (mocked)
+# --------------------------------------------- end-to-end (all mocked/tmp)
 
 class TestSetupFcitx5Ime:
     @pytest.fixture
     def patched(self, clean_env, monkeypatch, tmp_path):
         plugin = make_plugin(tmp_path / "system")
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin", lambda: None)
+        monkeypatch.setattr(linux_ime, "_find_system_plugin", lambda: plugin)
         monkeypatch.setattr(linux_ime, "_get_system_qt_version", lambda: "6.12.0")
         monkeypatch.setattr(linux_ime, "_get_pyside6_qt_version", lambda: "6.12.0")
-        monkeypatch.setattr(linux_ime, "_find_fcitx5_plugin", lambda: plugin)
         monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        monkeypatch.setenv("XMODIFIERS", "@im=fcitx")  # fcitx evident, QT_IM_MODULE unset
         expected_parent = tmp_path / "cache" / "easy-math-lang" / "qt-plugins"
         return plugin, expected_parent
 
     def test_sets_env_and_symlinks(self, patched):
-        _, expected_parent = patched
+        plugin, expected_parent = patched
         assert linux_ime._setup_fcitx5_ime() is True
         assert os.environ["QT_PLUGIN_PATH"] == str(expected_parent)
         assert os.environ["QT_IM_MODULE"] == "fcitx"
         link = expected_parent / "platforminputcontexts" / PLUGIN_NAME
         assert link.is_symlink()
+        assert link.readlink() == plugin.resolve()
 
     def test_prepends_to_existing_qt_plugin_path(self, clean_env, patched):
         _, expected_parent = patched
@@ -327,17 +408,34 @@ class TestSetupFcitx5Ime:
         assert "QT_PLUGIN_PATH" not in os.environ
         assert "QT_IM_MODULE" not in os.environ
 
-    def test_skips_for_other_im_module(self, clean_env, patched):
+    def test_no_env_changes_when_fcitx_not_evident(self, clean_env, patched):
+        """Ibus/unset users must be left completely untouched."""
+        clean_env.delenv("XMODIFIERS")
         clean_env.setenv("QT_IM_MODULE", "ibus")
+        clean_env.setenv("XMODIFIERS", "@im=ibus")
+        clean_env.setenv("GTK_IM_MODULE", "ibus")
         assert linux_ime._setup_fcitx5_ime() is True
         assert "QT_PLUGIN_PATH" not in os.environ
+        assert os.environ["QT_IM_MODULE"] == "ibus"
+
+    def test_fcitx5_install_alone_does_not_activate(self, clean_env, monkeypatch, tmp_path):
+        """No env evidence of fcitx: nothing at all happens."""
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin",
+                            mock.Mock(side_effect=AssertionError("must not search")))
+        monkeypatch.setattr(linux_ime, "_find_system_plugin",
+                            mock.Mock(side_effect=AssertionError("must not search")))
+        assert linux_ime._setup_fcitx5_ime() is True
+        assert "QT_PLUGIN_PATH" not in os.environ
+        assert "QT_IM_MODULE" not in os.environ
 
     def test_version_mismatch_skips(self, clean_env, monkeypatch, tmp_path):
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin", lambda: None)
+        monkeypatch.setattr(linux_ime, "_find_system_plugin",
+                            lambda: make_plugin(tmp_path / "system"))
         monkeypatch.setattr(linux_ime, "_get_system_qt_version", lambda: "6.11.0")
         monkeypatch.setattr(linux_ime, "_get_pyside6_qt_version", lambda: "6.12.0")
-        monkeypatch.setattr(linux_ime, "_find_fcitx5_plugin",
-                            lambda: pytest.fail("plugin lookup must not run on mismatch"))
         monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
         assert linux_ime._setup_fcitx5_ime() is True
         assert "QT_PLUGIN_PATH" not in os.environ
 
@@ -347,12 +445,46 @@ class TestSetupFcitx5Ime:
         assert "QT_PLUGIN_PATH" in os.environ
 
     def test_missing_plugin_is_not_fatal(self, clean_env, monkeypatch, tmp_path):
-        monkeypatch.setattr(linux_ime, "_get_system_qt_version", lambda: "6.12.0")
-        monkeypatch.setattr(linux_ime, "_get_pyside6_qt_version", lambda: "6.12.0")
-        monkeypatch.setattr(linux_ime, "_find_fcitx5_plugin", lambda: None)
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin", lambda: None)
+        monkeypatch.setattr(linux_ime, "_find_system_plugin", lambda: None)
         monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
         assert linux_ime._setup_fcitx5_ime() is True
         assert "QT_PLUGIN_PATH" not in os.environ
+
+    def test_frozen_bundle_plugin_is_trusted_and_used(
+            self, clean_env, monkeypatch, tmp_path):
+        bundle_dir = tmp_path / "bundle"
+        bundled = make_bundle(bundle_dir)
+        monkeypatch.setattr(linux_ime, "_find_system_plugin",
+                            mock.Mock(side_effect=AssertionError("system plugin must not be searched")))
+        monkeypatch.setattr(linux_ime, "_get_system_qt_version",
+                            mock.Mock(side_effect=AssertionError("no version check for bundled plugin")))
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        clean_env.setenv("XMODIFIERS", "@im=fcitx")
+        clean_env.setenv("QT_IM_MODULE", "fcitx5")
+        # Simulate the frozen lookup finding the bundled plugin.
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin", lambda: bundled)
+        assert linux_ime._setup_fcitx5_ime() is True
+        assert os.environ["QT_IM_MODULE"] == "fcitx5"
+        link = (tmp_path / "cache" / "easy-math-lang" / "qt-plugins"
+                / "platforminputcontexts" / PLUGIN_NAME)
+        assert link.is_symlink()
+        assert link.readlink() == bundled.resolve()
+
+    def test_frozen_build_without_bundle_falls_back_to_system(
+            self, clean_env, monkeypatch, tmp_path):
+        system_plugin = make_plugin(tmp_path / "system")
+        monkeypatch.setattr(linux_ime, "_find_frozen_plugin", lambda: None)
+        monkeypatch.setattr(linux_ime, "_find_system_plugin", lambda: system_plugin)
+        monkeypatch.setattr(linux_ime, "_get_system_qt_version", lambda: "6.12.0")
+        monkeypatch.setattr(linux_ime, "_get_pyside6_qt_version", lambda: "6.12.0")
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        clean_env.setenv("GTK_IM_MODULE", "fcitx")  # fcitx evident, no QT/X modifier
+        assert linux_ime._setup_fcitx5_ime() is True
+        link = (tmp_path / "cache" / "easy-math-lang" / "qt-plugins"
+                / "platforminputcontexts" / PLUGIN_NAME)
+        assert link.readlink() == system_plugin.resolve()
 
     def test_entry_point_never_raises(self, monkeypatch):
         monkeypatch.setattr(linux_ime, "_setup_fcitx5_ime",

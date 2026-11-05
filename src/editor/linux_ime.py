@@ -11,10 +11,14 @@ The fix:
 
 * runs on Linux only (no-op on Windows/macOS),
 * is opt-out via ``EZMATH_NO_IME_FIX=1``,
-* does nothing when ``QT_IM_MODULE`` is set to something other than
-  ``fcitx``/``fcitx5``,
-* only proceeds when the system Qt major.minor matches PySide6's bundled Qt
-  (when the system version cannot be determined it proceeds with a warning),
+* activates ONLY when fcitx is evidently the user's input method framework
+  (``QT_IM_MODULE`` in fcitx/fcitx5, ``XMODIFIERS`` containing
+  ``@im=fcitx``, or ``GTK_IM_MODULE`` in fcitx/fcitx5); otherwise it does
+  nothing at all — ibus and every other IM are left untouched,
+* prefers, in frozen builds, the plugin bundled by CI (built against
+  exactly PySide6's Qt, so trusted); otherwise locates the system's
+  fcitx5 plugin and requires the system Qt major.minor to match
+  PySide6's bundled Qt (when unknown it proceeds with a warning),
 * never raises: any failure is logged to stderr and the editor starts anyway.
 """
 
@@ -46,11 +50,29 @@ def _is_linux() -> bool:
     return sys.platform.startswith("linux")
 
 
+def _fcitx_is_evident() -> bool:
+    """True when fcitx is evidently the user's input method framework.
+
+    Checks, in order: ``QT_IM_MODULE`` in {fcitx, fcitx5}, ``XMODIFIERS``
+    containing ``@im=fcitx``, ``GTK_IM_MODULE`` in {fcitx, fcitx5}. An
+    fcitx5 install on disk is NOT evidence — ibus/xim/unset users must
+    never have their input method configuration changed.
+    """
+    if os.environ.get("QT_IM_MODULE", "") in ("fcitx", "fcitx5"):
+        return True
+    if "@im=fcitx" in os.environ.get("XMODIFIERS", "").lower():
+        return True
+    if os.environ.get("GTK_IM_MODULE", "") in ("fcitx", "fcitx5"):
+        return True
+    return False
+
+
 def _should_skip() -> bool:
     """Check if we should skip the IME fix.
 
-    Returns True when not on Linux, when ``EZMATH_NO_IME_FIX=1`` is set, or
-    when ``QT_IM_MODULE`` is set to something other than ``fcitx``/``fcitx5``.
+    Returns True when not on Linux, when ``EZMATH_NO_IME_FIX=1`` is set,
+    or when fcitx is not evidently the user's IM framework. When skipping
+    for the last reason, no environment changes are made at all.
     """
     if not _is_linux():
         logger.debug("Not on Linux, skipping fcitx5 IME fix")
@@ -60,9 +82,11 @@ def _should_skip() -> bool:
         logger.debug("EZMATH_NO_IME_FIX=1 is set, skipping fcitx5 IME fix")
         return True
 
-    qt_im_module = os.environ.get("QT_IM_MODULE", "")
-    if qt_im_module and qt_im_module not in ("fcitx", "fcitx5"):
-        logger.debug(f"QT_IM_MODULE={qt_im_module} is set, skipping fcitx5 IME fix")
+    if not _fcitx_is_evident():
+        logger.debug(
+            "fcitx not evident in QT_IM_MODULE/XMODIFIERS/GTK_IM_MODULE; "
+            "leaving input method configuration untouched"
+        )
         return True
 
     return False
@@ -159,10 +183,49 @@ def _check_version_match(
         logger.warning(
             f"System Qt ({system_version}) does not match PySide6's Qt "
             f"({pyside6_version}) at the major.minor level; skipping the "
-            "fcitx5 IME fix. fcitx5 input will not work in the editor. "
+            "fcitx5 IME fix. Alternatives: switch to IBus "
+            "(QT_IM_MODULE=ibus), or use a PySide6 build against the same "
+            f"Qt major.minor as your system ({_major_minor(system_version)}). "
             "Set EZMATH_NO_IME_FIX=1 to silence this warning."
         )
     return match
+
+
+def _find_frozen_plugin() -> Optional[Path]:
+    """Return the CI-bundled plugin inside a frozen build, if present.
+
+    Frozen Linux builds (built by CI from source against exactly
+    PySide6's Qt) carry the plugin in Qt's plugin directory, which CI
+    places under ``PySide6/Qt/plugins/platforminputcontexts/`` in the
+    bundle. Such a plugin is trusted as-is: no version check is applied.
+    Returns ``None`` when not in a frozen build or the plugin is missing.
+    """
+    if not getattr(sys, "frozen", False):
+        return None
+
+    candidates: List[Path] = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass))
+    try:
+        exe_dir = Path(sys.executable).resolve().parent
+        candidates.append(exe_dir / "_internal")  # onedir layout
+        candidates.append(exe_dir)
+    except (OSError, ValueError):
+        pass
+
+    seen = set()
+    for base in candidates:
+        plugin = base / "PySide6" / "Qt" / "plugins" / _PLUGIN_RELPATH
+        try:
+            if plugin.is_file() and plugin not in seen:
+                seen.add(plugin)
+                resolved = plugin.resolve()
+                logger.debug(f"Found bundled fcitx5 plugin at: {resolved}")
+                return resolved
+        except OSError as e:
+            logger.debug(f"Error checking {plugin}: {e}")
+    return None
 
 
 def _iter_search_paths() -> List[Path]:
@@ -186,7 +249,7 @@ def _iter_search_paths() -> List[Path]:
     return unique
 
 
-def _find_fcitx5_plugin() -> Optional[Path]:
+def _find_system_plugin() -> Optional[Path]:
     """Find the system fcitx5 platforminputcontexts plugin.
 
     Searches ``$QT_PLUGIN_PATH`` entries first, then the standard system Qt6
@@ -206,8 +269,8 @@ def _find_fcitx5_plugin() -> Optional[Path]:
     logger.warning(
         "Could not find libfcitx5platforminputcontextplugin.so in QT_PLUGIN_PATH "
         "or the standard system Qt plugin directories; fcitx5 input will not "
-        "work in the editor. Install the fcitx5 Qt6 platform input context "
-        "plugin (e.g. the fcitx5-qt package) to enable it."
+        "work in the editor. Install a matching fcitx5 Qt6 platform input "
+        "context plugin, or use IBus (QT_IM_MODULE=ibus)."
     )
     return None
 
@@ -279,16 +342,22 @@ def _setup_fcitx5_ime() -> bool:
 
     logger.info("Setting up fcitx5 IME support for PySide6 on Linux")
 
-    system_version = _get_system_qt_version()
-    pyside6_version = _get_pyside6_qt_version()
+    # 1) Frozen build with a CI-built plugin bundled in Qt's plugin dir:
+    #    trusted (built against exactly PySide6's Qt), no version check.
+    plugin_path = _find_frozen_plugin()
 
-    if not _check_version_match(system_version, pyside6_version):
-        # Actual major.minor mismatch: the plugin would not load (or worse,
-        # corrupt Qt). One clear warning, then skip.
-        return True
+    # 2) Otherwise the system plugin, which must match PySide6's Qt at
+    #    the major.minor level.
+    if plugin_path is None:
+        plugin_path = _find_system_plugin()
+        if plugin_path is not None:
+            system_version = _get_system_qt_version()
+            pyside6_version = _get_pyside6_qt_version()
+            if not _check_version_match(system_version, pyside6_version):
+                # Actual major.minor mismatch: one clear warning, then skip.
+                return True
 
-    plugin_path = _find_fcitx5_plugin()
-    if not plugin_path:
+    if plugin_path is None:
         return True
 
     try:
