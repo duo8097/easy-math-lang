@@ -11,9 +11,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 @pytest.fixture(scope='session')
 def qapp():
     pytest.importorskip('PySide6')
-    # Default to the offscreen platform everywhere (CI and local runs,
-    # even on machines with DISPLAY); an explicit QT_QPA_PLATFORM wins.
-    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    # Force the offscreen platform for the test session. Desktop sessions
+    # often export QT_QPA_PLATFORM=wayland;xcb (this machine does), which is
+    # not a deliberate testing choice: under a real WM the Escape/cancel-
+    # close assertions for dialogs cannot behave like offscreen. Qt reads
+    # the platform at QApplication creation, so it must be forced here, not
+    # merely defaulted. Set EZMATH_TEST_QPA_PLATFORM=xcb (etc.) to override.
+    os.environ['QT_QPA_PLATFORM'] = os.environ.get(
+        'EZMATH_TEST_QPA_PLATFORM', 'offscreen')
     from PySide6 import QtWidgets
     app = QtWidgets.QApplication.instance()
     if app is None:
