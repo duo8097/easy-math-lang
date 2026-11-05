@@ -198,6 +198,9 @@ jobs:
           EASYMATH_FCITX5_PLUGIN: ${{ steps.fcitx5qt.outputs.plugin }}
         run: bash installer/build_linux.sh
 
+      - name: Verify the fcitx5 plugin ended up in the bundle
+        run: test -f dist/easy-math-lang/_internal/PySide6/Qt/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so
+
       - name: Smoke test frozen Linux binaries
         env:
           EASYMATH_RUN_BUILD_TESTS: "1"
