@@ -164,3 +164,33 @@ def test_multiline_math_closes_at_first_delimiter():
     unclosed = [d for d in result.diagnostics if 'Unclosed math' in d.message]
     assert len(unclosed) == 1
     assert unclosed[0].line == 1
+
+
+def test_equal_angle_block_has_no_diagnostics():
+    # *equal-angle is fully implemented (constraint + marks): a valid
+    # block must not produce a single LSP diagnostic — it used to carry
+    # a "not yet implemented" GeometryError.
+    text = (
+        "*draw(\n"
+        "    *point(A = 0, 0)\n"
+        "    *point(B = 4, 0)\n"
+        "    *point(C = 2, 3)\n"
+        "    *point(D = 7, 0)\n"
+        "    *point(E = 11, 0)\n"
+        "    *point(F = 9, 3)\n"
+        "    *triangle(A ; B ; C)\n"
+        "    *triangle(D ; E ; F)\n"
+        "    *equal-angle(A ; B ; C ; D ; E ; F)\n"
+        ")\n"
+    )
+    result = analysis.analyze_text(text)
+    assert result.diagnostics == []
+
+
+def test_equal_angle_completion():
+    # The command is advertised with its full signature (hover splits
+    # hyphenated names into words, like every other geometry command).
+    items = analysis.complete("", 0, 0)
+    equal_angle = [i for i in items if i['label'] == 'equal-angle']
+    assert len(equal_angle) == 1
+    assert 'A ; B ; C ; D ; E ; F' in equal_angle[0]['detail']

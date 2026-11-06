@@ -41,3 +41,19 @@
     *perp(O ; P ; P ; Q)
     *line(P ; Q)
 )
+
+*draw(
+    // --- Equal angles: angle ABC = angle DEF (marks on both) ---
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C = 2, 3)
+    *point(D = 7, 0)
+    *point(E = 11, 0)
+    *point(F)
+
+    *equal-angle(A ; B ; C ; D ; E ; F)
+    *distance(E ; F ; 5)
+
+    *triangle(A ; B ; C)
+    *triangle(D ; E ; F)
+)

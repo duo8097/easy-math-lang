@@ -337,7 +337,8 @@ class DrawTemplateDialog(QtWidgets.QDialog):
                     f'Add *{entry.command} to the code via its parameter '
                     'dialog (double-click or press Enter)')
             else:
-                # No geo-* dialog in the registry (e.g. equal-angle).
+                # Defensive: a catalog command without a geo-* dialog in
+                # the registry (every command has one today).
                 item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEnabled)
                 item.setToolTip(
                     f'No parameter dialog for *{entry.command} yet')

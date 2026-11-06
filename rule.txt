@@ -997,13 +997,17 @@ Equal angles
 
 *equal-angle(A ; B ; C ; D ; E ; F)
 
-Marks two angles as equal.
-
-[planned — not yet implemented]
+Constrains angle ABC to equal angle DEF (the middle point of each
+triple is the vertex) and draws the same equality mark on both angles:
+one arc with a tick.
 
 Example:
 
 *equal-angle(A ; B ; C ; D ; E ; F)
+
+Output:
+
+Two identical arc markers (arc + tick), one at B and one at E.
 
 
 Parallel lines

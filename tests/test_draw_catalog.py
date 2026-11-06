@@ -30,13 +30,6 @@ from editor.draw_catalog import (  # noqa: E402
 )
 from geometry.commands import KNOWN_GEOMETRY_COMMANDS  # noqa: E402
 
-# equal-angle is [planned] in GEOMETRY_DOCS: codegen deliberately raises
-# "*equal-angle is not yet implemented" (the palette excludes it too —
-# see test_symbol_palette.test_palette_stays_curated_not_exhaustive).
-# Its example is otherwise validated like every other entry, and the test
-# below pins the failure to exactly that documented message.
-PLANNED_COMMANDS = {'equal-angle'}
-
 
 # ----------------------------------------------------------------------
 # Catalog coverage / metadata
@@ -127,11 +120,11 @@ def test_catalog_symbol_mapping_matches_registry():
         assert geo_dialogs.get(entry.command) == entry.symbol
         sym = get_symbol(entry.symbol)
         assert sym.wrap_draw and sym.command == entry.command
-    # Cards with no symbol: equal-angle (no geo-* dialog) and every
-    # construction card (all command 'point', keyed by construction name).
+    # Cards with no symbol: every construction card (all command
+    # 'point', keyed by construction name). Every geometry command has
+    # a geo-* dialog.
     no_symbol = {e.id for e in CATALOG if e.symbol is None}
-    assert no_symbol == {'equal-angle'} | {e.id for e in CATALOG
-                                           if e.construction}
+    assert no_symbol == {e.id for e in CATALOG if e.construction}
 
 
 def test_every_example_shows_its_own_command():
@@ -163,19 +156,9 @@ def test_examples_parse_cleanly_with_geometry_parser(capsys):
         captured = capsys.readouterr()
         assert captured.out == '', entry.command
         assert '// [Error]' not in out, entry.command
-        if entry.command in PLANNED_COMMANDS:
-            # The documented failure is the only one, and it is the
-            # compiler rejecting the not-yet-implemented command — the
-            # example's syntax/geometry itself is fine.
-            lines = [ln for ln in captured.err.splitlines() if ln.strip()]
-            assert len(lines) == 1, (entry.command, captured.err)
-            assert 'not yet implemented' in lines[0]
-            assert '[GeometryError] *equal-angle' in lines[0]
-            assert '// [GeometryError] *equal-angle:' in out
-        else:
-            assert captured.err == '', (entry.command, captured.err)
-            assert '[GeometryError]' not in out, entry.command
-            assert '[GeometryWarning]' not in out, entry.command
+        assert captured.err == '', (entry.command, captured.err)
+        assert '[GeometryError]' not in out, entry.command
+        assert '[GeometryWarning]' not in out, entry.command
         # The generated Typst carries the CeTZ import (the preview
         # rendering script relies on this).
         assert '#import "@preview/cetz:0.4.2"' in out, entry.command
@@ -473,8 +456,7 @@ def test_symbol_for_command_maps_to_geo_dialog_or_none():
     from editor.draw_catalog import symbol_for_command
     assert symbol_for_command('perp') == 'geo-perp'
     assert symbol_for_command('point') == 'geo-point'
-    # equal-angle is [planned]: no geo-* symbol in the registry.
-    assert symbol_for_command('equal-angle') is None
+    assert symbol_for_command('equal-angle') == 'geo-equal-angle'
     assert symbol_for_command('draw') is None
     assert symbol_for_command('nope') is None
 

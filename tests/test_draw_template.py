@@ -260,17 +260,17 @@ def test_palette_lists_every_catalog_command_once(template):
     right-hand sides, not commands of their own.)"""
     rows = palette_commands(template)
     assert sorted(rows) == sorted({e.command for e in CATALOG})
-    # equal-angle has no parameter dialog yet: present, disabled and
-    # (not being in this code) not bold.
+    # Every row can be activated: every geometry command has a
+    # parameter dialog (equal-angle used to sit disabled as "planned").
     item = item_for(template, 'equal-angle')
     assert item is not None
-    assert not (item.flags() & QtCore.Qt.ItemIsEnabled)
-    assert not item.font().bold()
-    # Every other row can be activated.
+    assert item.flags() & QtCore.Qt.ItemIsEnabled
     disabled = [e.command for e in CATALOG
                 if not (item_for(template, e.command).flags()
                         & QtCore.Qt.ItemIsEnabled)]
-    assert disabled == ['equal-angle']
+    assert disabled == []
+    # Not in this template's code, so not bold.
+    assert not item.font().bold()
 
 
 def test_palette_launches_commands_the_code_does_not_use(window, template,
@@ -325,17 +325,21 @@ def test_opening_gallery_twice_connects_template_signal_once(window):
     assert seen == ['point']
 
 
-def test_palette_greys_out_commands_without_dialog(window, gallery):
+def test_palette_launches_equal_angle_into_code_area(window, gallery,
+                                                     monkeypatch):
+    """equal-angle used to be a greyed-out 'planned' row; now its
+    palette row opens the geo-equal-angle dialog like any other."""
     gallery.card_for('equal-angle').example_btn.click()
     dlg = window._draw_template
     item = item_for(dlg, 'equal-angle')
     assert item is not None
-    assert not (item.flags() & QtCore.Qt.ItemIsEnabled)
-    # Even a forced activation emits nothing (no geo-* dialog exists).
-    picked = []
-    dlg.commandRequested.connect(picked.append)
+    assert item.flags() & QtCore.Qt.ItemIsEnabled
+    calls = []
+    monkeypatch.setattr(
+        window, '_prompt_symbol_dialog',
+        lambda sym, **kw: calls.append((sym.name, kw)))
     dlg.commands.itemActivated.emit(item)
-    assert picked == []
+    assert [c[0] for c in calls] == ['geo-equal-angle']
 
 
 def test_palette_pick_runs_dialog_into_code_area(window, template,
@@ -458,8 +462,8 @@ def test_real_enter_on_palette_row_runs_dialog_but_never_inserts(
     assert template.isVisible()
 
 
-def test_enter_edges_are_noops(window, gallery, monkeypatch, qapp):
-    """Enter with no match — or on the disabled row — does nothing."""
+def test_enter_with_no_match_is_a_noop(window, gallery, monkeypatch, qapp):
+    """Enter with no match (the disabled placeholder row) does nothing."""
     calls, inserted = [], []
     monkeypatch.setattr(
         window, '_prompt_symbol_dialog',
@@ -470,14 +474,6 @@ def test_enter_edges_are_noops(window, gallery, monkeypatch, qapp):
     # No match: currentRow is the disabled placeholder row.
     dlg.search.setText('zzzz-no-match')
     QtTest.QTest.keyClick(dlg.search, QtCore.Qt.Key_Return)
-    qapp.processEvents()
-    # Disabled row: equal-angle has no geo-* parameter dialog.
-    dlg.search.clear()
-    row = next(i for i in range(dlg.commands.count())
-               if dlg.commands.item(i).data(QtCore.Qt.UserRole)
-               == 'equal-angle')
-    dlg.commands.setCurrentRow(row)
-    QtTest.QTest.keyClick(dlg.commands, QtCore.Qt.Key_Return)
     qapp.processEvents()
     assert calls == []
     assert inserted == []
@@ -610,7 +606,6 @@ def test_accessible_names_and_buddies(template):
     # Buddies give the labels Alt-key focus routing.
     assert label.buddy() is template.search
     assert code_label.buddy() is template.code
-    # Item tooltips: what each row will do (or why it cannot).
+    # Item tooltips: what each row will do.
     assert 'parameter dialog' in item_for(template, 'perp').toolTip()
-    assert item_for(template, 'equal-angle').toolTip() == \
-        'No parameter dialog for *equal-angle yet'
+    assert 'parameter dialog' in item_for(template, 'equal-angle').toolTip()

@@ -83,6 +83,12 @@ KEYWORD_DOCS = {
     'p': ('*p(expression)', 'Print raw text, bypassing other rules.'),
     'doc_title': ('*doc_title(title)', 'Set the document title (centered heading + PDF metadata). Aliases: *doc-title, *doctitle, *title.'),
     'doc_font': ('*doc_font(family [; size])', 'Set the document font family and size (e.g. *doc_font(DejaVu Sans ; 14pt)). Aliases: *doc-font, *docfont.'),
+    # The *draw wrapper is a top-level control structure, not an inner
+    # solver command: the geometry commands inside it live in
+    # GEOMETRY_DOCS (kept == geometry.commands.KNOWN_GEOMETRY_COMMANDS,
+    # which has no 'draw'), so *draw is documented here to give it
+    # hover/completion without polluting the solver-command tables.
+    'draw': ('*draw(...)', 'Draw a geometry figure. The block holds the geometry commands (*point, *line, *triangle, ...) and the constraint solver places the points.'),
 }
 
 GEOMETRY_DOCS = {
@@ -93,7 +99,7 @@ GEOMETRY_DOCS = {
     'triangle': ('*triangle(A ; B ; C)', 'Draw triangle ABC.'),
     'right-angle': ('*right-angle(B ; A ; C)', 'Right-angle marker at A.'),
     'angle': ('*angle(A ; B ; C [; label])', 'Angle marker at B.'),
-    'equal-angle': ('*equal-angle(...)', 'Mark two angles equal. [planned]'),
+    'equal-angle': ('*equal-angle(A ; B ; C ; D ; E ; F)', 'Angle ABC equals angle DEF (solver constraint; both angles get the same arc + tick marks).'),
     'equal-length': ('*equal-length(A ; B ; C ; D)', 'Mark AB and CD equal.'),
     'parallel': ('*parallel(A ; B ; C ; D)', 'AB is parallel to CD.'),
     'perp': ('*perp(...)', 'Perpendicular constraint/marker.'),

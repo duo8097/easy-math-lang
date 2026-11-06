@@ -370,13 +370,43 @@ def _process_command(solver, cmd, args):
             )
         )
 
-    # Draw-only commands — just register for the draw pass
-    elif cmd in ('line', 'ray', 'triangle', 'circle', 'right-angle', 'angle',
-                 'equal-angle', 'arc', 'label', 'length', 'angle-value'):
-        if cmd == 'equal-angle' and len(args) != 6:
+    elif cmd == 'equal-angle':
+        # angle ABC equals angle DEF (both interior/minor angles). The
+        # equality marks themselves are drawn by codegen; the constraint
+        # here is what moves the free points until the angles match.
+        if len(args) != 6:
             raise GeometryError(
                 f"*equal-angle requires 6 arguments: A ; B ; C ; D ; E ; F (got {len(args)})"
             )
+        A, B, C, D, E, F = [a.strip() for a in args[:6]]
+        for pt in [A, B, C, D, E, F]:
+            _check_point_name(pt)
+            solver.add_point(pt)
+        import math as _math
+
+        def _equal_angle_cost(P, a=A, b=B, c=C, d=D, e=E, f=F):
+            v1, v2 = P[a] - P[b], P[c] - P[b]
+            v3, v4 = P[d] - P[e], P[f] - P[e]
+            if (_bad_len(_norm(v1)) or _bad_len(_norm(v2))
+                    or _bad_len(_norm(v3)) or _bad_len(_norm(v4))):
+                return 1.0
+            # atan2(|cross|, dot) is the interior angle in [0, pi]:
+            # smooth everywhere the arms are non-degenerate (acos would
+            # need clamping and loses gradient near 0/pi).
+            t1 = _math.atan2(abs(float(_cross2d(v1, v2))),
+                             float(np.dot(v1, v2)))
+            t2 = _math.atan2(abs(float(_cross2d(v3, v4))),
+                             float(np.dot(v3, v4)))
+            return (t1 - t2) ** 2
+
+        solver.add_constraint(
+            f"equal-angle({A}{B}{C}={D}{E}{F})",
+            _equal_angle_cost,
+        )
+
+    # Draw-only commands — just register for the draw pass
+    elif cmd in ('line', 'ray', 'triangle', 'circle', 'right-angle', 'angle',
+                 'arc', 'label', 'length', 'angle-value'):
         # Auto-create referenced points so simple drawings work without
         # explicit *point() (per spec: coordinates are optional).
         for i, arg in enumerate(args):
@@ -405,8 +435,6 @@ def _process_command(solver, cmd, args):
             if cmd == 'length' and i >= 2:
                 continue
             if cmd == 'angle-value' and i >= 3:
-                continue
-            if cmd == 'equal-angle' and i >= 6:
                 continue
             # *label(P ; text): only the first arg is a point; the text
             # must never auto-create a stray point (e.g. *label(A ; hello)).
