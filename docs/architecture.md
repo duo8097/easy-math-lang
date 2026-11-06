@@ -33,8 +33,8 @@ One `.ezmath` text file in, one PDF (or image/HTML/Typst file) out:
                      doc.pdf / .png / .svg / .html / .typ
 ```
 
-Four packages under `src/` — all plain Python packages, imported as
-`compiler.*`, `geometry.*`, `lsp.*`, `editor.*`:
+Five packages under `src/` — all plain Python packages, imported as
+`compiler.*`, `geometry.*`, `lsp.*`, `editor.*`, `typst_bundle.*`:
 
 | Package | What it does | Entry point |
 |---|---|---|
@@ -42,6 +42,7 @@ Four packages under `src/` — all plain Python packages, imported as
 | `src/geometry/` | `*draw` blocks: parse rules → solve positions → draw (CeTZ) | called by the compiler |
 | `src/lsp/` | Language server: errors, completion, hover, outline | `easy-math-lsp` → `lsp.server:main` |
 | `src/editor/` | Desktop editor (PySide6) | `easy-math-editor` → `editor.app:main` |
+| `src/typst_bundle/` | Vendored Typst packages: pinned versions + `#import` line + bundle resolution | stdlib-only leaf; used by `geometry` and `compiler` |
 
 The single most important rule: **there is exactly one parser.** The
 language server and the editor's preview both drive the same compiler
@@ -82,7 +83,9 @@ modules — never fork the syntax into a second implementation.
    the editor can jump from a PDF position back to your source line.
 5. **Failure gates** — an unclosed block or a broken `*draw` stops the
    build before Typst runs (everything else only warns).
-6. **Export** — `_run_typst_export()` calls `typst.compile()` for
+6. **Export** — `_run_typst_export()` passes the vendored Typst
+   bundle as `package_path` (when present) and calls
+   `typst.compile()` for
    PDF/PNG/SVG/HTML (or copies the `.typ` for `typ` exports), then
    intermediate files are cleaned up unless `--save-build-artifacts`.
 
@@ -124,8 +127,12 @@ carry a table-of-contents docstring at the top.
    hand-rolled gradient-descent fit (NumPy only, deterministic — same
    input always gives the same figure).
 3. **Codegen** — `codegen.generate_typst` emits a CeTZ canvas
-   (`#import "@preview/cetz:0.4.2"`), embedding errors as comments so
-   the rest of the document still builds.
+   (`#import "@preview/cetz:0.4.2"`, built from the pinned constant in
+   `src/typst_bundle`), embedding errors as comments so
+   the rest of the document still builds. CeTZ ships inside the repo
+   and the packaged builds (`vendor/typst-packages/`, passed to Typst as
+   `package_path`), so `*draw` works fully offline — see
+   [packaging.md](packaging.md#vendored-typst-packages-offline-draw).
 
 Failures print `[GeometryError] …` to stderr; a hard failure is
 signalled back to the compiler by an `// [Error]` placeholder, which

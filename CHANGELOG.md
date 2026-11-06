@@ -14,7 +14,7 @@ for those.
 
 ### Added
 - Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
-- Clear offline error message for first `*draw(...)` when `@preview/cetz` download fails.
+- **CeTZ is vendored and bundled — `*draw` works fully offline, with no first-run download.** The Typst packages `*draw` needs (cetz 0.4.2 and oxifmt 1.0.0 — its only transitive dependency, verified by compiling offline against an empty package cache) are committed under `vendor/typst-packages/` (downloaded and SHA-256-verified by `scripts/vendor_typst_packages.py`; manuals, galleries and docs are pruned — 473.4 KiB in total, `typst.toml`, all `.typ` sources, the LICENSE files and CeTZ's WASM core are kept) and ship in every packaged build: one copy under the shared bundle's `_internal/typst-packages/` (Windows, macOS, Debian/RPM, Arch; the CLI, the LSP and the editor all see the same copy) and in the source tree for checkouts. `_run_typst_export()` passes the bundle as Typst's `package_path`, which Typst consults before its user cache and the network; when the bundle is missing the compiler falls back to Typst's usual cache/download behavior and never crashes. The offline error message now only appears when the bundle is genuinely missing and the download also fails. cetz/oxifmt remain unmodified and replaceable; they are not MIT — `THIRD_PARTY_LICENSES` (CeTZ is LGPL-3.0-or-later) lists them with upstream URLs and ships in all installers. `src/typst_bundle/` is the single source of truth for the pinned versions; `tests/test_typst_bundle.py` enforces the vendored tree matches (each package's `typst.toml` must match its directory) and compiles `*draw` with every package-cache location redirected to an empty temporary directory, asserting the cache stays empty; `tests/test_packaged_build.py` does the same against the frozen binaries with dead proxies.
 - **`*equal-angle(A ; B ; C ; D ; E ; F)`** — angle ABC equals angle DEF, implemented end to end. The constraint solver moves the free points until the two interior angles match, and codegen draws the same equality mark on both angles (an arc with a tick, the same arc radius as `*angle`). The editor's `Insert command…` button and the template-window command palette now open a `geo-equal-angle` parameter dialog (six point fields, `*draw`-wrapped) instead of greying the card out, and the gallery thumbnail is re-rendered. Docs: `docs/geometry.md` (new section), `docs/cheatsheet.md` (constraint table), `rule.txt`, plus a runnable fourth block in `examples/draw_test.ezmath`.
 - LSP hover + completion description for `*draw(...)` — the language server advertised built-in descriptions but hovering/completing `*draw` gave nothing (the draw-block symbol shadowed it). `*draw` is now documented like every other built-in.
 - Linux input methods (Vietnamese etc.) — the desktop editor now supports fcitx5 IME methods (e.g., fcitx5-lotus Vietnamese Telex) on Linux. The fix activates only when fcitx is evident (`QT_IM_MODULE`/`XMODIFIERS`/`GTK_IM_MODULE`) and leaves ibus users untouched. The `.deb`/`.rpm` installers bundle a plugin compiled from source in CI against PySide6's exact Qt, and the Arch package bundles the system `fcitx5-qt` plugin when its Qt matches (frozen builds verify the plugin is bundled); from source, a matching system plugin is used automatically. `EZMATH_NO_IME_FIX=1` opts out.
@@ -23,6 +23,11 @@ for those.
 - LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.
 
 ### Fixed
+- Arch package (`installer/PKGBUILD`) installed only the three
+  executables and not the shared `_internal/` library directory, so the
+  packaged binaries could not run at all. It now installs the whole
+  shared bundle (like the `.deb`/`.rpm` path) and also ships
+  `THIRD_PARTY_LICENSES`.
 - Windows installer version — `installer/setup.iss` no longer carries a
   hard-coded `AppVersion` (it lagged behind at 5.1.0 while the project was
   5.2.0). CI reads the version from `pyproject.toml` (`tomllib`) and injects
