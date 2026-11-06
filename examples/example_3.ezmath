@@ -200,9 +200,9 @@ Comparison: \ x <= y \ and limit \ x -> infinity \.
 
 *draw(
     *point(O = 0, 0)
+    *point(P = 3, 0)
     *circle(O ; 3)
 
-    *point(P)
     *on-circle(O ; 3 ; P)
     *line(O ; P)
     *label(P ; P)
