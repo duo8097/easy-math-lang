@@ -67,7 +67,32 @@ The program will place it automatically based on the other rules you give:
 ```
 
 This is useful when you say something like "C is 3 cm from A" — the program
-figures out a valid position for C.
+figures out a position for C that satisfies the rule.
+
+### What auto-placement decides (and what it doesn't)
+
+A point without coordinates is placed by the solver from the constraints
+that mention it. Four things to know:
+
+- **Position and rotation are arbitrary unless you pin them.** An
+  auto-positioned figure can land anywhere, at any rotation. For a tidy,
+  canonical picture, pin the first points yourself — `*point(A = 0, 0)`
+  and, to fix the orientation, `*point(B = 4, 0)` — and let the solver
+  place the rest.
+- **The result is deterministic.** The same block always produces the
+  same figure: auto points start from a fixed guess (there is no
+  randomness), so re-running a file never moves the points.
+- **The solver is numeric, not exact.** Lengths and angles come out
+  right to about 1% (in our checks a 3-unit leg landed within 0.03 and
+  a 5-unit side within 0.05) — plenty for a drawing, but don't treat
+  the output as a mathematical proof.
+- **Constraints must determine the figure.** A point that no constraint
+  mentions is placed arbitrarily, and too few constraints can collapse
+  a shape (a bare `*triangle(A ; B ; C)` over three auto points draws A
+  and C almost on top of each other). Give every auto point at least
+  one constraint, and pin extra points when a constraint leaves two
+  possible placements (a distance fixes a length but not a direction;
+  `*on-circle` fixes a radius but not the angle around the circle).
 
 ---
 
@@ -474,6 +499,8 @@ the solver places B on the tangent through A.
 ## Tips
 
 - You don't need to set coordinates for every point — only the ones you care about.
+- For a tidy figure, pin `A = 0, 0` and `B = x, 0` and let the solver place the
+  rest — see [What auto-placement decides](#what-auto-placement-decides-and-what-it-doesnt).
 - Think of constraints as rules in plain language: "these sides are equal", "this angle is 90°".
 - The more constraints you give, the more precisely the figure is drawn.
 - Placement is deterministic: the same input always produces the same figure.
