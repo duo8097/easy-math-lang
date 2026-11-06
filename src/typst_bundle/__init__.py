@@ -69,7 +69,15 @@ def vendored_packages_dir() -> str | None:
         candidate = os.path.join(frozen, BUNDLE_DIRNAME)
         return candidate if _is_complete(candidate) else None
     # Source checkout: this file is <repo>/src/typst_bundle/__init__.py.
-    candidate = os.path.normpath(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        os.pardir, os.pardir, "vendor", BUNDLE_DIRNAME))
-    return candidate if _is_complete(candidate) else None
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in (
+        # <repo>/vendor/typst-packages
+        os.path.normpath(os.path.join(
+            here, os.pardir, os.pardir, "vendor", BUNDLE_DIRNAME)),
+        # pip-installed wheel: package data shipped inside the wheel
+        # (see tool.hatch.build.targets.wheel.force-include).
+        os.path.join(here, BUNDLE_DIRNAME),
+    ):
+        if _is_complete(candidate):
+            return candidate
+    return None

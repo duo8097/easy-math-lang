@@ -97,19 +97,42 @@ def test_vendored_packages_dir_resolves_from_source():
     assert vendored_packages_dir() == os.path.normpath(VENDOR)
 
 
+def _make_bundle(root):
+    for name, version in TYPST_PACKAGES:
+        package_dir = root / 'preview' / name / version
+        package_dir.mkdir(parents=True)
+        (package_dir / 'typst.toml').write_text(
+            f'[package]\nname = "{name}"\nversion = "{version}"\n',
+            encoding='utf-8')
+
+
 def test_vendored_packages_dir_frozen_layout(monkeypatch, tmp_path):
     # Frozen build without the bundle -> None (caller falls back to the
     # default Typst behavior, never crashes).
     monkeypatch.setattr(sys, '_MEIPASS', str(tmp_path), raising=False)
     assert typst_bundle.vendored_packages_dir() is None
     # Complete bundle -> the bundle directory is returned.
-    for name, version in TYPST_PACKAGES:
-        package_dir = tmp_path / 'typst-packages' / 'preview' / name / version
-        package_dir.mkdir(parents=True)
-        (package_dir / 'typst.toml').write_text(
-            f'[package]\nname = "{name}"\nversion = "{version}"\n',
-            encoding='utf-8')
+    _make_bundle(tmp_path / 'typst-packages')
     assert typst_bundle.vendored_packages_dir() == str(tmp_path / 'typst-packages')
+
+
+def test_vendored_packages_dir_wheel_layout(monkeypatch, tmp_path):
+    # pip-installed wheel: the bundle ships inside the package as
+    # package data (typst_bundle/typst-packages).
+    pkg = tmp_path / 'site-packages' / 'typst_bundle'
+    pkg.mkdir(parents=True)
+    (pkg / '__init__.py').write_text('# wheel data host', encoding='utf-8')
+    _make_bundle(pkg / 'typst-packages')
+    monkeypatch.setattr(typst_bundle, '__file__', str(pkg / '__init__.py'))
+    assert typst_bundle.vendored_packages_dir() == str(pkg / 'typst-packages')
+
+
+def test_vendored_packages_dir_missing_everywhere(monkeypatch, tmp_path):
+    pkg = tmp_path / 'site-packages' / 'typst_bundle'
+    pkg.mkdir(parents=True)
+    (pkg / '__init__.py').write_text('# wheel data host', encoding='utf-8')
+    monkeypatch.setattr(typst_bundle, '__file__', str(pkg / '__init__.py'))
+    assert typst_bundle.vendored_packages_dir() is None
 
 
 # --------------------------------------------------------------------------

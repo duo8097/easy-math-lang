@@ -275,11 +275,13 @@ vendor script. See `vendor/typst-packages/README.md`.
   dead proxy). If the bundle directory is missing or incomplete, the
   code passes nothing and Typst falls back to its usual behavior
   (user cache, then download) — it never crashes.
-- From source, the bundle resolves to `<repo>/vendor/typst-packages`.
-  Frozen by PyInstaller, it resolves to `sys._MEIPASS/typst-packages`.
-  The shared bundle ships exactly one copy under
-  `_internal/typst-packages/` (editor build's data files; the CLI and
-  the LSP reuse that same `_internal/`).
+- From source, the bundle resolves to `<repo>/vendor/typst-packages`;
+  frozen by PyInstaller, it resolves to `sys._MEIPASS/typst-packages`;
+  pip-installed wheels ship the bundle as package data
+  (`typst_bundle/typst-packages`, via hatch's `force-include`). Frozen
+  builds ship exactly one copy under `_internal/typst-packages/`
+  (editor build's data files; the CLI and the LSP reuse that same
+  `_internal/`).
 - `tests/test_typst_bundle.py` fails when the vendored tree doesn't
   match the pins (each package's `typst.toml` must match its directory
   name and version; LICENSE files must be present). The offline test
