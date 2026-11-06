@@ -12,6 +12,7 @@ read the same hive it writes.
 
 import os
 import re
+import tomllib
 
 import pytest
 
@@ -26,6 +27,10 @@ INSTALL_DOC = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'docs', 'installation.md'))
 PACKAGING_DOC = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'docs', 'packaging.md'))
+PKGBUILD = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'installer', 'PKGBUILD'))
+PYPROJECT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'pyproject.toml'))
 
 
 @pytest.fixture(scope='module')
@@ -142,3 +147,30 @@ def test_workflow_reads_version_and_passes_app_version():
     # ... and the ISCC invocation actually consumes that value.
     assert re.search(r'/DAppVersion=%APP_VERSION%', workflow_text), \
         'ISCC must receive the APP_VERSION read from pyproject.toml'
+
+
+# ----------------------------------------------------------------------
+# PKGBUILD pkgver placeholder (overridden by pkgver() at build time)
+# ----------------------------------------------------------------------
+
+def test_pkgbuild_pkgver_matches_pyproject():
+    """The PKGBUILD ``pkgver=`` placeholder must track pyproject.toml.
+
+    ``pkgver()`` derives the real version at build time (git describe, or
+    the pyproject.toml version for the source tarball CI packs), but the
+    placeholder is what ``makepkg --printsrcinfo`` / AUR helpers show
+    before building — it sat at 5.1.0 while the project was 5.2.0.
+    """
+    with open(PYPROJECT, 'rb') as handle:
+        version = tomllib.load(handle)['project']['version']
+    with open(PKGBUILD, encoding='utf-8') as handle:
+        pkgbuild = handle.read()
+    match = re.search(r'(?m)^pkgver=(\S+)\s*$', pkgbuild)
+    assert match, 'PKGBUILD has no pkgver= line'
+    assert match.group(1) == version, (
+        f'PKGBUILD pkgver placeholder ({match.group(1)}) does not match '
+        f'pyproject.toml version ({version}) — bump it together'
+    )
+    # The placeholder is only a fallback: pkgver() must still override it.
+    assert re.search(r'(?m)^pkgver\(\)\s*\{', pkgbuild), \
+        'PKGBUILD must keep its pkgver() build-time override'

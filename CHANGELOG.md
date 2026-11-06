@@ -27,6 +27,9 @@ for those.
   5.2.0). CI reads the version from `pyproject.toml` (`tomllib`) and injects
   it via `/DAppVersion=`; a hand-run `ISCC.exe installer\setup.iss` falls
   back to a `0.0.0` placeholder instead of a stale number.
+- Arch `PKGBUILD` `pkgver` placeholder updated to 5.2.0 (overridden by
+  `pkgver()` at build time); a regression test keeps it in sync with
+  `pyproject.toml`.
 - Preview manifest (`manifest.json`) now regenerated automatically in test setup; stale-preview bugs no longer hidden by skips.
 - Duplicate docstring removed from `pipeline.py`.
 

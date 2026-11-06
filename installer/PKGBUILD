@@ -1,6 +1,11 @@
 # Maintainer: duo8097 <Imanoob8097@gmail.com>
 pkgname=easy-math-lang-git
-pkgver=5.1.0
+# Placeholder only: pkgver() below overrides it at build time (git
+# describe in a VCS checkout, the pyproject.toml version for a source
+# tarball). Keep it in sync with pyproject.toml so a raw copy of this
+# PKGBUILD (e.g. an AUR helper reading it without building) still shows
+# a sensible version; tests/test_installer_script.py checks the match.
+pkgver=5.2.0
 pkgrel=1
 pkgdesc='Plain-text math documents to PDF, images, HTML and Typst (compiler, language server and desktop editor)'
 arch=('x86_64')
