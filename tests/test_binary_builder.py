@@ -1,5 +1,6 @@
 """Scheduling and failure handling for independent frozen entry points."""
 import importlib.util
+import os
 from pathlib import Path
 import sys
 import threading
@@ -158,3 +159,84 @@ def test_editor_build_ships_gallery_previews_and_qtsvg(monkeypatch):
     assert source.endswith(os.path.join('assets', 'draw_previews'))
     assert os.path.isdir(source), source
     assert any(name.endswith('.svg') for name in os.listdir(source))
+
+
+# ---------------------------------------------------------------- fcitx5 bundle
+
+def _fake_plugin(tmp_path, name='libfcitx5platforminputcontextplugin.so'):
+    plugin = tmp_path / 'platforminputcontexts' / name
+    plugin.parent.mkdir(parents=True, exist_ok=True)
+    plugin.write_bytes(b'\x7fELF fake')
+    return plugin
+
+
+def _patch_linux_ime(monkeypatch, plugin, system_version, pyside6_version):
+    from editor import linux_ime
+    monkeypatch.setattr(linux_ime, '_find_system_plugin', lambda: plugin)
+    monkeypatch.setattr(linux_ime, '_get_system_qt_version', lambda: system_version)
+    monkeypatch.setattr(linux_ime, '_get_pyside6_qt_version', lambda: pyside6_version)
+
+
+def test_system_fcitx5_plugin_disabled_by_default(monkeypatch, tmp_path):
+    plugin = _fake_plugin(tmp_path)
+    _patch_linux_ime(monkeypatch, plugin, '6.12.0', '6.12.0')
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: False)
+    assert builder._system_fcitx5_plugin_adddata() == []
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='the system-plugin bundling path is Linux-only')
+def test_system_fcitx5_plugin_bundled_when_qt_matches(monkeypatch, tmp_path):
+    plugin = _fake_plugin(tmp_path)
+    _patch_linux_ime(monkeypatch, plugin, '6.12.0', '6.12.0')
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
+    args = builder._system_fcitx5_plugin_adddata()
+    assert args[0] == '--add-data'
+    sep = ';' if os.name == 'nt' else ':'
+    src, dest = args[1].split(sep, 1)
+    assert src == str(plugin)
+    assert dest == 'PySide6/Qt/plugins/platforminputcontexts'
+
+
+def test_system_fcitx5_plugin_skipped_on_qt_mismatch(monkeypatch, tmp_path):
+    """Rolling distro with a stale plugin: skip silently, never fail."""
+    plugin = _fake_plugin(tmp_path)
+    _patch_linux_ime(monkeypatch, plugin, '6.11.0', '6.12.0')
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
+    assert builder._system_fcitx5_plugin_adddata() == []
+
+
+def test_system_fcitx5_plugin_skipped_when_missing(monkeypatch, tmp_path):
+    _patch_linux_ime(monkeypatch, None, '6.12.0', '6.12.0')
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
+    assert builder._system_fcitx5_plugin_adddata() == []
+
+
+def test_system_fcitx5_plugin_skipped_on_unknown_versions(monkeypatch, tmp_path):
+    plugin = _fake_plugin(tmp_path)
+    _patch_linux_ime(monkeypatch, plugin, None, '6.12.0')
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
+    assert builder._system_fcitx5_plugin_adddata() == []
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='the CI-built plugin path is Linux-only')
+def test_ci_plugin_preferred_over_system(monkeypatch, tmp_path):
+    """With EASYMATH_FCITX5_PLUGIN set, the CI-built plugin wins."""
+    commands = []
+    ci_plugin = _fake_plugin(tmp_path / 'ci')
+    system_plugin = _fake_plugin(tmp_path / 'sys')
+    monkeypatch.setenv('EASYMATH_FCITX5_PLUGIN', str(ci_plugin))
+    monkeypatch.setattr(builder, '_system_fcitx5_enabled', lambda: True)
+    _patch_linux_ime(monkeypatch, system_plugin, '6.12.0', '6.12.0')
+    monkeypatch.setattr(builder, '_run',
+                        lambda cmd, cache: commands.append(cmd))
+    builder._build('easy-math-editor', builder.ENTRIES['easy-math-editor'],
+                   False)
+    cmd = commands[0]
+    add_data = [cmd[i + 1] for i, flag in enumerate(cmd)
+                if flag == '--add-data']
+    sep = ';' if os.name == 'nt' else ':'
+    sources = [a.split(sep, 1)[0] for a in add_data]
+    assert str(ci_plugin) in sources
+    assert str(system_plugin) not in sources

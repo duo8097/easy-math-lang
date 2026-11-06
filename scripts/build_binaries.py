@@ -42,6 +42,7 @@ in the nested Qt tool apps that break ``codesign``).
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import subprocess
@@ -81,12 +82,80 @@ EDITOR_HIDDEN = [
     "editor.main_window",
     "editor.draw_gallery",
     "editor.draw_template",
+    "editor.linux_ime",
 ]
+
+
+def _system_fcitx5_enabled() -> bool:
+    return (os.environ.get("EASYMATH_BUNDLE_SYSTEM_FCITX5") == "1"
+            or Path("/etc/arch-release").exists())
+
+
+def _system_fcitx5_plugin_adddata() -> list[str]:
+    """``--add-data`` args for the SYSTEM fcitx5 plugin (rolling distros).
+
+    Enabled on Arch Linux or with ``EASYMATH_BUNDLE_SYSTEM_FCITX5=1``.
+    The system plugin is bundled ONLY when it exists and the system Qt
+    major.minor matches PySide6's bundled Qt (Arch is rolling: a mismatch
+    is skipped silently, never a build failure). On a mismatch the frozen
+    editor falls back to the runtime path (ibus, or a matching install).
+    """
+    if not sys.platform.startswith("linux") or not _system_fcitx5_enabled():
+        return []
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from editor import linux_ime
+
+        # Keep the build log quiet: any doubt means "don't bundle".
+        linux_ime.logger.setLevel(logging.CRITICAL)
+        plugin = linux_ime._find_system_plugin()
+        system_version = linux_ime._get_system_qt_version()
+        pyside6_version = linux_ime._get_pyside6_qt_version()
+    except Exception:
+        return []
+    if not plugin or not system_version or not pyside6_version:
+        return []
+    if linux_ime._major_minor(system_version) != linux_ime._major_minor(pyside6_version):
+        return []
+    print(f"Bundling the matching system fcitx5 Qt plugin (Qt {system_version})")
+    sep = ";" if os.name == "nt" else ":"
+    return ["--add-data",
+            f"{plugin}{sep}PySide6/Qt/plugins/platforminputcontexts"]
 
 
 def _executable(name: str) -> str:
     """Platform file name of a built binary (``foo`` or ``foo.exe``)."""
     return f"{name}.exe" if os.name == "nt" else name
+
+
+def _ci_fcitx5_plugin_adddata() -> list[str]:
+    """``--add-data`` args to bundle the CI-built fcitx5 Qt plugin.
+
+    Linux frozen builds ship a plugin built from source in CI against
+    exactly PySide6's Qt; CI passes its path in ``EASYMATH_FCITX5_PLUGIN``.
+    A system/distro plugin is never bundled through this path: the distro
+    package targets the distro's Qt, not PySide6's. (The Arch package
+    passes the system plugin through ``_system_fcitx5_plugin_adddata``
+    instead, only when its Qt major.minor matches.)
+
+    Returns ``[]`` when the env var is unset or the file is missing —
+    the build must not depend on the plugin being present.
+    """
+    if not sys.platform.startswith("linux"):
+        return []
+    plugin = os.environ.get("EASYMATH_FCITX5_PLUGIN", "").strip()
+    if not plugin:
+        return []
+    plugin_path = Path(plugin)
+    if not plugin_path.is_file():
+        print(f"note: EASYMATH_FCITX5_PLUGIN={plugin} does not exist; "
+              f"not bundling the fcitx5 plugin")
+        return []
+    print(f"Bundling CI-built fcitx5 Qt plugin into the editor bundle: "
+          f"{plugin_path}")
+    sep = ";" if os.name == "nt" else ":"
+    return ["--add-data",
+            f"{plugin_path}{sep}PySide6/Qt/plugins/platforminputcontexts"]
 
 
 def _run(cmd: list[str], cache_dir: Path) -> None:
@@ -157,6 +226,9 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
+        # The CI-built plugin is preferred; otherwise (rolling distros)
+        # the matching system plugin is bundled.
+        cmd += _ci_fcitx5_plugin_adddata() or _system_fcitx5_plugin_adddata()
 
     _run(cmd, ROOT / "build" / ".pyinstaller-cache" / name)
 

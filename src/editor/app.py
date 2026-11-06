@@ -37,6 +37,14 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    # Set up fcitx5 IME support for Linux (if applicable)
+    try:
+        from .linux_ime import setup_fcitx5_ime
+        setup_fcitx5_ime()
+    except ImportError:
+        # linux_ime.py not available (e.g., in a bundled build)
+        pass
+
     args = parse_args(sys.argv[1:] if argv is None else argv)
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(
         sys.argv if argv is None else ['easy-math-editor'])

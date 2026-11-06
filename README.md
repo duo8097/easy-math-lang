@@ -66,6 +66,80 @@ The easiest way to use easy-math-lang — no Python needed:
 
 ---
 
+## Linux: input methods (Vietnamese etc.)
+
+The desktop editor supports fcitx5 input methods on Linux — for example Vietnamese Telex via `fcitx5-lotus`, and other CJK IMEs. The short version:
+
+- **ibus users: nothing to install or configure** — ibus works out of the box as long as the ibus daemon is running (PySide6's bundled Qt ships the ibus plugin).
+- **fcitx5 works out of the box in the `.deb`/`.rpm` installers** — the frozen Linux builds bundle a plugin compiled from source in CI against exactly PySide6's Qt, so no system Qt matters.
+- **From source (`uv run easy-math-editor`) fcitx5 needs a matching system plugin** — install your distro's Qt6 plugin and it will be used automatically, but only when its Qt major.minor matches PySide6's (currently **Qt 6.12**, PySide6 6.12.0 in `uv.lock`). Otherwise use ibus, or a PySide6 built against your system Qt.
+- The editor **never touches your input-method configuration unless fcitx is evidently in use**, and a mismatch or failure never blocks the editor — worst case, fcitx5 input is unavailable.
+
+### What PySide6 ships
+
+PySide6 from PyPI bundles its own Qt. Its `platforminputcontexts` directory contains only the **ibus** and **compose** plugins — no fcitx5 plugin. The fcitx5 Qt6 platform input context plugin (`libfcitx5platforminputcontextplugin.so`) must come from elsewhere, and it only loads if it was built against the same Qt major.minor as PySide6's Qt.
+
+### What the editor does automatically (Linux only)
+
+At startup, before the Qt application is created, the editor:
+
+1. **Activates only when fcitx is evidently your IM framework** — at least one of: `QT_IM_MODULE=fcitx|fcitx5`, `XMODIFIERS` containing `@im=fcitx`, or `GTK_IM_MODULE=fcitx|fcitx5`. If none match (e.g. ibus or unset), the editor does nothing at all — no environment variables are changed.
+2. **Picks the plugin**, in order:
+   - Frozen builds: the plugin **bundled by CI** (built against exactly PySide6's Qt — trusted, no version check required).
+   - Otherwise: the **system plugin**, found in `$QT_PLUGIN_PATH` or the standard system Qt6 plugin directories, and only used when the **system Qt major.minor matches PySide6's** (system Qt detected via `qmake6 -query QT_VERSION`, then `qtpaths6`; if it can't be determined, it proceeds with a warning).
+3. **Wires it up**: symlinks the plugin into `~/.cache/easy-math-lang/qt-plugins/platforminputcontexts/` (honoring `$XDG_CACHE_HOME`; refreshed when the system plugin changes, copy fallback), prepends that directory's parent to `QT_PLUGIN_PATH` — keeping your own entries — and defaults `QT_IM_MODULE` to `fcitx` via `os.environ.setdefault` (your own setting always wins). `QT_QPA_PLATFORM` is never touched.
+
+On a version mismatch the fix is skipped with one clear stderr warning (mentioning IBus and a matching PySide6 as alternatives). The editor always starts; ibus users see zero difference.
+
+### Which package provides the fcitx5 plugin?
+
+Verified: **Arch Linux** → `fcitx5-qt` (owns `/usr/lib/qt6/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so`; also what the Arch package bundles when Qt matches). **Debian/Ubuntu** → `fcitx5-frontend-qt6` (e.g. noble ships 5.1.4 against Qt 6.4.2 — see the mismatch note above; the `.deb` installer needs no system package). **Fedora and others**: check your distro — package names and Qt versions vary; the version match below applies regardless.
+
+### Version mismatch (from source)
+
+PySide6 currently bundles **Qt 6.12** (`pyside6 6.12.0` in `uv.lock`). If your system Qt is not 6.12.x (Ubuntu 24.04: 6.4.2), the system plugin cannot load; the editor warns once on stderr and leaves ibus/everything else alone. Your options:
+
+- use **ibus** (`QT_IM_MODULE=ibus`, ibus-daemon running) — works out of the box;
+- run the **installers** (`.deb`/`.rpm`) — they carry a plugin built for Qt 6.12;
+- install/build a PySide6 against your system Qt 6 and set `EZMATH_NO_IME_FIX` concerns aside; or
+- install a newer system Qt whose 6.x matches PySide6's and the matching fcitx5 plugin.
+
+### Opt-out
+
+```bash
+EZMATH_NO_IME_FIX=1 easy-math-editor
+```
+
+disables the whole fix (no lookups, no environment changes, no warnings). Other `QT_IM_MODULE` values (e.g. `ibus`) likewise leave you untouched.
+
+### Debugging
+
+- `QT_DEBUG_PLUGINS=1 easy-math-editor` — Qt logs every plugin probe; look for `libfcitx5platforminputcontextplugin.so` and a `loaded library` line.
+- Check stderr for the one-line warning; it names both Qt versions on a mismatch.
+- Verify the versions yourself: `qmake6 -query QT_VERSION` vs `uv run python -c "from PySide6.QtCore import qVersion; print(qVersion())"`.
+- Integration tests: `uv run pytest tests/test_linux_ime_integration.py -v` (headless; passes via the real plugin load, or skips with the reason when nothing matches).
+
+### XWayland vs Wayland
+
+Qt apps on Wayland use the `wayland` platform via XWayland if unset. fcitx5 works best with a native Wayland session (`QT_QPA_PLATFORM=wayland`); under XWayland the X11 input-method path applies. If the candidate window misbehaves, try `QT_QPA_PLATFORM=xcb` (X11/XWayland) or confirm your fcitx5 version supports Qt6 Wayland text-input. The editor does not set any of these itself.
+
+### Maintainers: bumping the pinned fcitx5-qt ref / a new PySide6 Qt
+
+The CI-built plugin is pinned in `scripts/fcitx5_qt_ref.txt` (currently `5.1.16`) and cached by `Qt version + ref + runner image` (actions/cache). To bump it: edit that one line; CI rebuilds the plugin from the new tag.
+
+When PySide6 moves to a new Qt minor (e.g. Qt 6.13):
+
+1. Ensure aqtinstall hosts the matching SDK (`aqt list-qt linux desktop --spec "6.13"`) — the build-linux job installs exactly `qVersion()` and verifies it;
+2. confirm the aqtinstall archives `qtbase`, `qtwayland`, `icu` still carry the private cmake configs (`Qt6GuiPrivate`, `Qt6WaylandClientPrivate`, `Qt6WaylandGlobalPrivate`);
+3. bump `scripts/fcitx5_qt_ref.txt` if a newer fcitx5-qt is needed; CI rebuilds and the `libfcitx5platforminputcontextplugin.so` basename check + bundle assertion catch layout regressions;
+4. run `uv run pytest tests/test_linux_ime_integration.py -v` and `QT_DEBUG_PLUGINS=1` once to confirm the plugin loads; the version guard (`major.minor`) is deliberate — patch-level Qt differences are fine.
+
+### glibc floor of the Linux installers
+
+The `.deb`/`.rpm` (and Arch package) are built on **Ubuntu 24.04 (glibc 2.39)** — that is the minimum glibc for the Linux installers. PySide6 6.12 requires manylinux_2_34 (x86_64) / manylinux_2_39 (aarch64) regardless.
+
+---
+
 ## What does it look like?
 
 You write something like this in a text file:
