@@ -1,7 +1,7 @@
 THIRD-PARTY LICENSES
 ====================
 
-eas-math-lang is MIT-licensed (see the LICENSE file in the same
+easy-math-lang is MIT-licensed (see the LICENSE file in the same
 directory). This file lists the third-party Typst packages that are
 vendored into this repository (``vendor/typst-packages/``) and bundled
 into the packaged builds so ``*draw`` works fully offline.
