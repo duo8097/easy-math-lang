@@ -329,10 +329,25 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
+      - name: Read the project version (tomllib)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Same source of truth as scripts/check_tag_version.py: the
+          # pyproject.toml version is injected into setup.iss so the
+          # installer never carries a hard-coded (stale) AppVersion.
+          VERSION="$(uv run --frozen python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "AppVersion=$VERSION"
+
       - name: Compile installer
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+          if "%APP_VERSION%"=="" (
+            echo APP_VERSION is not set - the version step failed >&2
+            exit /b 1
+          )
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=%APP_VERSION% installer\setup.iss
 
       # --- Artifact ----------------------------------------------------------
       - name: Upload installer artifact

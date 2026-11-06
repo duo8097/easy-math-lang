@@ -22,6 +22,11 @@ for those.
 - `docs/editor.md`: `*equal-angle` labelled as planned (not yet implemented).
 
 ### Fixed
+- Windows installer version — `installer/setup.iss` no longer carries a
+  hard-coded `AppVersion` (it lagged behind at 5.1.0 while the project was
+  5.2.0). CI reads the version from `pyproject.toml` (`tomllib`) and injects
+  it via `/DAppVersion=`; a hand-run `ISCC.exe installer\setup.iss` falls
+  back to a `0.0.0` placeholder instead of a stale number.
 - Preview manifest (`manifest.json`) now regenerated automatically in test setup; stale-preview bugs no longer hidden by skips.
 - Duplicate docstring removed from `pipeline.py`.
 

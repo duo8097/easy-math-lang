@@ -38,6 +38,14 @@ Inno Setup (`installer/setup.iss`) packs the shared bundle into
     └── _internal/ (+ editor assets)
 ```
 
+The installer version comes from `pyproject.toml` — never hard-coded.
+CI reads it with `tomllib` (the same source of truth as
+`scripts/check_tag_version.py`) and passes it to ISCC as
+`/DAppVersion=<version>`; `setup.iss` defines a `0.0.0` fallback under
+`#ifndef AppVersion` so a hand-run `ISCC.exe installer\setup.iss` still
+compiles (with a placeholder version instead of a stale one).
+`tests/test_installer_script.py` guards this statically.
+
 The editor shortcut points at `{app}\bin\easy-math-editor.exe`.
 Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
 **per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`

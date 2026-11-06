@@ -1,6 +1,12 @@
+#ifndef AppVersion
+; Version is injected by CI (/DAppVersion=x.y.z from pyproject.toml);
+; the 0.0.0 fallback keeps hand-run ISCC.exe builds working.
+#define AppVersion "0.0.0"
+#endif
+
 [Setup]
 AppName=Easy Math Lang
-AppVersion=5.1.0
+AppVersion={#AppVersion}
 PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang

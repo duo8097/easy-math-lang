@@ -95,3 +95,50 @@ def test_output_filename_agrees_everywhere(iss_text):
     for path in (README, INSTALL_DOC, PACKAGING_DOC):
         with open(path, encoding='utf-8') as handle:
             assert filename in handle.read(), f'{filename} missing from {path}'
+
+
+# ----------------------------------------------------------------------
+# AppVersion comes from pyproject.toml (never hard-coded)
+# ----------------------------------------------------------------------
+
+def test_app_version_is_not_hardcoded(iss_text):
+    """AppVersion must be the {#AppVersion} preprocessor define, never a
+    literal version: setup.iss drifted to 5.1.0 while pyproject.toml said
+    5.2.0, and nothing failed until someone noticed the exe properties."""
+    setup = re.search(r'(?ms)^\[Setup\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert setup, 'no [Setup] section found'
+    match = re.search(r'(?im)^AppVersion\s*=\s*(\S+)\s*$', setup.group(1))
+    assert match, 'no AppVersion found in [Setup]'
+    assert match.group(1) == '{#AppVersion}', (
+        f'AppVersion must use the preprocessor define (got: {match.group(1)})')
+    # No literal numeric version anywhere (the 0.0.0 fallback default is
+    # defined in the #ifndef guard, not in [Setup]).
+    assert not re.search(r'(?im)^AppVersion\s*=\s*[\d.]', iss_text), \
+        'AppVersion must not carry a hard-coded version number'
+
+
+def test_app_version_has_fallback_default(iss_text):
+    """A hand-run ISCC.exe (no /DAppVersion) must still compile: the
+    #ifndef guard defines a 0.0.0 fallback."""
+    assert re.search(r'(?m)^#ifndef AppVersion\s*$', iss_text), \
+        'setup.iss must guard the AppVersion define with #ifndef'
+    assert re.search(r'(?m)^#define AppVersion "0\.0\.0"\s*$', iss_text), \
+        'the AppVersion fallback must be "0.0.0"'
+    assert re.search(r'(?m)^#endif\s*$', iss_text), 'missing #endif'
+
+
+def test_workflow_reads_version_and_passes_app_version():
+    """CI must read the pyproject.toml version (tomllib, like
+    scripts/check_tag_version.py) and inject it via /DAppVersion."""
+    with open(WORKFLOW, encoding='utf-8') as handle:
+        workflow_text = handle.read()
+    assert '/DAppVersion=' in workflow_text, \
+        'ISCC must be invoked with /DAppVersion=<version>'
+    # The version is produced by tomllib reading pyproject.toml.
+    assert re.search(r'import tomllib', workflow_text), \
+        'the workflow must read the version with tomllib'
+    assert re.search(r"pyproject\.toml", workflow_text), \
+        'the workflow must read pyproject.toml'
+    # ... and the ISCC invocation actually consumes that value.
+    assert re.search(r'/DAppVersion=%APP_VERSION%', workflow_text), \
+        'ISCC must receive the APP_VERSION read from pyproject.toml'
