@@ -668,3 +668,274 @@ def test_equal_angle_docs_example_compiles():
     deg_abc = _angle_deg(out, 'A', 'B', 'C')
     deg_def = _angle_deg(out, 'D', 'E', 'F')
     assert abs(deg_def - deg_abc) < 1.0, (deg_abc, deg_def)
+
+
+# ------------------------------------------------------------------
+# Auto-positioned examples (solver-placed points)
+# ------------------------------------------------------------------
+#
+# Every example that lets the solver place points is solved here and its
+# stated constraints are asserted within a stated tolerance.
+#
+# Tolerances are measured, not guessed: the solver converges to
+# cost < 1e-4, which on these figures means position errors <= 0.05
+# (worst measured: 0.0497 on a 5-unit side) and length errors <= 0.01.
+# The perpendicularity dot products sit on 3-5 unit vectors, where the
+# measured worst was 0.12 -> tolerance 0.15. The 1-degree angle margin
+# matches the solver's convergence threshold (~0.57 deg).
+
+import contextlib as _contextlib
+import io as _io
+
+from editor.draw_catalog import CATALOG, draw_block_body as _body_of
+from geometry.commands import _process_command as _process
+from geometry.parsing import _parse_commands as _parse_cmds, split_args_for
+from geometry.solver import GeometrySolver
+
+
+def _solve(body):
+    """Build and solve the solver for a draw-block body."""
+    solver = GeometrySolver()
+    with _contextlib.redirect_stderr(_io.StringIO()):
+        for cmd, args_str, _annot in _parse_cmds(body):
+            _process(solver, cmd, split_args_for(cmd, args_str))
+        solver.validate()
+        solver.solve()
+    return solver
+
+
+def _pts(solver):
+    return {p: (float(c[0]), float(c[1])) for p, c in solver.points.items()}
+
+
+def _dist(p, q):
+    return math.hypot(p[0] - q[0], p[1] - q[1])
+
+
+def _dot(u, v):
+    return u[0] * v[0] + u[1] * v[1]
+
+
+def _sub(p, q):
+    return (p[0] - q[0], p[1] - q[1])
+
+
+def _dist_to_line(p, a, b):
+    """Distance from p to the infinite line through a and b."""
+    ab = _sub(b, a)
+    n = _dist(a, b)
+    assert n > 1e-9
+    return abs(ab[0] * (p[1] - a[1]) - ab[1] * (p[0] - a[0])) / n
+
+
+LEN_TOL = 0.05     # measured length error <= 0.0094
+DOT_TOL = 0.15     # measured perpendicularity dot <= 0.12 on 3-5 unit arms
+ANG_TOL = 1.0      # degrees; solver convergence is ~0.57 deg
+
+
+def _check_right_triangle(P):
+    # A=(0,0), B=(4,0) pinned; C auto with |AC|=3 and AC perpendicular AB.
+    assert abs(_dist(P['A'], P['C']) - 3) <= LEN_TOL
+    assert abs(_dot(_sub(P['B'], P['A']), _sub(P['C'], P['A']))) <= DOT_TOL
+    return True
+
+
+def _check_isosceles(P, a, b, c):
+    # Base a-b pinned; apex auto with |ac| = |bc| and |ac| = 5.
+    assert abs(_dist(P[a], P[c]) - 5) <= LEN_TOL
+    assert abs(_dist(P[a], P[c]) - _dist(P[b], P[c])) <= LEN_TOL
+    return True
+
+
+def _check_tangent(P, o, p, q):
+    # o=(0,0), p=(3,0) pinned; q auto on the tangent through p, |pq| = 2.
+    assert abs(_dist(P[o], P[p]) - 3) <= LEN_TOL
+    assert abs(_dist(P[p], P[q]) - 2) <= LEN_TOL
+    assert abs(_dot(_sub(P[p], P[o]), _sub(P[q], P[p]))) <= DOT_TOL
+    return True
+
+
+def _check_equal_angles(P, a, b, c, d, e, f):
+    def deg(x, y, z):
+        v1, v2 = _sub(P[x], P[y]), _sub(P[z], P[y])
+        return math.degrees(math.atan2(
+            abs(v1[0] * v2[1] - v1[1] * v2[0]), _dot(v1, v2)))
+    assert abs(deg(a, b, c) - deg(d, e, f)) <= ANG_TOL
+    return True
+
+
+def _catalog_body(entry_id):
+    entry = next(e for e in CATALOG if e.id == entry_id)
+    return _body_of(entry.example)
+
+
+@pytest.mark.parametrize('entry_id,check', [
+    ('point', lambda P: (
+        abs(_dist(P['A'], P['C']) - 3) <= LEN_TOL
+        and abs(_dist(P['B'], P['C']) - 4) <= LEN_TOL)),
+    ('distance', lambda P: abs(_dist(P['A'], P['B']) - 5) <= LEN_TOL),
+    ('parallel', lambda P: (
+        abs(_dist(P['C'], P['D']) - 5) <= LEN_TOL
+        and abs(_sub(P['B'], P['A'])[0] * _sub(P['D'], P['C'])[1]
+                - _sub(P['B'], P['A'])[1] * _sub(P['D'], P['C'])[0])
+        / 25 <= 0.02)),
+    ('perp', _check_right_triangle),
+    ('on-line', lambda P: (
+        _dist_to_line(P['C'], P['A'], P['B']) <= LEN_TOL
+        and abs(_dist(P['B'], P['C']) - 3) <= LEN_TOL)),
+    ('on-circle', lambda P: abs(_dist(P['O'], P['A']) - 3) <= LEN_TOL),
+    ('equal-length', lambda P: _check_isosceles(P, 'A', 'B', 'C')),
+    ('midpoint', lambda P: _dist(
+        P['M'],
+        ((P['A'][0] + P['B'][0]) / 2, (P['A'][1] + P['B'][1]) / 2),
+    ) <= LEN_TOL),
+])
+def test_gallery_auto_examples_satisfy_constraints(entry_id, check):
+    """Every gallery card that lets the solver place a point produces a
+    figure whose stated constraints hold (within the measured solver
+    tolerance)."""
+    assert check(_pts(_solve(_catalog_body(entry_id))))
+
+
+def test_example_files_auto_examples_satisfy_constraints():
+    """The example files' solver-placed points satisfy their constraints."""
+    exdir = os.path.join(os.path.dirname(__file__), '..', 'examples')
+    with open(os.path.join(exdir, 'draw_test.ezmath'), encoding='utf-8') as h:
+        blocks = {i: b for i, b in enumerate(_draw_blocks_in(h.read()))}
+    assert len(blocks) == 4
+    P = _pts(_solve(blocks[0]))
+    _check_right_triangle(P)                    # right triangle at A
+    _check_isosceles(_pts(_solve(blocks[1])), 'D', 'E', 'F')
+    _check_tangent(_pts(_solve(blocks[2])), 'O', 'P', 'Q')
+    _check_equal_angles(_pts(_solve(blocks[3])), 'A', 'B', 'C', 'D', 'E', 'F')
+
+    # example_3.ezmath: right triangle clone + the pinned on-circle demo.
+    with open(os.path.join(exdir, 'example_3.ezmath'), encoding='utf-8') as h:
+        ex3 = _draw_blocks_in(h.read())
+    _check_right_triangle(_pts(_solve(ex3[0])))
+    P = _pts(_solve(ex3[1]))
+    assert P['P'] == (3.0, 0.0)                 # pinned points never move
+    assert abs(_dist(P['O'], P['P']) - 3) <= LEN_TOL
+
+    # example_2.ezmath: D, E, F are solver-placed on the cevians.
+    with open(os.path.join(exdir, 'example_2.ezmath'), encoding='utf-8') as h:
+        ex2 = _draw_blocks_in(h.read())
+    P = _pts(_solve(ex2[0]))
+    assert _dist_to_line(P['D'], P['A'], P['M']) <= LEN_TOL
+    assert _dist_to_line(P['D'], P['B'], P['C']) <= LEN_TOL
+    assert _dist_to_line(P['E'], P['B'], P['M']) <= LEN_TOL
+    assert _dist_to_line(P['E'], P['C'], P['A']) <= LEN_TOL
+    assert _dist_to_line(P['F'], P['C'], P['M']) <= LEN_TOL
+    assert _dist_to_line(P['F'], P['A'], P['B']) <= LEN_TOL
+
+
+def _docs_draw_blocks(path):
+    """Fenced ``` blocks of a docs file that are complete *draw examples."""
+    with open(path, encoding='utf-8') as h:
+        text = h.read()
+    fenced, buf, in_fence = [], [], False
+    for line in text.splitlines():
+        if line.strip().startswith('```'):
+            if in_fence and buf:
+                joined = '\n'.join(buf)
+                if joined.lstrip().startswith('*draw('):
+                    fenced.append(_body_of(joined))
+            in_fence = not in_fence
+            buf = []
+            continue
+        if in_fence:
+            buf.append(line)
+    return fenced
+
+
+def test_docs_auto_examples_satisfy_constraints():
+    """Every complete *draw example in the docs satisfies its constraints."""
+    docs = os.path.join(os.path.dirname(__file__), '..', 'docs')
+    bodies = (_docs_draw_blocks(os.path.join(docs, 'geometry.md'))
+              + _docs_draw_blocks(os.path.join(docs, 'cheatsheet.md')))
+    assert len(bodies) == 7   # 6 in geometry.md + 1 in cheatsheet.md
+    checked = 0
+    for body in bodies:
+        P = _pts(_solve(body))
+        if '*distance(A ; C ; 3)' in body and '*perp(A ; B ; A ; C)' in body:
+            _check_right_triangle(P)            # Example 1 + cheat sheet
+            checked += 1
+        elif '*equal-length(A ; C ; B ; C)' in body:
+            _check_isosceles(P, 'A', 'B', 'C')  # Example 2
+            checked += 1
+        elif '*perp(O ; A ; A ; B)' in body:
+            _check_tangent(P, 'O', 'A', 'B')    # Example 3 (converted)
+            checked += 1
+        elif '*equal-angle(A ; B ; C ; D ; E ; F)' in body:
+            _check_equal_angles(P, 'A', 'B', 'C', 'D', 'E', 'F')
+            checked += 1
+    assert checked == 5, 'docs examples changed — update the matchers'
+
+
+def test_draw_examples_not_underconstrained():
+    """Guard against under-constrained examples: every solver-placed
+    point must be referenced by at least one constraint, and the solved
+    figure must have no near-coincident points (the bare auto triangle
+    collapses to A-C ~0.3 apart, which this catches)."""
+    root = os.path.join(os.path.dirname(__file__), '..')
+    bodies = []
+    for name in ('draw_test.ezmath', 'example_2.ezmath', 'example_3.ezmath',
+                 'construction_points.ezmath'):
+        with open(os.path.join(root, 'examples', name),
+                  encoding='utf-8') as h:
+            bodies.extend((name, b) for b in _draw_blocks_in(h.read()))
+    for entry in CATALOG:
+        bodies.append((f'catalog:{entry.id}',
+                       _body_of(entry.example)))
+    for name in ('geometry.md', 'cheatsheet.md'):
+        bodies.extend(
+            (f'docs:{name}', b)
+            for b in _docs_draw_blocks(os.path.join(root, 'docs', name)))
+    assert len(bodies) >= 35
+
+    for label, body in bodies:
+        solver = _solve(body)
+        points = _pts(solver)
+        auto = [p for p in solver.points
+                if p not in solver.fixed and p not in solver.derived]
+        for p in auto:
+            referenced = any(
+                p in constraint_label
+                for constraint_label, _fn in solver.constraints)
+            assert referenced, (
+                f'{label}: auto point {p} is not referenced by any constraint'
+            )
+        names = sorted(points)
+        for i, a in enumerate(names):
+            for b in names[i + 1:]:
+                gap = _dist(points[a], points[b])
+                assert gap >= 0.5, (
+                    f'{label}: solved points {a} and {b} are only '
+                    f'{gap:.3f} apart — the figure is degenerate'
+                )
+
+
+def test_solving_is_deterministic():
+    """Solving the same example twice yields identical coordinates —
+    in-process, through the whole pipeline, and across processes (the
+    auto-point start guess is a name hash, not randomness)."""
+    bodies = [
+        _catalog_body('perp'),
+        _catalog_body('on-circle'),
+        _draw_blocks_in(open(os.path.join(
+            os.path.dirname(__file__), '..', 'examples', 'draw_test.ezmath'),
+            encoding='utf-8').read())[2],
+    ]
+    for body in bodies:
+        first = _pts(_solve(body))
+        second = _pts(_solve(body))
+        assert first == second
+        # Whole-pipeline determinism: identical generated Typst.
+        assert parse_draw_block(body) == parse_draw_block(body)
+
+    # Cross-process pin: fresh interpreters land on the same spot for the
+    # right triangle's auto point C. Update the constant if the solver's
+    # seeding or convergence changes on purpose.
+    out = parse_draw_block(_catalog_body('perp'))
+    x, y = _point_xy(out, 'C')
+    assert (round(x, 3), round(y, 3)) == (0.030, 3.000)
