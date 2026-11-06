@@ -776,6 +776,11 @@ def complete(text, line, character):
     items = []
     if not in_p:
         for name, (kind, value, _def_line) in sorted(analysis.values.items()):
+            if kind == 'draw':
+                # The *draw block's own symbol: KEYWORD_DOCS already
+                # suggests 'draw' with its signature below — listing the
+                # block twice (once as a bare "draw" constant) is noise.
+                continue
             items.append({
                 'label': name,
                 'kind': 'variable' if kind == 'variable' else 'constant',
@@ -794,12 +799,6 @@ def complete(text, line, character):
         sig, _desc = builtins.GEOMETRY_CONSTRUCTION_DOCS[name]
         items.append({'label': name, 'kind': 'function',
                       'detail': f'geometry construction (in *point): {sig}'})
-    if not in_p and 'draw' not in builtins.GEOMETRY_DOCS:
-        # *draw(...) is the geometry wrapper itself (not an inner solver
-        # command, so it stays out of GEOMETRY_DOCS on purpose); suggest
-        # it explicitly so typing *dr completes.
-        items.append({'label': 'draw', 'kind': 'function',
-                      'detail': 'geometry: *draw(...)'})
     if star:
         for word, glyph in builtins.symbol_entries():
             items.append({
@@ -829,12 +828,16 @@ def hover(text, line, character):
     name = token.group(0)
     if name in analysis.values:
         kind, value, def_line = analysis.values[name]
-        shown_kind = 'Define' if kind == 'define' else 'Variable'
-        body = f'**{name}**\n\n{shown_kind}'
-        if value:
-            body += f'\n\nValue: {value}'
-        body += f'\n\nDefined at line {def_line + 1}'
-        return {'value': body, 'start': token.start(), 'end': token.end()}
+        if kind != 'draw':
+            shown_kind = 'Define' if kind == 'define' else 'Variable'
+            body = f'**{name}**\n\n{shown_kind}'
+            if value:
+                body += f'\n\nValue: {value}'
+            body += f'\n\nDefined at line {def_line + 1}'
+            return {'value': body, 'start': token.start(), 'end': token.end()}
+        # The *draw block's own symbol: fall through to KEYWORD_DOCS so
+        # hovering *draw( shows the command's signature + description
+        # (more useful than "Variable, defined at line N").
     if name in builtins.MATH_DOCS:
         sig, desc = builtins.MATH_DOCS[name]
         return {'value': f'**{name}**\n\nFunction\n\n{sig}\n\n{desc}',

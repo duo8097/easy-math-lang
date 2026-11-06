@@ -7,10 +7,10 @@ while you type:
 - **Error messages** — undefined variables (with "did you mean …?" hints),
   broken `calc(...)` expressions, unknown commands, and geometry problems
 - **Autocompletion** — your variables and defines, built-in math commands
-  (`*frac`, `*sum`, …), geometry commands and point constructors
-  (`midpoint`, `foot`, `intersect`, …), and `*symbol` shortcuts
-- **Hover information** — a variable's value, or a built-in's or
-  constructor's description
+  (`*frac`, `*sum`, …), `*draw` and the geometry commands inside it, point
+  constructors (`midpoint`, `foot`, `intersect`, …), and `*symbol` shortcuts
+- **Hover information** — a variable's value, or a built-in's (math,
+  keyword or geometry — including `*draw`) or constructor's description
 - **Document symbols** — jump to defines, variables, and `*draw` blocks
 
 It works with `.ezmath` and `.eml` files.

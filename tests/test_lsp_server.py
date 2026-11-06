@@ -22,6 +22,16 @@ URI = 'file:///lsp-e2e.ezmath'
 
 VALID_DOC = "*define(width = 10)\n<area> = calc(<width> * 2)\nArea: <area>\n"
 
+DRAW_DOC = (
+    "*draw(\n"
+    "    *point(A = 0, 0)\n"
+    "    *point(B = 4, 0)\n"
+    "    *point(C = 2, 3)\n"
+    "    *triangle(A ; B ; C)\n"
+    ")\n"
+)
+DRAW_URI = 'file:///lsp-draw.ezmath'
+
 
 class LSPClient:
     """Minimal Content-Length framed JSON-RPC client."""
@@ -160,6 +170,45 @@ def test_hover_variable_value(client):
     assert resp['result'] is not None
     assert 'width' in resp['result']['contents']['value']
     assert '10' in resp['result']['contents']['value']
+
+
+# ----------------------------------------------------------------------
+# *draw: hover + completion (docs/lsp.md promises both for built-ins)
+# ----------------------------------------------------------------------
+
+def test_open_draw_document_no_diagnostics(client):
+    client.notify('textDocument/didOpen', {'textDocument': {
+        'uri': DRAW_URI, 'languageId': 'easymath', 'version': 1,
+        'text': DRAW_DOC,
+    }})
+    msg = client.wait_for_diagnostics(DRAW_URI)
+    assert msg['params']['diagnostics'] == []
+
+
+def test_completion_includes_draw_with_description(client):
+    resp = client.request('textDocument/completion', {
+        'textDocument': {'uri': DRAW_URI},
+        # End of the last block line: completion candidates for '*...'.
+        'position': {'line': 4, 'character': len('    *triangle(A ; B ; C)')},
+    })
+    result = resp['result']
+    items = result['items'] if isinstance(result, dict) else result
+    draw = [i for i in items if i['label'] == 'draw']
+    assert len(draw) == 1, 'draw must be suggested exactly once'
+    assert '*draw(' in (draw[0].get('detail') or ''), \
+        'the draw completion must carry its signature as the description'
+
+
+def test_hover_draw_shows_description(client):
+    # Hover over the 'draw' word in the '*draw(' opener (line 0).
+    resp = client.request('textDocument/hover', {
+        'textDocument': {'uri': DRAW_URI},
+        'position': {'line': 0, 'character': len('*dr')},
+    })
+    assert resp['result'] is not None, '*draw must have hover information'
+    value = resp['result']['contents']['value']
+    assert '*draw(' in value
+    assert 'geometry' in value.lower()
 
 
 def test_document_symbols(client):
