@@ -13,8 +13,6 @@ import re
 import sys
 import tomllib
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import typst_bundle
