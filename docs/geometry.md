@@ -180,7 +180,7 @@ A complete runnable file:
 A `*draw(...)` block can also be written on a single line:
 
 ```
-*draw(*triangle(A ; B ; C))
+*draw(*point(A = 0, 0) *point(B = 4, 0) *point(C = 2, 3) *triangle(A ; B ; C))
 ```
 
 ### Line segment (from A to B)
@@ -450,18 +450,21 @@ Both sides AC and BC are equal in length.
 ### Example 3 — Circle with a tangent line
 
 A tangent line touches the circle at exactly one point (at a right angle to the radius).
+A is pinned on the x-axis so the picture has a canonical orientation;
+the solver places B on the tangent through A.
 
 ```
 *draw(
     *point(O = 0, 0)
+    *point(A = 3, 0)
     *circle(O ; 3)
 
-    *point(A)
     *on-circle(O ; 3 ; A)
     *line(O ; A)
 
     *point(B)
     *perp(O ; A ; A ; B)
+    *distance(A ; B ; 2)
     *line(A ; B)
 )
 ```
