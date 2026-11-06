@@ -35,7 +35,7 @@ Inno Setup (`installer/setup.iss`) packs the shared bundle into
     ├── easy-math-lsp.exe
     ├── easy-math-editor.exe
     ├── ezmath.exe
-    └── _internal/ (+ editor assets)
+    └── _internal/ (+ editor assets, vendored Typst packages)
 ```
 
 The installer version comes from `pyproject.toml` — never hard-coded.
@@ -147,7 +147,9 @@ inside the bundle without `PATH`):
 
 ```
 staging/
-├── easy-math-editor.app   (Contents/MacOS/easy-math-lang, …)
+├── easy-math-editor.app   (Contents/MacOS/easy-math-lang, …,
+│                           Contents/Frameworks/typst-packages/,
+│                           Contents/Resources/THIRD_PARTY_LICENSES)
 ├── Applications -> /Applications (symlink for drag-and-drop install)
 └── README.txt
 ```
@@ -188,10 +190,12 @@ usr/
 │   ├── ezmath -> easy-math-lang
 │   ├── easy-math-lsp -> /usr/lib/easy-math-lang/easy-math-lsp
 │   └── easy-math-editor -> /usr/lib/easy-math-lang/easy-math-editor
-├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal)
+├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal
+│                          with the vendored Typst packages)
 ├── share/applications/easy-math-editor.desktop
-├── share/doc/easymath/                    (README, copyright)
-└── share/licenses/easymath/               (LICENSE)
+├── share/doc/easymath/                    (README, copyright,
+│                                            THIRD_PARTY_LICENSES)
+└── share/licenses/easymath/               (LICENSE, THIRD_PARTY_LICENSES)
 ```
 
 - `installer/build_linux.sh` (run from the repo root on Linux) writes
@@ -231,6 +235,99 @@ The installed layout is the FHS layout above
   unprivileged user) and uploads the `.pkg.tar.zst` as
   `EasyMathLang-Arch-x86_64`; it is attached to the GitHub Release
   like the other installers.
+
+---
+
+## Vendored Typst packages (offline `*draw`)
+
+`*draw` renders through CeTZ, a Typst package. Typst normally downloads
+`@preview/…` packages from packages.typst.org on first use — which
+means a machine without internet access could not use `*draw` at all.
+Easy Math instead **vendors** the packages it needs and ships them in
+the repo and the packaged builds, so `*draw` works fully offline with
+no first-run download.
+
+| | cetz | oxifmt |
+|---|---|---|
+| Version | 0.4.2 | 1.0.0 (imported by cetz — the complete transitive set) |
+| Size (vendored) | 410.0 KiB | 63.4 KiB (473.4 KiB total) |
+| License | LGPL-3.0-or-later | MIT OR Apache-2.0 |
+| Upstream | https://github.com/cetz-package/cetz | https://github.com/PgBiel/typst-oxifmt |
+
+Layout: `vendor/typst-packages/preview/<name>/<version>/` — exactly
+what Typst expects as a package path. `typst.toml`, all `.typ`
+sources, the LICENSE files and runtime assets (CeTZ's WASM core) are
+kept; manuals, galleries, docs PDFs and tests are pruned by the
+vendor script. See `vendor/typst-packages/README.md`.
+
+### How it is wired
+
+- `src/typst_bundle/` pins the versions (`TYPST_PACKAGES`,
+  `CEZ_VERSION`) and builds the `#import` line used by the geometry
+  codegen. It is the single source of truth; `geometry` and
+  `compiler` both import it.
+- `compiler.pipeline._run_typst_export()` (the only `typst.compile()`
+  caller in the compiler, verified with grep) resolves the bundle via
+  `typst_bundle.vendored_packages_dir()` and passes it as
+  `package_path`. Typst checks the package path **before** its user
+  cache and **before** the network; the bundled copy always wins
+  (verified by compiling with a corrupt cache copy present, and with a
+  dead proxy). If the bundle directory is missing or incomplete, the
+  code passes nothing and Typst falls back to its usual behavior
+  (user cache, then download) — it never crashes.
+- From source, the bundle resolves to `<repo>/vendor/typst-packages`;
+  frozen by PyInstaller, it resolves to `sys._MEIPASS/typst-packages`;
+  pip-installed wheels ship the bundle as package data
+  (`typst_bundle/typst-packages`, via hatch's `force-include`). Frozen
+  builds ship exactly one copy under `_internal/typst-packages/`
+  (editor build's data files; the CLI and the LSP reuse that same
+  `_internal/`).
+- `tests/test_typst_bundle.py` fails when the vendored tree doesn't
+  match the pins (each package's `typst.toml` must match its directory
+  name and version; LICENSE files must be present). The offline test
+  there compiles a `*draw` document with every package-cache location
+  redirected to an empty temporary directory and asserts the cache is
+  still empty afterwards, proving nothing was downloaded.
+  `tests/test_packaged_build.py` does the same against the frozen
+  binaries (with dead proxies) and asserts the bundle ships in
+  `_internal/`.
+
+### Updating the vendored packages
+
+1. Edit the pins in `src/typst_bundle/__init__.py`
+   (`TYPST_PACKAGES`, and `CEZ_VERSION` for the import line).
+2. Edit `PACKAGES` in `scripts/vendor_typst_packages.py` — same
+   name/version pairs plus the new SHA-256 of each tarball
+   (`sha256sum cetz-<version>.tar.gz` after downloading it, or read it
+   from the script's failure output).
+3. Delete the old tree and re-vendor:
+
+   ```bash
+   rm -rf vendor/typst-packages/preview/<name>
+   uv run --frozen python scripts/vendor_typst_packages.py
+   uv run --frozen python scripts/vendor_typst_packages.py --check
+   ```
+
+4. Review the diff and commit the script, the constant and the new
+   `vendor/` files together. `tests/test_typst_bundle.py` fails if any
+   pin drifts.
+5. CeTZ's own transitive dependencies must be re-verified on every
+   cetz bump: delete `oxifmt` (and any other dependency) from the
+   vendored tree, then compile a `*draw` document offline — Typst will
+   name any missing package it tries to download.
+
+### Licensing
+
+The vendored packages are **not** MIT. CeTZ is LGPL-3.0-or-later (its
+LGPL incorporates GPLv3 by reference) and ships unmodified; oxifmt is
+MIT OR Apache-2.0. `THIRD_PARTY_LICENSES` (repo root) carries the
+upstream repository URLs and the verbatim license texts, and every
+installer ships it (Windows: `{app}`; Debian/RPM:
+`/usr/share/doc/easymath` + `/usr/share/licenses/easymath`; Arch:
+`/usr/share/licenses/<pkg>`; macOS: `Contents/Resources/` in the
+`.app`). The packages stay unmodified plain `.typ` files so users can
+inspect and replace them. See
+[THIRD_PARTY_LICENSES](../THIRD_PARTY_LICENSES).
 
 ---
 

@@ -283,3 +283,25 @@ def test_no_hardcoded_old_version_in_packaging():
         with open(path, encoding="utf-8") as h:
             text = h.read()
         assert "3.1.0" not in text
+
+
+def test_builder_bundles_vendored_typst_packages(builder_text):
+    # The offline *draw bundle must be added to the PyInstaller build
+    # exactly once (the shared _internal/ the three binaries reuse).
+    assert "typst-packages" in builder_text
+    assert "vendor" in builder_text
+
+
+def test_linux_scripts_ship_third_party_licenses(script_text):
+    assert "THIRD_PARTY_LICENSES" in script_text
+
+
+def test_pkgbuild_ships_shared_bundle_with_internal():
+    with open(PKGBUILD, encoding="utf-8") as h:
+        text = h.read()
+    # The whole shared bundle (one _internal/, incl. the vendored Typst
+    # packages) must be installed — installing only the executables
+    # would ship a broken app.
+    assert "cp -a dist/easy-math-lang/." in text
+    assert "install -Dm755 dist/easy-math-lang/easy-math-lang " not in text
+    assert "THIRD_PARTY_LICENSES" in text

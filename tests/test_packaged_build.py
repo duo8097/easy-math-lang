@@ -71,6 +71,66 @@ def test_compiler_binary_compiles(tmp_path):
     assert (tmp_path / 'doc.pdf').is_file()
 
 
+def test_vendored_typst_packages_bundled():
+    """The shared _internal/ must ship the vendored Typst packages."""
+    _require_dist()
+    sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
+    from typst_bundle import TYPST_PACKAGES
+    for name, version in TYPST_PACKAGES:
+        package_dir = os.path.join(
+            EDITOR_INTERNAL, 'typst-packages', 'preview', name, version)
+        assert os.path.isdir(package_dir), (
+            f'vendored package missing from the frozen bundle: {package_dir}')
+        assert os.path.isfile(os.path.join(package_dir, 'typst.toml'))
+        assert any(f.upper().startswith('LICENSE')
+                   for f in os.listdir(package_dir)), package_dir
+
+
+def test_frozen_compiler_draw_offline(tmp_path):
+    """A *draw document must compile with no network access at all.
+
+    The frozen CLI resolves @preview/cetz from the vendored bundle; the
+    dead proxy turns any download attempt into a loud failure, and the
+    redirected caches must stay empty afterwards.
+    """
+    _require_dist()
+    src = tmp_path / 'draw.ezmath'
+    src.write_text('*draw(\n'
+                   '    *point(A = 0, 0)\n'
+                   '    *point(B = 3, 4)\n'
+                   '    *line(A ; B)\n'
+                   ')\n', encoding='utf-8')
+    out = tmp_path / 'draw.pdf'
+    home = tmp_path / 'home'
+    cache = tmp_path / 'cache'
+    data = tmp_path / 'data'
+    local = tmp_path / 'localappdata'
+    roaming = tmp_path / 'appdata'
+    for d in (home, cache, data, local, roaming):
+        d.mkdir()
+    env = dict(os.environ)
+    env['HOME'] = str(home)
+    env['USERPROFILE'] = str(home)
+    env['XDG_CACHE_HOME'] = str(cache)
+    env['XDG_DATA_HOME'] = str(data)
+    env['LOCALAPPDATA'] = str(local)
+    env['APPDATA'] = str(roaming)
+    # typst downloads honor these proxy variables; a dead proxy makes any
+    # network access fail loudly instead of silently succeeding.
+    for var in ('http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY',
+                'all_proxy', 'ALL_PROXY'):
+        env[var] = 'http://127.0.0.1:9'
+    result = subprocess.run([LANG_EXE, str(src), str(out)],
+                            cwd=tmp_path, capture_output=True, text=True,
+                            timeout=300, env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert out.is_file() and out.stat().st_size > 0
+    # Nothing may have been downloaded into the redirected caches.
+    for base in (home, cache, data, local, roaming):
+        assert not list(base.rglob('typst')), (
+            f'typst cache/data appeared under {base} — the bundle was not used')
+
+
 @pytest.mark.parametrize('fmt', ['pdf', 'png', 'svg'])
 def test_frozen_alias_exports_plots(tmp_path, fmt):
     _require_dist()

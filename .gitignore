@@ -16,6 +16,11 @@ eggs/
 .eggs/
 lib/
 lib64/
+# The vendored upstream Typst packages contain src/lib/ directories —
+# the generic lib/ rule must not hide them from git (byte-for-byte
+# upstream sources, checksummed by scripts/vendor_typst_packages.py).
+!/vendor/typst-packages/**/lib/
+!/vendor/typst-packages/**/lib/**
 parts/
 sdist/
 var/

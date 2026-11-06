@@ -20,6 +20,7 @@ drift; the function names do not):
      984   _parse_draw_safe() — *draw(...) → geometry package
     1038   export formats: infer_export_format() / _resolve_export()
     1129   _run_typst_export() — typst.compile() for pdf/png/svg/html
+           (passes the vendored CeTZ bundle as package_path when present)
     1271   compile_ezmath() — the public entry point; line loop,
            Typst output and source map live in its body
     1908   _print_usage() / _cleanup_build_artifacts()
@@ -59,6 +60,11 @@ def _require_typst():
         return None
     typst = _backend
     return typst
+
+try:
+    from typst_bundle import cetz_spec, vendored_packages_dir
+except ImportError:  # embedded layout: sources imported as one package
+    from ..typst_bundle import cetz_spec, vendored_packages_dir
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
@@ -1092,6 +1098,11 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         )
         return False
     _backend = typst
+    # Vendored Typst packages (CeTZ & co.): when the bundle is present,
+    # Typst resolves @preview imports from it and never touches the
+    # network. When it is missing, fall back to Typst's default behavior
+    # (user cache, then download) — never crash.
+    package_path = vendored_packages_dir()
     if fmt == 'typ':
         try:
             parent = os.path.dirname(os.path.abspath(output_path))
@@ -1123,6 +1134,8 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
             kwargs['format'] = fmt
         if fmt == 'png' and ppi is not None:
             kwargs['ppi'] = ppi
+        if package_path:
+            kwargs['package_path'] = package_path
         try:
             _backend.compile(typst_file, output_path, **kwargs)
         except RuntimeError as e:
@@ -1159,11 +1172,19 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         # typst.TypstError (bad markup) and any other compile failure.
         msg = str(e)
         if 'cetz' in msg.lower() or 'download' in msg.lower() or 'package' in msg.lower():
-            print(
-                f'\n[ERROR] Typst compilation failed: the *draw geometry package '
-                f'(@preview/cetz:0.4.2) could not be downloaded. '
-                f'First use requires an internet connection; rerun once online. '
-                f'Full error: {msg}', file=sys.stderr)
+            if package_path is None:
+                print(
+                    f'\n[ERROR] Typst compilation failed: the *draw geometry package '
+                    f'({cetz_spec()}) could not be downloaded, and this build does not '
+                    f'include the bundled package. Check your internet connection and '
+                    f'rerun once online, or reinstall easy-math-lang. '
+                    f'Full error: {msg}', file=sys.stderr)
+            else:
+                print(
+                    f'\n[ERROR] Typst compilation failed: the bundled {cetz_spec()} '
+                    f'package could not be loaded — the installation may be '
+                    f'corrupted. Reinstall easy-math-lang to repair it. '
+                    f'Full error: {msg}', file=sys.stderr)
         else:
             print(f'\n[ERROR] Typst compilation failed: {msg}', file=sys.stderr)
         return False

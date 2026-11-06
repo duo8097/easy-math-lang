@@ -161,7 +161,8 @@ def test_examples_parse_cleanly_with_geometry_parser(capsys):
         assert '[GeometryWarning]' not in out, entry.command
         # The generated Typst carries the CeTZ import (the preview
         # rendering script relies on this).
-        assert '#import "@preview/cetz:0.4.2"' in out, entry.command
+        from typst_bundle import cetz_import_line
+        assert cetz_import_line() in out, entry.command
 
 
 def test_draw_block_body_matches_pipeline_extraction():

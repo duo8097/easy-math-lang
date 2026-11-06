@@ -2,6 +2,11 @@
 
 import sys
 
+try:
+    from typst_bundle import cetz_import_line
+except ImportError:  # embedded layout: sources imported as one package
+    from ..typst_bundle import cetz_import_line
+
 from .codegen import generate_typst
 from .commands import _process_command
 from .errors import GeometryError, GeometryWarning
@@ -227,4 +232,4 @@ def parse_draw_block(block_text):
         try:
             return generate_typst(GeometrySolver(), errors)
         except Exception:
-            return '#import "@preview/cetz:0.4.2"\n#align(center)[#cetz.canvas({\n  import cetz.draw: *\n})]'
+            return cetz_import_line() + '\n#align(center)[#cetz.canvas({\n  import cetz.draw: *\n})]'

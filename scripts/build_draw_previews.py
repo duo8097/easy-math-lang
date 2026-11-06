@@ -24,9 +24,10 @@ Usage (from the repo root)::
     uv run python scripts/build_draw_previews.py            # write
     uv run python scripts/build_draw_previews.py --check    # verify only
 
-Requires the ``typst`` package (already a project dependency) and, on
-the first run, network access for Typst to fetch ``@preview/cetz`` —
-never at editor runtime.
+Requires the ``typst`` package (already a project dependency). The
+CeTZ import in the generated Typst is resolved from the vendored
+bundle (``vendor/typst-packages/``, see ``src/typst_bundle``) — no
+network access needed.
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ def render_one(entry) -> tuple[bytes, str]:
     """SVG bytes for one catalog entry + the Typst source used."""
     import typst
     from geometry.parsing import parse_draw_block
+    from typst_bundle import vendored_packages_dir
 
     from editor.draw_catalog import draw_block_body
 
@@ -61,7 +63,11 @@ def render_one(entry) -> tuple[bytes, str]:
         raise RuntimeError(
             f'{entry.id}: parse_draw_block produced no cetz import')
     source = PAGE_SETUP + code + '\n'
-    svg = typst.compile(source.encode('utf-8'), format='svg')
+    kwargs = {'format': 'svg'}
+    package_path = vendored_packages_dir()
+    if package_path:
+        kwargs['package_path'] = package_path
+    svg = typst.compile(source.encode('utf-8'), **kwargs)
     if not isinstance(svg, (bytes, bytearray)):
         raise RuntimeError(f'{entry.id}: typst did not return SVG bytes')
     if not svg.lstrip().startswith(b'<svg') and b'<svg' not in svg[:512]:

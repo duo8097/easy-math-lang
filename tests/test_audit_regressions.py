@@ -370,18 +370,42 @@ def test_plot_cache_before_after_timing():
 
 # --- AUDIT-005 regression: offline cetz error message ---
 
-def test_offline_cetz_error_message(monkeypatch, capsys):
-    import tempfile, os
+class _FailingTypst:
+    @staticmethod
+    def compile(*args, **kwargs):
+        from typst_bundle import cetz_spec
+        raise RuntimeError(f'failed to download {cetz_spec()}')
+
+
+def _run_failing_draw_compile(monkeypatch, tmp_path):
     from compiler import pipeline
-    def fail_compile(*args, **kwargs):
-        raise RuntimeError('failed to download @preview/cetz:0.4.2')
-    monkeypatch.setattr(pipeline.typst, 'compile', fail_compile, raising=True)
-    with tempfile.TemporaryDirectory() as td:
-        src = os.path.join(td, 'draw.ezmath')
-        with open(src, 'w') as f:
-            f.write('*draw(\n*line(A;B)\n)')
-        result = pipeline.compile_ezmath(src, output=os.path.join(td, 'draw.pdf'), format='pdf')
-        assert result is False
-        captured = capsys.readouterr()
-        combined = (captured.out or '') + (captured.err or '')
-        assert 'offline' in combined.lower() or 'download cetz' in combined.lower() or '@preview/cetz' in combined
+    monkeypatch.setattr(pipeline, 'typst', _FailingTypst)
+    src = tmp_path / 'draw.ezmath'
+    src.write_text('*draw(\n*line(A;B)\n)', encoding='utf-8')
+    result = pipeline.compile_ezmath(
+        str(src), output=str(tmp_path / 'draw.pdf'), format='pdf')
+    assert result is False
+
+
+def test_offline_cetz_error_message_bundle_missing(monkeypatch, capsys, tmp_path):
+    from compiler import pipeline
+    # Bundle genuinely missing -> the offline message must appear.
+    monkeypatch.setattr(pipeline, 'vendored_packages_dir', lambda: None)
+    _run_failing_draw_compile(monkeypatch, tmp_path)
+    combined = capsys.readouterr()
+    text = (combined.out or '') + (combined.err or '')
+    from typst_bundle import cetz_spec
+    assert cetz_spec() in text
+    assert 'internet' in text.lower()
+
+
+def test_cetz_error_message_bundle_present(monkeypatch, capsys, tmp_path):
+    # Bundle present -> not the offline message; report the broken/corrupt
+    # bundle instead (download was never attempted).
+    _run_failing_draw_compile(monkeypatch, tmp_path)
+    combined = capsys.readouterr()
+    text = (combined.out or '') + (combined.err or '')
+    from typst_bundle import cetz_spec
+    assert cetz_spec() in text
+    assert 'bundled' in text.lower()
+    assert 'internet connection' not in text.lower()

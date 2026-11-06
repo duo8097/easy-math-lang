@@ -171,6 +171,29 @@ When geometry fails hard, the build stops with:
 Fix the geometry errors above and retry.
 ```
 
+### `[ERROR] Typst compilation failed: the *draw geometry package (@preview/cetz:…)`
+
+Easy Math ships the drawing library (CeTZ) **inside** the install, so
+`*draw` needs no internet connection — not even on first use. This
+message means one of two things:
+
+- **"…this build does not include the bundled package. Check your
+  internet connection and rerun once online…"** — your copy is missing
+  the bundled CeTZ (an incomplete or very old install). Connect to the
+  internet and run once more, or reinstall easy-math-lang.
+- **"…the bundled @preview/cetz:… package could not be loaded — the
+  installation may be corrupted."** — the bundled files are damaged.
+  Reinstall easy-math-lang; if it still fails, report it with the full
+  error line.
+
+The bundled files live in `_internal/typst-packages/` (Linux:
+`/usr/lib/easy-math-lang/_internal/typst-packages`; Windows:
+`{app}\bin\_internal\typst-packages`; macOS: inside the app under
+`Contents/Frameworks/typst-packages`). Running from source, they live
+in `vendor/typst-packages/` — if you deleted them, restore with
+`uv run --frozen python scripts/vendor_typst_packages.py` (needs a
+one-time network connection).
+
 ### `[Plot Error: …]`, `[Image Error: …]`
 
 These appear **in the PDF** (and on the terminal) instead of the

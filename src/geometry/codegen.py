@@ -3,6 +3,11 @@
 import re
 import sys
 
+try:
+    from typst_bundle import cetz_import_line
+except ImportError:  # embedded layout: sources imported as one package
+    from ..typst_bundle import cetz_import_line
+
 from .errors import GeometryError
 from .commands import parse_numeric_arg
 from .labels import _label_anchors
@@ -112,7 +117,7 @@ def _clip_line_to_box(px, py, dx, dy, xmin, ymin, xmax, ymax):
 
 def generate_typst(solver, errors=None):
     lines = []
-    lines.append('#import "@preview/cetz:0.4.2"  // first *draw may download cetz; offline? rerun once online')
+    lines.append(cetz_import_line())
     lines.append('#align(center)[#cetz.canvas({')
     lines.append('  import cetz.draw: *')
 

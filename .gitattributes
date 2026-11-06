@@ -16,7 +16,13 @@
 # Inno Setup and packaging files.
 *.iss text eol=crlf
 
+# Vendored third-party Typst packages (downloaded by
+# scripts/vendor_typst_packages.py; never edit by hand). Kept byte-for-byte
+# as upstream ships them, hidden from diffs and language stats.
+vendor/typst-packages/** -text linguist-vendored linguist-generated
+
 # Binary assets — never line-convert.
+*.wasm binary
 *.png binary
 *.jpg binary
 *.jpeg binary

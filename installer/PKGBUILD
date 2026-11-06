@@ -56,17 +56,20 @@ build() {
 package() {
   cd "$srcdir/easy-math-lang"
 
-  # Self-contained PyInstaller binaries: no Python runtime needed.
+  # Self-contained PyInstaller bundle: no Python runtime needed.
   # The shared onedir bundle carries the CLI, the LSP and the editor exe
-  # plus one _internal/ with all heavy libraries.
-  install -Dm755 dist/easy-math-lang/easy-math-lang "$pkgdir/usr/lib/easy-math-lang/easy-math-lang"
-  install -Dm755 dist/easy-math-lang/easy-math-lsp "$pkgdir/usr/lib/easy-math-lang/easy-math-lsp"
-  install -Dm755 dist/easy-math-lang/easy-math-editor "$pkgdir/usr/lib/easy-math-lang/easy-math-editor"
+  # plus one _internal/ with all heavy libraries (and the vendored
+  # Typst packages for offline *draw). Copy the whole bundle like the
+  # .deb/.rpm path does — installing only the three executables would
+  # ship a broken app.
+  rm -rf "$pkgdir/usr/lib/easy-math-lang"
+  mkdir -p "$pkgdir/usr/lib/easy-math-lang"
+  cp -a dist/easy-math-lang/. "$pkgdir/usr/lib/easy-math-lang/"
+  chmod +x "$pkgdir/usr/lib/easy-math-lang/easy-math-lang" \
+    "$pkgdir/usr/lib/easy-math-lang/easy-math-lsp" \
+    "$pkgdir/usr/lib/easy-math-lang/easy-math-editor"
 
-  # /usr/bin holds symlinks into /usr/lib (the shared onedir bundle); the
-  # bundle itself is what carries the executable bits.
-  mkdir -p "$pkgdir/usr/bin" "$pkgdir/usr/lib/easy-math-lang"
-
+  mkdir -p "$pkgdir/usr/bin"
   ln -s /usr/lib/easy-math-lang/easy-math-lang "$pkgdir/usr/bin/easy-math-lang"
   ln -s easy-math-lang "$pkgdir/usr/bin/ezmath"
   ln -s /usr/lib/easy-math-lang/easy-math-lsp "$pkgdir/usr/bin/easy-math-lsp"
@@ -75,5 +78,8 @@ package() {
   install -Dm644 installer/easy-math-editor.desktop \
     "$pkgdir/usr/share/applications/easy-math-editor.desktop"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  # MIT license text plus third-party notices (CeTZ is
+  # LGPL-3.0-or-later, bundled for offline *draw).
+  install -Dm644 THIRD_PARTY_LICENSES "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_LICENSES"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
