@@ -18,8 +18,11 @@
 #     + one shared _internal/ (the PyInstaller onedir bundle for the
 #     compiler CLI, the language server and the desktop editor)
 #   /usr/share/applications/easy-math-editor.desktop
-#   /usr/share/doc/easymath/                    (README, copyright)
-#   /usr/share/licenses/easymath/               (LICENSE, for RPM)
+#   /usr/share/doc/easymath/                    (README, copyright,
+#                                                 THIRD_PARTY_LICENSES)
+#   /usr/share/licenses/easymath/               (LICENSE,
+#                                                 THIRD_PARTY_LICENSES;
+#                                                 for RPM)
 #
 # Requires: uv, pyinstaller (via uv), dpkg-deb. rpmbuild is optional:
 # without it the .deb is still built and the .rpm step is skipped with
@@ -63,6 +66,10 @@ install -m644 installer/easy-math-editor.desktop \
   "$STAGE/usr/share/applications/easy-math-editor.desktop"
 install -m644 README.md "$STAGE/usr/share/doc/easymath/README.md"
 install -m644 LICENSE "$STAGE/usr/share/licenses/easymath/LICENSE"
+# MIT license text plus third-party notices (CeTZ is LGPL-3.0-or-later,
+# bundled for offline *draw).
+install -m644 THIRD_PARTY_LICENSES "$STAGE/usr/share/licenses/easymath/THIRD_PARTY_LICENSES"
+install -m644 THIRD_PARTY_LICENSES "$STAGE/usr/share/doc/easymath/THIRD_PARTY_LICENSES"
 # Debian requires a copyright file (MIT text lives in LICENSE).
 cp -f LICENSE "$STAGE/usr/share/doc/easymath/copyright"
 chmod 644 "$STAGE/usr/share/doc/easymath/copyright"

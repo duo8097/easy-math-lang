@@ -60,6 +60,29 @@ echo "== HTML export =="
 "$BIN/easy-math-lang" --format html examples/example.ezmath -o "$TMP/smoke.html"
 [ -s "$TMP/smoke.html" ] || fail "compiler produced an empty HTML file"
 
+echo "== *draw offline (vendored CeTZ bundle, no network) =="
+[ -f "$APP/Contents/Frameworks/typst-packages/preview/cetz/0.4.2/typst.toml" ] \
+  || fail "vendored cetz missing from the app bundle (Contents/Frameworks/typst-packages)"
+mkdir -p "$TMP/home" "$TMP/cache" "$TMP/data"
+cat > "$TMP/draw.ezmath" <<'EOF'
+*draw(
+    *point(A = 0, 0)
+    *point(B = 3, 4)
+    *line(A ; B)
+)
+EOF
+# A dead proxy turns any download attempt into a loud failure; the
+# redirected cache dirs must stay empty because the bundle serves CeTZ.
+HOME="$TMP/home" XDG_CACHE_HOME="$TMP/cache" XDG_DATA_HOME="$TMP/data" \
+  http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 \
+  HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 \
+  "$BIN/easy-math-lang" "$TMP/draw.ezmath" "$TMP/draw.pdf" \
+  || fail "frozen compiler failed to compile *draw without network"
+[ -s "$TMP/draw.pdf" ] || fail "compiler produced an empty *draw PDF"
+if find "$TMP/home" "$TMP/cache" "$TMP/data" -name 'typst' -type d -print -quit | grep .; then
+  fail "typst downloaded packages despite the vendored bundle"
+fi
+
 echo "== LSP starts and stays up =="
 sleep 10 | "$BIN/easy-math-lsp" >"$TMP/lsp.log" 2>&1 &
 LSP_PID=$!

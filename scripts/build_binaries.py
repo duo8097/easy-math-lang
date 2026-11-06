@@ -37,6 +37,14 @@ in the same directory reuses the same library copy.
 ``--full-pyside6`` adds ``--collect-all PySide6`` to the editor build.
 Use only for troubleshooting; macOS must not (the full PySide6 tree drags
 in the nested Qt tool apps that break ``codesign``).
+
+The vendored Typst packages (``vendor/typst-packages/``, see
+``scripts/vendor_typst_packages.py``) are added to the editor build's
+data files exactly once: its ``_internal/`` is the shared library
+directory the CLI and the LSP reuse, so all three binaries resolve
+``@preview/cetz`` offline from ``sys._MEIPASS/typst-packages``. The
+build fails fast when the vendored directory is missing — never ship an
+installer that silently lost offline ``*draw`` support.
 """
 
 from __future__ import annotations
@@ -56,6 +64,11 @@ STAGING = ROOT / "build" / "dist-staging"
 
 # Final shared bundle directory (contains the exes + one _internal).
 SHARED_DIR = "easy-math-lang"
+
+# Vendored Typst packages (offline *draw): shipped exactly once, in the
+# editor build — its _internal/ is the shared library directory every
+# executable in the assembled bundle reuses (see _assemble()).
+VENDOR_TYPST_PACKAGES = ROOT / "vendor" / "typst-packages"
 
 
 # One frozen entry point per binary. All of them are assembled into the
@@ -226,6 +239,17 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
+        # Vendored Typst packages: one copy under the shared _internal/,
+        # reused by the CLI and the LSP (sys._MEIPASS/typst-packages).
+        if VENDOR_TYPST_PACKAGES.is_dir():
+            sep = ";" if os.name == "nt" else ":"
+            print(f"Bundling vendored Typst packages: {VENDOR_TYPST_PACKAGES}")
+            cmd += ["--add-data", f"{VENDOR_TYPST_PACKAGES}{sep}typst-packages"]
+        else:
+            raise SystemExit(
+                f"::error::{VENDOR_TYPST_PACKAGES} is missing — the frozen "
+                f"builds cannot stay offline-capable for *draw. "
+                f"Run: uv run --frozen python scripts/vendor_typst_packages.py")
         # The CI-built plugin is preferred; otherwise (rolling distros)
         # the matching system plugin is bundled.
         cmd += _ci_fcitx5_plugin_adddata() or _system_fcitx5_plugin_adddata()
@@ -343,6 +367,13 @@ def main(argv: list[str]) -> int:
         import PyInstaller  # noqa: F401
     except ImportError:
         print("::error::PyInstaller is missing — run: uv sync --frozen",
+              file=sys.stderr)
+        return 1
+
+    if not VENDOR_TYPST_PACKAGES.is_dir():
+        print(f"::error::{VENDOR_TYPST_PACKAGES} is missing — the frozen "
+              f"builds cannot stay offline-capable for *draw. "
+              f"Run: uv run --frozen python scripts/vendor_typst_packages.py",
               file=sys.stderr)
         return 1
 

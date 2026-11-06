@@ -377,3 +377,17 @@ def test_readme_marks_macos_experimental():
     with open(README, encoding="utf-8") as h:
         text = h.read()
     assert "experimental" in text.lower()
+
+
+def test_builder_bundles_vendored_typst_packages(builder_text):
+    # One copy of the vendored Typst packages in the shared _internal/
+    # (Contents/Frameworks in the .app) that all three binaries reuse.
+    assert "typst-packages" in builder_text
+    assert "vendor" in builder_text
+
+
+def test_package_macos_ships_third_party_licenses(package_text):
+    assert "THIRD_PARTY_LICENSES" in package_text
+    # The notices file is added before the inside-out signing step.
+    assert package_text.index("THIRD_PARTY_LICENSES") < package_text.index(
+        'codesign --force --sign - "$APP"')

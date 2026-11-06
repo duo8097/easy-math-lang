@@ -46,6 +46,11 @@ cp -f dist/easy-math-lang/easy-math-lang "$BIN/easy-math-lang"
 cp -f dist/easy-math-lang/easy-math-lsp "$BIN/easy-math-lsp"
 cp -f dist/easy-math-lang/easy-math-lang "$BIN/ezmath"
 chmod +x "$BIN"/*
+mkdir -p "$APP/Contents/Resources"
+# MIT license plus third-party notices (CeTZ is LGPL-3.0-or-later,
+# bundled for offline *draw); ships inside the .app so it travels
+# with drag-and-drop installs.
+cp -f THIRD_PARTY_LICENSES "$APP/Contents/Resources/THIRD_PARTY_LICENSES"
 ls -l "$BIN"
 
 # --- Prune nested Qt tool apps (must run before signing) -------------------

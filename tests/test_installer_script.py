@@ -174,3 +174,9 @@ def test_pkgbuild_pkgver_matches_pyproject():
     # The placeholder is only a fallback: pkgver() must still override it.
     assert re.search(r'(?m)^pkgver\(\)\s*\{', pkgbuild), \
         'PKGBUILD must keep its pkgver() build-time override'
+
+
+def test_setup_ships_third_party_licenses(iss_text):
+    # MIT project, vendored CeTZ is LGPL-3.0-or-later: the notices file
+    # must be installed alongside the binaries.
+    assert "THIRD_PARTY_LICENSES" in iss_text

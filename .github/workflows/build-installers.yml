@@ -256,6 +256,23 @@ jobs:
           cp examples/example.ezmath /tmp/smoke/
           (cd /tmp/smoke && easy-math-lang example.ezmath smoke.pdf)
           test -f /tmp/smoke/smoke.pdf
+          # The vendored Typst packages for offline *draw must be
+          # installed and served without any network access.
+          test -f /usr/lib/easy-math-lang/_internal/typst-packages/preview/cetz/0.4.2/typst.toml
+          test -f /usr/lib/easy-math-lang/_internal/typst-packages/preview/oxifmt/1.0.0/typst.toml
+          test -f /usr/share/licenses/easymath/THIRD_PARTY_LICENSES
+          cat > /tmp/smoke/draw.ezmath <<'EOF'
+          *draw(
+              *point(A = 0, 0)
+              *point(B = 3, 4)
+              *line(A ; B)
+          )
+          EOF
+          (cd /tmp/smoke && \
+            http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 \
+            HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 \
+            easy-math-lang draw.ezmath draw.pdf)
+          test -f /tmp/smoke/draw.pdf
           echo "deb smoke OK"
 
       - name: Inspect rpm payload
@@ -264,6 +281,8 @@ jobs:
           set -euo pipefail
           rpm -qip dist/EasyMathLang-Fedora-amd64.rpm
           rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -E "usr/bin/easy-math-(lang|lsp|editor)"
+          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/lib/easy-math-lang/_internal/typst-packages/preview/cetz/0.4.2/typst.toml"
+          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/share/licenses/easymath/THIRD_PARTY_LICENSES"
 
       # --- Artifacts (one per distro family) ---------------------------------
       - name: Upload Debian installer artifact
