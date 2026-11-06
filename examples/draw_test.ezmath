@@ -29,16 +29,18 @@
 )
 
 *draw(
-    // --- Circle with tangent ---
+    // --- Circle with tangent: radius OP, tangent PQ (perpendicular) ---
     *point(O = 0, 0)
+    *point(P = 3, 0)
     *circle(O ; 3)
 
-    *point(P)
     *on-circle(O ; 3 ; P)
-    *line(O ; P)
 
     *point(Q)
     *perp(O ; P ; P ; Q)
+    *distance(P ; Q ; 2)
+
+    *line(O ; P)
     *line(P ; Q)
 )
 

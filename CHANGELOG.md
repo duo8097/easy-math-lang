@@ -21,6 +21,7 @@ for those.
 
 ### Changed
 - LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.
+- **Draw examples showcase auto-positioned points** — the under-constrained examples now pin enough points for a well-determined, canonical figure: the circle-with-tangent blocks (`examples/draw_test.ezmath`, `docs/geometry.md` Example 3) pin the radius point on the x-axis and give the tangent a length, the `examples/example_3.ezmath` on-circle demo pins P on the x-axis, and the single-line `*draw(...)` demo in `docs/geometry.md` pins its triangle instead of collapsing three auto points. `docs/geometry.md` gains a "What auto-placement decides" note: pin `A = 0, 0` / `B = x, 0` for a canonical orientation, results are deterministic, the solver is numeric (about 1% accurate), and constraints must determine the figure.
 
 ### Fixed
 - Arch package (`installer/PKGBUILD`) installed only the three
