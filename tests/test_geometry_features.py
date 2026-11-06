@@ -495,3 +495,176 @@ def test_error_comments_redacted():
     assert_all_finite(out)
     out = parse_draw_block("*point(A = 1000000000000000, 0)")
     assert_all_finite(out)
+
+
+# ------------------------------------------------------------------
+# *equal-angle (solver constraint + equality marks)
+# ------------------------------------------------------------------
+
+_CONGRUENT = (
+    "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 2, 3)\n"
+    "*point(D = 7, 0)\n*point(E = 11, 0)\n*point(F = 9, 3)\n"
+    "*triangle(A ; B ; C)\n*triangle(D ; E ; F)\n"
+    "*equal-angle(A ; B ; C ; D ; E ; F)"
+)
+
+_CONVERGES = (
+    "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 2, 3)\n"
+    "*point(D = 7, 0)\n*point(E = 11, 0)\n*point(F)\n"
+    "*equal-angle(A ; B ; C ; D ; E ; F)\n*distance(E ; F ; 5)"
+)
+
+
+def _point_xy(output, name):
+    """Solved position of *name* from the drawn point dot."""
+    m = re.search(
+        rf'circle\(\(([-\d.]+), ([-\d.]+)\), radius: 0\.05, '
+        rf'fill: black, name: "{name}"\)', output)
+    assert m, f'point {name} not drawn'
+    return float(m.group(1)), float(m.group(2))
+
+
+def _angle_deg(output, first, vertex, last):
+    (x1, y1), (vx, vy), (x2, y2) = (
+        _point_xy(output, first), _point_xy(output, vertex),
+        _point_xy(output, last))
+    v1, v2 = (x1 - vx, y1 - vy), (x2 - vx, y2 - vy)
+    cross = abs(v1[0] * v2[1] - v1[1] * v2[0])
+    dot = v1[0] * v2[0] + v1[1] * v2[1]
+    return math.degrees(math.atan2(cross, dot))
+
+
+def test_equal_angle_draws_identical_marks():
+    out = parse_draw_block(_CONGRUENT)
+    assert_all_finite(out)
+    arcs = re.findall(
+        r'arc\(\(([-\d.]+), ([-\d.]+)\), start: ([\d.]+)deg, '
+        r'stop: ([\d.]+)deg, radius: 0\.400\)', out)
+    assert len(arcs) == 2, out
+    # Same arc on both angles: identical start/stop/radius, one per vertex.
+    (_x1, _y1, s1, e1), (_x2, _y2, s2, e2) = arcs
+    assert (s1, e1) == (s2, e2)
+    # One radial tick across each arc (the equality mark): the only
+    # anonymous point-pair lines in this scene (named-point edges
+    # render as line("A", "B", ...)).
+    ticks = [l for l in code_lines(out)
+             if l.strip().startswith('line((')]
+    assert len(ticks) == 2
+    assert "GeometryError" not in out and "GeometryWarning" not in out
+
+
+def test_equal_angle_constraint_converges():
+    # F is free: the solver must place it so angle DEF equals angle ABC.
+    out = parse_draw_block(_CONVERGES)
+    assert_all_finite(out)
+    assert "GeometryError" not in out
+    assert "did not converge" not in out
+    deg_abc = _angle_deg(out, 'A', 'B', 'C')
+    deg_def = _angle_deg(out, 'D', 'E', 'F')
+    assert abs(deg_def - deg_abc) < 1.0, (deg_abc, deg_def)
+
+
+def test_equal_angle_arity_error():
+    out = parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 1, 0)\n*point(C = 0, 1)\n"
+        "*point(D = 3, 0)\n*point(E = 4, 0)\n*equal-angle(A ; B ; C ; D ; E)")
+    assert "requires 6 arguments" in out
+    assert_all_finite(out)
+
+
+def test_equal_angle_undefined_point():
+    # *equal-angle is a constraint: its points are auto-created like
+    # every other command's (coordinates optional).
+    out = parse_draw_block("*equal-angle(A ; B ; C ; D ; E ; F)")
+    assert "arc(" in out
+    assert_all_finite(out)
+
+
+def test_equal_angle_coincident_points():
+    out = parse_draw_block(
+        "*point(A = 1, 1)\n*point(C = 2, 3)\n"
+        "*point(D = 7, 0)\n*point(E = 11, 0)\n*point(F = 9, 3)\n"
+        "*equal-angle(A ; A ; C ; D ; E ; F)")
+    assert "coincident points" in out
+    assert_all_finite(out)
+
+
+def test_equal_angle_mismatch_warns():
+    # All six points fixed by hand with unequal angles: marks are still
+    # drawn, with a warning (the solver cannot fix a fully-fixed scene).
+    out = parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 2, 3)\n"
+        "*point(D = 7, 0)\n*point(E = 11, 0)\n*point(F = 9, 1)\n"
+        "*equal-angle(A ; B ; C ; D ; E ; F)")
+    assert re.search(
+        r'// \[GeometryWarning\] \*equal-angle\(A ; B ; C ; D ; E ; F\): '
+        r'[\d.]+° vs [\d.]+°', out)
+    assert_all_finite(out)
+
+
+def _draw_blocks_in(text):
+    """Every *draw(...) block body, via the editor's pipeline-mirroring
+    block finder (comments and single-line blocks handled)."""
+    from editor.draw_catalog import draw_block_body, find_enclosing_draw_block
+    blocks, pos = [], 0
+    while True:
+        idx = text.find('*draw(', pos)
+        if idx == -1:
+            return blocks
+        span = find_enclosing_draw_block(text, idx)
+        if span is None:
+            pos = idx + 1
+            continue
+        start, end = span
+        blocks.append(draw_block_body(text[start:end]))
+        pos = end + 1
+
+
+def test_examples_file_blocks_compile():
+    """Every *draw block in examples/draw_test.ezmath (including the
+    equal-angle one) solves and generates Typst without diagnostics."""
+    path = os.path.join(
+        os.path.dirname(__file__), '..', 'examples', 'draw_test.ezmath')
+    with open(path, encoding='utf-8') as handle:
+        blocks = _draw_blocks_in(handle.read())
+    assert len(blocks) == 4
+    for body in blocks:
+        out = parse_draw_block(body)
+        assert "GeometryError" not in out
+        assert "GeometryWarning" not in out
+        assert '#import "@preview/cetz' in out
+
+
+def test_equal_angle_docs_example_compiles():
+    """The example in docs/geometry.md's *equal-angle section solves and
+    generates Typst without diagnostics."""
+    path = os.path.join(
+        os.path.dirname(__file__), '..', 'docs', 'geometry.md')
+    from editor.draw_catalog import draw_block_body
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    start = text.index('### Two angles are equal')
+    end = text.find('\n### ', start + 1)
+    section = text[start:end if end != -1 else len(text)]
+    # Doc examples live in ``` fenced blocks (the block finder treats
+    # fences as documentation, not blocks — extract them directly).
+    fenced, buf, in_fence = [], [], False
+    for line in section.splitlines():
+        if line.strip().startswith('```'):
+            if in_fence and buf:
+                fenced.append('\n'.join(buf))
+            in_fence = not in_fence
+            buf = []
+            continue
+        if in_fence:
+            buf.append(line)
+    blocks = [draw_block_body(b) for b in fenced
+              if b.lstrip().startswith('*draw(')]
+    assert len(blocks) == 1
+    out = parse_draw_block(blocks[0])
+    assert "GeometryError" not in out
+    assert "GeometryWarning" not in out
+    # The doc example leaves F free and the constraint satisfied.
+    deg_abc = _angle_deg(out, 'A', 'B', 'C')
+    deg_def = _angle_deg(out, 'D', 'E', 'F')
+    assert abs(deg_def - deg_abc) < 1.0, (deg_abc, deg_def)

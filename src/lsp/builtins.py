@@ -99,7 +99,7 @@ GEOMETRY_DOCS = {
     'triangle': ('*triangle(A ; B ; C)', 'Draw triangle ABC.'),
     'right-angle': ('*right-angle(B ; A ; C)', 'Right-angle marker at A.'),
     'angle': ('*angle(A ; B ; C [; label])', 'Angle marker at B.'),
-    'equal-angle': ('*equal-angle(...)', 'Mark two angles equal. [planned]'),
+    'equal-angle': ('*equal-angle(A ; B ; C ; D ; E ; F)', 'Angle ABC equals angle DEF (solver constraint; both angles get the same arc + tick marks).'),
     'equal-length': ('*equal-length(A ; B ; C ; D)', 'Mark AB and CD equal.'),
     'parallel': ('*parallel(A ; B ; C ; D)', 'AB is parallel to CD.'),
     'perp': ('*perp(...)', 'Perpendicular constraint/marker.'),

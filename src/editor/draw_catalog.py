@@ -20,9 +20,9 @@ Sources of truth — never duplicated here:
 - the command list: ``geometry.commands.KNOWN_GEOMETRY_COMMANDS``
 - syntax + one-line description: ``lsp.builtins.GEOMETRY_DOCS``
   (``lsp.builtins.GEOMETRY_CONSTRUCTION_DOCS`` for constructions)
-- ``geo-*`` dialog mapping: ``editor.symbol_registry`` (None when a
-  command has no parameter dialog, e.g. ``equal-angle``, and for
-  constructions, which are ``*point`` right-hand sides, not commands).
+- ``geo-*`` dialog mapping: ``editor.symbol_registry`` (None for
+  constructions, which are ``*point`` right-hand sides, not commands;
+  every geometry command has a dialog).
 
 Examples are validated by the tests through
 ``geometry.parse_draw_block`` — the ONE geometry parser; this module
@@ -187,8 +187,9 @@ _EXAMPLES: dict[str, str] = {
         '    *right-angle(B ; A ; C)\n'
         ')'
     ),
-    # equal-angle is [planned] (codegen raises "not yet implemented");
-    # the example shows the intended usage with two congruent angles.
+    # Two congruent angles: both triangles are hand-placed so the
+    # angles at B and E are already equal (56.31°) — the constraint
+    # holds and codegen draws the matching arc + tick on each angle.
     'equal-angle': (
         '*draw(\n'
         '    *point(A = 0, 0)\n'

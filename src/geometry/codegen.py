@@ -589,11 +589,80 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         lx, ly = bx + 0.58 * _math.cos(mid), by + 0.58 * _math.sin(mid)
         lines.append(f'  content(({lx:.3f}, {ly:.3f}), [#"{shown}"])')
 
-    elif cmd in ('equal-angle',):
-        raise GeometryError(
-            "*equal-angle is not yet implemented — remove it or replace "
-            "with explicit *angle markers"
-        )
+    elif cmd == 'equal-angle':
+        # Equal angles: angle ABC equals angle DEF (the constraint lives
+        # in commands.py). Both angles carry the identical marker — one
+        # interior arc of the same radius, each with one radial tick —
+        # the classic "equal angles" annotation.
+        if len(args) != 6:
+            raise GeometryError(
+                f"*equal-angle requires 6 args: A ; B ; C ; D ; E ; F (got {len(args)})")
+        A, B, C, D, E, F = [a.strip() for a in args[:6]]
+        for pt in [A, B, C, D, E, F]:
+            if pt not in pts:
+                raise GeometryError(f"undefined point '{pt}'")
+        _require_finite_pts(pts, [A, B, C, D, E, F])
+        import math as _math
+
+        # Coincident / non-finite arms must fail before anything is drawn
+        # (both marks appear or neither does).
+        minor_deg = []
+        for (X, Y, Z) in ((A, B, C), (D, E, F)):
+            v1, v2 = pts[X] - pts[Y], pts[Z] - pts[Y]
+            n1, n2 = float(_norm(v1)), float(_norm(v2))
+            if not (_math.isfinite(n1) and _math.isfinite(n2)):
+                raise GeometryError(
+                    f"*equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): "
+                    f"non-finite arms — skipping")
+            if n1 < 1e-9 or n2 < 1e-9:
+                raise GeometryError(
+                    f"*equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): "
+                    f"coincident points in angle {X}{Y}{Z} — skipping")
+            minor_deg.append(_minor_angle_deg(v1, v2))
+        if abs(minor_deg[0] - minor_deg[1]) > 1.0:
+            # A solved constraint satisfies this; a hand-fixed scene may
+            # not (all six points given coordinates by hand).
+            print(
+                f"[GeometryWarning] *equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}) "
+                f"angles are not equal ({minor_deg[0]:.1f}° vs {minor_deg[1]:.1f}°) "
+                f"— marks may be misleading",
+                file=sys.stderr,
+            )
+            lines.append(
+                f'  // [GeometryWarning] *equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): '
+                f'{_fmt_num(minor_deg[0])}° vs {_fmt_num(minor_deg[1])}°'
+            )
+        radius = 0.400   # same arc radius as the *angle marker
+        tick = 0.07
+        for (X, Y, Z) in ((A, B, C), (D, E, F)):
+            v1, v2 = pts[X] - pts[Y], pts[Z] - pts[Y]
+            a1 = _vec_angle_deg(v1)
+            sweep = (_vec_angle_deg(v2) - a1) % 360.0
+            if sweep > 180.0:
+                # Marker shows the interior (minor) arc, not the reflex one.
+                a1 = (a1 + sweep) % 360.0
+                sweep = 360.0 - sweep
+            yx, yy = float(pts[Y][0]), float(pts[Y][1])
+            if sweep < 0.5 or sweep > 359.5:
+                lines.append(
+                    f'  // [GeometryWarning] *equal-angle: angle {X}{Y}{Z} is '
+                    f'~0°/180°/360° — no arc drawn')
+                continue
+            # CeTZ arc(pos, ...) centers on pos: the marker belongs at the
+            # vertex. stop may exceed 360 (e.g. start 350 + sweep 90) to
+            # keep the counterclockwise sweep — do NOT wrap with % 360.
+            lines.append(
+                f'  arc(({yx:.3f}, {yy:.3f}), start: {a1:.2f}deg, '
+                f'stop: {a1 + sweep:.2f}deg, radius: {radius:.3f})'
+            )
+            # One radial tick across the arc — the equality mark (both
+            # angles carry the identical arc + tick).
+            mid = _math.radians(a1 + sweep / 2.0)
+            ux, uy = _math.cos(mid), _math.sin(mid)
+            lines.append(
+                f'  line(({yx + (radius - tick) * ux:.3f}, {yy + (radius - tick) * uy:.3f}), '
+                f'({yx + (radius + tick) * ux:.3f}, {yy + (radius + tick) * uy:.3f}))'
+            )
 
     else:
         # Unknown — already warned during parse

@@ -208,7 +208,8 @@ class DrawCard(QtWidgets.QFrame):
             self.command_btn.setToolTip(
                 f'Open the parameter dialog for *{entry.command}')
         else:
-            # No geo-* dialog in the registry (e.g. equal-angle).
+            # Defensive: a catalog command without a geo-* dialog in the
+            # registry (every command has one today).
             self.command_btn.setEnabled(False)
             self.command_btn.setToolTip(
                 f'No parameter dialog for *{entry.command} yet — '

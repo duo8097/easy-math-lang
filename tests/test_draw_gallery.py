@@ -123,12 +123,20 @@ def test_card_content_comes_from_catalog(dialog):
     assert card.command_btn.isEnabled()
 
 
-def test_command_without_dialog_is_disabled(dialog):
-    # equal-angle is planned: no geo-* symbol in the registry.
+def test_command_button_enabled_for_every_geometry_command(dialog):
+    # Every geometry command has a geo-* parameter dialog, so every
+    # non-construction card can open one (equal-angle used to be
+    # greyed out as "planned, not yet implemented").
+    from editor.draw_catalog import CATALOG
+    for entry in CATALOG:
+        if entry.construction:
+            continue
+        card = dialog.card_for(entry.id)
+        assert card is not None
+        assert card.command_btn.isEnabled(), entry.id
+        assert card.example_btn.isEnabled(), entry.id
     card = dialog.card_for('equal-angle')
-    assert card is not None
-    assert not card.command_btn.isEnabled()
-    assert card.example_btn.isEnabled()
+    assert 'parameter dialog for *equal-angle' in card.command_btn.toolTip()
 
 
 # ----------------------------------------------------------------------

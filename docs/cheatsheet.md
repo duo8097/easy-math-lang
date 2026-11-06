@@ -168,6 +168,18 @@ Tables by category (arrows, Greek, set theory, delimiters, spacing):
 You describe **relationships**; the solver finds the positions.
 Full guide: [Drawing geometry](geometry.md).
 
+| You type | Meaning |
+|---|---|
+| `*distance(A ; B ; 5)` | AB has length 5 |
+| `*perp(A ; B ; C ; D)` | AB ⊥ CD (3 args: AB ⊥ BC) |
+| `*parallel(A ; B ; C ; D)` | AB ∥ CD |
+| `*on-line(A ; B ; C)` | C lies on line AB |
+| `*on-circle(O ; 5 ; A)` | A lies on circle (O, 5) |
+| `*equal-length(A ; B ; C ; D)` | AB = CD |
+| `*equal-angle(A ; B ; C ; D ; E ; F)` | angle ABC = angle DEF (equality marks on both) |
+| `*midpoint(A ; B ; M)` | M is the midpoint of AB |
+| `*intersection(P ; line(A ; B) ; line(C ; D))` | P is where the lines cross |
+
 ### Construction points
 
 A point can be computed instead of free — write a constructor on the

@@ -333,6 +333,37 @@ A 3-argument form constrains two segments sharing a point:
 "Segment AB has the same length as segment CD."
 (Used by the solver to position points; no tick marks are drawn yet.)
 
+### Two angles are equal
+
+```
+*equal-angle(A ; B ; C ; D ; E ; F)
+```
+
+"Angle ABC equals angle DEF." The vertex is the **middle** point of
+each triple (B and E); the arms go through the outer points. The solver
+moves the free points until the two interior angles match, and both
+angles get the same equality mark — an arc with one tick, identical on
+both angles — so the figure shows the constraint.
+
+```
+*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C = 2, 3)
+    *point(D = 7, 0)
+    *point(E = 11, 0)
+    *point(F)
+    *equal-angle(A ; B ; C ; D ; E ; F)
+    *distance(E ; F ; 5)
+    *triangle(A ; B ; C)
+    *triangle(D ; E ; F)
+)
+```
+
+Here F is placed automatically so the two apex angles come out equal.
+A complete runnable file:
+[`examples/draw_test.ezmath`](../examples/draw_test.ezmath) (last block).
+
 ### Midpoint
 
 ```

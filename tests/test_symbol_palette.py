@@ -379,9 +379,12 @@ def test_generic_builder_matches_compiler_min_arity():
 
 
 def test_palette_stays_curated_not_exhaustive():
-    # Deliberately curated: aliases and planned commands stay out.
+    # Deliberately curated: aliases stay out (available via the LSP).
+    # Every geometry command has a dialog (equal-angle included since
+    # it was implemented).
     names = {s.name for s in list_symbols()}
-    assert 'equal-angle' not in {s.command for s in list_symbols() if s.command}
+    assert 'geo-equal-angle' in names
+    assert get_symbol('geo-equal-angle').command == 'equal-angle'
     assert 'fraction' not in names  # alias of frac, available via LSP only
     assert get_symbol('frac').command == 'frac'
 

@@ -76,8 +76,9 @@ use `Build → Restart Language Server`.
     **command palette** lists **all** geometry commands (one row per
     command — point constructions come through the `*point` row) — the ones
     already used in the code are pinned to the top in **bold** and
-    stay there while the list fuzzy-filters as you type; commands
-    without a parameter dialog are greyed out. Picking one (double-
+    stay there while the list fuzzy-filters as you type (every
+    geometry command has a parameter dialog, so no row is greyed
+    out). Picking one (double-
     click or **Enter**) opens its usual parameter dialog and the
     built command lands in the *code area* (before the closing `)`),
     never in the document — Enter runs *only* the pick, never the
@@ -91,8 +92,7 @@ use `Build → Restart Language Server`.
     re-clicking the same card keeps your in-progress edits (another
     card reloads its example).
   - **Insert command…** — opens the usual parameter dialog for that
-    command (greyed out for commands without one yet, e.g.
-    `*equal-angle` — planned, not yet implemented).
+    command (every geometry command has one).
 - **Insert empty block** puts the old bare `*draw(...)` skeleton at
   the cursor, so the previous `*draw` button behavior is still one
   click away.
