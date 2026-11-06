@@ -13,6 +13,8 @@ import re
 import sys
 import tomllib
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import typst_bundle
@@ -204,3 +206,38 @@ def test_draw_compiles_with_empty_package_cache(monkeypatch, tmp_path):
         assert leftovers == [], (
             f'typst cache/data appeared under {base}: {leftovers} — '
             f'the bundle was not used')
+
+
+def test_every_vendored_file_is_tracked_by_git():
+    """Guard against silently ignored vendored files.
+
+    The repo's generic ``lib/`` gitignore rule once hid
+    ``vendor/typst-packages/preview/cetz/0.4.2/src/lib/`` from git; the
+    committed tree then missed files Typst imports, and CI (which checks
+    out the repo) failed while local builds passed. Skipped outside a
+    git checkout (e.g. an unpacked sdist).
+    """
+    import subprocess
+
+    git_dir = os.path.join(ROOT, '.git')
+    if not os.path.isdir(git_dir):
+        pytest.skip('not a git checkout')
+    try:
+        result = subprocess.run(
+            ['git', 'ls-files', '-z', 'vendor'],
+            cwd=ROOT, capture_output=True, text=False, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip('git not available')
+    if result.returncode != 0:
+        pytest.skip('git ls-files failed')
+    tracked = {
+        p for p in result.stdout.decode('utf-8').split('\0') if p
+    }
+    on_disk = set()
+    for dirpath, _, filenames in os.walk(os.path.join(ROOT, 'vendor')):
+        for filename in filenames:
+            on_disk.add(
+                os.path.relpath(os.path.join(dirpath, filename), ROOT)
+                .replace(os.sep, '/'))
+    missing = sorted(on_disk - tracked)
+    assert not missing, f'vendored files not tracked by git: {missing}'
