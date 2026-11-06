@@ -110,3 +110,76 @@ def test_vendored_packages_dir_frozen_layout(monkeypatch, tmp_path):
             f'[package]\nname = "{name}"\nversion = "{version}"\n',
             encoding='utf-8')
     assert typst_bundle.vendored_packages_dir() == str(tmp_path / 'typst-packages')
+
+
+# --------------------------------------------------------------------------
+# Offline compile: an empty, temporary Typst package cache must be enough,
+# and must stay empty — proving the vendored bundle (not a download)
+# served the CeTZ import.
+# --------------------------------------------------------------------------
+
+def _isolated_env(monkeypatch, tmp_path):
+    """Redirect every cache/data dir Typst may consult into tmp_path."""
+    home = tmp_path / 'home'
+    cache = tmp_path / 'cache'
+    data = tmp_path / 'data'
+    local = tmp_path / 'localappdata'
+    roaming = tmp_path / 'appdata'
+    xdg = tmp_path / 'xdg-config'
+    for d in (home, cache, data, local, roaming, xdg):
+        d.mkdir()
+    # Linux (XDG_CACHE_HOME / XDG_DATA_HOME), macOS (~/Library/...) and
+    # Windows (%LOCALAPPDATA% / %APPDATA% / %USERPROFILE%) equivalents.
+    monkeypatch.setenv('HOME', str(home))
+    monkeypatch.setenv('USERPROFILE', str(home))
+    monkeypatch.setenv('XDG_CACHE_HOME', str(cache))
+    monkeypatch.setenv('XDG_DATA_HOME', str(data))
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(xdg))
+    monkeypatch.setenv('LOCALAPPDATA', str(local))
+    monkeypatch.setenv('APPDATA', str(roaming))
+    return cache
+
+
+def test_draw_compiles_with_empty_package_cache(monkeypatch, tmp_path):
+    import typst as real_typst
+    from compiler import pipeline
+
+    record = {}
+
+    class _RecordingTypst:
+        """Real compile, but with the package cache forced to an empty
+        temporary directory (the dirs crate ignores env vars on Windows,
+        so we pin it explicitly) and the call kwargs recorded."""
+
+        @staticmethod
+        def compile(*args, **kwargs):
+            record.update(kwargs)
+            forced_cache = str(tmp_path / 'forced-cache')
+            os.makedirs(forced_cache, exist_ok=True)
+            kwargs.setdefault('package_cache_path', forced_cache)
+            return real_typst.compile(*args, **kwargs)
+
+    cache_dir = _isolated_env(monkeypatch, tmp_path)
+    monkeypatch.setattr(pipeline, 'typst', _RecordingTypst)
+
+    src = tmp_path / 'draw.ezmath'
+    src.write_text('*draw(\n'
+                   '    *point(A = 0, 0)\n'
+                   '    *point(B = 3, 4)\n'
+                   '    *line(A ; B)\n'
+                   ')\n', encoding='utf-8')
+    out = tmp_path / 'draw.pdf'
+    assert pipeline.compile_ezmath(str(src), output=str(out)) is True
+    assert out.is_file() and out.stat().st_size > 0
+
+    # The compile must have been given the vendored bundle as
+    # package_path...
+    assert record.get('package_path') == os.path.normpath(VENDOR)
+    # ...and nothing may have been downloaded into any redirected cache.
+    for base in (cache_dir, tmp_path / 'home', tmp_path / 'data',
+                 tmp_path / 'localappdata', tmp_path / 'appdata',
+                 tmp_path / 'forced-cache'):
+        leftovers = [p for p in base.rglob('*') if p.is_dir()]
+        assert leftovers == [], (
+            f'typst cache/data appeared under {base}: {leftovers} — '
+            f'the bundle was not used')
