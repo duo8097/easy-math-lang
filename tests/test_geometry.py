@@ -33,7 +33,8 @@ def test_cetz_version_pin():
     # with the array-coordinate syntax we emit (0.3.1 mispanics on
     # typst ≥ 0.15: "Failed to resolve coordinate").
     out = geometry.parse_draw_block("*point(A = 1, 2)")
-    assert '#import "@preview/cetz:0.4.2"' in out
+    from typst_bundle import cetz_import_line
+    assert cetz_import_line() in out
     assert "cetz:0.3.1" not in out
 
 
