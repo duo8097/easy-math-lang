@@ -2,6 +2,8 @@
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from . import auto_pairs
+from .positions import utf16_units
 from .syntax_highlighter import EmlHighlighter
 
 
@@ -31,6 +33,8 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
 
     HOVER_DELAY_MS = 600
     COMPLETION_TRIGGERS = ('*', '<')
+    
+    _auto_close_brackets = True
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -124,18 +128,187 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         line, col = self.cursor_line_col()
         self.cursorMoved.emit(line, col)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event):  # noqa: C901
+        # IME composition must never be touched (Telex/VNI, fcitx5/ibus, CJK IMEs).
+        # Programmatic edits never arrive here, so this is a pure key-event path.
+        modifiers = event.modifiers()
+        has_shortcut_modifier = bool(
+            modifiers & (
+                QtCore.Qt.KeyboardModifier.ControlModifier
+                | QtCore.Qt.KeyboardModifier.AltModifier
+                | QtCore.Qt.KeyboardModifier.MetaModifier))
+
+        auto_on = getattr(self, '_auto_close_brackets', True)
+        text = event.text()
+
+        if auto_on and not has_shortcut_modifier and len(text) == 1:
+            # ---- Openers: insert pair / wrap selection --------------------
+            if text in auto_pairs.OPENERS_FOR:
+                if self._handle_opener(text):
+                    return
+            # ---- Closers: overtype ----------------------------------------
+            elif text in auto_pairs.CLOSERS:
+                if self._handle_closer(text):
+                    return
+
+        # ---- Backspace: delete empty pair in one stroke -------------------
+        if (auto_on and not has_shortcut_modifier
+                and event.key() == QtCore.Qt.Key.Key_Backspace
+                and self._handle_backspace()):
+            return
+
+        # ---- Enter: expand empty pair to three lines ----------------------
+        if (auto_on and not has_shortcut_modifier
+                and (event.key() == QtCore.Qt.Key.Key_Return
+                     or event.key() == QtCore.Qt.Key.Key_Enter)
+                and self._handle_enter()):
+            return
+
         super().keyPressEvent(event)
+
         # Auto-show autocompletion right after a trigger character, like
         # Ctrl+Space but without asking. Programmatic edits (completion
         # insertion, paste handling) never produce key events, so this
         # cannot loop back on itself.
-        modifiers = event.modifiers() & (
-            QtCore.Qt.KeyboardModifier.ControlModifier
-            | QtCore.Qt.KeyboardModifier.AltModifier
-            | QtCore.Qt.KeyboardModifier.MetaModifier)
-        if event.text() in self.COMPLETION_TRIGGERS and not modifiers:
+        if text in self.COMPLETION_TRIGGERS and not has_shortcut_modifier:
             self.completionRequested.emit()
+
+    # -- auto-close helpers (each returns True when the event is consumed) --
+
+    def _char_at_offset(self, offset):
+        """Character at document offset ('' when out of range)."""
+        doc = self.document()
+        try:
+            if offset < 0 or offset >= doc.characterCount():
+                return ''
+            ch = doc.characterAt(int(offset))
+        except (TypeError, ValueError):
+            return ''
+        return '' if not ch or ch == '\x00' else ch
+
+    def _handle_opener(self, char):
+        cursor = self.textCursor()
+        closer = auto_pairs.OPENERS_FOR.get(char)
+        if closer is None:
+            return False
+
+        # Selection: wrap it, keep it selected (UTF-16 offsets use Qt cursor).
+        if cursor.hasSelection():
+            selected = cursor.selectedText()
+            start, end = cursor.selectionStart(), cursor.selectionEnd()
+            cursor.beginEditBlock()
+            try:
+                cursor.insertText(char + selected + closer)
+                cursor.setPosition(start + utf16_units(char))
+                cursor.setPosition(end + utf16_units(char),
+                                   QtGui.QTextCursor.KeepAnchor)
+            finally:
+                cursor.endEditBlock()
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            return True
+
+        # No selection: respect next-char / prev-char rules.
+        pos = cursor.position()
+        next_ch = self._char_at_offset(pos)
+        prev_ch = self._char_at_offset(pos - 1)
+        if not auto_pairs.should_pair(char, next_ch, prev_ch):
+            return False
+
+        cursor.beginEditBlock()
+        try:
+            cursor.insertText(char + closer)
+            # Cursor should sit between opener and closer.
+            cursor.setPosition(pos + utf16_units(char))
+        finally:
+            cursor.endEditBlock()
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        return True
+
+    def _handle_closer(self, char):
+        cursor = self.textCursor()
+        pos = cursor.position()
+        next_ch = self._char_at_offset(pos)
+        if not auto_pairs.should_overtype(char, next_ch):
+            return False
+        cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        return True
+
+    def _handle_backspace(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            return False
+        pos = cursor.position()
+        prev_ch = self._char_at_offset(pos - 1)
+        next_ch = self._char_at_offset(pos)
+        if not auto_pairs.matching_pair(prev_ch, next_ch):
+            return False
+        cursor.beginEditBlock()
+        try:
+            cursor.deletePreviousChar()
+            cursor.deleteChar()
+        finally:
+            cursor.endEditBlock()
+        self.setTextCursor(cursor)
+        return True
+
+    def _handle_enter(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            return False
+        pos = cursor.position()
+        prev_ch = self._char_at_offset(pos - 1)
+        next_ch = self._char_at_offset(pos)
+        closer = auto_pairs.matching_pair(prev_ch, next_ch)
+        if not closer:
+            return False
+        block = cursor.block()
+        # Refuse to expand across a line break or with content between
+        # opener and closer: the pair must be the whole block content.
+        if prev_ch not in auto_pairs.OPENERS_FOR or \
+                auto_pairs.OPENERS_FOR.get(prev_ch) != closer:
+            return False
+        block_text = block.text()
+        if cursor.positionInBlock() not in (utf16_units(prev_ch), 1) \
+                or block_text.strip() != f'{prev_ch}{closer}':
+            # Still allow simple cases where the block is exactly the pair
+            if block_text.strip() != f'{prev_ch}{closer}':
+                return False
+
+        cursor.beginEditBlock()
+        try:
+            start = block.position()
+            # Split the block at the cursor (positionInBlock is UTF-16).
+            pos_in_block = cursor.positionInBlock()
+            # For ASCII blocks the UTF-16 index is also the Python index;
+            # for non-ASCII use the positions helper for correctness.
+            try:
+                from .positions import to_code_point_offset
+
+                cp_pos = to_code_point_offset(block_text, pos_in_block)
+            except Exception:
+                cp_pos = pos_in_block
+            line_before = block_text[:cp_pos]
+            line_after = block_text[cp_pos:]
+            # Delete the whole block and re-insert three lines.
+            cursor.setPosition(start)
+            cursor.movePosition(
+                QtGui.QTextCursor.NextCharacter,
+                QtGui.QTextCursor.KeepAnchor,
+                utf16_units(block_text))
+            opener_line, _middle, closer_line = auto_pairs.expansion_lines(
+                line_before, line_after)
+            cursor.insertText(opener_line + '\n' + _middle + '\n' + closer_line)
+            cursor.setPosition(start + utf16_units(opener_line) + 1
+                               + utf16_units(_middle))
+        finally:
+            cursor.endEditBlock()
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        return True
 
     def goto_position(self, line, character):
         """Move the cursor; character is a UTF-16 offset like LSP sends."""

@@ -175,6 +175,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._settings = default_settings()
         self._recent = RecentFiles(self._settings)
         self._theme_name = app_theme.load_theme_name(self._settings)
+        
+        # Initialize auto-close brackets setting
+        self._auto_close_brackets = self._settings.value('editor/autoCloseBrackets', True, type=bool)
+        self.editor._auto_close_brackets = self._auto_close_brackets
+        
         app = QtWidgets.QApplication.instance()
         self._default_palette = app.palette() if app is not None else None
         colors = app_theme.editor_colors(self._theme_name)
@@ -1572,6 +1577,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self._theme_action.setShortcut('Ctrl+Shift+D')
         self._theme_action.setStatusTip('Switch between light and dark mode')
         self._theme_action.triggered.connect(self._toggle_theme)
+        
+        self._auto_close_brackets_action = view_menu.addAction('Auto-close Brackets')
+        self._auto_close_brackets_action.setCheckable(True)
+        self._auto_close_brackets_action.setChecked(self._auto_close_brackets)
+        self._auto_close_brackets_action.setShortcut('Ctrl+Shift+B')
+        self._auto_close_brackets_action.setStatusTip('Automatically insert closing brackets, quotes, and parentheses')
+        self._auto_close_brackets_action.triggered.connect(self._toggle_auto_close_brackets)
         view_menu.addSeparator()
         palette_action = view_menu.addAction('Command &Palette…')
         palette_action.setShortcut('Ctrl+Shift+P')
@@ -1799,6 +1811,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_theme(app_theme.DARK
                           if self._theme_name != app_theme.DARK
                           else app_theme.LIGHT)
+    
+    def _toggle_auto_close_brackets(self):
+        """Toggle auto-close brackets setting and update the editor."""
+        if hasattr(self, '_auto_close_brackets_action'):
+            value = self._auto_close_brackets_action.isChecked()
+            self._auto_close_brackets = value
+            self._settings.setValue('editor/autoCloseBrackets', value)
+            self._settings.sync()
+            self.editor._auto_close_brackets = value
 
     def _refresh_find_colors(self):
         """Re-paint active find highlights without moving the cursor."""

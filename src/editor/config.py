@@ -43,6 +43,10 @@ def default_settings():
         pass
     settings = QtCore.QSettings(path, QtCore.QSettings.IniFormat)
     _migrate_legacy_once(settings)
+    # Set default for auto-close brackets if not already set
+    if not settings.contains('editor/autoCloseBrackets'):
+        settings.setValue('editor/autoCloseBrackets', True)
+    settings.sync()
     return settings
 
 
