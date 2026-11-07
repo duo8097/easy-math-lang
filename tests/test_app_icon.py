@@ -1,11 +1,13 @@
 """Static and runtime checks for the Easy Math app icon wiring.
 
-Covers the three icon surfaces:
+Covers the four icon surfaces:
 
 - the Qt window/taskbar icon (the single 256px PNG bundled under
   ``editor/assets`` and resolved by ``editor.paths.icon_path``),
 - the Windows executable + Inno Setup icon (the multi-size
-  ``icons/ezmath.ico`` asset, referenced only at build time), and
+  ``icons/ezmath.ico`` asset, referenced only at build time),
+- the macOS app bundle icon (the multi-size ``icons/ezmath.icns`` asset,
+  passed via PyInstaller's ``--icon`` on Darwin only), and
 - the Linux/Arch desktop entry + hicolor icons (``Icon=ezmath`` with
   one PNG per size installed under
   ``/usr/share/icons/hicolor/<size>x<size>/apps/``).
@@ -40,11 +42,20 @@ def _read(path):
 
 
 def test_icon_assets_exist_as_provided():
-    for name in ("ezmath.ico", "ezmath-icon.png"):
+    for name in ("ezmath.ico", "ezmath.icns", "ezmath-icon.png"):
         assert os.path.isfile(os.path.join(ICONS, name)), name
     for size in ICON_SIZES:
         path = os.path.join(ICONS, f"ezmath-{size}.png")
         assert os.path.isfile(path), f"missing icons/ezmath-{size}.png"
+
+
+def test_macos_icns_has_icns_magic():
+    path = os.path.join(ICONS, "ezmath.icns")
+    assert os.path.isfile(path), "missing icons/ezmath.icns"
+    with open(path, "rb") as handle:
+        magic = handle.read(4)
+    assert magic == b"icns", \
+        f"icons/ezmath.icns must start with the icns magic (got {magic!r})"
 
 
 def test_bundled_icon_is_verbatim_copy_of_icons_256():
@@ -96,17 +107,47 @@ def test_builder_embeds_ico_on_windows_only():
     text = _read(BUILDER)
     assert '"--icon"' in text
     assert "icons" in text and "ezmath.ico" in text
-    # The flag is gated on Windows: Linux ignores --icon and macOS would
-    # need an .icns bundle, which is not shipped.
+    # The Windows flag is gated on Windows (the Darwin .icns flag below
+    # is a separate gate; Linux has no --icon use at all).
     assert 'os.name == "nt"' in text
+
+
+def test_builder_passes_icon_only_on_darwin():
+    text = _read(BUILDER)
+    assert 'sys.platform == "darwin"' in text
+    assert "ezmath.icns" in text
+    # The Darwin gate applies to the editor only: the CLI/LSP console
+    # builds emit no .app bundle, so only the editor receives --icon.
+    assert 'sys.platform == "darwin" and name == "easy-math-editor"' in text
+
+
+def test_bundle_config_references_icns():
+    text = _read(BUILDER)
+    # The bundle reference names the asset at the repo-root icons/ folder.
+    assert 'ROOT / "icons" / "ezmath.icns"' in text
+    assert "MACOS_ICON" in text
+    # PyInstaller's BUNDLE step writes CFBundleIconFile from --icon; the
+    # expected layout (Contents/Resources) is documented next to the flag.
+    assert "Contents/Resources" in text
+    assert "CFBundleIconFile" in text
+    # PyInstaller's --icon is the only place the .icns/.ico are used: no
+    # --add-data may ship anything from icons/ into the Python bundle.
+    for line in text.splitlines():
+        assert "--add-data" not in line or "icons/" not in line, \
+            f"--add-data must not ship the icons/ folder: {line.strip()}"
+    # The user-facing packaging doc names the .icns + CFBundleIconFile
+    # in the macOS section, not just the builder internals.
+    packaging = _read(os.path.join(ROOT, "docs", "packaging.md"))
+    assert "ezmath.icns" in packaging
+    assert "CFBundleIconFile" in packaging
 
 
 def test_builder_bundles_only_the_256_png():
     text = _read(BUILDER)
     assert "ezmath-256.png" in text
     assert "--add-data" in text
-    # The whole icons/ folder (including the 1024px master and the .ico)
-    # must never be shipped inside the Python bundle.
+    # The whole icons/ folder (including the 1024px master, the .ico
+    # and the .icns) must never be shipped inside the Python bundle.
     for name in ("ezmath-icon.png", "ezmath-16.png", "ezmath-32.png",
                  "ezmath-48.png", "ezmath-64.png", "ezmath-128.png"):
         assert name not in text, \
