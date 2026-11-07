@@ -193,6 +193,9 @@ usr/
 ├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal
 │                          with the vendored Typst packages)
 ├── share/applications/easy-math-editor.desktop
+├── share/icons/hicolor/<size>x<size>/apps/ezmath.png  (16/32/48/64/
+│                                                        128/256; backs
+│                                                        Icon=ezmath)
 ├── share/doc/easymath/                    (README, copyright,
 │                                            THIRD_PARTY_LICENSES)
 └── share/licenses/easymath/               (LICENSE, THIRD_PARTY_LICENSES)

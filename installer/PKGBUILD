@@ -77,6 +77,13 @@ package() {
 
   install -Dm644 installer/easy-math-editor.desktop \
     "$pkgdir/usr/share/applications/easy-math-editor.desktop"
+  # Hicolor app icons backing the desktop entry's Icon=ezmath (one PNG
+  # per size; the file names match the hicolor <size>x<size> folders so
+  # menus, docks and file managers resolve the theme icon directly).
+  for size in 16 32 48 64 128 256; do
+    install -Dm644 "icons/ezmath-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/ezmath.png"
+  done
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   # MIT license text plus third-party notices (CeTZ is
   # LGPL-3.0-or-later, bundled for offline *draw).

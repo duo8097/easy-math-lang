@@ -4,6 +4,7 @@ Name=Easy Math Editor
 GenericName=Math Editor
 Comment=Write math documents in plain text (.ezmath)
 Exec=/usr/bin/easy-math-editor %F
+Icon=ezmath
 Terminal=false
 Categories=Education;Math;
 Keywords=math;typst;editor;ezmath;
