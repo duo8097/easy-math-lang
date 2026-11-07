@@ -239,6 +239,19 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
+        # Window/taskbar icon: only the single 256px PNG ships inside the
+        # Python bundle (src/editor/assets/ezmath-256.png is a verbatim copy
+        # of icons/ezmath-256.png kept inside the package so pip-installed
+        # wheels find it too, via editor.paths.icon_path). The multi-size
+        # .ico and the other PNG sizes never go into the binaries.
+        icon_png = ROOT / "src" / "editor" / "assets" / "ezmath-256.png"
+        if not icon_png.is_file():
+            raise SystemExit(
+                f"::error::{icon_png} is missing — the frozen editor "
+                f"cannot set its window icon. Copy icons/ezmath-256.png "
+                f"there first.")
+        sep = ";" if os.name == "nt" else ":"
+        cmd += ["--add-data", f"{icon_png}{sep}editor/assets"]
         # Vendored Typst packages: one copy under the shared _internal/,
         # reused by the CLI and the LSP (sys._MEIPASS/typst-packages).
         if VENDOR_TYPST_PACKAGES.is_dir():
