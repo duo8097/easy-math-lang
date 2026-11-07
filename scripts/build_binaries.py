@@ -73,10 +73,16 @@ VENDOR_TYPST_PACKAGES = ROOT / "vendor" / "typst-packages"
 
 # Windows executable icon (multi-size .ico): Explorer/taskbar icon for the
 # .exe files themselves; the Qt window icon is the bundled 256px PNG
-# above (editor build only). Passed on Windows only: PyInstaller ignores
-# --icon on Linux, and macOS would need an .icns bundle, which is not
-# shipped (the PNG window icon still applies there).
+# (editor build only). Passed on Windows only: PyInstaller has no --icon
+# use on Linux, and the macOS bundle icon is the separate .icns below.
 WINDOWS_ICON = ROOT / "icons" / "ezmath.ico"
+
+# macOS app bundle icon (multi-size .icns, already padded to the macOS
+# icon grid): PyInstaller's BUNDLE step copies it into
+# Contents/Resources/ and sets CFBundleIconFile in the generated
+# Info.plist, so Finder/Dock show it. Passed on Darwin only, and only for
+# the editor — the CLI/LSP console builds emit no .app bundle.
+MACOS_ICON = ROOT / "icons" / "ezmath.icns"
 
 
 # One frozen entry point per binary. All of them are assembled into the
@@ -229,6 +235,17 @@ def _build(name: str, import_line: str, full_pyside6: bool,
                 f"executables cannot embed their icon. Expected the "
                 f"multi-size icons/ezmath.ico asset at the repo root.")
         cmd += ["--icon", str(WINDOWS_ICON)]
+    if sys.platform == "darwin" and name == "easy-math-editor":
+        # Only the editor emits a .app bundle; the CLI/LSP console builds
+        # have no bundle to attach the icon to, so they never receive the
+        # flag. PyInstaller's BUNDLE step copies the .icns into
+        # Contents/Resources/ and writes CFBundleIconFile in Info.plist.
+        if not MACOS_ICON.is_file():
+            raise SystemExit(
+                f"::error::{MACOS_ICON} is missing — the macOS app bundle "
+                f"cannot set its icon. Expected the multi-size "
+                f"icons/ezmath.icns asset at the repo root.")
+        cmd += ["--icon", str(MACOS_ICON)]
     if strip_binaries:
         # PyInstaller strips cached native libraries BEFORE packing them.
         # Never run strip on the finished onefile executable: its appended
@@ -262,7 +279,8 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         # Python bundle (src/editor/assets/ezmath-256.png is a verbatim copy
         # of icons/ezmath-256.png kept inside the package so pip-installed
         # wheels find it too, via editor.paths.icon_path). The multi-size
-        # .ico and the other PNG sizes never go into the binaries.
+        # .ico/.icns are bundle resources (not bundle data files) and never
+        # go into the Python payload via --add-data.
         icon_png = ROOT / "src" / "editor" / "assets" / "ezmath-256.png"
         if not icon_png.is_file():
             raise SystemExit(
