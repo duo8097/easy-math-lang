@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-11-07
+
 ### Added
 - **Auto-close brackets in the desktop editor** — typing `(`, `[`, `{` or `"` inserts the matching closer when the next character is end of line, whitespace, or a closer (quotes also require the previous character not be a word character); selections are wrapped, matching closers overtype, Backspace deletes an empty pair, Enter expands `(|)` to three lines with indentation, every action is a single undo step, and IME composition and programmatic edits (paste, completion, LSP) are unaffected. Toggle: `View → Auto-close Brackets` (**Ctrl+Shift+B**, persisted as `editor/autoCloseBrackets`, default on; `src/editor/auto_pairs.py` + `src/editor/editor_widget.py`, tests in `tests/test_editor_gui.py` and `tests/test_auto_pairs.py`, docs in `docs/editor.md`).
 - Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
@@ -210,7 +212,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
 [5.2.0]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/duo8097/easy-math-lang/compare/v4.5.0...v5.0.0
