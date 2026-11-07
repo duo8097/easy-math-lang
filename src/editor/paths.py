@@ -193,3 +193,42 @@ def bundle_dir():
 def resource_path(*parts):
     """Absolute path of a runtime file shipped next to the app."""
     return os.path.join(bundle_dir(), *parts)
+
+
+def icon_path(filename='ezmath-256.png'):
+    """Absolute path of the editor window/taskbar icon, or ``None``.
+
+    The 256px PNG is the only icon shipped inside the Python bundle (the
+    multi-size .ico and the other PNG sizes are build-time / Linux-only).
+    Resolution order (first existing file wins):
+
+    1. Package data next to this module via ``importlib.resources``
+       (covers ``uv run`` from a checkout, a pip-installed wheel, and a
+       frozen build where the file was added to the bundle).
+    2. ``editor/assets/<filename>`` next to this module (same place, no
+       importlib.resources involved).
+    3. The frozen bundle layout via :func:`resource_path`
+       (``sys._MEIPASS/editor/assets/<filename>``).
+
+    Never ``cwd``-relative and never an absolute hard-coded path: in a
+    frozen PyInstaller build ``__file__`` points inside the PYZ archive,
+    so the ``sys._MEIPASS`` candidate is what actually resolves there.
+    Returns ``None`` when no candidate exists so callers can skip setting
+    an icon instead of crashing.
+    """
+    candidates = []
+    try:
+        from importlib.resources import files as _resource_files
+        candidates.append(str(_resource_files('editor') / 'assets' / filename))
+    except Exception:
+        pass
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        candidates.append(os.path.join(here, 'assets', filename))
+    except Exception:
+        pass
+    candidates.append(resource_path('editor', 'assets', filename))
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    return None

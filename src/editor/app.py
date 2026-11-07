@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from PySide6 import QtWidgets
+from PySide6 import QtGui, QtWidgets
 
 from .main_window import MainWindow
 
@@ -19,6 +19,22 @@ def _app_version():
     except Exception:
         pass
     return '6.0.0'
+
+
+def _set_application_icon(app):
+    """Set the window/taskbar icon on the application (never raises)."""
+    try:
+        from .paths import icon_path
+
+        path = icon_path()
+        if path:
+            icon = QtGui.QIcon(path)
+            if not icon.isNull():
+                app.setWindowIcon(icon)
+    except Exception:
+        # A missing icon must never prevent the editor from launching;
+        # the default Qt icon is used instead.
+        pass
 
 
 def parse_args(argv=None):
@@ -50,6 +66,7 @@ def main(argv=None):
         sys.argv if argv is None else ['easy-math-editor'])
     app.setOrganizationName('easy-math-lang')
     app.setApplicationName('easy-math-editor')
+    _set_application_icon(app)
     window = MainWindow(no_save_prompt=args.no_save_prompt)
     if args.path:
         window.open_path(args.path)

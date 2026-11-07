@@ -71,6 +71,20 @@ SHARED_DIR = "easy-math-lang"
 VENDOR_TYPST_PACKAGES = ROOT / "vendor" / "typst-packages"
 
 
+# Windows executable icon (multi-size .ico): Explorer/taskbar icon for the
+# .exe files themselves; the Qt window icon is the bundled 256px PNG
+# (editor build only). Passed on Windows only: PyInstaller has no --icon
+# use on Linux, and the macOS bundle icon is the separate .icns below.
+WINDOWS_ICON = ROOT / "icons" / "ezmath.ico"
+
+# macOS app bundle icon (multi-size .icns, already padded to the macOS
+# icon grid): PyInstaller's BUNDLE step copies it into
+# Contents/Resources/ and sets CFBundleIconFile in the generated
+# Info.plist, so Finder/Dock show it. Passed on Darwin only, and only for
+# the editor — the CLI/LSP console builds emit no .app bundle.
+MACOS_ICON = ROOT / "icons" / "ezmath.icns"
+
+
 # One frozen entry point per binary. All of them are assembled into the
 # same shared onedir directory at the end of the build.
 ENTRIES = {
@@ -210,6 +224,28 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         cmd += ["--onedir", "--console"]
     else:
         raise AssertionError(f"unknown entry point: {name}")
+    if os.name == "nt":
+        # The CLI/LSP/editor executables are separate .exe files that share
+        # one _internal/, so give all three the same embedded icon. The
+        # ezmath alias on Windows is a copy of easy-math-lang.exe and
+        # inherits it automatically.
+        if not WINDOWS_ICON.is_file():
+            raise SystemExit(
+                f"::error::{WINDOWS_ICON} is missing — the frozen Windows "
+                f"executables cannot embed their icon. Expected the "
+                f"multi-size icons/ezmath.ico asset at the repo root.")
+        cmd += ["--icon", str(WINDOWS_ICON)]
+    if sys.platform == "darwin" and name == "easy-math-editor":
+        # Only the editor emits a .app bundle; the CLI/LSP console builds
+        # have no bundle to attach the icon to, so they never receive the
+        # flag. PyInstaller's BUNDLE step copies the .icns into
+        # Contents/Resources/ and writes CFBundleIconFile in Info.plist.
+        if not MACOS_ICON.is_file():
+            raise SystemExit(
+                f"::error::{MACOS_ICON} is missing — the macOS app bundle "
+                f"cannot set its icon. Expected the multi-size "
+                f"icons/ezmath.icns asset at the repo root.")
+        cmd += ["--icon", str(MACOS_ICON)]
     if strip_binaries:
         # PyInstaller strips cached native libraries BEFORE packing them.
         # Never run strip on the finished onefile executable: its appended
@@ -239,6 +275,20 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
+        # Window/taskbar icon: only the single 256px PNG ships inside the
+        # Python bundle (src/editor/assets/ezmath-256.png is a verbatim copy
+        # of icons/ezmath-256.png kept inside the package so pip-installed
+        # wheels find it too, via editor.paths.icon_path). The multi-size
+        # .ico/.icns are bundle resources (not bundle data files) and never
+        # go into the Python payload via --add-data.
+        icon_png = ROOT / "src" / "editor" / "assets" / "ezmath-256.png"
+        if not icon_png.is_file():
+            raise SystemExit(
+                f"::error::{icon_png} is missing — the frozen editor "
+                f"cannot set its window icon. Copy icons/ezmath-256.png "
+                f"there first.")
+        sep = ";" if os.name == "nt" else ":"
+        cmd += ["--add-data", f"{icon_png}{sep}editor/assets"]
         # Vendored Typst packages: one copy under the shared _internal/,
         # reused by the CLI and the LSP (sys._MEIPASS/typst-packages).
         if VENDOR_TYPST_PACKAGES.is_dir():

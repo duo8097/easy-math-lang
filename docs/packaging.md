@@ -141,6 +141,15 @@ The build is still experimental / ad-hoc signed, not notarized:
 | `easy-math-lsp` | onedir CLI | Language server |
 | `easy-math-editor.app` | GUI bundle (`--onedir --windowed`) | Desktop editor; helpers bundled in `Contents/MacOS/` |
 
+The `.app` carries the Easy Math icon: PyInstaller's BUNDLE step copies
+`icons/ezmath.icns` into `Contents/Resources/` and writes the matching
+`CFBundleIconFile` entry into the generated `Info.plist`, so Finder and
+the Dock show it. Only the `.icns` goes into the bundle; the runtime Qt
+window icon stays the single bundled 256px PNG (see above) on every
+platform. The DMG volume itself carries no custom icon (the plain
+`hdiutil create` invocation has no volume-icon option), so the visible
+icon is the `.app`'s own Finder icon inside the image.
+
 Staged DMG layout (only the `.app` ships, so dragging it alone to
 `/Applications` keeps working — `editor/paths.py` finds the helpers
 inside the bundle without `PATH`):
@@ -193,6 +202,9 @@ usr/
 ├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal
 │                          with the vendored Typst packages)
 ├── share/applications/easy-math-editor.desktop
+├── share/icons/hicolor/<size>x<size>/apps/ezmath.png  (16/32/48/64/
+│                                                        128/256; backs
+│                                                        Icon=ezmath)
 ├── share/doc/easymath/                    (README, copyright,
 │                                            THIRD_PARTY_LICENSES)
 └── share/licenses/easymath/               (LICENSE, THIRD_PARTY_LICENSES)

@@ -18,6 +18,8 @@
 #     + one shared _internal/ (the PyInstaller onedir bundle for the
 #     compiler CLI, the language server and the desktop editor)
 #   /usr/share/applications/easy-math-editor.desktop
+#   /usr/share/icons/hicolor/<size>x<size>/apps/ezmath.png (16/32/48/64/
+#     128/256, backing the desktop entry's Icon=ezmath)
 #   /usr/share/doc/easymath/                    (README, copyright,
 #                                                 THIRD_PARTY_LICENSES)
 #   /usr/share/licenses/easymath/               (LICENSE,
@@ -64,6 +66,12 @@ ls -l "$STAGE/usr/bin" "$STAGE/usr/lib/easy-math-lang"
 
 install -m644 installer/easy-math-editor.desktop \
   "$STAGE/usr/share/applications/easy-math-editor.desktop"
+# Hicolor app icons backing the desktop entry's Icon=ezmath (mirrors
+# the PKGBUILD package() installs; one PNG per size).
+for size in 16 32 48 64 128 256; do
+  install -m644 -D "icons/ezmath-${size}.png" \
+    "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps/ezmath.png"
+done
 install -m644 README.md "$STAGE/usr/share/doc/easymath/README.md"
 install -m644 LICENSE "$STAGE/usr/share/licenses/easymath/LICENSE"
 # MIT license text plus third-party notices (CeTZ is LGPL-3.0-or-later,
@@ -132,6 +140,12 @@ cp -a %{_sourcedir}/stage/* %{buildroot}/
 /usr/bin/easy-math-editor
 /usr/lib/easy-math-lang/
 /usr/share/applications/easy-math-editor.desktop
+/usr/share/icons/hicolor/16x16/apps/ezmath.png
+/usr/share/icons/hicolor/32x32/apps/ezmath.png
+/usr/share/icons/hicolor/48x48/apps/ezmath.png
+/usr/share/icons/hicolor/64x64/apps/ezmath.png
+/usr/share/icons/hicolor/128x128/apps/ezmath.png
+/usr/share/icons/hicolor/256x256/apps/ezmath.png
 /usr/share/doc/easymath/
 /usr/share/licenses/easymath/
 EOF

@@ -11,6 +11,11 @@ PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLang-Windows-x64-Setup
+; Installer icon (also shown in Add/Remove Programs via
+; UninstallDisplayIcon): the multi-size icons/ezmath.ico asset, whose
+; path is relative to this script (installer\ -> repo root icons\).
+SetupIconFile=..\icons\ezmath.ico
+UninstallDisplayIcon=..\icons\ezmath.ico
 Compression=lzma2/fast
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible

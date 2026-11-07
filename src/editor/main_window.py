@@ -50,7 +50,7 @@ from .symbol_dialog import SymbolDialog
 from .symbol_registry import build_source, cursor_offset_for_insert, get_symbol
 from .lsp_client import LspClient, default_server_command
 from .outline_panel import OutlinePanel
-from .paths import resolve_compiler_command
+from .paths import icon_path, resolve_compiler_command
 from .preview import PREVIEW_DEBOUNCE_MS
 from .preview_panel import PreviewPanel
 from .problems_panel import ProblemsPanel
@@ -110,6 +110,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle('Easy-Math-Lang Editor')
         self.resize(1100, 750)
         self._no_save_prompt = no_save_prompt
+        # Window/taskbar icon (256px PNG bundled in editor/assets). A
+        # missing file keeps the default icon instead of blocking startup.
+        try:
+            icon_file = icon_path()
+            if icon_file:
+                icon = QtGui.QIcon(icon_file)
+                if not icon.isNull():
+                    self.setWindowIcon(icon)
+        except Exception:
+            pass
 
         self._file_path = None
         self._untitled_count = 0
