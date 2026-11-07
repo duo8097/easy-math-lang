@@ -71,6 +71,14 @@ SHARED_DIR = "easy-math-lang"
 VENDOR_TYPST_PACKAGES = ROOT / "vendor" / "typst-packages"
 
 
+# Windows executable icon (multi-size .ico): Explorer/taskbar icon for the
+# .exe files themselves; the Qt window icon is the bundled 256px PNG
+# above (editor build only). Passed on Windows only: PyInstaller ignores
+# --icon on Linux, and macOS would need an .icns bundle, which is not
+# shipped (the PNG window icon still applies there).
+WINDOWS_ICON = ROOT / "icons" / "ezmath.ico"
+
+
 # One frozen entry point per binary. All of them are assembled into the
 # same shared onedir directory at the end of the build.
 ENTRIES = {
@@ -210,6 +218,17 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         cmd += ["--onedir", "--console"]
     else:
         raise AssertionError(f"unknown entry point: {name}")
+    if os.name == "nt":
+        # The CLI/LSP/editor executables are separate .exe files that share
+        # one _internal/, so give all three the same embedded icon. The
+        # ezmath alias on Windows is a copy of easy-math-lang.exe and
+        # inherits it automatically.
+        if not WINDOWS_ICON.is_file():
+            raise SystemExit(
+                f"::error::{WINDOWS_ICON} is missing — the frozen Windows "
+                f"executables cannot embed their icon. Expected the "
+                f"multi-size icons/ezmath.ico asset at the repo root.")
+        cmd += ["--icon", str(WINDOWS_ICON)]
     if strip_binaries:
         # PyInstaller strips cached native libraries BEFORE packing them.
         # Never run strip on the finished onefile executable: its appended
