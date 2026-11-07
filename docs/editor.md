@@ -173,6 +173,23 @@ now, sharing one library directory.
   chrome, editor background, line numbers, syntax colors, and find
   highlights — between light and dark. Your choice is remembered
   between launches.
+- `View → Auto-close Brackets` (**Ctrl+Shift+B**): when enabled,
+  typing an opening bracket or quote auto-inserts its closer.
+  Pairs are `( )`, `[ ]`, `{ }` and `""` — `<`, `$`, backtick and `'`
+  are deliberately not paired. Insertion happens only when the next
+  character is end of line, whitespace, or a closer; before a word
+  character only the opener is inserted. For `"`, no pairing occurs
+  when the previous character is a word character (so `5"` in prose is
+  left alone). With a selection, the opener wraps the selection
+  (`(selection)`) and keeps it selected. Typing a matching closer
+  overtypes it instead of inserting a duplicate; Backspace between
+  an empty pair deletes both characters; Enter between an empty pair
+  expands it to three lines with proper indentation. Each auto-pair
+  action is a single undo step. IME composition (Vietnamese Telex/VNI,
+  fcitx5/ibus, CJK IMEs) is never disturbed, and programmatic edits
+  (paste, completion insertion, LSP changes) never auto-pair. The
+  setting is persisted in `~/.config/ezmath/config.ini` under
+  `editor/autoCloseBrackets` (default on).
 - The editor uses a monospace font with line numbers, a highlighted
   current line, and 4-space tab stops.
 - `View → Editor Font…`: pick the editor font family and size
@@ -220,6 +237,7 @@ on first launch.
 | Command Palette | View | Ctrl+Shift+P |
 | Geometry Gallery (`*draw`) | View | Ctrl+Shift+G |
 | Toggle Outline / Problems / Preview, Zoom, Dark Mode | View | Ctrl+=, Ctrl+-, Ctrl+0, Ctrl+Shift+V, Ctrl+Shift+D |
+| Auto-close brackets toggle | View | Ctrl+Shift+B |
 | Compile to PDF | Build | Ctrl+B |
 | Refresh Preview | Build | F5 |
 | Restart Language Server | Build | — |
