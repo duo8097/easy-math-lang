@@ -526,3 +526,222 @@ def test_programmatic_insert_does_not_retrigger_completion(window):
     window.editor.moveCursor(QtGui.QTextCursor.End)
     window._insert_completion('frac')
     assert requested == []
+
+
+def _press_key(widget, key, text, modifiers=None):
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
+
+    mods = Qt.NoModifier if modifiers is None else modifiers
+    widget.keyPressEvent(QKeyEvent(QEvent.KeyPress, key, mods, text))
+
+
+def _set_editor_text(window, text, cursor_pos=None):
+    window.editor.setPlainText(text)
+    cursor = window.editor.textCursor()
+    cursor.movePosition(QtGui.QTextCursor.End)
+    if cursor_pos is not None:
+        cursor.setPosition(cursor_pos)
+    window.editor.setTextCursor(cursor)
+
+
+def test_auto_close_opener_inserts_pair_with_cursor_between(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'before')
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+
+    assert window.editor.toPlainText() == 'before()'
+    assert window.editor.textCursor().position() == 7
+
+
+def test_auto_close_all_pairs(window):
+    from PySide6.QtCore import Qt
+
+    keys = {
+        '(': (Qt.Key_ParenLeft, ')'),
+        '[': (Qt.Key_BracketLeft, ']'),
+        '{': (Qt.Key_BraceLeft, '}'),
+    }
+    for opener, (key, closer) in keys.items():
+        _set_editor_text(window, '')
+        _press_key(window.editor, key, opener)
+        assert window.editor.toPlainText() == f'{opener}{closer}'
+        assert window.editor.textCursor().position() == 1
+        assert window.editor.textCursor().positionInBlock() == 1
+
+
+def test_auto_close_quote_pairs(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, ' ')
+    _press_key(window.editor, Qt.Key_QuoteLeft, '"')
+
+    assert '"' in window.editor.toPlainText()
+    # Cursor should be between the two quotes.
+    assert window.editor.textCursor().positionInBlock() == 2
+
+
+def test_auto_close_disabled(window):
+    from PySide6.QtCore import Qt
+
+    window.editor._auto_close_brackets = False
+    _set_editor_text(window, '')
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+
+    assert window.editor.toPlainText() == '('
+    assert window.editor.textCursor().position() == 1
+
+
+def test_auto_close_no_pair_before_word_char(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'test', cursor_pos=0)
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+
+    assert window.editor.toPlainText() == '(test'
+    assert window.editor.textCursor().position() == 1
+
+
+def test_auto_close_quote_not_paired_after_word_char(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'test')
+    _press_key(window.editor, Qt.Key_QuoteLeft, '"')
+
+    assert window.editor.toPlainText() == 'test"'
+    assert '"' in window.editor.toPlainText()
+    assert window.editor.toPlainText().count('"') == 1
+
+
+def test_auto_close_wrap_selection(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'hello world')
+    cursor = window.editor.textCursor()
+    cursor.setPosition(0)
+    cursor.movePosition(QtGui.QTextCursor.Right, QtGui.QTextCursor.KeepAnchor, 5)
+    window.editor.setTextCursor(cursor)
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+
+    assert window.editor.toPlainText() == '(hello) world'
+    cursor = window.editor.textCursor()
+    assert cursor.selectedText() == 'hello'
+
+
+def test_auto_close_overtype_closer(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'hello)', cursor_pos=5)
+    assert window.editor.textCursor().position() == 5
+    _press_key(window.editor, Qt.Key_ParenRight, ')')
+
+    assert window.editor.toPlainText() == 'hello)'
+    assert window.editor.textCursor().position() == 6
+
+
+def test_auto_close_no_overtype_of_non_matching_char(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, 'hello]', cursor_pos=5)
+    _press_key(window.editor, Qt.Key_ParenRight, ')')
+
+    # Non-matching closer is inserted normally.
+    assert window.editor.toPlainText() == 'hello)]'
+
+
+def test_auto_close_backspace_deletes_empty_pair(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, '()', cursor_pos=1)
+    _press_key(window.editor, Qt.Key_Backspace, '')
+
+    assert window.editor.toPlainText() == ''
+
+
+def test_auto_close_backspace_not_delete_non_empty_pair(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, '(x)', cursor_pos=1)
+    _press_key(window.editor, Qt.Key_Backspace, '')
+
+    assert window.editor.toPlainText() == 'x)'
+
+
+def test_auto_close_enter_expands_empty_pair(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, '    ()', cursor_pos=5)
+    _press_key(window.editor, Qt.Key_Return, '')
+
+    text = window.editor.toPlainText()
+    assert text.count('\n') == 2
+    lines = text.split('\n')
+    assert len(lines) == 3
+    assert lines[0].strip() == '('
+    assert lines[2].strip() == ')'
+    # Middle line is empty with indentation; cursor is there.
+    assert lines[1].strip() == ''
+
+
+def test_auto_close_undo_removes_pair_in_one_step(window):
+    from PySide6.QtCore import Qt
+
+    _set_editor_text(window, '')
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+    assert window.editor.toPlainText() == '()'
+
+    window.editor.undo()
+    assert window.editor.toPlainText() == ''
+
+
+def test_auto_close_programmatic_insert_does_not_pair(window):
+    _set_editor_text(window, '')
+    window.editor.insertPlainText('()')
+
+    # insertPlainText is programmatic and never goes through keyPressEvent.
+    assert window.editor.toPlainText() == '()'
+    assert window.editor.textCursor().position() == 2
+
+
+def test_auto_close_settings_toggle_persists(window):
+    # Simulate the menu action triggering the toggle handler directly
+    # (QAction.trigger() on a checkable action has Qt-version quirks).
+    window._auto_close_brackets_action.setChecked(False)
+    window._toggle_auto_close_brackets()
+    assert window._settings.value('editor/autoCloseBrackets', True, type=bool) is False
+    assert window.editor._auto_close_brackets is False
+
+    window._auto_close_brackets_action.setChecked(True)
+    window._toggle_auto_close_brackets()
+    assert window._settings.value('editor/autoCloseBrackets', True, type=bool) is True
+    assert window.editor._auto_close_brackets is True
+
+
+def test_auto_close_ime_event_not_altered(window):
+    # IME composition happens via QInputMethodEvent, not via the
+    # single-character KeyEvent path that keyPressEvent handles.
+    # Programmatic insertPlainText (what paste/LSP/completion use)
+    # must never auto-pair.
+    _set_editor_text(window, 'test')
+    window.editor.insertPlainText('()')
+    assert window.editor.toPlainText() == 'test()'
+    assert window.editor.textCursor().position() == 6
+
+
+def test_auto_close_non_ascii_text_keeps_lsp_positions(window):
+    from PySide6.QtCore import Qt
+    from editor import positions
+
+    _set_editor_text(window, 'đã xong')
+    _press_key(window.editor, Qt.Key_ParenLeft, '(')
+
+    assert window.editor.toPlainText() == 'đã xong()'
+    # The point of the exercise: cursor_line_col (UTF-16) stays intact
+    # after an auto-paired edit with non-ASCII text before the cursor.
+    line, col = window.editor.cursor_line_col()
+    assert line == 0
+    # 'đã xong(' is 8 UTF-16 units (all BMP).
+    assert col == 8
+    # Round-trip through the LSP position helpers.
+    assert positions.to_lsp_offset('đã xong()', col) == col
