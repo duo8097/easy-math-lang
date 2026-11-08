@@ -3,6 +3,7 @@
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .qt_text import install_text_context_menu
 
 
 class FindBar(QtWidgets.QWidget):
@@ -19,6 +20,7 @@ class FindBar(QtWidgets.QWidget):
         self._input = QtWidgets.QLineEdit(self)
         self._input.setPlaceholderText(i18n.tr('find.placeholder'))
         self._input.setClearButtonEnabled(True)
+        install_text_context_menu(self._input)
         layout.addWidget(self._input, 1)
 
         self._count = QtWidgets.QLabel('', self)

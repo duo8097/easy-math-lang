@@ -73,6 +73,9 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             QtCore.Qt.WidgetWithChildrenShortcut)
         self._completion_shortcut.activated.connect(
             self.completionRequested.emit)
+        # Translated context menu (Qt has no Vietnamese catalog).
+        from .qt_text import install_text_context_menu
+        install_text_context_menu(self)
 
     def set_theme(self, theme):
         """Apply a light/dark color set (see :mod:`editor.theme`)."""

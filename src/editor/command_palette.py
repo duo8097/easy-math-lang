@@ -51,7 +51,8 @@ class CommandPalette(QtWidgets.QDialog):
         self._input.textChanged.connect(self._refilter)
         self._input.returnPressed.connect(self._accept_current)
         self._list.itemActivated.connect(self._accept_item)
-        self.resize(520, 340)
+        self.resize(560, 340)
+        self.setMinimumWidth(420)
 
     def set_commands(self, commands):
         """Set available ``(id, title, shortcut_hint)`` commands."""

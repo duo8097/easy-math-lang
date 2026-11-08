@@ -45,7 +45,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from .command_palette import CommandPalette
 from .editor_widget import EditorWidget
 from .find_bar import FindBar
-from .help_dialogs import EXAMPLES, ShortcutsDialog, WelcomePanel, example_source
+from .help_dialogs import (EXAMPLES, AboutDialog, ShortcutsDialog,
+                           WelcomePanel, example_source)
 from .symbol_bar import SymbolBar
 from .symbol_dialog import SymbolDialog
 from .symbol_registry import build_source, cursor_offset_for_insert, get_symbol
@@ -58,6 +59,9 @@ from .problems_panel import ProblemsPanel
 from .config import default_settings
 from .recent import RecentFiles
 from . import friendly_errors, i18n
+from .qt_text import (critical as _qt_critical,
+                      question as _qt_question,
+                      translate_file_dialog, translate_input_dialog)
 from . import theme as app_theme
 
 SUPPORTED_SUFFIXES = ('.ezmath', '.eml')
@@ -1162,10 +1166,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def _go_to_line(self):
         current = self.editor.textCursor().blockNumber() + 1
         total = max(1, self.editor.blockCount())
-        line, ok = QtWidgets.QInputDialog.getInt(
-            self, i18n.tr('dialog.goto_title'),
-            i18n.tr('dialog.goto_label', total=total),
-            current, 1, total, 1)
+        _dlg = QtWidgets.QInputDialog(self)
+        _dlg.setWindowTitle(i18n.tr('dialog.goto_title'))
+        _dlg.setLabelText(i18n.tr('dialog.goto_label', total=total))
+        _dlg.setIntRange(1, total)
+        _dlg.setIntValue(current)
+        translate_input_dialog(_dlg)
+        ok = _dlg.exec() == QtWidgets.QDialog.Accepted
+        line = _dlg.intValue() if ok else current
         if ok:
             self._goto(line - 1, 0)
             self.editor.setFocus()
@@ -1207,7 +1215,7 @@ class MainWindow(QtWidgets.QMainWindow):
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
+            _qt_critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)
@@ -1235,14 +1243,15 @@ class MainWindow(QtWidgets.QMainWindow):
             return True
         if not self.editor.document().isModified():
             return True
-        answer = QtWidgets.QMessageBox.question(
+        answer = _qt_question(
             self, i18n.tr('dialog.unsaved_title'),
             i18n.tr('dialog.unsaved_save', name=self._display_name()),
-            QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard |
-            QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.Save)
-        if answer == QtWidgets.QMessageBox.Save:
+            [('btn.save', QtWidgets.QMessageBox.AcceptRole),
+             ('btn.discard', QtWidgets.QMessageBox.DestructiveRole),
+             ('btn.cancel', QtWidgets.QMessageBox.RejectRole)])
+        if answer == QtWidgets.QMessageBox.AcceptRole:
             return self._save()
-        return answer == QtWidgets.QMessageBox.Discard
+        return answer == QtWidgets.QMessageBox.DestructiveRole
 
     def _switch_document(self, path, text):
         self._close_current_in_lsp()
@@ -1275,14 +1284,12 @@ class MainWindow(QtWidgets.QMainWindow):
         ``QFileDialog.getOpen/SaveFileName`` helpers.
         """
         file_filter = i18n.tr('dialog.file_filter')
-        if self._theme_name != app_theme.DARK:
-            if save:
-                return QtWidgets.QFileDialog.getSaveFileName(
-                    self, title, '', file_filter)
-            return QtWidgets.QFileDialog.getOpenFileName(
-                self, title, '', file_filter)
+        # Always a Qt-drawn dialog: native dialogs cannot be
+        # translated (Qt has no Vietnamese catalog) and ignore the
+        # app theme. Labels/buttons are set from the catalog.
         dialog = QtWidgets.QFileDialog(self, title, '', file_filter)
         dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        translate_file_dialog(dialog)
         if save:
             dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         else:
@@ -1303,7 +1310,7 @@ class MainWindow(QtWidgets.QMainWindow):
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
+            _qt_critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)
@@ -1314,7 +1321,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self._atomic_write(self._file_path, self.editor.toPlainText())
         except (OSError, UnicodeEncodeError) as e:
-            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.save_failed'), str(e))
+            _qt_critical(self, i18n.tr('dialog.save_failed'), str(e))
             return False
         self.editor.document().setModified(False)
         self._update_title()
@@ -1354,7 +1361,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self._atomic_write(path, self.editor.toPlainText())
         except (OSError, UnicodeEncodeError) as e:
-            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.save_failed'), str(e))
+            _qt_critical(self, i18n.tr('dialog.save_failed'), str(e))
             return False
         self._recent.add(path)
         cursor_pos = self.editor.textCursor().position()
@@ -1373,13 +1380,14 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     def _compile(self):
         if self.editor.document().isModified():
-            answer = QtWidgets.QMessageBox.question(
+            answer = _qt_question(
                 self, i18n.tr('dialog.unsaved_title'), i18n.tr('dialog.save_before_compile'),
-                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard |
-                QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.Save)
-            if answer == QtWidgets.QMessageBox.Cancel:
+                [('btn.save', QtWidgets.QMessageBox.AcceptRole),
+                 ('btn.discard', QtWidgets.QMessageBox.DestructiveRole),
+                 ('btn.cancel', QtWidgets.QMessageBox.RejectRole)])
+            if answer == QtWidgets.QMessageBox.RejectRole:
                 return
-            if answer == QtWidgets.QMessageBox.Save and not self._save():
+            if answer == QtWidgets.QMessageBox.AcceptRole and not self._save():
                 return
         if self._file_path is None:
             self.statusBar().showMessage(i18n.tr('status.save_before_compile'), 5000)
@@ -1432,7 +1440,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             _raw = output.strip()[-2000:] or i18n.tr(
                 'dialog.compile_failed_code', code=exit_code)
-            QtWidgets.QMessageBox.critical(
+            _qt_critical(
                 self, i18n.tr('dialog.compile_failed'),
                 friendly_errors.format_for_display(_raw))
 
@@ -1449,38 +1457,36 @@ class MainWindow(QtWidgets.QMainWindow):
         if fmt == 'typst':
             fmt = 'typ'
         filters = {
-            'pdf': 'PDF (*.pdf)',
-            'png': 'PNG Image (*.png)',
-            'svg': 'SVG Image (*.svg)',
-            'html': 'HTML (*.html)',
-            'typ': 'Typst Source (*.typ)',
+            fmt: i18n.tr(f'export.fmt.{fmt}')
+            for fmt in ('pdf', 'png', 'svg', 'html', 'typ')
         }
         filt = filters.get(fmt, 'All files (*)')
         base = ''
         if self._file_path:
             base, _ = os.path.splitext(self._file_path)
             base = f'{base}.{fmt}'
-        if self._theme_name == app_theme.DARK:
-            dialog = QtWidgets.QFileDialog(
-                self, i18n.tr('dialog.export_title', fmt=fmt.upper()), base, filt)
-            dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
-            dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
-            if not dialog.exec():
-                return
-            files = dialog.selectedFiles()
-            if not files:
-                return
-            path = files[0]
-        else:
-            path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, i18n.tr('dialog.export_title', fmt=fmt.upper()), base, filt)
-            if not path:
-                return
+        dialog = QtWidgets.QFileDialog(
+            self, i18n.tr('dialog.export_title', fmt=fmt.upper()), base, filt)
+        dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+        translate_file_dialog(dialog)
+        if not dialog.exec():
+            return
+        files = dialog.selectedFiles()
+        if not files:
+            return
+        path = files[0]
         ppi = None
         if fmt == 'png':
-            ppi, ok = QtWidgets.QInputDialog.getInt(
-                self, i18n.tr('dialog.png_resolution'),
-                i18n.tr('dialog.png_resolution_label'), 150, 72, 600, 10)
+            _ppi_dialog = QtWidgets.QInputDialog(self)
+            _ppi_dialog.setWindowTitle(i18n.tr('dialog.png_resolution'))
+            _ppi_dialog.setLabelText(i18n.tr('dialog.png_resolution_label'))
+            _ppi_dialog.setIntRange(72, 600)
+            _ppi_dialog.setIntStep(10)
+            _ppi_dialog.setIntValue(150)
+            translate_input_dialog(_ppi_dialog)
+            ok = _ppi_dialog.exec() == QtWidgets.QDialog.Accepted
+            ppi = _ppi_dialog.intValue() if ok else 150
             if not ok:
                 return
         try:
@@ -1489,7 +1495,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.editor.toPlainText(), path, format=fmt, ppi=ppi,
                 source_path=self._file_path)
         except Exception as exc:  # never crash the editor on export
-            QtWidgets.QMessageBox.critical(
+            _qt_critical(
                 self, i18n.tr('dialog.export_failed'),
                 friendly_errors.format_for_display(
                     i18n.tr('dialog.export_failed_msg', detail=exc)))
@@ -1501,7 +1507,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage(i18n.tr('status.exported_to', path=shown), 8000)
         else:
             log = (res.get('log') or '').strip() if isinstance(res, dict) else ''
-            QtWidgets.QMessageBox.critical(
+            _qt_critical(
                 self, i18n.tr('dialog.export_failed'),
                 friendly_errors.format_for_display(
                     log[-2000:] if log else i18n.tr('dialog.export_failed_fallback')))
@@ -1570,14 +1576,8 @@ class MainWindow(QtWidgets.QMainWindow):
         export_menu = file_menu.addMenu(i18n.tr('action.export_as'))
         self._register(export_menu, 'action.export_as', 'action.export_as.tip')
         self._menus['export'] = export_menu
-        for _fmt, _label in (
-            ('pdf', '&PDF (.pdf)'),
-            ('png', 'PNG &Image (.png)'),
-            ('svg', '&SVG Image (.svg)'),
-            ('html', '&HTML (.html)'),
-            ('typ', '&Typst Source (.typ)'),
-        ):
-            _act = export_menu.addAction(_label)
+        for _fmt in ('pdf', 'png', 'svg', 'html', 'typ'):
+            _act = export_menu.addAction(i18n.tr(f'export.fmt.{_fmt}'))
             _act.setStatusTip(i18n.tr('action.export.fmt', fmt=_fmt.upper()))
             _act.triggered.connect(self._weak_slot(self._export_as, _fmt))
         file_menu.addSeparator()
@@ -1707,8 +1707,11 @@ class MainWindow(QtWidgets.QMainWindow):
         shortcuts_action = help_menu.addAction(i18n.tr('action.shortcuts'))
         self._register(shortcuts_action, 'action.shortcuts', 'action.shortcuts.tip')
         shortcuts_action.triggered.connect(self._show_shortcuts)
+        about_action = help_menu.addAction(i18n.tr('action.about'))
+        self._register(about_action, 'action.about', 'action.about.tip')
+        about_action.triggered.connect(self._show_about)
 
-        self._toolbar = self.addToolBar('Main Toolbar')
+        self._toolbar = self.addToolBar(i18n.tr('toolbar.main'))
         self._toolbar.addAction(new_action)
         self._toolbar.addAction(open_action)
         self._toolbar.addAction(save_action)
@@ -1762,6 +1765,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
         try:
             self._preview_action.setStatusTip(i18n.tr('preview.status_tip'))
+        except AttributeError:
+            pass
+        try:
+            self._toolbar.setWindowTitle(i18n.tr('toolbar.main'))
         except AttributeError:
             pass
         self._problems_button.setToolTip(i18n.tr('status.show_problems'))
@@ -1884,6 +1891,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _show_shortcuts(self):
         ShortcutsDialog(self).exec()
+
+    def _show_about(self):
+        from .app import _app_version
+        AboutDialog(version=_app_version(), parent=self).exec()
 
     # ------------------------------------------------------------------
     # Editor text size
@@ -2285,7 +2296,7 @@ class MainWindow(QtWidgets.QMainWindow):
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
+            _qt_critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)

@@ -150,9 +150,10 @@ def test_no_save_prompt_closes_dirty_doc_without_dialog(qapp):
 
 def test_save_prompt_asked_by_default_but_skipped_with_flag(qapp, monkeypatch):
     calls = []
+    import editor.main_window as _mw
     monkeypatch.setattr(
-        QtWidgets.QMessageBox, 'question',
-        lambda *a, **k: calls.append(True) or QtWidgets.QMessageBox.Discard,
+        _mw, '_qt_question',
+        lambda *a, **k: calls.append(True) or QtWidgets.QMessageBox.DestructiveRole,
     )
     plain = MainWindow(start_lsp=False)
     try:
@@ -322,8 +323,10 @@ def test_find_bar_toggle_prefills_word(window):
 
 def test_go_to_line(window, monkeypatch):
     window.editor.setPlainText('a\nb\nc\n')
-    monkeypatch.setattr(QtWidgets.QInputDialog, 'getInt',
-                        lambda *a, **k: (2, True))
+    monkeypatch.setattr(QtWidgets.QInputDialog, 'exec',
+                        lambda self: QtWidgets.QDialog.Accepted)
+    monkeypatch.setattr(QtWidgets.QInputDialog, 'intValue',
+                        lambda self: 2)
     window._go_to_line()
     assert window.editor.textCursor().blockNumber() == 1
 
