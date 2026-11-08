@@ -45,6 +45,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from .command_palette import CommandPalette
 from .editor_widget import EditorWidget
 from .find_bar import FindBar
+from .help_dialogs import EXAMPLES, ShortcutsDialog, WelcomePanel, example_source
 from .symbol_bar import SymbolBar
 from .symbol_dialog import SymbolDialog
 from .symbol_registry import build_source, cursor_offset_for_insert, get_symbol
@@ -56,6 +57,7 @@ from .preview_panel import PreviewPanel
 from .problems_panel import ProblemsPanel
 from .config import default_settings
 from .recent import RecentFiles
+from . import friendly_errors, i18n
 from . import theme as app_theme
 
 SUPPORTED_SUFFIXES = ('.ezmath', '.eml')
@@ -107,7 +109,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, start_lsp=True, parent=None, no_save_prompt=False):
         super().__init__(parent)
-        self.setWindowTitle('Easy-Math-Lang Editor')
+        # Language first: every widget built below reads the current
+        # translator at construction time. The saved choice wins;
+        # otherwise the system locale decides (English fallback).
+        self._settings = default_settings()
+        self._language = i18n.load_setting_language(self._settings)
+        self._menu_specs = []  # (widget, text key, tip key, params)
+        self._menus = {}
+        self.setWindowTitle(i18n.tr('app.title_suffix'))
         self.resize(1100, 750)
         self._no_save_prompt = no_save_prompt
         # Window/taskbar icon (256px PNG bundled in editor/assets). A
@@ -140,6 +149,14 @@ class MainWindow(QtWidgets.QMainWindow):
         central_layout = QtWidgets.QVBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
+        # First-run welcome banner (hidden unless maybe_show_welcome
+        # is called by the app entry point; see app.main).
+        self._welcome_panel = WelcomePanel(self)
+        self._welcome_panel.openExampleRequested.connect(
+            self._insert_example)
+        self._welcome_panel.dismissed.connect(self._dismiss_welcome)
+        self._welcome_panel.hide()
+        central_layout.addWidget(self._welcome_panel)
         central_layout.addWidget(self._find_bar)
         self._symbol_bar = SymbolBar(self)
         self._symbol_bar.symbolChosen.connect(self._on_symbol_activated)
@@ -154,35 +171,36 @@ class MainWindow(QtWidgets.QMainWindow):
         self._draw_template = None
 
         self.outline = OutlinePanel(self)
-        self._outline_dock = QtWidgets.QDockWidget('Outline', self)
+        self._outline_dock = QtWidgets.QDockWidget(i18n.tr('dock.outline'), self)
         self._outline_dock.setWidget(self.outline)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._outline_dock)
 
         self.problems = ProblemsPanel(self)
-        self._problems_dock = QtWidgets.QDockWidget('Problems', self)
+        self._problems_dock = QtWidgets.QDockWidget(i18n.tr('dock.problems'), self)
         self._problems_dock.setWidget(self.problems)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self._problems_dock)
 
         self.preview = PreviewPanel(self)
-        self._preview_dock = QtWidgets.QDockWidget('Preview', self)
+        self._preview_dock = QtWidgets.QDockWidget(i18n.tr('dock.preview'), self)
         self._preview_dock.setWidget(self.preview)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._preview_dock)
         self._preview_dock.hide()
         self._preview_dock.visibilityChanged.connect(
             self._on_preview_visibility)
 
-        self._cursor_label = QtWidgets.QLabel('Ln 1  Col 1', self)
+        self._cursor_label = QtWidgets.QLabel(i18n.tr('status.cursor', line=1, col=1), self)
         self._problems_button = QtWidgets.QPushButton('', self)
         self._problems_button.setFlat(True)
         self._problems_button.setCursor(QtCore.Qt.PointingHandCursor)
-        self._problems_button.setToolTip('Show Problems panel')
+        self._problems_button.setToolTip(i18n.tr('status.show_problems'))
         self._problems_button.clicked.connect(self._focus_problems)
-        self._lsp_label = QtWidgets.QLabel('LSP: Disconnected', self)
+        self._lsp_label = QtWidgets.QLabel(i18n.tr('status.lsp_disconnected'), self)
         self.statusBar().addPermanentWidget(self._cursor_label)
         self.statusBar().addPermanentWidget(self._problems_button)
         self.statusBar().addPermanentWidget(self._lsp_label)
 
-        self._settings = default_settings()
+        # self._settings was created at the top of __init__ (language
+        # must load before any widget is built); keep that instance.
         self._recent = RecentFiles(self._settings)
         self._theme_name = app_theme.load_theme_name(self._settings)
         
@@ -272,7 +290,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # server_started signal, which resets the flag below.
         if not self.lsp.start():
             self._lsp_starting = False
-            self._set_lsp_status('LSP: Disconnected')
+            self._set_lsp_status(i18n.tr('status.lsp_disconnected'))
 
     def _request_initialize(self):
         if self.lsp.is_connected():
@@ -288,13 +306,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lsp.abort()
             except Exception:
                 pass
-            self._set_lsp_status('LSP: Disconnected')
+            self._set_lsp_status(i18n.tr('status.lsp_disconnected'))
             if isinstance(error, dict):
                 detail = error.get('message') or repr(error)
             else:
                 detail = str(error)
             self.statusBar().showMessage(
-                f'LSP initialization failed: {detail}', 8000)
+                i18n.tr('status.lsp_init_failed', detail=detail), 8000)
             return
         if not self._lsp_open:
             # A restart already reopened the document from _on_lsp_connected.
@@ -302,7 +320,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_lsp_connected(self):
         self._lsp_starting = False
-        self._set_lsp_status('LSP: Connected')
+        self._set_lsp_status(i18n.tr('status.lsp_connected'))
         if self._reopen_after_connect:
             self._reopen_after_connect = False
             self._open_current_in_lsp()
@@ -316,7 +334,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._restart_pending = True
         self._close_current_in_lsp()
-        self.statusBar().showMessage('Restarting language server…', 3000)
+        self.statusBar().showMessage(i18n.tr('status.restarting_lsp'), 3000)
         self.lsp.stop()
 
     def _on_lsp_disconnected(self, _code):
@@ -472,7 +490,8 @@ class MainWindow(QtWidgets.QMainWindow):
             })
         self.problems.set_diagnostics(rows)
         count = len(rows)
-        self._problems_button.setText(f'Problems: {count}' if count else '')
+        self._problems_button.setText(
+            i18n.tr('status.problems', count=count) if count else '')
 
     # ------------------------------------------------------------------
     # Navigation (LSP positions are UTF-16; QTextCursor is natively UTF-16)
@@ -938,46 +957,46 @@ class MainWindow(QtWidgets.QMainWindow):
         toggle_problems = self._problems_dock.toggleViewAction()
         toggle_preview = self._preview_dock.toggleViewAction()
         return [
-            ('file.new', 'File: New', '', self._new_document),
-            ('file.open', 'File: Open…', 'Ctrl+O', self._open_file),
-            ('file.save', 'File: Save', 'Ctrl+S', lambda: self._save()),
-            ('file.saveAs', 'File: Save As…', '', lambda: self._save_as()),
-            ('file.exit', 'File: Exit', '', self.close),
-            ('edit.find', 'Find in File…', 'Ctrl+F', self._toggle_find),
-            ('edit.gotoLine', 'Go to Line…', 'Ctrl+G', self._go_to_line),
-            ('view.toggleOutline', 'View: Toggle Outline', '',
+            ('file.new', i18n.tr('palette.file_new'), '', self._new_document),
+            ('file.open', i18n.tr('palette.file_open'), 'Ctrl+O', self._open_file),
+            ('file.save', i18n.tr('palette.file_save'), 'Ctrl+S', lambda: self._save()),
+            ('file.saveAs', i18n.tr('palette.file_save_as'), '', lambda: self._save_as()),
+            ('file.exit', i18n.tr('palette.file_exit'), '', self.close),
+            ('edit.find', i18n.tr('palette.edit_find'), 'Ctrl+F', self._toggle_find),
+            ('edit.gotoLine', i18n.tr('palette.edit_goto'), 'Ctrl+G', self._go_to_line),
+            ('view.toggleOutline', i18n.tr('palette.view_outline'), '',
              toggle_outline.trigger),
-            ('view.toggleProblems', 'View: Toggle Problems', '',
+            ('view.toggleProblems', i18n.tr('palette.view_problems'), '',
              toggle_problems.trigger),
-            ('view.togglePreview', 'View: Toggle Live Preview', 'Ctrl+Shift+V',
+            ('view.togglePreview', i18n.tr('palette.view_preview'), 'Ctrl+Shift+V',
              toggle_preview.trigger),
-            ('view.toggleTheme', 'View: Toggle Dark Mode', 'Ctrl+Shift+D',
+            ('view.toggleTheme', i18n.tr('palette.view_theme'), 'Ctrl+Shift+D',
              self._toggle_theme),
-            ('view.zoomIn', 'View: Zoom In', 'Ctrl+=',
+            ('view.zoomIn', i18n.tr('palette.view_zoom_in'), 'Ctrl+=',
              lambda: self._zoom(1)),
-            ('view.zoomOut', 'View: Zoom Out', 'Ctrl+-',
+            ('view.zoomOut', i18n.tr('palette.view_zoom_out'), 'Ctrl+-',
              lambda: self._zoom(-1)),
-            ('view.zoomReset', 'View: Reset Zoom', 'Ctrl+0',
+            ('view.zoomReset', i18n.tr('palette.view_zoom_reset'), 'Ctrl+0',
              self._zoom_reset),
-            ('view.chooseFont', 'View: Choose Editor Font…', '',
+            ('view.chooseFont', i18n.tr('palette.view_font'), '',
              self._choose_editor_font),
-            ('draw.gallery', 'Draw: Geometry Gallery…', 'Ctrl+Shift+G',
+            ('draw.gallery', i18n.tr('palette.draw_gallery'), 'Ctrl+Shift+G',
              self._open_draw_gallery),
-            ('build.compile', 'Build: Compile to PDF', 'Ctrl+B',
+            ('build.compile', i18n.tr('palette.build_compile'), 'Ctrl+B',
              self._compile),
-            ('build.refreshPreview', 'Build: Refresh Preview', 'F5',
+            ('build.refreshPreview', i18n.tr('palette.build_refresh'), 'F5',
              self._refresh_preview_now),
-            ('build.restartLSP', 'Build: Restart Language Server', '',
+            ('build.restartLSP', i18n.tr('palette.build_restart'), '',
              self._restart_lsp),
-            ('file.exportPdf', 'File: Export as PDF', '',
+            ('file.exportPdf', i18n.tr('palette.export_pdf'), '',
              lambda: self._export_as('pdf')),
-            ('file.exportPng', 'File: Export as PNG Image', '',
+            ('file.exportPng', i18n.tr('palette.export_png'), '',
              lambda: self._export_as('png')),
-            ('file.exportSvg', 'File: Export as SVG Image', '',
+            ('file.exportSvg', i18n.tr('palette.export_svg'), '',
              lambda: self._export_as('svg')),
-            ('file.exportHtml', 'File: Export as HTML', '',
+            ('file.exportHtml', i18n.tr('palette.export_html'), '',
              lambda: self._export_as('html')),
-            ('file.exportTyp', 'File: Export as Typst Source', '',
+            ('file.exportTyp', i18n.tr('palette.export_typ'), '',
              lambda: self._export_as('typ')),
         ]
 
@@ -1144,7 +1163,8 @@ class MainWindow(QtWidgets.QMainWindow):
         current = self.editor.textCursor().blockNumber() + 1
         total = max(1, self.editor.blockCount())
         line, ok = QtWidgets.QInputDialog.getInt(
-            self, 'Go to Line', f'Line number (1–{total}):',
+            self, i18n.tr('dialog.goto_title'),
+            i18n.tr('dialog.goto_label', total=total),
             current, 1, total, 1)
         if ok:
             self._goto(line - 1, 0)
@@ -1154,7 +1174,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._recent_menu.clear()
         paths = [p for p in self._recent.list() if p]
         if not paths:
-            empty = self._recent_menu.addAction('(No recent files)')
+            empty = self._recent_menu.addAction(i18n.tr('action.recent.empty'))
             empty.setEnabled(False)
             return
         shown = 0
@@ -1169,16 +1189,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda _checked=False, p=path: self._open_recent(p))
             shown += 1
         if shown == 0:
-            empty = self._recent_menu.addAction('(No recent files)')
+            empty = self._recent_menu.addAction(i18n.tr('action.recent.empty'))
             empty.setEnabled(False)
             return
         self._recent_menu.addSeparator()
-        clear_action = self._recent_menu.addAction('Clear Menu')
+        clear_action = self._recent_menu.addAction(i18n.tr('action.recent.clear'))
         clear_action.triggered.connect(self._recent.clear)
 
     def _open_recent(self, path):
         if not os.path.exists(path):
-            self.statusBar().showMessage(f'File not found: {path}', 5000)
+            self.statusBar().showMessage(
+                i18n.tr('status.file_not_found', path=path), 5000)
             return
         if not self._maybe_save():
             return
@@ -1186,7 +1207,7 @@ class MainWindow(QtWidgets.QMainWindow):
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
+            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)
@@ -1197,11 +1218,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _display_name(self):
         if self._file_path:
             return os.path.basename(self._file_path) or self._file_path
-        return 'Untitled'
+        return i18n.tr('dialog.untitled')
 
     def _update_title(self):
         dirty = '*' if self.editor.document().isModified() else ''
-        self.setWindowTitle(f'{dirty}{self._display_name()} — Easy-Math-Lang Editor')
+        self.setWindowTitle(f"{dirty}{self._display_name()} — {i18n.tr('app.title_suffix')}")
 
     def _doc_uri_for_path(self, path):
         if path is None:
@@ -1215,8 +1236,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.editor.document().isModified():
             return True
         answer = QtWidgets.QMessageBox.question(
-            self, 'Unsaved changes',
-            f'Save changes to {self._display_name()}?',
+            self, i18n.tr('dialog.unsaved_title'),
+            i18n.tr('dialog.unsaved_save', name=self._display_name()),
             QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard |
             QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.Save)
         if answer == QtWidgets.QMessageBox.Save:
@@ -1253,7 +1274,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ``(path, selected_filter)`` like the static
         ``QFileDialog.getOpen/SaveFileName`` helpers.
         """
-        file_filter = 'Easy-Math-Lang (*.ezmath *.eml);;All files (*)'
+        file_filter = i18n.tr('dialog.file_filter')
         if self._theme_name != app_theme.DARK:
             if save:
                 return QtWidgets.QFileDialog.getSaveFileName(
@@ -1275,14 +1296,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_file(self):
         if not self._maybe_save():
             return
-        path, _ = self._file_dialog(False, 'Open')
+        path, _ = self._file_dialog(False, i18n.tr('dialog.open_title'))
         if not path:
             return
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
+            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)
@@ -1293,7 +1314,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self._atomic_write(self._file_path, self.editor.toPlainText())
         except (OSError, UnicodeEncodeError) as e:
-            QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
+            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.save_failed'), str(e))
             return False
         self.editor.document().setModified(False)
         self._update_title()
@@ -1327,13 +1348,13 @@ class MainWindow(QtWidgets.QMainWindow):
             raise
 
     def _save_as(self):
-        path, _ = self._file_dialog(True, 'Save As')
+        path, _ = self._file_dialog(True, i18n.tr('dialog.save_as_title'))
         if not path:
             return False
         try:
             self._atomic_write(path, self.editor.toPlainText())
         except (OSError, UnicodeEncodeError) as e:
-            QtWidgets.QMessageBox.critical(self, 'Save failed', str(e))
+            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.save_failed'), str(e))
             return False
         self._recent.add(path)
         cursor_pos = self.editor.textCursor().position()
@@ -1353,7 +1374,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _compile(self):
         if self.editor.document().isModified():
             answer = QtWidgets.QMessageBox.question(
-                self, 'Unsaved changes', 'Save before compiling?',
+                self, i18n.tr('dialog.unsaved_title'), i18n.tr('dialog.save_before_compile'),
                 QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard |
                 QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.Save)
             if answer == QtWidgets.QMessageBox.Cancel:
@@ -1361,10 +1382,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if answer == QtWidgets.QMessageBox.Save and not self._save():
                 return
         if self._file_path is None:
-            self.statusBar().showMessage('Save the file before compiling', 5000)
+            self.statusBar().showMessage(i18n.tr('status.save_before_compile'), 5000)
             return
         if self._build_process is not None:
-            self.statusBar().showMessage('A build is already running', 5000)
+            self.statusBar().showMessage(i18n.tr('status.build_running'), 5000)
             return
         cmd = resolve_compiler_command(self._file_path)
         process = QtCore.QProcess(self)
@@ -1375,7 +1396,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # is treated as an operand (pipeline.main supports it).
         process.start(cmd[0], cmd[1:-1] + ['--', cmd[-1]] if len(cmd) > 1 else [])
         self._build_process = process
-        self.statusBar().showMessage('Compiling…')
+        self.statusBar().showMessage(i18n.tr('status.compiling'))
 
     def _on_build_error(self, error):
         if error == QtCore.QProcess.ProcessError.FailedToStart:
@@ -1385,7 +1406,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     proc.deleteLater()
                 except RuntimeError:
                     pass
-            self.statusBar().showMessage('Could not start compiler', 8000)
+            self.statusBar().showMessage(i18n.tr('status.could_not_start'), 8000)
 
     def _on_build_finished(self, exit_code, _status):
         if getattr(self, '_closing', False):
@@ -1407,11 +1428,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if exit_code == 0:
             pdf_base, _ = os.path.splitext(self._file_path or '')
             pdf = pdf_base + '.pdf' if pdf_base else '.pdf'
-            self.statusBar().showMessage(f'Compiled to {pdf}', 8000)
+            self.statusBar().showMessage(i18n.tr('status.compiled_to', path=pdf), 8000)
         else:
+            _raw = output.strip()[-2000:] or i18n.tr(
+                'dialog.compile_failed_code', code=exit_code)
             QtWidgets.QMessageBox.critical(
-                self, 'Compilation failed', output.strip()[-2000:] or
-                f'Compiler exited with code {exit_code}')
+                self, i18n.tr('dialog.compile_failed'),
+                friendly_errors.format_for_display(_raw))
 
     def _export_as(self, fmt):
         """Export the current document to *fmt* (pdf/png/svg/html/typ).
@@ -1439,7 +1462,7 @@ class MainWindow(QtWidgets.QMainWindow):
             base = f'{base}.{fmt}'
         if self._theme_name == app_theme.DARK:
             dialog = QtWidgets.QFileDialog(
-                self, f'Export as {fmt.upper()}', base, filt)
+                self, i18n.tr('dialog.export_title', fmt=fmt.upper()), base, filt)
             dialog.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
             dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
             if not dialog.exec():
@@ -1450,14 +1473,14 @@ class MainWindow(QtWidgets.QMainWindow):
             path = files[0]
         else:
             path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, f'Export as {fmt.upper()}', base, filt)
+                self, i18n.tr('dialog.export_title', fmt=fmt.upper()), base, filt)
             if not path:
                 return
         ppi = None
         if fmt == 'png':
             ppi, ok = QtWidgets.QInputDialog.getInt(
-                self, 'PNG resolution',
-                'Resolution (DPI, 72–600):', 150, 72, 600, 10)
+                self, i18n.tr('dialog.png_resolution'),
+                i18n.tr('dialog.png_resolution_label'), 150, 72, 600, 10)
             if not ok:
                 return
         try:
@@ -1467,18 +1490,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 source_path=self._file_path)
         except Exception as exc:  # never crash the editor on export
             QtWidgets.QMessageBox.critical(
-                self, 'Export failed', f'Export failed: {exc}')
+                self, i18n.tr('dialog.export_failed'),
+                friendly_errors.format_for_display(
+                    i18n.tr('dialog.export_failed_msg', detail=exc)))
             return
         out = res.get('output') if isinstance(res, dict) else None
         outs = res.get('outputs') if isinstance(res, dict) else None
         if out and (os.path.isfile(out) or outs):
             shown = ', '.join(outs) if outs else out
-            self.statusBar().showMessage(f'Exported to {shown}', 8000)
+            self.statusBar().showMessage(i18n.tr('status.exported_to', path=shown), 8000)
         else:
             log = (res.get('log') or '').strip() if isinstance(res, dict) else ''
             QtWidgets.QMessageBox.critical(
-                self, 'Export failed',
-                log[-2000:] if log else 'Export failed (see Problems panel).')
+                self, i18n.tr('dialog.export_failed'),
+                friendly_errors.format_for_display(
+                    log[-2000:] if log else i18n.tr('dialog.export_failed_fallback')))
 
     # ------------------------------------------------------------------
     # Wiring: menus, editor signals, close
@@ -1506,29 +1532,44 @@ class MainWindow(QtWidgets.QMainWindow):
                 return func(obj, *bound)
         return slot
 
-    def _create_menus(self):
-        file_menu = self.menuBar().addMenu('&File')
-        new_action = file_menu.addAction('&New')
+    def _register(self, widget, text_key, tip_key=None, **params):
+        """Remember a menu/action for retranslate_ui() (language switch)."""
+        self._menu_specs.append((widget, text_key, tip_key, params))
+        if text_key:
+            text = i18n.tr(text_key, **params)
+            if hasattr(widget, 'setText'):
+                widget.setText(text)
+            elif hasattr(widget, 'setTitle'):
+                widget.setTitle(text)
+        if tip_key and hasattr(widget, 'setStatusTip'):
+            widget.setStatusTip(i18n.tr(tip_key, **params))
+        return widget
 
+    def _create_menus(self):
+        file_menu = self.menuBar().addMenu(i18n.tr('menu.file'))
+        self._menus['file'] = self._register(file_menu, 'menu.file')
+        new_action = file_menu.addAction(i18n.tr('action.new'))
+        self._register(new_action, 'action.new', 'action.new.tip')
         new_action.setShortcut(QtGui.QKeySequence.New)
-        new_action.setStatusTip('Start a new document')
         new_action.triggered.connect(self._new_document)
-        open_action = file_menu.addAction('&Open…')
+        open_action = file_menu.addAction(i18n.tr('action.open'))
+        self._register(open_action, 'action.open', 'action.open.tip')
         open_action.setShortcut(QtGui.QKeySequence.Open)
-        open_action.setStatusTip('Open an existing .ezmath file')
         open_action.triggered.connect(self._open_file)
-        self._recent_menu = file_menu.addMenu('Open R&ecent')
+        self._recent_menu = file_menu.addMenu(i18n.tr('action.recent'))
+        self._register(self._recent_menu, 'action.recent')
         file_menu.aboutToShow.connect(self._refresh_recent_menu)
-        save_action = file_menu.addAction('&Save')
+        save_action = file_menu.addAction(i18n.tr('action.save'))
+        self._register(save_action, 'action.save', 'action.save.tip')
         save_action.setShortcut(QtGui.QKeySequence.Save)
-        save_action.setStatusTip('Save the current document')
         save_action.triggered.connect(self._save)
-        save_as_action = file_menu.addAction('Save &As…')
+        save_as_action = file_menu.addAction(i18n.tr('action.save_as'))
+        self._register(save_as_action, 'action.save_as', 'action.save_as.tip')
         save_as_action.setShortcut(QtGui.QKeySequence.SaveAs)
-        save_as_action.setStatusTip('Save under a new name')
         save_as_action.triggered.connect(self._save_as)
-        export_menu = file_menu.addMenu('&Export As…')
-        export_menu.setStatusTip('Export the document to PDF, image, HTML or Typst')
+        export_menu = file_menu.addMenu(i18n.tr('action.export_as'))
+        self._register(export_menu, 'action.export_as', 'action.export_as.tip')
+        self._menus['export'] = export_menu
         for _fmt, _label in (
             ('pdf', '&PDF (.pdf)'),
             ('png', 'PNG &Image (.png)'),
@@ -1537,119 +1578,312 @@ class MainWindow(QtWidgets.QMainWindow):
             ('typ', '&Typst Source (.typ)'),
         ):
             _act = export_menu.addAction(_label)
-            _act.setStatusTip(f'Export the document as {_fmt.upper()}')
+            _act.setStatusTip(i18n.tr('action.export.fmt', fmt=_fmt.upper()))
             _act.triggered.connect(self._weak_slot(self._export_as, _fmt))
         file_menu.addSeparator()
-        exit_action = file_menu.addAction('E&xit')
+        exit_action = file_menu.addAction(i18n.tr('action.exit'))
+        self._register(exit_action, 'action.exit')
         exit_action.setShortcut(QtGui.QKeySequence.Quit)
         exit_action.triggered.connect(self.close)
 
-        edit_menu = self.menuBar().addMenu('&Edit')
-        undo_action = edit_menu.addAction('&Undo')
+        edit_menu = self.menuBar().addMenu(i18n.tr('menu.edit'))
+        self._menus['edit'] = self._register(edit_menu, 'menu.edit')
+        undo_action = edit_menu.addAction(i18n.tr('action.undo'))
+        self._register(undo_action, 'action.undo')
         undo_action.setShortcut(QtGui.QKeySequence.Undo)
         undo_action.triggered.connect(self.editor.undo)
-        redo_action = edit_menu.addAction('&Redo')
+        redo_action = edit_menu.addAction(i18n.tr('action.redo'))
+        self._register(redo_action, 'action.redo')
         redo_action.setShortcut(QtGui.QKeySequence.Redo)
         redo_action.triggered.connect(self.editor.redo)
         edit_menu.addSeparator()
-        cut_action = edit_menu.addAction('Cu&t')
+        cut_action = edit_menu.addAction(i18n.tr('action.cut'))
+        self._register(cut_action, 'action.cut')
         cut_action.setShortcut(QtGui.QKeySequence.Cut)
         cut_action.triggered.connect(self.editor.cut)
-        copy_action = edit_menu.addAction('&Copy')
+        copy_action = edit_menu.addAction(i18n.tr('action.copy'))
+        self._register(copy_action, 'action.copy')
         copy_action.setShortcut(QtGui.QKeySequence.Copy)
         copy_action.triggered.connect(self.editor.copy)
-        paste_action = edit_menu.addAction('&Paste')
+        paste_action = edit_menu.addAction(i18n.tr('action.paste'))
+        self._register(paste_action, 'action.paste')
         paste_action.setShortcut(QtGui.QKeySequence.Paste)
         paste_action.triggered.connect(self.editor.paste)
         edit_menu.addSeparator()
-        select_all_action = edit_menu.addAction('Select &All')
+        select_all_action = edit_menu.addAction(i18n.tr('action.select_all'))
+        self._register(select_all_action, 'action.select_all')
         select_all_action.setShortcut(QtGui.QKeySequence.SelectAll)
         select_all_action.triggered.connect(self.editor.selectAll)
         edit_menu.addSeparator()
-        find_action = edit_menu.addAction('&Find…')
+        find_action = edit_menu.addAction(i18n.tr('action.find'))
+        self._register(find_action, 'action.find', 'action.find.tip')
         find_action.setShortcut('Ctrl+F')
-        find_action.setStatusTip('Find text in the document')
         find_action.triggered.connect(self._toggle_find)
-        goto_action = edit_menu.addAction('Go to &Line…')
+        goto_action = edit_menu.addAction(i18n.tr('action.goto_line'))
+        self._register(goto_action, 'action.goto_line', 'action.goto_line.tip')
         goto_action.setShortcut('Ctrl+G')
-        goto_action.setStatusTip('Jump to a line number')
         goto_action.triggered.connect(self._go_to_line)
 
-        view_menu = self.menuBar().addMenu('&View')
+        view_menu = self.menuBar().addMenu(i18n.tr('menu.view'))
+        self._menus['view'] = self._register(view_menu, 'menu.view')
         view_menu.addAction(self._outline_dock.toggleViewAction())
         view_menu.addAction(self._problems_dock.toggleViewAction())
         preview_action = self._preview_dock.toggleViewAction()
         preview_action.setShortcut('Ctrl+Shift+V')
-        preview_action.setStatusTip('Show or hide the live PDF preview')
+        preview_action.setStatusTip(i18n.tr('preview.status_tip'))
         view_menu.addAction(preview_action)
-        self._theme_action = view_menu.addAction('Dark Mode')
+        self._preview_action = preview_action
+        self._theme_action = view_menu.addAction(i18n.tr('action.dark_mode'))
+        self._register(self._theme_action, 'action.dark_mode', 'action.dark_mode.tip')
         self._theme_action.setCheckable(True)
         self._theme_action.setShortcut('Ctrl+Shift+D')
-        self._theme_action.setStatusTip('Switch between light and dark mode')
         self._theme_action.triggered.connect(self._toggle_theme)
-        
-        self._auto_close_brackets_action = view_menu.addAction('Auto-close Brackets')
+
+        self._auto_close_brackets_action = view_menu.addAction(i18n.tr('action.auto_close'))
+        self._register(self._auto_close_brackets_action, 'action.auto_close', 'action.auto_close.tip')
         self._auto_close_brackets_action.setCheckable(True)
         self._auto_close_brackets_action.setChecked(self._auto_close_brackets)
         self._auto_close_brackets_action.setShortcut('Ctrl+Shift+B')
-        self._auto_close_brackets_action.setStatusTip('Automatically insert closing brackets, quotes, and parentheses')
         self._auto_close_brackets_action.triggered.connect(self._toggle_auto_close_brackets)
         view_menu.addSeparator()
-        palette_action = view_menu.addAction('Command &Palette…')
+        palette_action = view_menu.addAction(i18n.tr('action.palette'))
+        self._register(palette_action, 'action.palette', 'action.palette.tip')
         palette_action.setShortcut('Ctrl+Shift+P')
-        palette_action.setStatusTip('Run any command by name')
         palette_action.triggered.connect(self._show_palette)
+        language_action = view_menu.addAction(i18n.tr('action.language'))
+        self._register(language_action, 'action.language', 'action.language.tip')
+        language_action.triggered.connect(self._open_language_dialog)
         view_menu.addSeparator()
-        zoom_in_action = view_menu.addAction('Zoom &In')
+        zoom_in_action = view_menu.addAction(i18n.tr('action.zoom_in'))
+        self._register(zoom_in_action, 'action.zoom_in', 'action.zoom_in.tip')
         zoom_in_action.setShortcuts(['Ctrl+=', 'Ctrl++'])
-        zoom_in_action.setStatusTip('Make the editor text bigger')
         zoom_in_action.triggered.connect(self._weak_slot(self._zoom, 1))
-        zoom_out_action = view_menu.addAction('Zoom &Out')
+        zoom_out_action = view_menu.addAction(i18n.tr('action.zoom_out'))
+        self._register(zoom_out_action, 'action.zoom_out', 'action.zoom_out.tip')
         zoom_out_action.setShortcut('Ctrl+-')
-        zoom_out_action.setStatusTip('Make the editor text smaller')
         zoom_out_action.triggered.connect(self._weak_slot(self._zoom, -1))
-        zoom_reset_action = view_menu.addAction('&Reset Zoom')
+        zoom_reset_action = view_menu.addAction(i18n.tr('action.zoom_reset'))
+        self._register(zoom_reset_action, 'action.zoom_reset', 'action.zoom_reset.tip')
         zoom_reset_action.setShortcut('Ctrl+0')
-        zoom_reset_action.setStatusTip('Restore the default text size')
         zoom_reset_action.triggered.connect(self._zoom_reset)
-        font_action = view_menu.addAction('Editor &Font…')
-        font_action.setStatusTip('Choose the editor font family and size')
+        font_action = view_menu.addAction(i18n.tr('action.font'))
+        self._register(font_action, 'action.font', 'action.font.tip')
         font_action.triggered.connect(self._choose_editor_font)
         view_menu.addSeparator()
-        gallery_action = view_menu.addAction('&Geometry Gallery…')
+        gallery_action = view_menu.addAction(i18n.tr('action.gallery'))
+        self._register(gallery_action, 'action.gallery', 'action.gallery.tip')
         gallery_action.setShortcut('Ctrl+Shift+G')
-        gallery_action.setStatusTip(
-            'Browse every *draw geometry command with previews')
         gallery_action.triggered.connect(self._open_draw_gallery)
 
-        build_menu = self.menuBar().addMenu('&Build')
-        compile_action = build_menu.addAction('&Compile')
+        build_menu = self.menuBar().addMenu(i18n.tr('menu.build'))
+        self._menus['build'] = self._register(build_menu, 'menu.build')
+        compile_action = build_menu.addAction(i18n.tr('action.compile'))
+        self._register(compile_action, 'action.compile', 'action.compile.tip')
         compile_action.setShortcut('Ctrl+B')
-        compile_action.setStatusTip('Compile the document to PDF')
         compile_action.triggered.connect(self._compile)
-        refresh_action = build_menu.addAction('&Refresh Preview')
+        refresh_action = build_menu.addAction(i18n.tr('action.refresh_preview'))
+        self._register(refresh_action, 'action.refresh_preview', 'action.refresh_preview.tip')
         refresh_action.setShortcut('F5')
-        refresh_action.setStatusTip('Re-render the live preview now')
         refresh_action.triggered.connect(self._refresh_preview_now)
         build_menu.addSeparator()
-        restart_action = build_menu.addAction('&Restart Language Server')
-        restart_action.setStatusTip(
-            'Restart the language server (fixes stale errors)')
+        restart_action = build_menu.addAction(i18n.tr('action.restart_lsp'))
+        self._register(restart_action, 'action.restart_lsp', 'action.restart_lsp.tip')
         restart_action.triggered.connect(self._restart_lsp)
 
-        toolbar = self.addToolBar('Main Toolbar')
-        toolbar.addAction(new_action)
-        toolbar.addAction(open_action)
-        toolbar.addAction(save_action)
-        toolbar.addSeparator()
-        toolbar.addAction(compile_action)
+        help_menu = self.menuBar().addMenu(i18n.tr('menu.help'))
+        self._menus['help'] = self._register(help_menu, 'menu.help')
+        examples_menu = help_menu.addMenu(i18n.tr('action.examples'))
+        self._register(examples_menu, 'action.examples', 'action.examples.tip')
+        self._menus['examples'] = examples_menu
+        self._example_actions = {}
+        for entry_id, name_key, _source_text in EXAMPLES:
+            action = examples_menu.addAction(i18n.tr(name_key))
+            self._register(action, name_key)
+            action.triggered.connect(self._weak_slot(self._insert_example, entry_id))
+            self._example_actions[entry_id] = action
+        welcome_action = help_menu.addAction(i18n.tr('action.welcome'))
+        self._register(welcome_action, 'action.welcome', 'action.welcome.tip')
+        welcome_action.triggered.connect(self._show_welcome)
+        shortcuts_action = help_menu.addAction(i18n.tr('action.shortcuts'))
+        self._register(shortcuts_action, 'action.shortcuts', 'action.shortcuts.tip')
+        shortcuts_action.triggered.connect(self._show_shortcuts)
 
-        find_next_shortcut = QtGui.QShortcut(
-            QtGui.QKeySequence.StandardKey.FindNext, self)
+        self._toolbar = self.addToolBar('Main Toolbar')
+        self._toolbar.addAction(new_action)
+        self._toolbar.addAction(open_action)
+        self._toolbar.addAction(save_action)
+        self._toolbar.addSeparator()
+        self._toolbar.addAction(compile_action)
+
+        find_next_shortcut = QtGui.QShortcut(QtGui.QKeySequence.StandardKey.FindNext, self)
         find_next_shortcut.activated.connect(self._weak_slot(self._find_again, 1))
-        find_prev_shortcut = QtGui.QShortcut(
-            QtGui.QKeySequence.StandardKey.FindPrevious, self)
+        find_prev_shortcut = QtGui.QShortcut(QtGui.QKeySequence.StandardKey.FindPrevious, self)
         find_prev_shortcut.activated.connect(self._weak_slot(self._find_again, -1))
+
+    # ------------------------------------------------------------------
+    # Language (i18n) and newcomer help
+    # ------------------------------------------------------------------
+    def _apply_language(self, locale, save=True):
+        """Switch the interface language without touching the document.
+
+        Editor text, cursor, file path, LSP state and preview are all
+        preserved; only static UI chrome is re-translated in place.
+        """
+        locale = i18n.normalize_locale(locale) or 'en'
+        i18n.set_locale(locale)
+        self._language = locale
+        if save:
+            i18n.save_setting_language(self._settings, locale)
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        """Re-apply every translated string in place (language switch)."""
+        for widget, text_key, tip_key, params in self._menu_specs:
+            try:
+                if text_key:
+                    text = i18n.tr(text_key, **params)
+                    if hasattr(widget, 'setText'):
+                        widget.setText(text)
+                    elif hasattr(widget, 'setTitle'):
+                        widget.setTitle(text)
+                if tip_key and hasattr(widget, 'setStatusTip'):
+                    widget.setStatusTip(i18n.tr(tip_key, **params))
+            except (RuntimeError, AttributeError):
+                pass
+        self._outline_dock.setWindowTitle(i18n.tr('dock.outline'))
+        self._problems_dock.setWindowTitle(i18n.tr('dock.problems'))
+        self._preview_dock.setWindowTitle(i18n.tr('dock.preview'))
+        for dock, key in ((self._outline_dock, 'dock.outline'),
+                          (self._problems_dock, 'dock.problems'),
+                          (self._preview_dock, 'dock.preview')):
+            try:
+                dock.toggleViewAction().setText(i18n.tr(key))
+            except (RuntimeError, AttributeError):
+                pass
+        try:
+            self._preview_action.setStatusTip(i18n.tr('preview.status_tip'))
+        except AttributeError:
+            pass
+        self._problems_button.setToolTip(i18n.tr('status.show_problems'))
+        count = self.problems.count()
+        self._problems_button.setText(
+            i18n.tr('status.problems', count=count) if count else '')
+        connected = False
+        try:
+            connected = bool(self.lsp.is_connected())
+        except Exception:
+            connected = 'Connected' in self._lsp_label.text()
+        self._lsp_label.setText(
+            i18n.tr('status.lsp_connected') if connected
+            else i18n.tr('status.lsp_disconnected'))
+        line, col = self.editor.cursor_line_col()
+        self._cursor_label.setText(
+            i18n.tr('status.cursor', line=line + 1, col=col + 1))
+        self.editor.retranslate_ui()
+        self._symbol_bar.retranslate_ui()
+        self._find_bar.retranslate_ui()
+        self.preview.retranslate_ui()
+        self._welcome_panel.retranslate_ui()
+        # Refresh problem rows so friendly text follows the language.
+        try:
+            diagnostics = list(self.problems._diagnostics)
+            if diagnostics:
+                self.problems.set_diagnostics(diagnostics)
+        except Exception:
+            pass
+        if self._draw_gallery is not None:
+            self._draw_gallery.retranslate_ui()
+        if self._draw_template is not None:
+            self._draw_template.retranslate_ui()
+        self._update_title()
+
+    def _open_language_dialog(self):
+        """Language picker (View -> Language); persists the choice."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setObjectName('languageDialog')
+        dialog.setWindowTitle(i18n.tr('language.title'))
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.addWidget(QtWidgets.QLabel(i18n.tr('language.label'), dialog))
+        combo = QtWidgets.QComboBox(dialog)
+        combo.addItem(i18n.tr('language.english'), 'en')
+        combo.addItem(i18n.tr('language.vietnamese'), 'vi')
+        combo.addItem(i18n.tr('language.system'), 'system')
+        saved = self._settings.value(i18n.LANGUAGE_SETTING, 'system')
+        saved = saved[0] if isinstance(saved, (list, tuple)) and saved else saved
+        index = combo.findData(saved if saved in ('en', 'vi', 'system') else 'system')
+        combo.setCurrentIndex(max(0, index))
+        layout.addWidget(combo)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Cancel | QtWidgets.QDialogButtonBox.Ok,
+            dialog)
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
+            i18n.tr('language.ok'))
+        buttons.button(QtWidgets.QDialogButtonBox.Cancel).setText(
+            i18n.tr('language.cancel'))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        choice = combo.currentData()
+        if choice == 'system':
+            locale = i18n.detect_system_locale(
+                QtCore.QLocale.system().name())
+            try:
+                self._settings.setValue(i18n.LANGUAGE_SETTING, 'system')
+                self._settings.sync()
+            except Exception:
+                pass
+            i18n.set_locale(locale)
+            self._language = locale
+            self.retranslate_ui()
+            return
+        self._apply_language(choice, save=True)
+
+    def maybe_show_welcome(self):
+        """Show the welcome banner once, on first run (called by app.main)."""
+        try:
+            show = self._settings.value('ui/showWelcome', True, type=bool)
+        except Exception:
+            show = True
+        if show:
+            self._welcome_panel.show()
+
+    def _show_welcome(self):
+        self._welcome_panel.show()
+
+    def _dismiss_welcome(self):
+        if self._welcome_panel.property('dont-show-again'):
+            try:
+                self._settings.setValue('ui/showWelcome', False)
+                self._settings.sync()
+            except Exception:
+                pass
+        self._welcome_panel.hide()
+
+    def _insert_example(self, key):
+        """Insert a ready-to-run example at the cursor (one undo step)."""
+        source = example_source(key) if isinstance(key, str) else ''
+        if not source:
+            return
+        self._welcome_panel.hide()
+        if self._welcome_panel.property('dont-show-again'):
+            self._dismiss_welcome()
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        try:
+            if cursor.position() > 0:
+                cursor.insertText('\n')
+            cursor.insertText(source)
+        finally:
+            cursor.endEditBlock()
+        self.editor.setTextCursor(cursor)
+        self.editor.ensureCursorVisible()
+        self.editor.setFocus()
+
+    def _show_shortcuts(self):
+        ShortcutsDialog(self).exec()
 
     # ------------------------------------------------------------------
     # Editor text size
@@ -1741,7 +1975,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _choose_editor_font(self):
         current = self.editor.font()
-        font, ok = QtWidgets.QFontDialog.getFont(current, self, 'Editor Font')
+        font, ok = QtWidgets.QFontDialog.getFont(current, self, i18n.tr('dialog.font_title'))
         if not ok:
             return
         try:
@@ -1878,7 +2112,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.outline.symbolActivated.connect(self._goto)
 
     def _on_cursor_moved(self, line, col):
-        self._cursor_label.setText(f'Ln {line + 1}  Col {col + 1}')
+        self._cursor_label.setText(
+            i18n.tr('status.cursor', line=line + 1, col=col + 1))
 
     def _on_text_changed(self):
         lsp = getattr(self, 'lsp', None)
@@ -1968,8 +2203,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         log = (result.get('log') or '').strip()
         self.preview.show_error(
-            log[-2000:] if log else
-            'Preview failed. Save and use Build → Compile for details.')
+            friendly_errors.format_for_display(
+                log[-2000:] if log else i18n.tr('preview.failed_fallback')))
 
     def _on_preview_source_link(self, typ_line, typ_column):
         """Navigate from a preview source-link activation to the .eml span.
@@ -1985,7 +2220,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if span is None:
             try:
                 self.statusBar().showMessage(
-                    'No source mapping for this preview location', 3000)
+                    i18n.tr('status.no_source_mapping'), 3000)
             except (AttributeError, RuntimeError, TypeError):
                 pass
             return
@@ -1997,7 +2232,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_preview_externally(self):
         pdf = getattr(self.preview, 'pdf_path', None)
         if not pdf:
-            self.statusBar().showMessage('No preview PDF yet', 3000)
+            self.statusBar().showMessage(i18n.tr('status.no_preview'), 3000)
             return
         QtGui.QDesktopServices.openUrl(
             QtCore.QUrl.fromLocalFile(pdf))
@@ -2050,7 +2285,7 @@ class MainWindow(QtWidgets.QMainWindow):
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
         except (OSError, UnicodeDecodeError) as e:
-            QtWidgets.QMessageBox.critical(self, 'Open failed', str(e))
+            QtWidgets.QMessageBox.critical(self, i18n.tr('dialog.open_failed'), str(e))
             return
         self._recent.add(path)
         self._switch_document(path, text)
@@ -2091,7 +2326,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # process exit) is asynchronous: defer the close until the process
         # is gone so Qt never destroys a live QProcess.  A watchdog
         # forces the close if shutdown hangs.
-        self.statusBar().showMessage('Shutting down language server…')
+        self.statusBar().showMessage(i18n.tr('status.shutting_down'))
         watchdog = QtCore.QTimer(self)
         watchdog.setSingleShot(True)
         watchdog.timeout.connect(self._force_close)

@@ -29,7 +29,7 @@ def window(qapp):
 
 def test_window_structure(window):
     menus = [a.text() for a in window.menuBar().actions()]
-    assert menus == ['&File', '&Edit', '&View', '&Build']
+    assert menus == ['&File', '&Edit', '&View', '&Build', '&Help']
     assert window.editor is not None
     assert window.problems is not None
     assert window.outline is not None
