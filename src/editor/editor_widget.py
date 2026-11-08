@@ -186,6 +186,22 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             return ''
         return '' if not ch or ch == '\x00' else ch
 
+    def _escaped_at(self, pos=None):
+        """True when the next typed bracket would be backslash-escaped.
+
+        Counts consecutive backslashes immediately before *pos* in
+        UTF-16 document offsets (backslash is BMP, so one unit each);
+        odd = escaped, even = not escaped.
+        """
+        if pos is None:
+            pos = self.textCursor().position()
+        count = 0
+        index = int(pos) - 1
+        while self._char_at_offset(index) == '\\':
+            count += 1
+            index -= 1
+        return count % 2 == 1
+
     def _handle_opener(self, char):
         cursor = self.textCursor()
         closer = auto_pairs.OPENERS_FOR.get(char)
@@ -196,9 +212,16 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         if cursor.hasSelection():
             selected = cursor.selectedText()
             start, end = cursor.selectionStart(), cursor.selectionEnd()
+            # An opener preceded by an odd number of backslashes is
+            # escaped in ezmath (``\\`` is a literal backslash): insert
+            # only the opener, never a plain or escaped closer.
+            escaped = self._escaped_at(start)
             cursor.beginEditBlock()
             try:
-                cursor.insertText(char + selected + closer)
+                if escaped:
+                    cursor.insertText(char + selected)
+                else:
+                    cursor.insertText(char + selected + closer)
                 cursor.setPosition(start + utf16_units(char))
                 cursor.setPosition(end + utf16_units(char),
                                    QtGui.QTextCursor.KeepAnchor)
@@ -212,6 +235,11 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         pos = cursor.position()
         next_ch = self._char_at_offset(pos)
         prev_ch = self._char_at_offset(pos - 1)
+        # Backslash-escaped openers (``\(`` etc.) get no auto-closer:
+        # ezmath has no ``\( \)]`` LaTeX-style pairs — ``\`` toggles
+        # inline math — so an escaped closer would be wrong syntax.
+        if self._escaped_at(pos):
+            return False
         if not auto_pairs.should_pair(char, next_ch, prev_ch):
             return False
 
@@ -230,6 +258,15 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         cursor = self.textCursor()
         pos = cursor.position()
         next_ch = self._char_at_offset(pos)
+        # Escaped closer pair ahead (``\)``): typing the closer steps
+        # over both characters so the pair stays intact.
+        next_two = next_ch + self._char_at_offset(pos + 1)
+        if auto_pairs.escaped_pair_ahead(next_two) == char:
+            cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+            cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            return True
         if not auto_pairs.should_overtype(char, next_ch):
             return False
         cursor.movePosition(QtGui.QTextCursor.NextCharacter)
@@ -244,6 +281,34 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         pos = cursor.position()
         prev_ch = self._char_at_offset(pos - 1)
         next_ch = self._char_at_offset(pos)
+        # Escaped pair: cursor between opener and ``\closer`` — delete
+        # the whole pair (opener + backslash + closer) in one stroke.
+        next_two = next_ch + self._char_at_offset(pos + 1)
+        if auto_pairs.matching_escaped_pair(prev_ch, next_two):
+            cursor.beginEditBlock()
+            try:
+                cursor.deletePreviousChar()
+                cursor.deleteChar()
+                cursor.deleteChar()
+            finally:
+                cursor.endEditBlock()
+            self.setTextCursor(cursor)
+            return True
+        # Cursor between the backslash and the closer of an escaped
+        # pair: also delete the whole trio.
+        if prev_ch == '\\' and next_ch in auto_pairs.CLOSERS:
+            opener = self._char_at_offset(pos - 2)
+            if opener in auto_pairs.OPENERS_FOR and \
+                    auto_pairs.OPENERS_FOR[opener] == next_ch:
+                cursor.beginEditBlock()
+                try:
+                    cursor.deletePreviousChar()
+                    cursor.deletePreviousChar()
+                    cursor.deleteChar()
+                finally:
+                    cursor.endEditBlock()
+                self.setTextCursor(cursor)
+                return True
         if not auto_pairs.matching_pair(prev_ch, next_ch):
             return False
         cursor.beginEditBlock()
@@ -262,6 +327,36 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         pos = cursor.position()
         prev_ch = self._char_at_offset(pos - 1)
         next_ch = self._char_at_offset(pos)
+        # Escaped pair ``\()``: expand to ``\(``, middle, ``\)``.
+        next_two = next_ch + self._char_at_offset(pos + 1)
+        escaped_closer = auto_pairs.matching_escaped_pair(prev_ch, next_two)
+        if escaped_closer:
+            block = cursor.block()
+            block_text = block.text()
+            if block_text.strip() != f'{prev_ch}\\{escaped_closer}':
+                return False
+            cursor.beginEditBlock()
+            try:
+                start = block.position()
+                opener_text = f'{prev_ch}'
+                closer_text = f'\\{escaped_closer}'
+                indent = auto_pairs.indent_of(block_text)
+                middle = indent + auto_pairs.INDENT_UNIT
+                cursor.setPosition(start)
+                cursor.movePosition(
+                    QtGui.QTextCursor.NextCharacter,
+                    QtGui.QTextCursor.KeepAnchor,
+                    utf16_units(block_text))
+                cursor.insertText(
+                    f'{indent}{opener_text}\n{middle}\n{indent}{closer_text}')
+                cursor.setPosition(
+                    start + utf16_units(indent + opener_text) + 1
+                    + utf16_units(middle))
+            finally:
+                cursor.endEditBlock()
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            return True
         closer = auto_pairs.matching_pair(prev_ch, next_ch)
         if not closer:
             return False
