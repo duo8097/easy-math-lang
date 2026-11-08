@@ -185,11 +185,19 @@ now, sharing one library directory.
   overtypes it instead of inserting a duplicate; Backspace between
   an empty pair deletes both characters; Enter between an empty pair
   expands it to three lines with proper indentation. Each auto-pair
-  action is a single undo step. IME composition (Vietnamese Telex/VNI,
-  fcitx5/ibus, CJK IMEs) is never disturbed, and programmatic edits
-  (paste, completion insertion, LSP changes) never auto-pair. The
-  setting is persisted in `~/.config/ezmath/config.ini` under
-  `editor/autoCloseBrackets` (default on).
+  action is a single undo step. A backslash before an opener is
+  counted (`\\` is a literal backslash, so only an odd number of
+  backslashes escapes): an escaped opener like `\(` gets no
+  auto-closer, because ezmath has no `\( \)` pairs — `\` toggles
+  inline math — while `\\(` auto-closes normally. Typing a closer
+  over an escaped closer (`\)`) steps over both characters, and
+  Backspace between an opener and its escaped closer deletes the
+  whole pair. Typing `\` alone inserts only `\`. IME composition
+  (Vietnamese Telex/VNI, fcitx5/ibus, CJK IMEs) is never disturbed,
+  and programmatic edits (paste, completion insertion, LSP changes)
+  never auto-pair. The setting is persisted in
+  `~/.config/ezmath/config.ini` under `editor/autoCloseBrackets`
+  (default on).
 - The editor uses a monospace font with line numbers, a highlighted
   current line, and 4-space tab stops.
 - `View → Editor Font…`: pick the editor font family and size
