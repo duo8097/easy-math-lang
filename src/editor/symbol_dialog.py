@@ -7,6 +7,7 @@ from dataclasses import replace as _dc_replace
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .qt_text import install_text_context_menu
 from .symbol_registry import (
     Symbol,
     build_source,
@@ -26,6 +27,17 @@ def _shape_text(rows: int, cols: int) -> str:
     return i18n.tr('symbol_dialog.shape',
                    rows=rows, row_word=row_word,
                    cols=cols, col_word=col_word)
+
+
+def _field_label_text(field):
+    """Translated field label, with grid 'Row R Col C' support."""
+    import re
+
+    match = re.fullmatch(r'Row (\d+) Col (\d+)', field.label or '')
+    if match:
+        return i18n.tr('grid.row_col', row=match.group(1),
+                       col=match.group(2))
+    return i18n.current_translator().label(field.label)
 
 
 class SymbolDialog(QtWidgets.QDialog):
@@ -48,6 +60,7 @@ class SymbolDialog(QtWidgets.QDialog):
         self.setWindowTitle(i18n.tr('symbol_dialog.title',
                                     name=symbol.display))
         self.setModal(True)
+        self.setMinimumWidth(360)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -59,7 +72,9 @@ class SymbolDialog(QtWidgets.QDialog):
         # "QWindowsWindow::setGeometry: Unable to set geometry" warnings.
         layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
-        info = QtWidgets.QLabel(symbol.tooltip, self)
+        from .symbol_bar import _symbol_tooltip
+
+        info = QtWidgets.QLabel(_symbol_tooltip(symbol), self)
         info.setWordWrap(True)
         info.setObjectName('symbol-info')
         layout.addWidget(info)
@@ -77,7 +92,7 @@ class SymbolDialog(QtWidgets.QDialog):
             grid_row.setSpacing(6)
             self._shape_label = QtWidgets.QLabel(self)
             self._shape_label.setObjectName('symbol-grid-shape')
-            self._shape_label.setAccessibleName('Grid dimensions')
+            self._shape_label.setAccessibleName(i18n.tr('a11y.grid_dimensions'))
             grid_row.addWidget(self._shape_label)
             grid_row.addStretch(1)
             add_row = QtWidgets.QPushButton(
@@ -99,7 +114,7 @@ class SymbolDialog(QtWidgets.QDialog):
 
         self._error = QtWidgets.QLabel('', self)
         self._error.setWordWrap(True)
-        self._error.setAccessibleName('Symbol dialog error')
+        self._error.setAccessibleName(i18n.tr('a11y.symbol_error'))
         self._error.setProperty('isErrorLabel', True)
         self._error.hide()
         layout.addWidget(self._error)
@@ -110,6 +125,8 @@ class SymbolDialog(QtWidgets.QDialog):
         )
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
             i18n.tr('symbol_dialog.insert'))
+        buttons.button(QtWidgets.QDialogButtonBox.Cancel).setText(
+            i18n.tr('btn.cancel'))
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setDefault(True)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -127,7 +144,7 @@ class SymbolDialog(QtWidgets.QDialog):
         """
         for f in self._fields:
             edit = self._field_edit(f, prefill.get(f.key, ''))
-            self._form.addRow(i18n.current_translator().label(f.label) + ':', edit)
+            self._form.addRow(_field_label_text(f) + ':', edit)
             self._edits[f.key] = edit
 
     def _field_edit(self, field, text: str = ''):
@@ -138,13 +155,15 @@ class SymbolDialog(QtWidgets.QDialog):
             pre = field.default
         edit.setText(str(pre))
         edit.setAccessibleName(
-            i18n.current_translator().label(field.label))
+            _field_label_text(field))
         if field.placeholder:
             edit.setPlaceholderText(field.placeholder)
         if field.help:
-            edit.setToolTip(field.help)
-            edit.setAccessibleDescription(field.help)
+            help_text = i18n.current_translator().text(field.help)
+            edit.setToolTip(help_text)
+            edit.setAccessibleDescription(help_text)
         edit.returnPressed.connect(self._on_accept)
+        install_text_context_menu(edit)
         return edit
 
     def _focus_first_empty(self):
@@ -263,14 +282,14 @@ class SymbolDialog(QtWidgets.QDialog):
                 edit = self._field_edit(field)
                 self._form.insertRow(
                     r * new_cols - 1,
-                    i18n.current_translator().label(field.label) + ':', edit)
+                    _field_label_text(field) + ':', edit)
                 self._edits[key] = edit
         else:
             for f in full:
                 if f.key not in known:
                     edit = self._field_edit(f)
                     self._form.addRow(
-                        i18n.current_translator().label(f.label) + ':', edit)
+                        _field_label_text(f) + ':', edit)
                     self._edits[f.key] = edit
         self._fields = full
         self._update_shape_label()

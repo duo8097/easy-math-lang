@@ -32,6 +32,7 @@ import os
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 
 from . import i18n
+from .qt_text import install_text_context_menu
 from .draw_catalog import CATALOG, GROUPS, CatalogEntry, catalog_entries
 
 #: Source-tree location of the pre-rendered thumbnails.
@@ -140,6 +141,20 @@ def render_thumbnail(entry_id: str, width: int = THUMB_W,
 # Card
 # ----------------------------------------------------------------------
 
+def title_text(entry):
+    """Translated card title (command names/syntax stay untouched)."""
+    translator = i18n.current_translator()
+    key = f'draw.{entry.id}.title'
+    return translator.tr(key) if translator.has(key) else entry.title
+
+
+def description_text(entry):
+    """Translated card description."""
+    translator = i18n.current_translator()
+    key = f'draw.{entry.id}.description'
+    return translator.tr(key) if translator.has(key) else entry.description
+
+
 class DrawCard(QtWidgets.QFrame):
     """One command: thumbnail, syntax, description, two insert buttons."""
 
@@ -149,7 +164,8 @@ class DrawCard(QtWidgets.QFrame):
         self.setObjectName('draw-card')
         self.setProperty('entry-id', entry.id)
         self.setProperty('group', entry.group)
-        self.setFixedWidth(CARD_WIDTH)
+        self.setMinimumWidth(CARD_WIDTH)
+        self.setMaximumWidth(CARD_WIDTH + 40)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -174,8 +190,10 @@ class DrawCard(QtWidgets.QFrame):
                          command=entry.command))
         layout.addWidget(self.thumb, 0, QtCore.Qt.AlignHCenter)
 
-        title = QtWidgets.QLabel(entry.title, self)
+        title = QtWidgets.QLabel(title_text(entry), self)
+        self._title_label = title
         title.setObjectName('draw-card-title')
+        title.setWordWrap(True)
         title_font = QtGui.QFont(title.font())
         title_font.setBold(True)
         title.setFont(title_font)
@@ -189,10 +207,11 @@ class DrawCard(QtWidgets.QFrame):
         syntax.setToolTip(entry.syntax)
         layout.addWidget(syntax)
 
-        description = QtWidgets.QLabel(entry.description, self)
+        description = QtWidgets.QLabel(description_text(entry), self)
+        self._desc_label = description
         description.setObjectName('draw-card-description')
         description.setWordWrap(True)
-        description.setToolTip(f'{entry.syntax}\n{entry.description}')
+        description.setToolTip(f'{entry.syntax}\n{description_text(entry)}')
         layout.addWidget(description)
 
         buttons = QtWidgets.QHBoxLayout()
@@ -201,7 +220,7 @@ class DrawCard(QtWidgets.QFrame):
             i18n.tr('draw_gallery.insert_example'), self)
         self.example_btn.setObjectName('insert-example')
         self.example_btn.setAccessibleName(
-            i18n.tr('draw_gallery.insert_example_name', title=entry.title))
+            i18n.tr('draw_gallery.insert_example_name', title=title_text(entry)))
         self.example_btn.setToolTip(
             i18n.tr('draw_gallery.insert_example_tip',
                     command=entry.command))
@@ -230,9 +249,12 @@ class DrawCard(QtWidgets.QFrame):
 
     def retranslate_ui(self):
         entry = self.entry
+        self._title_label.setText(title_text(entry))
+        self._desc_label.setText(description_text(entry))
+        self._desc_label.setToolTip(f'{entry.syntax}\n{description_text(entry)}')
         self.example_btn.setText(i18n.tr('draw_gallery.insert_example'))
         self.example_btn.setAccessibleName(
-            i18n.tr('draw_gallery.insert_example_name', title=entry.title))
+            i18n.tr('draw_gallery.insert_example_name', title=title_text(entry)))
         self.example_btn.setToolTip(
             i18n.tr('draw_gallery.insert_example_tip',
                     command=entry.command))
@@ -270,7 +292,8 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         self.setModal(False)
         self.setObjectName('drawGalleryDialog')
         self.setWindowTitle(i18n.tr('draw_gallery.title'))
-        self.resize(820, 560)
+        self.resize(900, 560)
+        self.setMinimumSize(640, 420)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -285,6 +308,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         self.search.setClearButtonEnabled(True)
         self.search.setAccessibleName(i18n.tr('draw_gallery.search_name'))
         self.search.setToolTip(i18n.tr('draw_gallery.search_tip'))
+        install_text_context_menu(self.search)
         header.addWidget(self.search, 1)
 
         self.group_combo = QtWidgets.QComboBox(self)
@@ -306,7 +330,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
 
         self.status = QtWidgets.QLabel('', self)
         self.status.setObjectName('draw-gallery-status')
-        self.status.setAccessibleName('Visible command count')
+        self.status.setAccessibleName(i18n.tr('a11y.visible_count'))
         layout.addWidget(self.status)
 
         self.scroll = QtWidgets.QScrollArea(self)
@@ -361,7 +385,12 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         query = self.search.text().strip().lower()
         if not query:
             return True
-        return query in entry.search_text
+        if query in entry.search_text:
+            return True
+        # Also match the translated title/description so Vietnamese
+        # search finds cards by their visible text.
+        translated = f'{title_text(entry)} {description_text(entry)}'.lower()
+        return query in translated
 
     # -- internals ----------------------------------------------------
 

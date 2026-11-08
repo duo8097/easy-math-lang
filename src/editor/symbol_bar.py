@@ -15,10 +15,20 @@ def _category_text(category):
     return i18n.tr(f'category.{category}')
 
 
+def translated_description(sym):
+    """Translated symbol description (syntax/glyphs stay untouched)."""
+    if not sym.description:
+        return sym.description
+    translator = i18n.current_translator()
+    key = f'symbol.{sym.name}.description'
+    return translator.tr(key) if translator.has(key) else sym.description
+
+
 def _symbol_tooltip(sym):
     """Tooltip: what it inserts, its category, and a one-line example."""
-    base = sym.syntax if not sym.description \
-        else f'{sym.syntax} — {sym.description}'
+    description = translated_description(sym)
+    base = sym.syntax if not description \
+        else f'{sym.syntax} — {description}'
     hint_key = ('symbol.tooltip_opens' if sym.requires_dialog
                 else 'symbol.tooltip_inserts')
     return i18n.tr('symbol.tooltip', base=base,
@@ -108,7 +118,8 @@ class SymbolBar(QtWidgets.QWidget):
             btn.setToolTip(tooltip)
             btn.setStatusTip(tooltip)
             btn.setAccessibleName(f'{sym.display} {sym.syntax}')
-            btn.setAccessibleDescription(f'{sym.description} ({sym.category})')
+            btn.setAccessibleDescription(
+                f'{translated_description(sym)} ({_category_text(sym.category)})')
             btn.setAutoRaise(True)
             btn.setFocusPolicy(QtCore.Qt.StrongFocus)
             # Keep buttons compact but touchable; sizeHint still scales

@@ -116,6 +116,17 @@ def explain(raw_message):
                                   or '*mat' in message):
         return FriendlyError('friendly.table_shape', {})
 
+    if 'is empty' in message and ('*doc_title' in message
+                                  or '*doc_font' in message
+                                  or '*title' in message):
+        return FriendlyError('friendly.empty_control', {})
+
+    if message == 'Invalid document text':
+        return FriendlyError('friendly.invalid_doc', {})
+
+    if message.startswith('Analysis failed:'):
+        return FriendlyError('friendly.analysis_failed', {})
+
     if 'rows have different lengths' in message:
         return FriendlyError('friendly.table_shape', {})
 

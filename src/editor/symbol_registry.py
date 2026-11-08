@@ -74,14 +74,18 @@ class SymbolField:
 
     def validate(self, value: str) -> str | None:
         """Return an error message, or None when *value* is acceptable."""
+        from . import i18n
+
         text = (value or '').strip()
         if not text:
             if self.required:
-                return f'{self.label} is required.'
+                label = i18n.current_translator().label(self.label)
+                return i18n.tr('validate.required', label=label)
             return None
         if self.pattern:
             if not re.match(self.pattern, text):
-                return f'{self.label} looks invalid: {value!r}.'
+                label = i18n.current_translator().label(self.label)
+                return i18n.tr('validate.invalid', label=label, value=value)
         return None
 
 
@@ -261,7 +265,8 @@ def make_grid_fields(name: str, rows: int, cols: int) -> list[SymbolField]:
     """
     rows, cols = int(rows), int(cols)
     if rows < 1 or cols < 1:
-        raise ValueError('Grid dimensions must be at least 1x1')
+        from . import i18n
+        raise ValueError(i18n.tr('validate.grid_dims'))
     if name == 'table':
         base = TABLE_BASE_CELLS
     elif name in ('matrix', 'det'):
@@ -662,7 +667,8 @@ def validate_fields(symbol: Symbol, values: dict) -> list[str]:
         x = (values or {}).get('x', '').strip()
         y = (values or {}).get('y', '').strip()
         if bool(x) != bool(y):
-            errors.append('X and Y must either both be set or both be empty.')
+            from . import i18n as _i18n
+            errors.append(_i18n.tr('validate.xy_pair'))
     return errors
 
 
@@ -698,11 +704,14 @@ def _build_grid_source(command: str, vals: dict) -> str:
         if m:
             cells[(int(m.group(1)), int(m.group(2)))] = _v(vals, key)
     if not cells:
-        raise ValueError(f'no grid cells for *{command}')
+        from . import i18n
+        raise ValueError(i18n.tr('validate.no_grid_cells', command=command))
     rows = max(r for r, _ in cells)
     cols = max(c for _, c in cells)
+    from . import i18n
+
     missing = [
-        f'Row {r} Col {c} is required.'
+        i18n.tr('validate.grid_cell', row=r, col=c)
         for r in range(1, rows + 1)
         for c in range(1, cols + 1)
         if not cells.get((r, c), '')

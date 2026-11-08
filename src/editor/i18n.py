@@ -12,10 +12,11 @@ to the existing ``assets/`` payload. Adding a language means adding
 one JSON file with the same keys — see ``docs/editor.md``.
 
 Only UI chrome belongs in the catalogs. Language syntax/keywords
-(``*vec``, ``*draw`` …), file names, and compiler/LSP identifiers are
-never translated. Texts derived from the compiler/LSP documentation
-tables (``MATH_DOCS`` descriptions, draw catalog titles) stay in
-English as technical reference; the chrome around them is translated.
+(``*vec``, ``*draw`` …), file names, code snippets and compiler/LSP
+identifiers are never translated. Command descriptions and draw
+titles are catalogued by name/id (``symbol.<name>.description``,
+``draw.<id>.title``) so the registry/catalog data itself stays
+Qt-free English while the UI shows the translated text.
 
 Keys are dotted strings (``menu.file`` …). Values may contain
 ``{name}`` placeholders filled by :meth:`Translator.tr`. Lookup
@@ -128,6 +129,16 @@ class Translator:
         Qt or i18n dependency. Unknown labels pass through unchanged.
         """
         return self.tr(f'field_labels.{english_label}')
+
+    def text(self, english_source, prefix='help'):
+        """Translate a free English source string, keyed by itself.
+
+        Used for short help strings that live in Qt-free data
+        (field ``help`` texts). Unknown strings pass through.
+        """
+        if not english_source:
+            return english_source
+        return self.tr(f'{prefix}.{english_source}')
 
 
 _current = Translator(DEFAULT_LOCALE)

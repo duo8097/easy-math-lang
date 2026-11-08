@@ -28,10 +28,12 @@ from __future__ import annotations
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import i18n
+from .qt_text import install_text_context_menu
 from .command_palette import fuzzy_score
 from .draw_catalog import (CatalogEntry, build_insert_text, catalog_entries,
                            commands_in, get_entry, symbol_for_command)
-from .draw_gallery import PLACEHOLDER_BORDER, TILE_BG, render_thumbnail
+from .draw_gallery import (PLACEHOLDER_BORDER, TILE_BG, render_thumbnail,
+                           title_text)
 
 #: Preview tile: the SVG re-rendered at this size (crisp — not a
 #: upscale of the 168×112 gallery thumbnail).
@@ -53,7 +55,8 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         self.setModal(False)
         self.setObjectName('drawTemplateDialog')
         self.setWindowTitle(i18n.tr('draw_template.title'))
-        self.resize(980, 640)
+        self.resize(1020, 640)
+        self.setMinimumSize(720, 480)
         self.entry: CatalogEntry | None = None
 
         root = QtWidgets.QVBoxLayout(self)
@@ -107,6 +110,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             4 * self.code.fontMetrics().horizontalAdvance(' '))
         self.code.setPlaceholderText(
             i18n.tr('draw_template.code_placeholder'))
+        install_text_context_menu(self.code)
         left.addWidget(self.code, 1)
         body.addLayout(left, 3)
 
@@ -126,6 +130,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             i18n.tr('draw_template.search_placeholder'))
         self.search.setClearButtonEnabled(True)
         self.search.setAccessibleName(i18n.tr('draw_template.search_name'))
+        install_text_context_menu(self.search)
         palette_label.setBuddy(self.search)
         right.addWidget(self.search)
 
@@ -182,8 +187,8 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             return
         self.entry = entry
         self.setWindowTitle(i18n.tr('draw_template.title_for',
-                                    title=entry.title))
-        self.title.setText(entry.title)
+                                    title=title_text(entry)))
+        self.title.setText(title_text(entry))
         self.syntax.setText(entry.syntax)
         self.syntax.setToolTip(entry.syntax)
         pixmap, has_preview = render_thumbnail(
@@ -254,13 +259,14 @@ class DrawTemplateDialog(QtWidgets.QDialog):
     def retranslate_ui(self):
         """Refresh translated chrome, keeping the edited code."""
         self.setWindowTitle(
-            i18n.tr('draw_template.title_for', title=self.entry.title)
+            i18n.tr('draw_template.title_for', title=title_text(self.entry))
             if self.entry is not None else i18n.tr('draw_template.title'))
         self._palette_label.setText(i18n.tr('draw_template.palette_label'))
         self._palette_label.setToolTip(i18n.tr('draw_template.palette_tip'))
         self.search.setPlaceholderText(
             i18n.tr('draw_template.search_placeholder'))
         self.search.setAccessibleName(i18n.tr('draw_template.search_name'))
+        install_text_context_menu(self.search)
         self.commands.setAccessibleName(
             i18n.tr('draw_template.palette_label'))
         self.cancel_btn.setText(i18n.tr('draw_template.cancel'))
@@ -272,6 +278,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         self.insert_btn.setToolTip(i18n.tr('draw_template.insert_tip'))
         self.code.setPlaceholderText(
             i18n.tr('draw_template.code_placeholder'))
+        install_text_context_menu(self.code)
         self._rebuild_commands()
 
     # -- internals ---------------------------------------------------
@@ -337,7 +344,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             score = 0.0
             if query:
                 score = fuzzy_score(
-                    query, f'{entry.title} {entry.command}')
+                    query, f'{entry.title} {title_text(entry)} {entry.command}')
                 if score is None:
                     continue
             rows.append((score, order, entry))
@@ -351,14 +358,14 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         # within a space of the next tab stop).
         metrics = self.commands.fontMetrics()
         space = max(1, metrics.horizontalAdvance(' '))
-        title_w = max((metrics.horizontalAdvance(row[2].title)
+        title_w = max((metrics.horizontalAdvance(title_text(row[2]))
                        for row in rows), default=0)
         for _score, _order, entry in rows:
             pad = 2 + max(
-                0, (title_w - metrics.horizontalAdvance(entry.title))
+                0, (title_w - metrics.horizontalAdvance(title_text(entry)))
                 // space)
             item = QtWidgets.QListWidgetItem(
-                f'{entry.title}{" " * pad}*{entry.command}', self.commands)
+                f'{title_text(entry)}{" " * pad}*{entry.command}', self.commands)
             item.setData(QtCore.Qt.UserRole, entry.command)
             if entry.command in related_set:
                 font = item.font()

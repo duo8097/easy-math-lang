@@ -39,36 +39,36 @@ EXAMPLES = (
      ')\n'),
 )
 
-# (shortcut, action) pairs transcribed from main_window._create_menus
-# and editor_widget (Ctrl+Space). Keep in sync with the code.
+# (shortcut, catalog key for the action name) transcribed from
+# main_window._create_menus and editor_widget (Ctrl+Space).
 SHORTCUTS = (
-    ('Ctrl+N', 'New'),
-    ('Ctrl+O', 'Open'),
-    ('Ctrl+S', 'Save'),
-    ('Ctrl+Shift+S', 'Save As'),
-    ('Ctrl+Q', 'Quit'),
-    ('Ctrl+Z', 'Undo'),
-    ('Ctrl+Shift+Z / Ctrl+Y', 'Redo'),
-    ('Ctrl+X', 'Cut'),
-    ('Ctrl+C', 'Copy'),
-    ('Ctrl+V', 'Paste'),
-    ('Ctrl+A', 'Select All'),
-    ('Ctrl+F', 'Find'),
-    ('F3', 'Find next'),
-    ('Shift+F3', 'Find previous'),
-    ('Esc', 'Close find bar'),
-    ('Ctrl+G', 'Go to line'),
-    ('Ctrl+Space', 'Show completions'),
-    ('Ctrl+B', 'Compile to PDF'),
-    ('F5', 'Refresh preview'),
-    ('Ctrl+Shift+V', 'Toggle live preview'),
-    ('Ctrl+Shift+D', 'Toggle dark mode'),
-    ('Ctrl+Shift+B', 'Toggle auto-close brackets'),
-    ('Ctrl+Shift+P', 'Command palette'),
-    ('Ctrl+Shift+G', 'Geometry gallery'),
-    ('Ctrl+= / Ctrl++', 'Zoom in'),
-    ('Ctrl+-', 'Zoom out'),
-    ('Ctrl+0', 'Reset zoom'),
+    ('Ctrl+N', 'shortcuts.action.new'),
+    ('Ctrl+O', 'shortcuts.action.open'),
+    ('Ctrl+S', 'shortcuts.action.save'),
+    ('Ctrl+Shift+S', 'shortcuts.action.save_as'),
+    ('Ctrl+Q', 'shortcuts.action.quit'),
+    ('Ctrl+Z', 'shortcuts.action.undo'),
+    ('Ctrl+Shift+Z / Ctrl+Y', 'shortcuts.action.redo'),
+    ('Ctrl+X', 'shortcuts.action.cut'),
+    ('Ctrl+C', 'shortcuts.action.copy'),
+    ('Ctrl+V', 'shortcuts.action.paste'),
+    ('Ctrl+A', 'shortcuts.action.select_all'),
+    ('Ctrl+F', 'shortcuts.action.find'),
+    ('F3', 'shortcuts.action.find_next'),
+    ('Shift+F3', 'shortcuts.action.find_previous'),
+    ('Esc', 'shortcuts.action.close_find_bar'),
+    ('Ctrl+G', 'shortcuts.action.go_to_line'),
+    ('Ctrl+Space', 'shortcuts.action.show_completions'),
+    ('Ctrl+B', 'shortcuts.action.compile_to_pdf'),
+    ('F5', 'shortcuts.action.refresh_preview'),
+    ('Ctrl+Shift+V', 'shortcuts.action.toggle_live_preview'),
+    ('Ctrl+Shift+D', 'shortcuts.action.toggle_dark_mode'),
+    ('Ctrl+Shift+B', 'shortcuts.action.toggle_auto-close_brackets'),
+    ('Ctrl+Shift+P', 'shortcuts.action.command_palette'),
+    ('Ctrl+Shift+G', 'shortcuts.action.geometry_gallery'),
+    ('Ctrl+= / Ctrl++', 'shortcuts.action.zoom_in'),
+    ('Ctrl+-', 'shortcuts.action.zoom_out'),
+    ('Ctrl+0', 'shortcuts.action.reset_zoom'),
 )
 
 
@@ -163,15 +163,41 @@ class ShortcutsDialog(QtWidgets.QDialog):
         heading.setFont(font)
         layout.addWidget(heading)
         table = QtWidgets.QTableWidget(len(SHORTCUTS), 2, self)
-        table.setHorizontalHeaderLabels(['Shortcut', 'Action'])
+        table.setHorizontalHeaderLabels([
+            i18n.tr('shortcuts.header_shortcut'),
+            i18n.tr('shortcuts.header_action')])
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.verticalHeader().setVisible(False)
-        for row, (shortcut, action) in enumerate(SHORTCUTS):
+        for row, (shortcut, action_key) in enumerate(SHORTCUTS):
             table.setItem(row, 0,
                           QtWidgets.QTableWidgetItem(shortcut))
-            table.setItem(row, 1, QtWidgets.QTableWidgetItem(action))
+            table.setItem(row, 1,
+                          QtWidgets.QTableWidgetItem(i18n.tr(action_key)))
         table.horizontalHeader().setStretchLastSection(True)
         table.resizeColumnsToContents()
         layout.addWidget(table, 1)
-        self.resize(420, 480)
+        self.resize(520, 480)
+        self.setMinimumSize(480, 360)
+
+
+class AboutDialog(QtWidgets.QDialog):
+    """Simple About box (version + one-line description)."""
+
+    def __init__(self, version='6.0.0', parent=None):
+        super().__init__(parent)
+        self.setObjectName('aboutDialog')
+        self.setWindowTitle(i18n.tr('about.title'))
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        label = QtWidgets.QLabel(
+            i18n.tr('about.text', version=version), self)
+        label.setWordWrap(True)
+        label.setMinimumWidth(420)
+        layout.addWidget(label)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok, self)
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
+            i18n.tr('about.ok'))
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)
