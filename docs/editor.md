@@ -46,10 +46,20 @@ environment — it is declared in `pyproject.toml`.
   touching your document, cursor, or open files, and is persisted
   in `~/.config/ezmath/config.ini` as `ui/language`.
 - Only UI chrome is translated. Language syntax and keywords
-  (`*vec`, `*draw`, `*point`, …), file names, and compiler/LSP
-  identifiers are never translated. Texts derived from the
-  compiler/LSP documentation tables (one-line command descriptions,
-  draw card titles) stay in English as technical reference.
+  (`*vec`, `*draw`, `*point`, …), file names, code snippets, and
+  compiler/LSP identifiers are never translated. Command
+  descriptions and draw titles are translated by name/id
+  (`symbol.<name>.description`, `draw.<id>.title`); the registry
+  data itself stays canonical English and the UI looks the
+  translation up at display time.
+- Qt has no Vietnamese catalog, so Qt-generated texts are set
+  explicitly from the catalog: text-edit context menus
+  (`editor/qt_text.py`), standard dialog buttons, file dialog
+  labels (file dialogs are always Qt-drawn, never native, so
+  their labels can be translated), and input dialog buttons.
+  The font dialog's internal labels cannot be set this way and
+  stay Qt-generated (see remaining exceptions in
+  `scripts/audit_i18n_allowlist.json` and below).
 - UI fonts prefer Noto Sans / DejaVu Sans, which render Vietnamese
   diacritics correctly; Qt falls back per glyph, so frozen builds
   use system fonts (no bundled font files). Vietnamese typing via
@@ -76,6 +86,36 @@ passes `src/editor/locales/` as `--add-data` for the editor build,
 so the Windows/Linux/macOS frozen builds and the installers that
 copy the whole bundle (Inno Setup `_internal/`, Arch `PKGBUILD`
 `cp -a dist/…`) carry them with no further changes.
+
+### Glossary (consistent Vietnamese terms)
+
+Repeated terms use one Vietnamese wording everywhere; the actual
+Vietnamese strings live only in `src/editor/locales/vi.json`
+(docs stay in English). The table below maps each English concept
+to its catalog key so new strings reuse the established term.
+
+| English concept | Catalog key (prefix) | Notes |
+|---|---|---|
+| File / Save / Open | `menu.file`, `btn.save` | Use "Save" for both menu and dialog button |
+| Vector | `symbol.vec.description` | Kept as "vector" (standard loanword) |
+| Angle / Right angle | `symbol.geo-angle.description` | Distinct keys for angle vs right-angle marker |
+| Circle | `draw.circle.title` | Standard term for a circle |
+| Midpoint / Centre | `draw.midpoint.title`, `field_labels.Center` | Distinguish midpoint from centre |
+| Line / Segment / Ray | `draw.line.title`, `draw.ray.title` | Segment vs ray vs line kept distinct |
+| Parallel / Perpendicular | `draw.parallel.title`, `draw.perp.title` | Keep the two constraints distinct |
+| Fraction / Equation | `examples.fraction_equation` | Reuse the Examples wording |
+| Compile / Export | `action.compile`, `action.export_as` | Compile = build to PDF; Export = save as other format |
+| Language server | `status.lsp_connected` | Keep the "LSP" abbreviation unchanged |
+| Welcome / Examples / Shortcuts | `welcome.*`, `examples.*`, `shortcuts.*` | Help menu wording |
+
+### Auditing translations
+
+Run `python scripts/audit_i18n.py` to list user-visible literals
+that bypass `tr()` (grouped by file) plus registry/catalog strings
+missing a translation. `scripts/audit_i18n_allowlist.json` records
+justified exceptions (glyphs, file-format names, example values,
+raw LSP/compiler text). `tests/test_i18n.py` runs the same audit
+as a regression guard and walks the Vietnamese UI offscreen.
 
 ---
 
