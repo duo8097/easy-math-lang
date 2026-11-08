@@ -2,6 +2,8 @@
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
+
 
 class FindBar(QtWidgets.QWidget):
     """Thin search strip. Search itself lives in MainWindow."""
@@ -15,7 +17,7 @@ class FindBar(QtWidgets.QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
 
         self._input = QtWidgets.QLineEdit(self)
-        self._input.setPlaceholderText('Find')
+        self._input.setPlaceholderText(i18n.tr('find.placeholder'))
         self._input.setClearButtonEnabled(True)
         layout.addWidget(self._input, 1)
 
@@ -24,25 +26,34 @@ class FindBar(QtWidgets.QWidget):
 
         prev_button = QtWidgets.QPushButton('↑', self)
         prev_button.setFlat(True)
-        prev_button.setToolTip('Previous match (Shift+F3)')
+        prev_button.setToolTip(i18n.tr('find.prev_tip'))
         prev_button.clicked.connect(lambda: self._emit(-1))
         layout.addWidget(prev_button)
 
         next_button = QtWidgets.QPushButton('↓', self)
         next_button.setFlat(True)
-        next_button.setToolTip('Next match (F3 / Enter)')
+        next_button.setToolTip(i18n.tr('find.next_tip'))
         next_button.clicked.connect(lambda: self._emit(1))
         layout.addWidget(next_button)
 
         close_button = QtWidgets.QPushButton('✕', self)
         close_button.setFlat(True)
-        close_button.setToolTip('Close (Esc)')
+        close_button.setToolTip(i18n.tr('find.close_tip'))
         close_button.clicked.connect(self.hide_bar)
         layout.addWidget(close_button)
 
+        self._prev_button = prev_button
+        self._next_button = next_button
+        self._close_button = close_button
         self._input.textChanged.connect(lambda: self._emit(0))
         self._input.returnPressed.connect(lambda: self._emit(1))
         self.setVisible(False)
+
+    def retranslate_ui(self):
+        self._input.setPlaceholderText(i18n.tr('find.placeholder'))
+        self._prev_button.setToolTip(i18n.tr('find.prev_tip'))
+        self._next_button.setToolTip(i18n.tr('find.next_tip'))
+        self._close_button.setToolTip(i18n.tr('find.close_tip'))
 
     def show_bar(self, initial_text=''):
         if initial_text and initial_text != self._input.text():
@@ -64,7 +75,11 @@ class FindBar(QtWidgets.QWidget):
 
     def set_match_count(self, index, total):
         """Update the 'i of n' label (either may be 0)."""
-        self._count.setText(f'{index} of {total}' if total else '0 of 0')
+        if total:
+            self._count.setText(
+                i18n.tr('find.count', index=index, total=total))
+        else:
+            self._count.setText(i18n.tr('find.count_zero'))
 
     def _emit(self, direction):
         self.findRequested.emit(self._input.text(), direction)

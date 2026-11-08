@@ -6,6 +6,7 @@ from dataclasses import replace as _dc_replace
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
 from .symbol_registry import (
     Symbol,
     build_source,
@@ -18,9 +19,13 @@ from .symbol_registry import (
 
 def _shape_text(rows: int, cols: int) -> str:
     """Human-readable grid size, e.g. ``3 rows × 2 columns``."""
-    row_word = 'row' if rows == 1 else 'rows'
-    col_word = 'column' if cols == 1 else 'columns'
-    return f'{rows} {row_word} × {cols} {col_word}'
+    row_word = i18n.tr('symbol_dialog.row' if rows == 1
+                       else 'symbol_dialog.rows')
+    col_word = i18n.tr('symbol_dialog.column' if cols == 1
+                       else 'symbol_dialog.columns')
+    return i18n.tr('symbol_dialog.shape',
+                   rows=rows, row_word=row_word,
+                   cols=cols, col_word=col_word)
 
 
 class SymbolDialog(QtWidgets.QDialog):
@@ -40,7 +45,8 @@ class SymbolDialog(QtWidgets.QDialog):
         # Local field list: grid dialogs extend it via Add row/cell
         # without mutating the shared registry entry.
         self._fields = list(symbol.fields)
-        self.setWindowTitle(f'Insert {symbol.display}')
+        self.setWindowTitle(i18n.tr('symbol_dialog.title',
+                                    name=symbol.display))
         self.setModal(True)
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -74,16 +80,18 @@ class SymbolDialog(QtWidgets.QDialog):
             self._shape_label.setAccessibleName('Grid dimensions')
             grid_row.addWidget(self._shape_label)
             grid_row.addStretch(1)
-            add_row = QtWidgets.QPushButton('Add row', self)
+            add_row = QtWidgets.QPushButton(
+                i18n.tr('symbol_dialog.add_row'), self)
             add_row.setObjectName('symbol-add-row')
-            add_row.setAccessibleName('Add row')
-            add_row.setToolTip('Add another row to the grid')
+            add_row.setAccessibleName(i18n.tr('symbol_dialog.add_row'))
+            add_row.setToolTip(i18n.tr('symbol_dialog.add_row_tip'))
             add_row.clicked.connect(self._on_add_row)
             grid_row.addWidget(add_row)
-            add_cell = QtWidgets.QPushButton('Add cell', self)
+            add_cell = QtWidgets.QPushButton(
+                i18n.tr('symbol_dialog.add_cell'), self)
             add_cell.setObjectName('symbol-add-cell')
-            add_cell.setAccessibleName('Add cell')
-            add_cell.setToolTip('Add another column to the grid')
+            add_cell.setAccessibleName(i18n.tr('symbol_dialog.add_cell'))
+            add_cell.setToolTip(i18n.tr('symbol_dialog.add_cell_tip'))
             add_cell.clicked.connect(self._on_add_cell)
             grid_row.addWidget(add_cell)
             layout.addLayout(grid_row)
@@ -100,7 +108,8 @@ class SymbolDialog(QtWidgets.QDialog):
             QtWidgets.QDialogButtonBox.Cancel | QtWidgets.QDialogButtonBox.Ok,
             self,
         )
-        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText('Insert')
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
+            i18n.tr('symbol_dialog.insert'))
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setDefault(True)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -118,7 +127,7 @@ class SymbolDialog(QtWidgets.QDialog):
         """
         for f in self._fields:
             edit = self._field_edit(f, prefill.get(f.key, ''))
-            self._form.addRow(f.label + ':', edit)
+            self._form.addRow(i18n.current_translator().label(f.label) + ':', edit)
             self._edits[f.key] = edit
 
     def _field_edit(self, field, text: str = ''):
@@ -128,7 +137,8 @@ class SymbolDialog(QtWidgets.QDialog):
         if not str(pre).strip() and field.default:
             pre = field.default
         edit.setText(str(pre))
-        edit.setAccessibleName(field.label)
+        edit.setAccessibleName(
+            i18n.current_translator().label(field.label))
         if field.placeholder:
             edit.setPlaceholderText(field.placeholder)
         if field.help:
@@ -251,14 +261,16 @@ class SymbolDialog(QtWidgets.QDialog):
                 key = f'r{r}c{new_cols}'
                 field = next(f for f in full if f.key == key)
                 edit = self._field_edit(field)
-                self._form.insertRow(r * new_cols - 1,
-                                     field.label + ':', edit)
+                self._form.insertRow(
+                    r * new_cols - 1,
+                    i18n.current_translator().label(field.label) + ':', edit)
                 self._edits[key] = edit
         else:
             for f in full:
                 if f.key not in known:
                     edit = self._field_edit(f)
-                    self._form.addRow(f.label + ':', edit)
+                    self._form.addRow(
+                        i18n.current_translator().label(f.label) + ':', edit)
                     self._edits[f.key] = edit
         self._fields = full
         self._update_shape_label()

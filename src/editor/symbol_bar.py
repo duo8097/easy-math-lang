@@ -4,7 +4,26 @@ from __future__ import annotations
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
 from .symbol_registry import list_categories, list_symbols, symbols_in_category
+
+
+def _category_text(category):
+    """Translated category label ('All' and the registry categories)."""
+    if category in ('All', '', None):
+        return i18n.tr('symbolbar.all')
+    return i18n.tr(f'category.{category}')
+
+
+def _symbol_tooltip(sym):
+    """Tooltip: what it inserts, its category, and a one-line example."""
+    base = sym.syntax if not sym.description \
+        else f'{sym.syntax} — {sym.description}'
+    hint_key = ('symbol.tooltip_opens' if sym.requires_dialog
+                else 'symbol.tooltip_inserts')
+    return i18n.tr('symbol.tooltip', base=base,
+                   category=_category_text(sym.category),
+                   hint=i18n.tr(hint_key), example=sym.example)
 
 
 class SymbolBar(QtWidgets.QWidget):
@@ -26,10 +45,8 @@ class SymbolBar(QtWidgets.QWidget):
         layout.setSpacing(6)
 
         self._category = QtWidgets.QComboBox(self)
-        self._category.setToolTip('Filter symbols by category')
-        self._category.addItem('All')
-        for cat in list_categories():
-            self._category.addItem(cat)
+        self._category.setToolTip(i18n.tr('symbolbar.filter_tip'))
+        self._populate_categories()
         self._category.currentTextChanged.connect(self._rebuild)
         layout.addWidget(self._category)
 
@@ -51,15 +68,28 @@ class SymbolBar(QtWidgets.QWidget):
         self._buttons_layout.setSpacing(2)
         self._scroll.setWidget(self._container)
 
-        self._rebuild('All')
-        self.setToolTip('Easy Math Lang symbols — click to insert at the cursor')
+        self._rebuild(self._category.currentText())
+        self.setToolTip(i18n.tr('symbolbar.tip'))
 
     @property
     def categoryCombo(self):
         return self._category
 
     def visible_symbols(self) -> list:
-        return symbols_in_category(self._category.currentText())
+        current = self._category.currentText()
+        # Category text is translated; map it back to the registry name.
+        if current == i18n.tr('symbolbar.all'):
+            return symbols_in_category('All')
+        for category in list_categories():
+            if _category_text(category) == current:
+                return symbols_in_category(category)
+        return symbols_in_category(current)
+
+    def _populate_categories(self):
+        self._category.clear()
+        self._category.addItem(i18n.tr('symbolbar.all'))
+        for cat in list_categories():
+            self._category.addItem(_category_text(cat))
 
     def _clear_buttons(self):
         while self._buttons_layout.count():
@@ -69,12 +99,14 @@ class SymbolBar(QtWidgets.QWidget):
                 w.deleteLater()
 
     def _rebuild(self, _category: str = 'All'):
+        symbols = self.visible_symbols()
         self._clear_buttons()
-        for sym in symbols_in_category(self._category.currentText()):
+        for sym in symbols:
             btn = QtWidgets.QToolButton(self._container)
             btn.setText(sym.display)
-            btn.setToolTip(sym.tooltip)
-            btn.setStatusTip(sym.tooltip)
+            tooltip = _symbol_tooltip(sym)
+            btn.setToolTip(tooltip)
+            btn.setStatusTip(tooltip)
             btn.setAccessibleName(f'{sym.display} {sym.syntax}')
             btn.setAccessibleDescription(f'{sym.description} ({sym.category})')
             btn.setAutoRaise(True)
@@ -90,6 +122,28 @@ class SymbolBar(QtWidgets.QWidget):
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                              QtWidgets.QSizePolicy.Preferred)
         self._buttons_layout.addWidget(spacer)
+
+    def retranslate_ui(self):
+        """Refresh translated labels, keeping the selected category."""
+        current = self._category.currentText()
+        # Resolve the currently selected registry category first.
+        selected = 'All'
+        if current != i18n.tr('symbolbar.all'):
+            for category in list_categories():
+                if _category_text(category) == current:
+                    selected = category
+                    break
+        self._category.setToolTip(i18n.tr('symbolbar.filter_tip'))
+        # Block the rebuild signal while repopulating, then rebuild once.
+        self._category.blockSignals(True)
+        try:
+            self._populate_categories()
+            index = self._category.findText(_category_text(selected))
+            self._category.setCurrentIndex(max(0, index))
+        finally:
+            self._category.blockSignals(False)
+        self.setToolTip(i18n.tr('symbolbar.tip'))
+        self._rebuild()
 
     def button_for(self, name: str):
         """Return the QToolButton for *name*, or None."""

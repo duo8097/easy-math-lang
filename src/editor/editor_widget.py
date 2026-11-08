@@ -3,6 +3,7 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import auto_pairs
+from . import i18n
 from .positions import utf16_units
 from .syntax_highlighter import EmlHighlighter
 
@@ -45,14 +46,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         self.setMouseTracking(True)
         self.setTabStopDistance(
             4 * self.fontMetrics().horizontalAdvance(' '))
-        self.setPlaceholderText(
-            'Start typing Easy-Math-Lang here…\n'
-            '\n'
-            '<width> = 5\n'
-            '<area> = calc(<width> * 2)\n'
-            'Area: <area>\n'
-            '\n'
-            'Tip: File → Open → examples/example.ezmath')
+        self.setPlaceholderText(i18n.tr('editor.placeholder'))
 
         self._line_numbers = _LineNumberArea(self)
         self._highlighter = EmlHighlighter(self.document())
@@ -116,6 +110,10 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     @property
     def theme(self):
         return self._theme
+
+    def retranslate_ui(self):
+        """Refresh translated chrome (placeholder) in place."""
+        self.setPlaceholderText(i18n.tr('editor.placeholder'))
 
     # ------------------------------------------------------------------
     # Cursor position (0-based line, UTF-16 column — same units as LSP)

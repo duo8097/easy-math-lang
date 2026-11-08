@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from . import i18n
 from .command_palette import fuzzy_score
 from .draw_catalog import (CatalogEntry, build_insert_text, catalog_entries,
                            commands_in, get_entry, symbol_for_command)
@@ -51,7 +52,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setModal(False)
         self.setObjectName('drawTemplateDialog')
-        self.setWindowTitle('*draw — Template')
+        self.setWindowTitle(i18n.tr('draw_template.title'))
         self.resize(980, 640)
         self.entry: CatalogEntry | None = None
 
@@ -92,44 +93,46 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             f'border: 1px solid {PLACEHOLDER_BORDER}; }}')
         left.addWidget(self.preview, 0, QtCore.Qt.AlignHCenter)
 
-        code_label = QtWidgets.QLabel('Code to insert', self)
+        code_label = QtWidgets.QLabel(
+            i18n.tr('draw_template.code_label'), self)
         code_label.setObjectName('draw-template-code-label')
         left.addWidget(code_label)
 
         self.code = QtWidgets.QPlainTextEdit(self)
         self.code.setObjectName('draw-template-code')
         self.code.setFont(mono)
-        self.code.setAccessibleName('Code to insert')
+        self.code.setAccessibleName(i18n.tr('draw_template.code_label'))
         code_label.setBuddy(self.code)
         self.code.setTabStopDistance(
             4 * self.code.fontMetrics().horizontalAdvance(' '))
         self.code.setPlaceholderText(
-            'The *draw(...) block that Insert puts in the document…')
+            i18n.tr('draw_template.code_placeholder'))
         left.addWidget(self.code, 1)
         body.addLayout(left, 3)
 
         # -- right: palette of every geometry command ---------------
         right = QtWidgets.QVBoxLayout()
         right.setSpacing(6)
-        palette_label = QtWidgets.QLabel('Geometry commands', self)
+        palette_label = QtWidgets.QLabel(
+            i18n.tr('draw_template.palette_label'), self)
         palette_label.setObjectName('draw-template-palette-label')
-        palette_label.setToolTip(
-            'All geometry commands — the ones already used in the code '
-            'are pinned to the top in bold. Double-click one (or press '
-            'Enter in the filter) to add it via its parameter dialog.')
+        palette_label.setToolTip(i18n.tr('draw_template.palette_tip'))
         right.addWidget(palette_label)
+        self._palette_label = palette_label
 
         self.search = QtWidgets.QLineEdit(self)
         self.search.setObjectName('draw-template-search')
-        self.search.setPlaceholderText('Filter commands…')
+        self.search.setPlaceholderText(
+            i18n.tr('draw_template.search_placeholder'))
         self.search.setClearButtonEnabled(True)
-        self.search.setAccessibleName('Filter template commands')
+        self.search.setAccessibleName(i18n.tr('draw_template.search_name'))
         palette_label.setBuddy(self.search)
         right.addWidget(self.search)
 
         self.commands = QtWidgets.QListWidget(self)
         self.commands.setObjectName('draw-template-commands')
-        self.commands.setAccessibleName('Geometry commands')
+        self.commands.setAccessibleName(
+            i18n.tr('draw_template.palette_label'))
         right.addWidget(self.commands, 1)
         body.addLayout(right, 2)
 
@@ -139,16 +142,19 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         buttons = QtWidgets.QHBoxLayout()
         buttons.setSpacing(6)
         buttons.addStretch(1)
-        self.cancel_btn = QtWidgets.QPushButton('Cancel', self)
+        self.cancel_btn = QtWidgets.QPushButton(
+            i18n.tr('draw_template.cancel'), self)
         self.cancel_btn.setObjectName('draw-template-cancel')
-        self.cancel_btn.setAccessibleName('Close without inserting')
+        self.cancel_btn.setAccessibleName(
+            i18n.tr('draw_template.cancel_name'))
         self.cancel_btn.clicked.connect(self.close)
         buttons.addWidget(self.cancel_btn)
-        self.insert_btn = QtWidgets.QPushButton('Insert', self)
+        self.insert_btn = QtWidgets.QPushButton(
+            i18n.tr('draw_template.insert'), self)
         self.insert_btn.setObjectName('draw-template-insert')
-        self.insert_btn.setAccessibleName('Insert the code into the document')
-        self.insert_btn.setToolTip(
-            'Insert the code above at the cursor (one undo step)')
+        self.insert_btn.setAccessibleName(
+            i18n.tr('draw_template.insert_name'))
+        self.insert_btn.setToolTip(i18n.tr('draw_template.insert_tip'))
         self.insert_btn.setDefault(True)
         self.insert_btn.clicked.connect(self._emit_insert)
         buttons.addWidget(self.insert_btn)
@@ -175,7 +181,8 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         if entry == self.entry and self.isVisible():
             return
         self.entry = entry
-        self.setWindowTitle(f'*draw — {entry.title} template')
+        self.setWindowTitle(i18n.tr('draw_template.title_for',
+                                    title=entry.title))
         self.title.setText(entry.title)
         self.syntax.setText(entry.syntax)
         self.syntax.setToolTip(entry.syntax)
@@ -184,8 +191,10 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         self.preview.setPixmap(pixmap)
         self.preview.setProperty('has-preview', has_preview)
         self.preview.setAccessibleName(
-            f'Preview of *{entry.command}' if has_preview
-            else f'No preview for *{entry.command}')
+            i18n.tr('draw_gallery.preview_name',
+                    command=entry.command) if has_preview
+            else i18n.tr('draw_gallery.no_preview_name',
+                         command=entry.command))
         self.code.setPlainText(entry.example)
         cursor = self.code.textCursor()
         cursor.setPosition(0)
@@ -241,6 +250,29 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def retranslate_ui(self):
+        """Refresh translated chrome, keeping the edited code."""
+        self.setWindowTitle(
+            i18n.tr('draw_template.title_for', title=self.entry.title)
+            if self.entry is not None else i18n.tr('draw_template.title'))
+        self._palette_label.setText(i18n.tr('draw_template.palette_label'))
+        self._palette_label.setToolTip(i18n.tr('draw_template.palette_tip'))
+        self.search.setPlaceholderText(
+            i18n.tr('draw_template.search_placeholder'))
+        self.search.setAccessibleName(i18n.tr('draw_template.search_name'))
+        self.commands.setAccessibleName(
+            i18n.tr('draw_template.palette_label'))
+        self.cancel_btn.setText(i18n.tr('draw_template.cancel'))
+        self.cancel_btn.setAccessibleName(
+            i18n.tr('draw_template.cancel_name'))
+        self.insert_btn.setText(i18n.tr('draw_template.insert'))
+        self.insert_btn.setAccessibleName(
+            i18n.tr('draw_template.insert_name'))
+        self.insert_btn.setToolTip(i18n.tr('draw_template.insert_tip'))
+        self.code.setPlaceholderText(
+            i18n.tr('draw_template.code_placeholder'))
+        self._rebuild_commands()
 
     # -- internals ---------------------------------------------------
 
@@ -334,17 +366,19 @@ class DrawTemplateDialog(QtWidgets.QDialog):
                 item.setFont(font)
             if entry.symbol:
                 item.setToolTip(
-                    f'Add *{entry.command} to the code via its parameter '
-                    'dialog (double-click or press Enter)')
+                    i18n.tr('draw_template.add_tip',
+                            command=entry.command))
             else:
                 # Defensive: a catalog command without a geo-* dialog in
                 # the registry (every command has one today).
                 item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEnabled)
                 item.setToolTip(
-                    f'No parameter dialog for *{entry.command} yet')
+                    i18n.tr('draw_template.no_dialog_tip',
+                            command=entry.command))
         if not rows:
             placeholder = QtWidgets.QListWidgetItem(
-                'No matching command.' if query else 'No geometry commands.',
+                i18n.tr('draw_template.no_match_query') if query
+                else i18n.tr('draw_template.no_match'),
                 self.commands)
             placeholder.setFlags(
                 placeholder.flags() & ~QtCore.Qt.ItemIsEnabled)
