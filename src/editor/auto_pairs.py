@@ -146,6 +146,44 @@ def matching_pair(prev_char, next_char):
     return None
 
 
+# The backslash pair: typing ``\`` inserts ``\\`` with the cursor
+# between the two characters. It is deliberately NOT an opener in
+# ``PAIRS`` above — ezmath ``\`` toggles inline math, so ``\alpha``
+# and ``\(`` must stay single (smart rollback below).
+
+def is_backslash_pair(prev_char, next_char):
+    """True when the cursor sits between an auto-inserted ``\\`` pair."""
+    return prev_char == '\\' and next_char == '\\'
+
+
+def should_pair_backslash(next_char):
+    """True iff typing ``\\`` should also insert the second backslash.
+
+    Pairing happens at end of line, before whitespace, or before a
+    closing bracket. Never before a backslash itself (that is the
+    overtype case), a letter/digit (middle of a word/command), or an
+    opening bracket (the bracket will be escaped by the single
+    backslash instead).
+    """
+    if classify(next_char) == 'word':
+        return False
+    if next_char == '\\':
+        return False
+    if next_char in OPENERS_FOR:
+        return False
+    return classify(next_char) in ('empty', 'space', 'closer')
+
+
+def is_rollback_char(char):
+    """True when typing *char* after ``\\`` must drop the trailing ``\\``.
+
+    Letters/digits mean the user is writing a command (``\\alpha``)
+    and opening brackets mean an escaped bracket (``\\(``); in both
+    cases the auto-inserted second backslash would be stray.
+    """
+    return bool(char) and (char.isalnum() or char in OPENERS_FOR)
+
+
 def indent_of(line_text):
     """The leading whitespace run of a line."""
     i = 0
