@@ -114,6 +114,26 @@ class Symbol:
         hint = 'Opens dialog' if self.requires_dialog else 'Inserts directly'
         return f'{base}\n{self.category} • {hint}'
 
+    @property
+    def example(self) -> str:
+        """One-line usage example for the symbol bar tooltip.
+
+        Direct symbols: the text they insert. Dialog symbols: the
+        source generated from each field's placeholder value.
+        Falls back to the syntax, then to an empty string.
+        """
+        if not self.requires_dialog:
+            text = (self.insert_text or '').strip().replace('\n', ' ')
+            return text or self.syntax
+        values = {}
+        for f in self.fields:
+            values[f.key] = f.placeholder or f.default or 'x'
+        try:
+            text = build_source(self, values).strip().replace('\n', ' ')
+        except Exception:
+            return self.syntax
+        return text or self.syntax
+
 
 def _req(key, label, placeholder='', pattern=None, help=''):
     return SymbolField(key=key, label=label, placeholder=placeholder,
