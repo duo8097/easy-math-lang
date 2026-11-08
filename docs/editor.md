@@ -338,7 +338,14 @@ now, sharing one library directory.
   inline math — while `\\(` auto-closes normally. Typing a closer
   over an escaped closer (`\)`) steps over both characters, and
   Backspace between an opener and its escaped closer deletes the
-  whole pair. Typing `\` alone inserts only `\`. IME composition
+  whole pair. Typing `\` auto-inserts a second backslash with the
+  cursor between them (`\|\`); typing `\` again overtypes the
+  second one, typing a letter/digit/opening bracket after the pair
+  rolls back the trailing backslash (so `\alpha` and `\(` stay
+  single), and Backspace between the two backslashes deletes
+  both. Typing `\` after an existing backslash run, before a
+  backslash/letter/digit, or with a selection inserts only one.
+  Typing `\` alone never creates a pair when auto-close is off. IME composition
   (Vietnamese Telex/VNI, fcitx5/ibus, CJK IMEs) is never disturbed,
   and programmatic edits (paste, completion insertion, LSP changes)
   never auto-pair. The setting is persisted in

@@ -143,6 +143,12 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         text = event.text()
 
         if auto_on and not has_shortcut_modifier and len(text) == 1:
+            # ---- Backslash pair: overtype, rollback, or auto-pair -----
+            if text == '\\':
+                if self._handle_backslash():
+                    return
+            elif self._handle_backslash_rollback(text):
+                return
             # ---- Openers: insert pair / wrap selection --------------------
             if text in auto_pairs.OPENERS_FOR:
                 if self._handle_opener(text):
@@ -202,6 +208,79 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             count += 1
             index -= 1
         return count % 2 == 1
+
+    def _handle_backslash(self):
+        """Type ``\\``: overtype an auto pair, or insert ``\\\\``.
+
+        Returns True when the key event was consumed (pair inserted
+        or overtyped). Returns False to let Qt insert a single
+        backslash (already before a backslash, after an existing
+        backslash run, in the middle of a word, or with a selection —
+        selection wrapping stays exactly as for brackets).
+        """
+        cursor = self.textCursor()
+        pos = cursor.position()
+        prev_ch = self._char_at_offset(pos - 1)
+        next_ch = self._char_at_offset(pos)
+        # Overtype: cursor between the assistant-inserted pair.
+        if auto_pairs.is_backslash_pair(prev_ch, next_ch):
+            cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            return True
+        if cursor.hasSelection():
+            return False
+        # Already before a backslash, or after an existing run:
+        # counting consecutive backslashes, any run means the new
+        # one is a plain literal, not a fresh pair.
+        if next_ch == '\\':
+            return False
+        count = 0
+        index = pos - 1
+        while self._char_at_offset(index) == '\\':
+            count += 1
+            index -= 1
+        if count >= 1:
+            return False
+        if not auto_pairs.should_pair_backslash(next_ch):
+            return False
+        cursor.beginEditBlock()
+        try:
+            cursor.insertText('\\\\')
+            cursor.setPosition(pos + 1)
+        finally:
+            cursor.endEditBlock()
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        return True
+
+    def _handle_backslash_rollback(self, char):
+        """Drop the auto-inserted trailing ``\\`` before a letter/bracket.
+
+        When the cursor sits between an auto-inserted ``\\\\`` pair
+        and the typed character is a letter, digit, or opener, the
+        second backslash would be stray (``\\alpha``, ``\\(``):
+        delete it and insert the typed character in the same edit
+        block (one undo step). Returns True when consumed.
+        """
+        if not auto_pairs.is_rollback_char(char):
+            return False
+        cursor = self.textCursor()
+        pos = cursor.position()
+        prev_ch = self._char_at_offset(pos - 1)
+        next_ch = self._char_at_offset(pos)
+        if not auto_pairs.is_backslash_pair(prev_ch, next_ch):
+            return False
+        cursor.beginEditBlock()
+        try:
+            # Delete the auto-inserted trailing backslash, then type.
+            cursor.deleteChar()
+            cursor.insertText(char)
+        finally:
+            cursor.endEditBlock()
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        return True
 
     def _handle_opener(self, char):
         cursor = self.textCursor()
@@ -282,6 +361,16 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         pos = cursor.position()
         prev_ch = self._char_at_offset(pos - 1)
         next_ch = self._char_at_offset(pos)
+        # Backslash pair: cursor between ``\\`` deletes both.
+        if auto_pairs.is_backslash_pair(prev_ch, next_ch):
+            cursor.beginEditBlock()
+            try:
+                cursor.deletePreviousChar()
+                cursor.deleteChar()
+            finally:
+                cursor.endEditBlock()
+            self.setTextCursor(cursor)
+            return True
         # Escaped pair: cursor between opener and ``\closer`` — delete
         # the whole pair (opener + backslash + closer) in one stroke.
         next_two = next_ch + self._char_at_offset(pos + 1)

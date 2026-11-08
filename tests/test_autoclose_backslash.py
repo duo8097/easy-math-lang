@@ -56,14 +56,14 @@ def _set_text(window, text, cursor_pos=None):
     window.editor.setTextCursor(cursor)
 
 
-def test_backslash_alone_inserts_only_backslash(qapp):
+def test_backslash_alone_inserts_pair(qapp):
     from PySide6.QtCore import Qt
     from editor.main_window import MainWindow
     win = MainWindow(start_lsp=False, no_save_prompt=True)
     try:
         _set_text(win, '')
         _press(win.editor, Qt.Key_Backslash, '\\')
-        assert win.editor.toPlainText() == '\\'
+        assert win.editor.toPlainText() == '\\\\'
         assert win.editor.textCursor().position() == 1
     finally:
         win.close()
