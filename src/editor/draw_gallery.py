@@ -31,6 +31,9 @@ import os
 
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 
+from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
+from .qt_text import install_text_context_menu
 from .draw_catalog import CATALOG, GROUPS, CatalogEntry, catalog_entries
 
 #: Source-tree location of the pre-rendered thumbnails.
@@ -139,6 +142,20 @@ def render_thumbnail(entry_id: str, width: int = THUMB_W,
 # Card
 # ----------------------------------------------------------------------
 
+def title_text(entry):
+    """Translated card title (command names/syntax stay untouched)."""
+    translator = i18n.current_translator()
+    key = f'draw.{entry.id}.title'
+    return translator.tr(key) if translator.has(key) else entry.title
+
+
+def description_text(entry):
+    """Translated card description."""
+    translator = i18n.current_translator()
+    key = f'draw.{entry.id}.description'
+    return translator.tr(key) if translator.has(key) else entry.description
+
+
 class DrawCard(QtWidgets.QFrame):
     """One command: thumbnail, syntax, description, two insert buttons."""
 
@@ -148,7 +165,8 @@ class DrawCard(QtWidgets.QFrame):
         self.setObjectName('draw-card')
         self.setProperty('entry-id', entry.id)
         self.setProperty('group', entry.group)
-        self.setFixedWidth(CARD_WIDTH)
+        self.setMinimumWidth(CARD_WIDTH)
+        self.setMaximumWidth(CARD_WIDTH + 40)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -167,12 +185,16 @@ class DrawCard(QtWidgets.QFrame):
         self.thumb.setPixmap(pixmap)
         self.thumb.setProperty('has-preview', has_preview)
         self.thumb.setAccessibleName(
-            f'Preview of *{entry.command}' if has_preview
-            else f'No preview for *{entry.command}')
+            i18n.tr('draw_gallery.preview_name',
+                    command=entry.command) if has_preview
+            else i18n.tr('draw_gallery.no_preview_name',
+                         command=entry.command))
         layout.addWidget(self.thumb, 0, QtCore.Qt.AlignHCenter)
 
-        title = QtWidgets.QLabel(entry.title, self)
+        title = QtWidgets.QLabel(title_text(entry), self)
+        self._title_label = title
         title.setObjectName('draw-card-title')
+        title.setWordWrap(True)
         title_font = QtGui.QFont(title.font())
         title_font.setBold(True)
         title.setFont(title_font)
@@ -186,37 +208,71 @@ class DrawCard(QtWidgets.QFrame):
         syntax.setToolTip(entry.syntax)
         layout.addWidget(syntax)
 
-        description = QtWidgets.QLabel(entry.description, self)
+        description = QtWidgets.QLabel(description_text(entry), self)
+        self._desc_label = description
         description.setObjectName('draw-card-description')
         description.setWordWrap(True)
-        description.setToolTip(f'{entry.syntax}\n{entry.description}')
+        description.setToolTip(f'{entry.syntax}\n{description_text(entry)}')
         layout.addWidget(description)
 
         buttons = QtWidgets.QHBoxLayout()
         buttons.setSpacing(6)
-        self.example_btn = QtWidgets.QPushButton('Insert example…', self)
+        self.example_btn = QtWidgets.QPushButton(
+            i18n.tr('draw_gallery.insert_example'), self)
         self.example_btn.setObjectName('insert-example')
-        self.example_btn.setAccessibleName(f'Insert {entry.title} example')
+        apply_icon(self.example_btn, 'insert-example', SIZE_DIALOG)
+        self.example_btn.setAccessibleName(
+            i18n.tr('draw_gallery.insert_example_name', title=title_text(entry)))
         self.example_btn.setToolTip(
-            f'Preview and edit the example *draw block for *{entry.command}')
+            i18n.tr('draw_gallery.insert_example_tip',
+                    command=entry.command))
         buttons.addWidget(self.example_btn)
 
-        self.command_btn = QtWidgets.QPushButton('Insert command…', self)
+        self.command_btn = QtWidgets.QPushButton(
+            i18n.tr('draw_gallery.insert_command'), self)
         self.command_btn.setObjectName('insert-command')
-        self.command_btn.setAccessibleName(f'Insert *{entry.command} command')
+        apply_icon(self.command_btn, 'insert-command', SIZE_DIALOG)
+        self.command_btn.setAccessibleName(
+            i18n.tr('draw_gallery.insert_command_name',
+                    command=entry.command))
         if entry.symbol:
             self.command_btn.setToolTip(
-                f'Open the parameter dialog for *{entry.command}')
+                i18n.tr('draw_gallery.insert_command_tip',
+                        command=entry.command))
         else:
             # Defensive: a catalog command without a geo-* dialog in the
             # registry (every command has one today).
             self.command_btn.setEnabled(False)
             self.command_btn.setToolTip(
-                f'No parameter dialog for *{entry.command} yet — '
-                'use Insert example…')
+                i18n.tr('draw_gallery.no_dialog_tip',
+                        command=entry.command))
         buttons.addWidget(self.command_btn)
         layout.addLayout(buttons)
         layout.addStretch(1)
+
+    def retranslate_ui(self):
+        entry = self.entry
+        self._title_label.setText(title_text(entry))
+        self._desc_label.setText(description_text(entry))
+        self._desc_label.setToolTip(f'{entry.syntax}\n{description_text(entry)}')
+        self.example_btn.setText(i18n.tr('draw_gallery.insert_example'))
+        self.example_btn.setAccessibleName(
+            i18n.tr('draw_gallery.insert_example_name', title=title_text(entry)))
+        self.example_btn.setToolTip(
+            i18n.tr('draw_gallery.insert_example_tip',
+                    command=entry.command))
+        self.command_btn.setText(i18n.tr('draw_gallery.insert_command'))
+        self.command_btn.setAccessibleName(
+            i18n.tr('draw_gallery.insert_command_name',
+                    command=entry.command))
+        if entry.symbol:
+            self.command_btn.setToolTip(
+                i18n.tr('draw_gallery.insert_command_tip',
+                        command=entry.command))
+        else:
+            self.command_btn.setToolTip(
+                i18n.tr('draw_gallery.no_dialog_tip',
+                        command=entry.command))
 
 
 # ----------------------------------------------------------------------
@@ -238,8 +294,9 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setModal(False)
         self.setObjectName('drawGalleryDialog')
-        self.setWindowTitle('*draw — Geometry Gallery')
-        self.resize(820, 560)
+        self.setWindowTitle(i18n.tr('draw_gallery.title'))
+        self.resize(900, 560)
+        self.setMinimumSize(640, 420)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -250,33 +307,34 @@ class DrawGalleryDialog(QtWidgets.QDialog):
 
         self.search = QtWidgets.QLineEdit(self)
         self.search.setObjectName('draw-gallery-search')
-        self.search.setPlaceholderText('Search commands…')
+        self.search.setPlaceholderText(i18n.tr('draw_gallery.search_placeholder'))
         self.search.setClearButtonEnabled(True)
-        self.search.setAccessibleName('Search geometry commands')
-        self.search.setToolTip(
-            'Filter by command, title or description (e.g. "perp")')
+        self.search.setAccessibleName(i18n.tr('draw_gallery.search_name'))
+        self.search.setToolTip(i18n.tr('draw_gallery.search_tip'))
+        install_text_context_menu(self.search)
         header.addWidget(self.search, 1)
 
         self.group_combo = QtWidgets.QComboBox(self)
         self.group_combo.setObjectName('draw-gallery-group')
-        self.group_combo.setAccessibleName('Filter by group')
-        self.group_combo.addItem('All')
+        self.group_combo.setAccessibleName(i18n.tr('draw_gallery.group_name'))
+        self.group_combo.addItem(i18n.tr('symbolbar.all'))
         for group in GROUPS:
-            self.group_combo.addItem(group)
+            self.group_combo.addItem(i18n.tr(f'group.{group}'))
         header.addWidget(self.group_combo)
 
-        self.empty_btn = QtWidgets.QPushButton('Insert empty block', self)
+        self.empty_btn = QtWidgets.QPushButton(
+            i18n.tr('draw_gallery.empty'), self)
         self.empty_btn.setObjectName('draw-gallery-empty')
-        self.empty_btn.setAccessibleName('Insert empty draw block')
-        self.empty_btn.setToolTip(
-            'Insert a minimal *draw block (the old *draw button behavior)')
+        apply_icon(self.empty_btn, 'empty-block', SIZE_DIALOG)
+        self.empty_btn.setAccessibleName(i18n.tr('draw_gallery.empty_name'))
+        self.empty_btn.setToolTip(i18n.tr('draw_gallery.empty_tip'))
         self.empty_btn.clicked.connect(self._emit_empty_block)
         header.addWidget(self.empty_btn)
         layout.addLayout(header)
 
         self.status = QtWidgets.QLabel('', self)
         self.status.setObjectName('draw-gallery-status')
-        self.status.setAccessibleName('Visible command count')
+        self.status.setAccessibleName(i18n.tr('a11y.visible_count'))
         layout.addWidget(self.status)
 
         self.scroll = QtWidgets.QScrollArea(self)
@@ -313,15 +371,30 @@ class DrawGalleryDialog(QtWidgets.QDialog):
     def card_for(self, entry_id: str) -> DrawCard | None:
         return self._cards.get(entry_id)
 
+    def _selected_group(self):
+        """Registry group name for the combo, or None for 'All'."""
+        current = self.group_combo.currentText()
+        if current in ('', i18n.tr('symbolbar.all')):
+            return None
+        for group in GROUPS:
+            if i18n.tr(f'group.{group}') == current:
+                return group
+        return current
+
     def matches(self, entry: CatalogEntry) -> bool:
         """True when *entry* passes the current search + group filter."""
-        group = self.group_combo.currentText()
-        if group not in ('', 'All') and entry.group != group:
+        group = self._selected_group()
+        if group is not None and entry.group != group:
             return False
         query = self.search.text().strip().lower()
         if not query:
             return True
-        return query in entry.search_text
+        if query in entry.search_text:
+            return True
+        # Also match the translated title/description so Vietnamese
+        # search finds cards by their visible text.
+        translated = f'{title_text(entry)} {description_text(entry)}'.lower()
+        return query in translated
 
     # -- internals ----------------------------------------------------
 
@@ -364,11 +437,12 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         shown = len(self._cards)
         total = len(CATALOG)
         self.status.setText(
-            f'{shown} of {total} commands' if shown != total
-            else f'{total} commands')
+            i18n.tr('draw_gallery.count_some', shown=shown, total=total)
+            if shown != total
+            else i18n.tr('draw_gallery.count_all', total=total))
         if shown == 0:
             empty = QtWidgets.QLabel(
-                'No command matches your search.', self._container)
+                i18n.tr('draw_gallery.no_match'), self._container)
             empty.setObjectName('draw-gallery-no-match')
             self._grid.addWidget(empty, 0, 0)
 
@@ -388,3 +462,29 @@ class DrawGalleryDialog(QtWidgets.QDialog):
             self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def retranslate_ui(self):
+        """Refresh translated chrome, keeping search and group filter."""
+        selected = self._selected_group()
+        self.setWindowTitle(i18n.tr('draw_gallery.title'))
+        self.search.setPlaceholderText(
+            i18n.tr('draw_gallery.search_placeholder'))
+        self.search.setAccessibleName(i18n.tr('draw_gallery.search_name'))
+        self.search.setToolTip(i18n.tr('draw_gallery.search_tip'))
+        self.group_combo.setAccessibleName(
+            i18n.tr('draw_gallery.group_name'))
+        self.empty_btn.setText(i18n.tr('draw_gallery.empty'))
+        self.empty_btn.setAccessibleName(i18n.tr('draw_gallery.empty_name'))
+        self.empty_btn.setToolTip(i18n.tr('draw_gallery.empty_tip'))
+        self.group_combo.blockSignals(True)
+        try:
+            self.group_combo.clear()
+            self.group_combo.addItem(i18n.tr('symbolbar.all'))
+            for group in GROUPS:
+                self.group_combo.addItem(i18n.tr(f'group.{group}'))
+            index = 0 if selected is None else (
+                self.group_combo.findText(i18n.tr(f'group.{selected}')))
+            self.group_combo.setCurrentIndex(max(0, index))
+        finally:
+            self.group_combo.blockSignals(False)
+        self._rebuild()

@@ -23,10 +23,144 @@ environment — it is declared in `pyproject.toml`.
 - A new document shows a short example to get you started.
   Delete it and type your own math, or open an example instead:
   `File → Open → examples/example.ezmath`.
+- On first run a dismissible welcome banner shows a 3-step quick
+  start and a button that opens a ready-to-run example. It can be
+  reopened from `Help → Welcome`; tick "Don't show again" to keep
+  it away. When the editor is empty it also shows a faint hint
+  pointing to `Help → Examples` and the symbol bar.
 - Press **Ctrl+B** (or `Build → Compile`) to turn the document into a PDF.
   The status bar tells you where the PDF was written.
 - If a document has unsaved changes, the window title shows a `*`
   and you will be asked before closing.
+
+---
+
+## Language (English / Vietnamese)
+
+- The editor interface is available in **English** (default) and
+  **Vietnamese (`vi`)**. On first run the language follows your
+  system locale (for example `LANG=vi_VN.UTF-8`); afterwards your
+  choice is remembered.
+- Change it any time with `View → Language…` (English, Vietnamese,
+  or System default). The change applies immediately, without
+  touching your document, cursor, or open files, and is persisted
+  in `~/.config/ezmath/config.ini` as `ui/language`.
+- Only UI chrome is translated. Language syntax and keywords
+  (`*vec`, `*draw`, `*point`, …), file names, code snippets, and
+  compiler/LSP identifiers are never translated. Command
+  descriptions and draw titles are translated by name/id
+  (`symbol.<name>.description`, `draw.<id>.title`); the registry
+  data itself stays canonical English and the UI looks the
+  translation up at display time.
+- Qt has no Vietnamese catalog, so Qt-generated texts are set
+  explicitly from the catalog: text-edit context menus
+  (`editor/qt_text.py`), standard dialog buttons, file dialog
+  labels (file dialogs are always Qt-drawn, never native, so
+  their labels can be translated), and input dialog buttons.
+  The font dialog's internal labels cannot be set this way and
+  stay Qt-generated (see remaining exceptions in
+  `scripts/audit_i18n_allowlist.json` and below).
+- UI fonts prefer Noto Sans / DejaVu Sans, which render Vietnamese
+  diacritics correctly; Qt falls back per glyph, so frozen builds
+  use system fonts (no bundled font files). Vietnamese typing via
+  fcitx5 (`fcitx5-lotus`) is unaffected — see [Linux input
+  methods](#linux-input-methods-vietnamese-etc) below.
+
+### Adding a language
+
+1. Copy `src/editor/locales/en.json` to
+   `src/editor/locales/<code>.json` (for example `fr.json`).
+2. Translate every value; keep the keys and every `{placeholder}`
+   exactly as in `en.json`. Do not translate `*commands`, file
+   extensions, or values that are examples of code.
+3. Add the code to `SUPPORTED_LOCALES` in
+   `src/editor/i18n.py` and to the picker in
+   `MainWindow._open_language_dialog`.
+4. Add a test that the new catalog has the same keys as `en.json`
+   (see `test_catalogs_have_the_same_keys` in
+   `tests/test_i18n.py`, which covers every `*.json` in the
+   directory once the file exists — just add the file).
+
+The catalogs are bundled automatically: `scripts/build_binaries.py`
+passes `src/editor/locales/` as `--add-data` for the editor build,
+so the Windows/Linux/macOS frozen builds and the installers that
+copy the whole bundle (Inno Setup `_internal/`, Arch `PKGBUILD`
+`cp -a dist/…`) carry them with no further changes.
+
+## Icons
+
+Buttons and menu actions use icons from
+[Lucide](https://github.com/lucide-icons/lucide) (ISC License, MIT
+for Feather-derived icons). Only the icons actually used are
+vendored as SVG in `src/editor/assets/icons/` with the full license
+in `src/editor/assets/icons/LICENSE`; `README.md` also attributes
+them. One registry (`src/editor/icons.py`) maps logical names to
+SVG files, renders them at the requested size (crisp on HiDPI),
+recolors them for the light/dark theme and the disabled state, and
+falls back to no icon (logging once) when a file is missing.
+Icons are bundled by `scripts/build_binaries.py` as
+`--add-data editor/assets/icons`, so the installers that copy the
+whole bundle carry them automatically. Icon-only buttons always
+keep a translated tooltip and accessible name from the i18n
+catalog. The math symbols on the symbol-bar buttons themselves
+are not replaced by icons.
+
+### Icon to button/action mapping
+
+| Icon name | Used for |
+|---|---|
+| `file-new` / `file-open` / `file-save` / `file-save-as` | File menu New/Open/Save/Save As and the toolbar (icon + text) |
+| `export` | File Export As menu and command palette export entries |
+| `exit` | File Exit |
+| `undo` / `redo` | Edit Undo/Redo and the text context menu |
+| `cut` / `copy` / `paste` | Edit Cut/Copy/Paste and the text context menu |
+| `find` / `goto-line` | Edit Find / Go to Line |
+| `find-prev` / `find-next` / `find-close` | Find bar previous/next/close (icon-only, tooltip + accessible name) |
+| `replace` / `replace-all` / `match-case` / `whole-word` | Find bar replace row (Replace/Replace All are icon + text; match-case/whole-word are icon-only toggles) |
+| `compile` | Build Compile and the toolbar Compile action |
+| `refresh` | Build Refresh Preview / Restart Language Server |
+| `zoom-in` / `zoom-out` / `zoom-reset` / `fit` | View zoom actions and the preview panel zoom/fit buttons |
+| `preview` | View Live Preview toggle |
+| `open-external` | Preview Open PDF externally |
+| `language` / `theme` / `examples` / `shortcuts` / `about` / `welcome` / `palette` / `gallery` / `font` | View/Help menu actions (Language, Dark Mode, Examples, Keyboard Shortcuts, About, Welcome, Command Palette, Geometry Gallery, Editor Font) |
+| `ok` / `yes` / `apply` / `insert` | Dialog OK/Yes/Apply and Insert buttons |
+| `cancel` / `close` / `no` / `discard` | Dialog Cancel/Close/No and Discard (unsaved-changes prompt) |
+| `file-save` (dialog) | Save buttons in message boxes |
+| `clear` / `filter` | Problems panel Clear button and severity filter |
+| `error` / `warning` / `info` | Problems panel rows by severity |
+| `variable` / `function` / `heading` / `draw` / `define` | Outline panel rows by symbol kind |
+| `insert-example` / `insert-command` / `empty-block` / `add-row` / `add-cell` | Draw gallery, template and symbol-dialog buttons |
+| `outline` / `problems` | View Outline/Problems toggles and command palette entries |
+
+### Glossary (consistent Vietnamese terms)
+
+Repeated terms use one Vietnamese wording everywhere; the actual
+Vietnamese strings live only in `src/editor/locales/vi.json`
+(docs stay in English). The table below maps each English concept
+to its catalog key so new strings reuse the established term.
+
+| English concept | Catalog key (prefix) | Notes |
+|---|---|---|
+| File / Save / Open | `menu.file`, `btn.save` | Use "Save" for both menu and dialog button |
+| Vector | `symbol.vec.description` | Kept as "vector" (standard loanword) |
+| Angle / Right angle | `symbol.geo-angle.description` | Distinct keys for angle vs right-angle marker |
+| Circle | `draw.circle.title` | Standard term for a circle |
+| Midpoint / Centre | `draw.midpoint.title`, `field_labels.Center` | Distinguish midpoint from centre |
+| Line / Segment / Ray | `draw.line.title`, `draw.ray.title` | Segment vs ray vs line kept distinct |
+| Parallel / Perpendicular | `draw.parallel.title`, `draw.perp.title` | Keep the two constraints distinct |
+| Fraction / Equation | `examples.fraction_equation` | Reuse the Examples wording |
+| Compile / Export | `action.compile`, `action.export_as` | Compile = build to PDF; Export = save as other format |
+| Language server | `status.lsp_connected` | Keep the "LSP" abbreviation unchanged |
+| Welcome / Examples / Shortcuts | `welcome.*`, `examples.*`, `shortcuts.*` | Help menu wording |
+
+### Auditing translations
+
+Run `python scripts/audit_i18n.py` to list user-visible literals
+that bypass `tr()` (grouped by file) plus registry/catalog strings
+missing a translation. `scripts/audit_i18n_allowlist.json` records
+justified exceptions (glyphs, file-format names, example values,
+raw LSP/compiler text). `tests/test_i18n.py` runs the same audit
+as a regression guard and walks the Vietnamese UI offscreen.
 
 ---
 
@@ -47,6 +181,18 @@ environment — it is declared in `pyproject.toml`.
 - **Hover**: rest the mouse pointer on a name to see its value or meaning.
 - **Status bar**: cursor position (`Ln`/`Col`), problem count, and whether
   the language server is connected.
+- **Welcome, Examples, shortcuts** (`Help` menu): the welcome banner
+  (3-step quick start), `Help → Examples` with short ready-to-run
+  samples (basic math, a fraction/equation, a vector, a simple
+  `*draw` — each compiles on its own), and `Help → Keyboard
+  Shortcuts` listing the real shortcuts.
+- **Symbol bar tooltips**: every symbol button shows what it
+  inserts, its category, and a one-line `Example:` you can copy.
+- **Problems panel**: each row shows a plain-language explanation
+  and, where the cause is obvious, a "Did you mean …?" hint, with
+  the raw technical message kept in the row text and tooltip.
+  Compile and export failures use the same friendly text, with the
+  raw log below it.
 
 All of this comes from the built-in language server — see
 [Language server](lsp.md). If the status bar says `LSP: Disconnected`,
@@ -185,11 +331,26 @@ now, sharing one library directory.
   overtypes it instead of inserting a duplicate; Backspace between
   an empty pair deletes both characters; Enter between an empty pair
   expands it to three lines with proper indentation. Each auto-pair
-  action is a single undo step. IME composition (Vietnamese Telex/VNI,
-  fcitx5/ibus, CJK IMEs) is never disturbed, and programmatic edits
-  (paste, completion insertion, LSP changes) never auto-pair. The
-  setting is persisted in `~/.config/ezmath/config.ini` under
-  `editor/autoCloseBrackets` (default on).
+  action is a single undo step. A backslash before an opener is
+  counted (`\\` is a literal backslash, so only an odd number of
+  backslashes escapes): an escaped opener like `\(` gets no
+  auto-closer, because ezmath has no `\( \)` pairs — `\` toggles
+  inline math — while `\\(` auto-closes normally. Typing a closer
+  over an escaped closer (`\)`) steps over both characters, and
+  Backspace between an opener and its escaped closer deletes the
+  whole pair. Typing `\` auto-inserts a second backslash with the
+  cursor between them (`\|\`); typing `\` again overtypes the
+  second one, typing a letter/digit/opening bracket after the pair
+  rolls back the trailing backslash (so `\alpha` and `\(` stay
+  single), and Backspace between the two backslashes deletes
+  both. Typing `\` after an existing backslash run, before a
+  backslash/letter/digit, or with a selection inserts only one.
+  Typing `\` alone never creates a pair when auto-close is off. IME composition
+  (Vietnamese Telex/VNI, fcitx5/ibus, CJK IMEs) is never disturbed,
+  and programmatic edits (paste, completion insertion, LSP changes)
+  never auto-pair. The setting is persisted in
+  `~/.config/ezmath/config.ini` under `editor/autoCloseBrackets`
+  (default on).
 - The editor uses a monospace font with line numbers, a highlighted
   current line, and 4-space tab stops.
 - `View → Editor Font…`: pick the editor font family and size

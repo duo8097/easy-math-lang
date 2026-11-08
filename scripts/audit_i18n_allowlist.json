@@ -1,0 +1,8 @@
+[
+  {"file": "main_window.py", "contains": "QFontDialog.getFont", "reason": "Qt font dialog internal labels (Font/Size/Style) are Qt-generated and cannot be set from Python; dialog title is translated"},
+  {"file": "main_window.py", "contains": "showMessage(message", "reason": "raw LSP/compiler text passed through unchanged; friendly text is added where mapped"},
+  {"file": "main_window.py", "contains": "showMessage(detail", "reason": "raw completion detail from the language server (technical reference)"},
+  {"file": "main_window.py", "contains": "showMessage(str(exc)", "reason": "raw exception text (e.g. file system errors); friendly wrapper added for compile/export dialogs"},
+  {"file": "symbol_registry.py", "contains": "placeholder", "reason": "example values and code snippets are never translated; registry data is translated at the UI layer and checked by registry_coverage()"},
+  {"file": "draw_catalog.py", "contains": "example", "reason": "code examples are never translated; titles/descriptions are translated at the UI layer and checked by registry_coverage()"}
+]
