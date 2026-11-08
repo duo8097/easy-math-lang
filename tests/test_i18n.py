@@ -257,3 +257,109 @@ def test_problems_panel_shows_friendly_text(qapp):
     assert '❌ 1:1' in item.text()
     assert 'Unknown command *frcc' in item.text()  # raw kept
     assert '*frac' in item.text()  # did-you-mean hint present
+
+
+def test_audit_script_reports_no_bypass():
+    """Static audit (scripts/audit_i18n.py) must stay clean."""
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        'audit_i18n',
+        Path(__file__).resolve().parents[1] / 'scripts' / 'audit_i18n.py')
+    audit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(audit)
+    violations = audit.find_violations() + audit.registry_coverage()
+    remaining = [v for v in violations
+                 if not audit.is_allowlisted(v, audit.load_allowlist())]
+    assert remaining == [], remaining[:10]
+
+
+def test_registry_and_draw_catalog_have_translations():
+    """Every registry/draw/shortcut string has en+vi catalog entries."""
+    from editor.draw_catalog import CATALOG
+    from editor.help_dialogs import SHORTCUTS
+    from editor.symbol_registry import list_symbols
+    en, vi = _catalog('en'), _catalog('vi')
+    for symbol in list_symbols():
+        if symbol.description:
+            key = f'symbol.{symbol.name}.description'
+            assert key in en and key in vi, key
+            assert vi[key] != en[key], key
+    for entry in CATALOG:
+        for suffix in ('title', 'description'):
+            key = f'draw.{entry.id}.{suffix}'
+            assert key in en and key in vi, key
+            assert vi[key] != en[key], key
+    for _shortcut, action_key in SHORTCUTS:
+        assert action_key in en and action_key in vi, action_key
+
+
+def test_vi_ui_has_no_english_chrome(qapp):
+    """Walk the vi UI offscreen; chrome texts must not be English prose."""
+    from PySide6 import QtWidgets
+    from editor.main_window import MainWindow
+    from editor.symbol_registry import get_symbol
+    from editor.symbol_dialog import SymbolDialog
+    win = MainWindow(start_lsp=False, no_save_prompt=True)
+    try:
+        win.show()
+        win._apply_language('vi')
+        win._open_draw_gallery()
+        gallery = win._draw_gallery
+        assert gallery is not None
+        # Gallery card titles/descriptions follow the locale.
+        card = gallery.card_for('triangle')
+        assert card is not None
+        assert card._title_label.text() == _catalog('vi')['draw.triangle.title']
+        assert card._desc_label.text() == _catalog('vi')['draw.triangle.description']
+        # Symbol bar tooltip is translated but keeps the syntax.
+        tooltip = win._symbol_bar.button_for('frac').toolTip()
+        assert '*frac(2 ; 3)' in tooltip
+        assert _catalog('vi')['symbol.tooltip_opens'] in tooltip
+        # Symbol dialog info + field labels are translated.
+        dialog = SymbolDialog(get_symbol('frac'), win)
+        assert dialog.findChild(QtWidgets.QLabel, 'symbol-info').text()
+        # Outline kinds: set one symbol and check the kind display.
+        win.outline.set_symbols([{'name': 'a', 'kind': 'Variable',
+                                  'line': 0, 'start': 0}])
+        assert _catalog('vi')['kind.Variable'] in win.outline._list.item(0).text()
+        win.outline.clear()
+    finally:
+        try:
+            win._apply_language('en')
+        finally:
+            i18n.set_locale('en')
+            win.close()
+
+
+def test_qt_generated_texts_are_translated(qapp):
+    """Qt standard buttons, file dialog labels and input buttons use vi."""
+    from PySide6 import QtCore, QtWidgets
+    from editor import qt_text
+    i18n.set_locale('vi')
+    box = QtWidgets.QDialogButtonBox(
+        QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+    qt_text.translate_button_box(box)
+    assert box.button(QtWidgets.QDialogButtonBox.Cancel).text() == \
+        _catalog('vi')['btn.cancel']
+    dialog = QtWidgets.QFileDialog()
+    qt_text.translate_file_dialog(dialog)
+    assert dialog.labelText(QtWidgets.QFileDialog.LookIn) == \
+        _catalog('vi')['filedialog.lookin']
+    input_dialog = QtWidgets.QInputDialog()
+    qt_text.translate_input_dialog(input_dialog)
+    # Context menu actions are built from the catalog at show time.
+    editor = QtWidgets.QPlainTextEdit()
+    qt_text.install_text_context_menu(editor)
+    assert editor.contextMenuPolicy() == QtCore.Qt.CustomContextMenu
+
+
+def test_about_and_shortcuts_are_translated(qapp):
+    from PySide6 import QtWidgets
+    from editor.help_dialogs import AboutDialog, ShortcutsDialog
+    i18n.set_locale('vi')
+    about = AboutDialog(version='6.0.0')
+    assert about.windowTitle() == _catalog('vi')['about.title']
+    shortcuts = ShortcutsDialog()
+    header = shortcuts.findChild(QtWidgets.QTableWidget).horizontalHeaderItem(0)
+    assert header.text() == _catalog('vi')['shortcuts.header_shortcut']
