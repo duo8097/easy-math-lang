@@ -3,6 +3,16 @@
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .icons import SIZE_PANEL, icon as _icon
+
+# Outline kind (LSP identifier) -> icon. Unknown kinds get no icon.
+_KIND_ICONS = {
+    'Variable': 'variable', 'variable': 'variable',
+    'Function': 'function', 'function': 'function',
+    'define': 'define', 'Define': 'define',
+    'draw': 'draw', 'Draw': 'draw',
+    'heading': 'heading', 'Heading': 'heading',
+}
 
 
 class OutlinePanel(QtWidgets.QWidget):
@@ -36,6 +46,9 @@ class OutlinePanel(QtWidgets.QWidget):
             item = QtWidgets.QListWidgetItem(label, self._list)
             item.setData(QtCore.Qt.UserRole, (symbol.get('line', 0),
                                               symbol.get('start', 0)))
+            icon_name = _KIND_ICONS.get(str(kind))
+            if icon_name:
+                item.setIcon(_icon(icon_name, SIZE_PANEL))
 
     def clear(self):
         self.set_symbols([])

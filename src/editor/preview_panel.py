@@ -12,6 +12,7 @@ except ImportError:  # Qt build without Pdf modules: text fallback only
     _PDF_AVAILABLE = False
 
 from . import i18n
+from .icons import SIZE_PANEL, SIZE_TOOLBAR, apply_icon
 
 
 def pdf_available():
@@ -71,8 +72,10 @@ class PreviewPanel(QtWidgets.QWidget):
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(4)
         self.refresh_button = QtWidgets.QToolButton(self)
-        self.refresh_button.setText('⟳')
         self.refresh_button.setToolTip(i18n.tr('preview.refresh_tip'))
+        self.refresh_button.setAccessibleName(i18n.tr('preview.refresh_tip'))
+        apply_icon(self.refresh_button, 'refresh', SIZE_PANEL)
+        self.refresh_button.setMinimumSize(32, 32)
         self.refresh_button.clicked.connect(self.refreshRequested.emit)
         toolbar.addWidget(self.refresh_button)
 
@@ -83,23 +86,29 @@ class PreviewPanel(QtWidgets.QWidget):
         toolbar.addWidget(self.auto_check)
 
         self.zoom_out = QtWidgets.QToolButton(self)
-        self.zoom_out.setText('−')
         self.zoom_out.setToolTip(i18n.tr('preview.zoom_out_tip'))
+        self.zoom_out.setAccessibleName(i18n.tr('preview.zoom_out_tip'))
+        apply_icon(self.zoom_out, 'zoom-out', SIZE_PANEL)
+        self.zoom_out.setMinimumSize(32, 32)
         toolbar.addWidget(self.zoom_out)
 
         self.zoom_in = QtWidgets.QToolButton(self)
-        self.zoom_in.setText('+')
         self.zoom_in.setToolTip(i18n.tr('preview.zoom_in_tip'))
+        self.zoom_in.setAccessibleName(i18n.tr('preview.zoom_in_tip'))
+        apply_icon(self.zoom_in, 'zoom-in', SIZE_PANEL)
+        self.zoom_in.setMinimumSize(32, 32)
         toolbar.addWidget(self.zoom_in)
 
         self.fit_button = QtWidgets.QToolButton(self)
         self.fit_button.setText(i18n.tr('preview.fit'))
         self.fit_button.setToolTip(i18n.tr('preview.fit_tip'))
+        apply_icon(self.fit_button, 'fit', SIZE_PANEL)
         toolbar.addWidget(self.fit_button)
 
         self.open_button = QtWidgets.QToolButton(self)
         self.open_button.setText(i18n.tr('preview.open'))
         self.open_button.setToolTip(i18n.tr('preview.open_tip'))
+        apply_icon(self.open_button, 'open-external', SIZE_PANEL)
         self.open_button.clicked.connect(self.openPdfRequested.emit)
         self.open_button.setEnabled(False)
         toolbar.addWidget(self.open_button)
@@ -614,7 +623,15 @@ class PreviewPanel(QtWidgets.QWidget):
 
     def retranslate_ui(self):
         """Refresh translated chrome without touching the viewed PDF."""
+        apply_icon(self.refresh_button, 'refresh', SIZE_PANEL)
+        apply_icon(self.zoom_out, 'zoom-out', SIZE_PANEL)
+        apply_icon(self.zoom_in, 'zoom-in', SIZE_PANEL)
+        apply_icon(self.fit_button, 'fit', SIZE_PANEL)
+        apply_icon(self.open_button, 'open-external', SIZE_PANEL)
         self.refresh_button.setToolTip(i18n.tr('preview.refresh_tip'))
+        self.refresh_button.setAccessibleName(i18n.tr('preview.refresh_tip'))
+        self.zoom_out.setAccessibleName(i18n.tr('preview.zoom_out_tip'))
+        self.zoom_in.setAccessibleName(i18n.tr('preview.zoom_in_tip'))
         self.auto_check.setText(i18n.tr('preview.auto'))
         self.auto_check.setToolTip(i18n.tr('preview.auto_tip'))
         self.zoom_out.setToolTip(i18n.tr('preview.zoom_out_tip'))

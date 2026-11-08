@@ -637,5 +637,20 @@
   "field_labels.Radius or point": "Bán kính hoặc điểm",
   "field_labels.Size (optional)": "Cỡ chữ (tùy chọn)",
   "field_labels.Item text": "Văn bản mục",
-  "field_labels.Width (optional)": "Chiều rộng (tùy chọn)"
+  "field_labels.Width (optional)": "Chiều rộng (tùy chọn)",
+  "find.replace_placeholder": "Thay thế",
+  "find.replace_tip": "Thay thế kết quả hiện tại",
+  "find.replace": "Thay thế",
+  "find.replace_all_tip": "Thay thế tất cả các kết quả",
+  "find.replace_all": "Thay tất cả",
+  "find.match_case_tip": "Phân biệt chữ hoa/thường",
+  "find.match_case": "Phân biệt hoa/thường",
+  "find.whole_word_tip": "Cả từ",
+  "find.whole_word": "Cả từ",
+  "problems.clear_tip": "Xóa tất cả vấn đề",
+  "problems.clear": "Xóa",
+  "problems.filter_all": "Tất cả",
+  "problems.filter_errors": "Lỗi",
+  "problems.filter_warnings": "Cảnh báo",
+  "problems.count_badge": "Vấn đề: {count}"
 }

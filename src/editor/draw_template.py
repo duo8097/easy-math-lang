@@ -28,6 +28,7 @@ from __future__ import annotations
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
 from .qt_text import install_text_context_menu
 from .command_palette import fuzzy_score
 from .draw_catalog import (CatalogEntry, build_insert_text, catalog_entries,
@@ -150,6 +151,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         self.cancel_btn = QtWidgets.QPushButton(
             i18n.tr('draw_template.cancel'), self)
         self.cancel_btn.setObjectName('draw-template-cancel')
+        apply_icon(self.cancel_btn, 'cancel', SIZE_DIALOG)
         self.cancel_btn.setAccessibleName(
             i18n.tr('draw_template.cancel_name'))
         self.cancel_btn.clicked.connect(self.close)
@@ -157,6 +159,7 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         self.insert_btn = QtWidgets.QPushButton(
             i18n.tr('draw_template.insert'), self)
         self.insert_btn.setObjectName('draw-template-insert')
+        apply_icon(self.insert_btn, 'insert', SIZE_DIALOG)
         self.insert_btn.setAccessibleName(
             i18n.tr('draw_template.insert_name'))
         self.insert_btn.setToolTip(i18n.tr('draw_template.insert_tip'))

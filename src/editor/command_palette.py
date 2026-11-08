@@ -3,6 +3,23 @@
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .icons import SIZE_MENU, icon as _icon
+
+# Command id -> icon (reuses the menu icons).
+COMMAND_ICONS = {
+    'file.new': 'file-new', 'file.open': 'file-open',
+    'file.save': 'file-save', 'file.saveAs': 'file-save-as',
+    'file.exit': 'exit', 'edit.find': 'find', 'edit.gotoLine': 'goto-line',
+    'view.toggleOutline': 'outline', 'view.toggleProblems': 'problems',
+    'view.togglePreview': 'preview', 'view.toggleTheme': 'theme',
+    'view.zoomIn': 'zoom-in', 'view.zoomOut': 'zoom-out',
+    'view.zoomReset': 'zoom-reset', 'view.chooseFont': 'font',
+    'draw.gallery': 'gallery', 'build.compile': 'compile',
+    'build.refreshPreview': 'refresh', 'build.restartLSP': 'refresh',
+    'file.exportPdf': 'export', 'file.exportPng': 'export',
+    'file.exportSvg': 'export', 'file.exportHtml': 'export',
+    'file.exportTyp': 'export',
+}
 
 
 def fuzzy_score(query, text):
@@ -72,6 +89,9 @@ class CommandPalette(QtWidgets.QDialog):
             label = f'{title}\t{hint}' if hint else title
             item = QtWidgets.QListWidgetItem(label, self._list)
             item.setData(QtCore.Qt.UserRole, cmd_id)
+            icon_name = COMMAND_ICONS.get(cmd_id)
+            if icon_name:
+                item.setIcon(_icon(icon_name, SIZE_MENU))
         if self._list.count():
             self._list.setCurrentRow(0)
 

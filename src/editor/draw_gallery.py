@@ -32,6 +32,7 @@ import os
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 
 from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
 from .qt_text import install_text_context_menu
 from .draw_catalog import CATALOG, GROUPS, CatalogEntry, catalog_entries
 
@@ -219,6 +220,7 @@ class DrawCard(QtWidgets.QFrame):
         self.example_btn = QtWidgets.QPushButton(
             i18n.tr('draw_gallery.insert_example'), self)
         self.example_btn.setObjectName('insert-example')
+        apply_icon(self.example_btn, 'insert-example', SIZE_DIALOG)
         self.example_btn.setAccessibleName(
             i18n.tr('draw_gallery.insert_example_name', title=title_text(entry)))
         self.example_btn.setToolTip(
@@ -229,6 +231,7 @@ class DrawCard(QtWidgets.QFrame):
         self.command_btn = QtWidgets.QPushButton(
             i18n.tr('draw_gallery.insert_command'), self)
         self.command_btn.setObjectName('insert-command')
+        apply_icon(self.command_btn, 'insert-command', SIZE_DIALOG)
         self.command_btn.setAccessibleName(
             i18n.tr('draw_gallery.insert_command_name',
                     command=entry.command))
@@ -322,6 +325,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
         self.empty_btn = QtWidgets.QPushButton(
             i18n.tr('draw_gallery.empty'), self)
         self.empty_btn.setObjectName('draw-gallery-empty')
+        apply_icon(self.empty_btn, 'empty-block', SIZE_DIALOG)
         self.empty_btn.setAccessibleName(i18n.tr('draw_gallery.empty_name'))
         self.empty_btn.setToolTip(i18n.tr('draw_gallery.empty_tip'))
         self.empty_btn.clicked.connect(self._emit_empty_block)

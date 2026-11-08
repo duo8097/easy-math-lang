@@ -11,6 +11,7 @@ from __future__ import annotations
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
 
 # Ready-to-run samples (English source, like every other sample in the
 # repo). Short on purpose: each one compiles on its own.
@@ -118,6 +119,8 @@ class WelcomePanel(QtWidgets.QFrame):
         row.setSpacing(6)
         self.example_btn = QtWidgets.QPushButton(self)
         self.example_btn.setObjectName('welcome-example')
+        apply_icon(self.example_btn, 'examples', SIZE_DIALOG)
+        self.example_btn.setMinimumHeight(32)
         self.example_btn.clicked.connect(
             lambda: self.openExampleRequested.emit('basic-math'))
         row.addWidget(self.example_btn)
@@ -127,6 +130,7 @@ class WelcomePanel(QtWidgets.QFrame):
         row.addWidget(self.dont_show)
         self.close_btn = QtWidgets.QPushButton(self)
         self.close_btn.setObjectName('welcome-close')
+        apply_icon(self.close_btn, 'close', SIZE_DIALOG)
         self.close_btn.clicked.connect(self._on_close)
         row.addWidget(self.close_btn)
         layout.addLayout(row)
@@ -199,5 +203,7 @@ class AboutDialog(QtWidgets.QDialog):
             QtWidgets.QDialogButtonBox.Ok, self)
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
             i18n.tr('about.ok'))
+        apply_icon(buttons.button(QtWidgets.QDialogButtonBox.Ok),
+                   'ok', SIZE_DIALOG)
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)

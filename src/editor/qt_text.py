@@ -13,6 +13,19 @@ from __future__ import annotations
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
+
+
+_STANDARD_BUTTON_ICONS = {
+    QtWidgets.QDialogButtonBox.Ok: 'ok',
+    QtWidgets.QDialogButtonBox.Cancel: 'cancel',
+    QtWidgets.QDialogButtonBox.Yes: 'yes',
+    QtWidgets.QDialogButtonBox.No: 'no',
+    QtWidgets.QDialogButtonBox.Save: 'file-save',
+    QtWidgets.QDialogButtonBox.Discard: 'discard',
+    QtWidgets.QDialogButtonBox.Close: 'close',
+    QtWidgets.QDialogButtonBox.Apply: 'apply',
+}
 
 
 def _standard_button_texts():
@@ -39,6 +52,9 @@ def translate_button_box(box):
             button = None
         if button is not None:
             button.setText(i18n.tr(key))
+            icon_name = _STANDARD_BUTTON_ICONS.get(standard)
+            if icon_name:
+                apply_icon(button, icon_name, SIZE_DIALOG)
     return box
 
 
@@ -53,6 +69,9 @@ def translate_message_box(box):
             button = None
         if button is not None:
             button.setText(i18n.tr(key))
+            icon_name = _STANDARD_BUTTON_ICONS.get(standard)
+            if icon_name:
+                apply_icon(button, icon_name, SIZE_DIALOG)
     return box
 
 
@@ -158,6 +177,15 @@ def install_text_context_menu(widget):
                 continue
             key, slot, shortcut = item
             action = menu.addAction(i18n.tr(key), slot)
+            _ctx_icons = {'ctx.undo': 'undo', 'ctx.redo': 'redo',
+                          'ctx.cut': 'cut', 'ctx.copy': 'copy',
+                          'ctx.paste': 'paste',
+                          'ctx.delete': 'clear',
+                          'ctx.select_all': 'list'}
+            _icon_name = _ctx_icons.get(key)
+            if _icon_name:
+                from .icons import apply_action_icon
+                apply_action_icon(action, _icon_name, SIZE_DIALOG)
             if shortcut is not None:
                 action.setShortcut(shortcut)
             # Enablement mirrors the widget's own state.
