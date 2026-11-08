@@ -264,4 +264,9 @@ Earlier releases (v5.0.0 and before) are listed in
 
 MIT
 
+UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
+(ISC License, with MIT for Feather-derived icons); the vendored SVG
+files and full license text live in `src/editor/assets/icons/`
+(see `src/editor/assets/icons/LICENSE` for attribution).
+
 [6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
