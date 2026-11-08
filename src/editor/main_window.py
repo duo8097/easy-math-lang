@@ -59,6 +59,7 @@ from .problems_panel import ProblemsPanel
 from .config import default_settings
 from .recent import RecentFiles
 from . import friendly_errors, i18n
+from .icons import SIZE_MENU, SIZE_TOOLBAR, apply_action_icon
 from .qt_text import (critical as _qt_critical,
                       question as _qt_question,
                       translate_file_dialog, translate_input_dialog)
@@ -149,6 +150,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._find_bar = FindBar()
         self._find_bar.findRequested.connect(self._on_find_requested)
+        self._find_bar.replaceRequested.connect(self._on_replace_requested)
+        self._find_bar.optionsChanged.connect(self._on_find_options_changed)
+        self._find_match_case = False
+        self._find_whole_word = False
         central = QtWidgets.QWidget(self)
         central_layout = QtWidgets.QVBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
@@ -1036,6 +1041,55 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_find_requested(self, text, direction):
         self._do_find(text, direction)
 
+    def _on_find_options_changed(self, match_case, whole_word):
+        self._find_match_case = bool(match_case)
+        self._find_whole_word = bool(whole_word)
+        if self._find_bar._input.text():
+            self._do_find(self._find_bar._input.text(), 0)
+
+    def _on_replace_requested(self, replacement, replace_all):
+        """Replace the current match, or all matches (one undo step)."""
+        needle = self._find_bar._input.text()
+        if not needle:
+            return
+        ranges = self._find_all_ranges(needle)
+        if not ranges:
+            self._find_bar.set_match_count(0, 0)
+            return
+        cursor = self.editor.textCursor()
+        if not replace_all:
+            # Replace the match under the cursor when there is one,
+            # otherwise the currently highlighted match.
+            pos = cursor.position()
+            index = next((i for i, (s, e) in enumerate(ranges)
+                          if s <= pos <= e), None)
+            if index is None:
+                index = getattr(self, '_find_current_index', None)
+            if index is None or not (0 <= index < len(ranges)):
+                index = 0
+            start, end = ranges[index]
+            cursor.beginEditBlock()
+            try:
+                cursor.setPosition(start)
+                cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
+                cursor.insertText(replacement or '')
+            finally:
+                cursor.endEditBlock()
+        else:
+            cursor.beginEditBlock()
+            try:
+                # Replace back-to-front so earlier offsets stay valid.
+                for start, end in reversed(ranges):
+                    cursor.setPosition(start)
+                    cursor.setPosition(
+                        end, QtGui.QTextCursor.KeepAnchor)
+                    cursor.insertText(replacement or '')
+            finally:
+                cursor.endEditBlock()
+        self.editor.setTextCursor(cursor)
+        self.editor.ensureCursorVisible()
+        self._do_find(needle, 0)
+
     def _find_all_ranges(self, text):
         """Qt-native (start, end) offsets of every case-insensitive match.
 
@@ -1045,10 +1099,13 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if not text:
             return []
-        pattern = QtCore.QRegularExpression(
-            QtCore.QRegularExpression.escape(text))
-        pattern.setPatternOptions(
-            QtCore.QRegularExpression.CaseInsensitiveOption)
+        pattern_text = QtCore.QRegularExpression.escape(text)
+        if getattr(self, '_find_whole_word', False):
+            pattern_text = r'\b(?:' + pattern_text + r')\b'
+        pattern = QtCore.QRegularExpression(pattern_text)
+        if not getattr(self, '_find_match_case', False):
+            pattern.setPatternOptions(
+                QtCore.QRegularExpression.CaseInsensitiveOption)
         doc = self.editor.document()
         ranges = []
         cursor = QtGui.QTextCursor(doc)
@@ -1057,7 +1114,25 @@ class MainWindow(QtWidgets.QMainWindow):
             cursor = doc.find(pattern, cursor)
             if cursor.isNull():
                 break
-            ranges.append((cursor.selectionStart(), cursor.selectionEnd()))
+            start, end = cursor.selectionStart(), cursor.selectionEnd()
+            # QTextDocument.find() regex matching is case-insensitive
+            # regardless of the pattern options, so enforce exact
+            # case (and whole-word boundaries) by post-filtering.
+            if getattr(self, '_find_match_case', False):
+                try:
+                    actual = doc.toPlainText()[start:end]
+                except Exception:
+                    actual = text
+                if actual != text:
+                    continue
+            if getattr(self, '_find_whole_word', False):
+                plain = doc.toPlainText()
+                before = plain[start - 1] if start > 0 else ' '
+                after = plain[end] if end < len(plain) else ' '
+                if (before.isalnum() or before == '_'
+                        or after.isalnum() or after == '_'):
+                    continue
+            ranges.append((start, end))
             if len(ranges) >= self._MAX_FIND_MATCHES:
                 break
         return ranges
@@ -1538,7 +1613,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 return func(obj, *bound)
         return slot
 
-    def _register(self, widget, text_key, tip_key=None, **params):
+    def _register(self, widget, text_key, tip_key=None, icon_name=None,
+                  **params):
         """Remember a menu/action for retranslate_ui() (language switch)."""
         self._menu_specs.append((widget, text_key, tip_key, params))
         if text_key:
@@ -1549,32 +1625,34 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget.setTitle(text)
         if tip_key and hasattr(widget, 'setStatusTip'):
             widget.setStatusTip(i18n.tr(tip_key, **params))
+        if icon_name:
+            apply_action_icon(widget, icon_name, SIZE_MENU)
         return widget
 
     def _create_menus(self):
         file_menu = self.menuBar().addMenu(i18n.tr('menu.file'))
         self._menus['file'] = self._register(file_menu, 'menu.file')
         new_action = file_menu.addAction(i18n.tr('action.new'))
-        self._register(new_action, 'action.new', 'action.new.tip')
+        self._register(new_action, 'action.new', 'action.new.tip', icon_name='file-new')
         new_action.setShortcut(QtGui.QKeySequence.New)
         new_action.triggered.connect(self._new_document)
         open_action = file_menu.addAction(i18n.tr('action.open'))
-        self._register(open_action, 'action.open', 'action.open.tip')
+        self._register(open_action, 'action.open', 'action.open.tip', icon_name='file-open')
         open_action.setShortcut(QtGui.QKeySequence.Open)
         open_action.triggered.connect(self._open_file)
         self._recent_menu = file_menu.addMenu(i18n.tr('action.recent'))
         self._register(self._recent_menu, 'action.recent')
         file_menu.aboutToShow.connect(self._refresh_recent_menu)
         save_action = file_menu.addAction(i18n.tr('action.save'))
-        self._register(save_action, 'action.save', 'action.save.tip')
+        self._register(save_action, 'action.save', 'action.save.tip', icon_name='file-save')
         save_action.setShortcut(QtGui.QKeySequence.Save)
         save_action.triggered.connect(self._save)
         save_as_action = file_menu.addAction(i18n.tr('action.save_as'))
-        self._register(save_as_action, 'action.save_as', 'action.save_as.tip')
+        self._register(save_as_action, 'action.save_as', 'action.save_as.tip', icon_name='file-save-as')
         save_as_action.setShortcut(QtGui.QKeySequence.SaveAs)
         save_as_action.triggered.connect(self._save_as)
         export_menu = file_menu.addMenu(i18n.tr('action.export_as'))
-        self._register(export_menu, 'action.export_as', 'action.export_as.tip')
+        self._register(export_menu, 'action.export_as', 'action.export_as.tip', icon_name='export')
         self._menus['export'] = export_menu
         for _fmt in ('pdf', 'png', 'svg', 'html', 'typ'):
             _act = export_menu.addAction(i18n.tr(f'export.fmt.{_fmt}'))
@@ -1582,31 +1660,31 @@ class MainWindow(QtWidgets.QMainWindow):
             _act.triggered.connect(self._weak_slot(self._export_as, _fmt))
         file_menu.addSeparator()
         exit_action = file_menu.addAction(i18n.tr('action.exit'))
-        self._register(exit_action, 'action.exit')
+        self._register(exit_action, 'action.exit', icon_name='exit')
         exit_action.setShortcut(QtGui.QKeySequence.Quit)
         exit_action.triggered.connect(self.close)
 
         edit_menu = self.menuBar().addMenu(i18n.tr('menu.edit'))
         self._menus['edit'] = self._register(edit_menu, 'menu.edit')
         undo_action = edit_menu.addAction(i18n.tr('action.undo'))
-        self._register(undo_action, 'action.undo')
+        self._register(undo_action, 'action.undo', icon_name='undo')
         undo_action.setShortcut(QtGui.QKeySequence.Undo)
         undo_action.triggered.connect(self.editor.undo)
         redo_action = edit_menu.addAction(i18n.tr('action.redo'))
-        self._register(redo_action, 'action.redo')
+        self._register(redo_action, 'action.redo', icon_name='redo')
         redo_action.setShortcut(QtGui.QKeySequence.Redo)
         redo_action.triggered.connect(self.editor.redo)
         edit_menu.addSeparator()
         cut_action = edit_menu.addAction(i18n.tr('action.cut'))
-        self._register(cut_action, 'action.cut')
+        self._register(cut_action, 'action.cut', icon_name='cut')
         cut_action.setShortcut(QtGui.QKeySequence.Cut)
         cut_action.triggered.connect(self.editor.cut)
         copy_action = edit_menu.addAction(i18n.tr('action.copy'))
-        self._register(copy_action, 'action.copy')
+        self._register(copy_action, 'action.copy', icon_name='copy')
         copy_action.setShortcut(QtGui.QKeySequence.Copy)
         copy_action.triggered.connect(self.editor.copy)
         paste_action = edit_menu.addAction(i18n.tr('action.paste'))
-        self._register(paste_action, 'action.paste')
+        self._register(paste_action, 'action.paste', icon_name='paste')
         paste_action.setShortcut(QtGui.QKeySequence.Paste)
         paste_action.triggered.connect(self.editor.paste)
         edit_menu.addSeparator()
@@ -1616,11 +1694,11 @@ class MainWindow(QtWidgets.QMainWindow):
         select_all_action.triggered.connect(self.editor.selectAll)
         edit_menu.addSeparator()
         find_action = edit_menu.addAction(i18n.tr('action.find'))
-        self._register(find_action, 'action.find', 'action.find.tip')
+        self._register(find_action, 'action.find', 'action.find.tip', icon_name='find')
         find_action.setShortcut('Ctrl+F')
         find_action.triggered.connect(self._toggle_find)
         goto_action = edit_menu.addAction(i18n.tr('action.goto_line'))
-        self._register(goto_action, 'action.goto_line', 'action.goto_line.tip')
+        self._register(goto_action, 'action.goto_line', 'action.goto_line.tip', icon_name='goto-line')
         goto_action.setShortcut('Ctrl+G')
         goto_action.triggered.connect(self._go_to_line)
 
@@ -1634,7 +1712,7 @@ class MainWindow(QtWidgets.QMainWindow):
         view_menu.addAction(preview_action)
         self._preview_action = preview_action
         self._theme_action = view_menu.addAction(i18n.tr('action.dark_mode'))
-        self._register(self._theme_action, 'action.dark_mode', 'action.dark_mode.tip')
+        self._register(self._theme_action, 'action.dark_mode', 'action.dark_mode.tip', icon_name='theme')
         self._theme_action.setCheckable(True)
         self._theme_action.setShortcut('Ctrl+Shift+D')
         self._theme_action.triggered.connect(self._toggle_theme)
@@ -1647,71 +1725,73 @@ class MainWindow(QtWidgets.QMainWindow):
         self._auto_close_brackets_action.triggered.connect(self._toggle_auto_close_brackets)
         view_menu.addSeparator()
         palette_action = view_menu.addAction(i18n.tr('action.palette'))
-        self._register(palette_action, 'action.palette', 'action.palette.tip')
+        self._register(palette_action, 'action.palette', 'action.palette.tip', icon_name='palette')
         palette_action.setShortcut('Ctrl+Shift+P')
         palette_action.triggered.connect(self._show_palette)
         language_action = view_menu.addAction(i18n.tr('action.language'))
-        self._register(language_action, 'action.language', 'action.language.tip')
+        self._register(language_action, 'action.language', 'action.language.tip', icon_name='language')
         language_action.triggered.connect(self._open_language_dialog)
         view_menu.addSeparator()
         zoom_in_action = view_menu.addAction(i18n.tr('action.zoom_in'))
-        self._register(zoom_in_action, 'action.zoom_in', 'action.zoom_in.tip')
+        self._register(zoom_in_action, 'action.zoom_in', 'action.zoom_in.tip', icon_name='zoom-in')
         zoom_in_action.setShortcuts(['Ctrl+=', 'Ctrl++'])
         zoom_in_action.triggered.connect(self._weak_slot(self._zoom, 1))
         zoom_out_action = view_menu.addAction(i18n.tr('action.zoom_out'))
-        self._register(zoom_out_action, 'action.zoom_out', 'action.zoom_out.tip')
+        self._register(zoom_out_action, 'action.zoom_out', 'action.zoom_out.tip', icon_name='zoom-out')
         zoom_out_action.setShortcut('Ctrl+-')
         zoom_out_action.triggered.connect(self._weak_slot(self._zoom, -1))
         zoom_reset_action = view_menu.addAction(i18n.tr('action.zoom_reset'))
-        self._register(zoom_reset_action, 'action.zoom_reset', 'action.zoom_reset.tip')
+        self._register(zoom_reset_action, 'action.zoom_reset', 'action.zoom_reset.tip', icon_name='zoom-reset')
         zoom_reset_action.setShortcut('Ctrl+0')
         zoom_reset_action.triggered.connect(self._zoom_reset)
         font_action = view_menu.addAction(i18n.tr('action.font'))
-        self._register(font_action, 'action.font', 'action.font.tip')
+        self._register(font_action, 'action.font', 'action.font.tip', icon_name='font')
         font_action.triggered.connect(self._choose_editor_font)
         view_menu.addSeparator()
         gallery_action = view_menu.addAction(i18n.tr('action.gallery'))
-        self._register(gallery_action, 'action.gallery', 'action.gallery.tip')
+        self._register(gallery_action, 'action.gallery', 'action.gallery.tip', icon_name='gallery')
         gallery_action.setShortcut('Ctrl+Shift+G')
         gallery_action.triggered.connect(self._open_draw_gallery)
 
         build_menu = self.menuBar().addMenu(i18n.tr('menu.build'))
         self._menus['build'] = self._register(build_menu, 'menu.build')
         compile_action = build_menu.addAction(i18n.tr('action.compile'))
-        self._register(compile_action, 'action.compile', 'action.compile.tip')
+        self._register(compile_action, 'action.compile', 'action.compile.tip', icon_name='compile')
         compile_action.setShortcut('Ctrl+B')
         compile_action.triggered.connect(self._compile)
         refresh_action = build_menu.addAction(i18n.tr('action.refresh_preview'))
-        self._register(refresh_action, 'action.refresh_preview', 'action.refresh_preview.tip')
+        self._register(refresh_action, 'action.refresh_preview', 'action.refresh_preview.tip', icon_name='refresh')
         refresh_action.setShortcut('F5')
         refresh_action.triggered.connect(self._refresh_preview_now)
         build_menu.addSeparator()
         restart_action = build_menu.addAction(i18n.tr('action.restart_lsp'))
-        self._register(restart_action, 'action.restart_lsp', 'action.restart_lsp.tip')
+        self._register(restart_action, 'action.restart_lsp', 'action.restart_lsp.tip', icon_name='refresh')
         restart_action.triggered.connect(self._restart_lsp)
 
         help_menu = self.menuBar().addMenu(i18n.tr('menu.help'))
         self._menus['help'] = self._register(help_menu, 'menu.help')
         examples_menu = help_menu.addMenu(i18n.tr('action.examples'))
-        self._register(examples_menu, 'action.examples', 'action.examples.tip')
+        self._register(examples_menu, 'action.examples', 'action.examples.tip', icon_name='examples')
         self._menus['examples'] = examples_menu
         self._example_actions = {}
         for entry_id, name_key, _source_text in EXAMPLES:
             action = examples_menu.addAction(i18n.tr(name_key))
-            self._register(action, name_key)
+            self._register(action, name_key, icon_name='examples')
             action.triggered.connect(self._weak_slot(self._insert_example, entry_id))
             self._example_actions[entry_id] = action
         welcome_action = help_menu.addAction(i18n.tr('action.welcome'))
-        self._register(welcome_action, 'action.welcome', 'action.welcome.tip')
+        self._register(welcome_action, 'action.welcome', 'action.welcome.tip', icon_name='welcome')
         welcome_action.triggered.connect(self._show_welcome)
         shortcuts_action = help_menu.addAction(i18n.tr('action.shortcuts'))
-        self._register(shortcuts_action, 'action.shortcuts', 'action.shortcuts.tip')
+        self._register(shortcuts_action, 'action.shortcuts', 'action.shortcuts.tip', icon_name='shortcuts')
         shortcuts_action.triggered.connect(self._show_shortcuts)
         about_action = help_menu.addAction(i18n.tr('action.about'))
-        self._register(about_action, 'action.about', 'action.about.tip')
+        self._register(about_action, 'action.about', 'action.about.tip', icon_name='about')
         about_action.triggered.connect(self._show_about)
 
         self._toolbar = self.addToolBar(i18n.tr('toolbar.main'))
+        self._toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self._toolbar.setIconSize(QtCore.QSize(SIZE_TOOLBAR, SIZE_TOOLBAR))
         self._toolbar.addAction(new_action)
         self._toolbar.addAction(open_action)
         self._toolbar.addAction(save_action)
@@ -2023,6 +2103,12 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             pass
         self._set_title_bar_dark(name == app_theme.DARK)
+        try:
+            from .icons import set_theme_dark
+
+            set_theme_dark(name == app_theme.DARK)
+        except Exception:
+            pass
         self.editor.set_theme(name)
         colors = app_theme.editor_colors(name)
         self._find_all_color = QtGui.QColor(colors['find_all'])

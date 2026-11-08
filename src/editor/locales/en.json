@@ -637,5 +637,20 @@
   "field_labels.Radius or point": "Radius or point",
   "field_labels.Size (optional)": "Size (optional)",
   "field_labels.Item text": "Item text",
-  "field_labels.Width (optional)": "Width (optional)"
+  "field_labels.Width (optional)": "Width (optional)",
+  "find.replace_placeholder": "Replace",
+  "find.replace_tip": "Replace the current match",
+  "find.replace": "Replace",
+  "find.replace_all_tip": "Replace all matches",
+  "find.replace_all": "Replace All",
+  "find.match_case_tip": "Match case",
+  "find.match_case": "Match case",
+  "find.whole_word_tip": "Whole word",
+  "find.whole_word": "Whole word",
+  "problems.clear_tip": "Clear all problems",
+  "problems.clear": "Clear",
+  "problems.filter_all": "All",
+  "problems.filter_errors": "Errors",
+  "problems.filter_warnings": "Warnings",
+  "problems.count_badge": "Problems: {count}"
 }

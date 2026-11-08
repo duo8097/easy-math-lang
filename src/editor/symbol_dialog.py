@@ -7,6 +7,7 @@ from dataclasses import replace as _dc_replace
 from PySide6 import QtCore, QtWidgets
 
 from . import i18n
+from .icons import SIZE_DIALOG, apply_icon
 from .qt_text import install_text_context_menu
 from .symbol_registry import (
     Symbol,
@@ -98,6 +99,7 @@ class SymbolDialog(QtWidgets.QDialog):
             add_row = QtWidgets.QPushButton(
                 i18n.tr('symbol_dialog.add_row'), self)
             add_row.setObjectName('symbol-add-row')
+            apply_icon(add_row, 'add-row', SIZE_DIALOG)
             add_row.setAccessibleName(i18n.tr('symbol_dialog.add_row'))
             add_row.setToolTip(i18n.tr('symbol_dialog.add_row_tip'))
             add_row.clicked.connect(self._on_add_row)
@@ -105,6 +107,7 @@ class SymbolDialog(QtWidgets.QDialog):
             add_cell = QtWidgets.QPushButton(
                 i18n.tr('symbol_dialog.add_cell'), self)
             add_cell.setObjectName('symbol-add-cell')
+            apply_icon(add_cell, 'add-cell', SIZE_DIALOG)
             add_cell.setAccessibleName(i18n.tr('symbol_dialog.add_cell'))
             add_cell.setToolTip(i18n.tr('symbol_dialog.add_cell_tip'))
             add_cell.clicked.connect(self._on_add_cell)
@@ -127,6 +130,10 @@ class SymbolDialog(QtWidgets.QDialog):
             i18n.tr('symbol_dialog.insert'))
         buttons.button(QtWidgets.QDialogButtonBox.Cancel).setText(
             i18n.tr('btn.cancel'))
+        apply_icon(buttons.button(QtWidgets.QDialogButtonBox.Ok),
+                   'insert', SIZE_DIALOG)
+        apply_icon(buttons.button(QtWidgets.QDialogButtonBox.Cancel),
+                   'cancel', SIZE_DIALOG)
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setDefault(True)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)

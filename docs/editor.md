@@ -87,6 +87,51 @@ so the Windows/Linux/macOS frozen builds and the installers that
 copy the whole bundle (Inno Setup `_internal/`, Arch `PKGBUILD`
 `cp -a dist/…`) carry them with no further changes.
 
+## Icons
+
+Buttons and menu actions use icons from
+[Lucide](https://github.com/lucide-icons/lucide) (ISC License, MIT
+for Feather-derived icons). Only the icons actually used are
+vendored as SVG in `src/editor/assets/icons/` with the full license
+in `src/editor/assets/icons/LICENSE`; `README.md` also attributes
+them. One registry (`src/editor/icons.py`) maps logical names to
+SVG files, renders them at the requested size (crisp on HiDPI),
+recolors them for the light/dark theme and the disabled state, and
+falls back to no icon (logging once) when a file is missing.
+Icons are bundled by `scripts/build_binaries.py` as
+`--add-data editor/assets/icons`, so the installers that copy the
+whole bundle carry them automatically. Icon-only buttons always
+keep a translated tooltip and accessible name from the i18n
+catalog. The math symbols on the symbol-bar buttons themselves
+are not replaced by icons.
+
+### Icon to button/action mapping
+
+| Icon name | Used for |
+|---|---|
+| `file-new` / `file-open` / `file-save` / `file-save-as` | File menu New/Open/Save/Save As and the toolbar (icon + text) |
+| `export` | File Export As menu and command palette export entries |
+| `exit` | File Exit |
+| `undo` / `redo` | Edit Undo/Redo and the text context menu |
+| `cut` / `copy` / `paste` | Edit Cut/Copy/Paste and the text context menu |
+| `find` / `goto-line` | Edit Find / Go to Line |
+| `find-prev` / `find-next` / `find-close` | Find bar previous/next/close (icon-only, tooltip + accessible name) |
+| `replace` / `replace-all` / `match-case` / `whole-word` | Find bar replace row (Replace/Replace All are icon + text; match-case/whole-word are icon-only toggles) |
+| `compile` | Build Compile and the toolbar Compile action |
+| `refresh` | Build Refresh Preview / Restart Language Server |
+| `zoom-in` / `zoom-out` / `zoom-reset` / `fit` | View zoom actions and the preview panel zoom/fit buttons |
+| `preview` | View Live Preview toggle |
+| `open-external` | Preview Open PDF externally |
+| `language` / `theme` / `examples` / `shortcuts` / `about` / `welcome` / `palette` / `gallery` / `font` | View/Help menu actions (Language, Dark Mode, Examples, Keyboard Shortcuts, About, Welcome, Command Palette, Geometry Gallery, Editor Font) |
+| `ok` / `yes` / `apply` / `insert` | Dialog OK/Yes/Apply and Insert buttons |
+| `cancel` / `close` / `no` / `discard` | Dialog Cancel/Close/No and Discard (unsaved-changes prompt) |
+| `file-save` (dialog) | Save buttons in message boxes |
+| `clear` / `filter` | Problems panel Clear button and severity filter |
+| `error` / `warning` / `info` | Problems panel rows by severity |
+| `variable` / `function` / `heading` / `draw` / `define` | Outline panel rows by symbol kind |
+| `insert-example` / `insert-command` / `empty-block` / `add-row` / `add-cell` | Draw gallery, template and symbol-dialog buttons |
+| `outline` / `problems` | View Outline/Problems toggles and command palette entries |
+
 ### Glossary (consistent Vietnamese terms)
 
 Repeated terms use one Vietnamese wording everywhere; the actual

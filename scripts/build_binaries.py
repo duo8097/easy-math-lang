@@ -290,6 +290,16 @@ def _build(name: str, import_line: str, full_pyside6: bool,
                 f"::error::{locales} is missing — the frozen editor "
                 f"cannot load its UI translations. Expected the "
                 f"editor/locales/en.json + vi.json catalogs.")
+        # UI icons (editor/assets/icons/*.svg, Lucide ISC/MIT).
+        ui_icons = ROOT / "src" / "editor" / "assets" / "icons"
+        if ui_icons.is_dir():
+            sep = ";" if os.name == "nt" else ":"
+            cmd += ["--add-data", f"{ui_icons}{sep}editor/assets/icons"]
+        else:
+            raise SystemExit(
+                f"::error::{ui_icons} is missing — the frozen editor "
+                f"cannot load its UI icons. Expected the vendored "
+                f"editor/assets/icons/*.svg Lucide SVGs.")
         # Window/taskbar icon: only the single 256px PNG ships inside the
         # Python bundle (src/editor/assets/ezmath-256.png is a verbatim copy
         # of icons/ezmath-256.png kept inside the package so pip-installed
