@@ -11,6 +11,8 @@ except ImportError:  # Qt build without Pdf modules: text fallback only
     QPdfView = None
     _PDF_AVAILABLE = False
 
+from . import i18n
+
 
 def pdf_available():
     """True when Qt's PDF view modules imported successfully."""
@@ -70,41 +72,41 @@ class PreviewPanel(QtWidgets.QWidget):
         toolbar.setSpacing(4)
         self.refresh_button = QtWidgets.QToolButton(self)
         self.refresh_button.setText('⟳')
-        self.refresh_button.setToolTip('Refresh preview (F5)')
+        self.refresh_button.setToolTip(i18n.tr('preview.refresh_tip'))
         self.refresh_button.clicked.connect(self.refreshRequested.emit)
         toolbar.addWidget(self.refresh_button)
 
-        self.auto_check = QtWidgets.QCheckBox('Auto', self)
+        self.auto_check = QtWidgets.QCheckBox(i18n.tr('preview.auto'), self)
         self.auto_check.setChecked(True)
-        self.auto_check.setToolTip('Refresh automatically while typing')
+        self.auto_check.setToolTip(i18n.tr('preview.auto_tip'))
         self.auto_check.toggled.connect(self.autoToggled.emit)
         toolbar.addWidget(self.auto_check)
 
         self.zoom_out = QtWidgets.QToolButton(self)
         self.zoom_out.setText('−')
-        self.zoom_out.setToolTip('Zoom out')
+        self.zoom_out.setToolTip(i18n.tr('preview.zoom_out_tip'))
         toolbar.addWidget(self.zoom_out)
 
         self.zoom_in = QtWidgets.QToolButton(self)
         self.zoom_in.setText('+')
-        self.zoom_in.setToolTip('Zoom in')
+        self.zoom_in.setToolTip(i18n.tr('preview.zoom_in_tip'))
         toolbar.addWidget(self.zoom_in)
 
         self.fit_button = QtWidgets.QToolButton(self)
-        self.fit_button.setText('Fit')
-        self.fit_button.setToolTip('Fit page width')
+        self.fit_button.setText(i18n.tr('preview.fit'))
+        self.fit_button.setToolTip(i18n.tr('preview.fit_tip'))
         toolbar.addWidget(self.fit_button)
 
         self.open_button = QtWidgets.QToolButton(self)
-        self.open_button.setText('Open…')
-        self.open_button.setToolTip('Open preview PDF externally')
+        self.open_button.setText(i18n.tr('preview.open'))
+        self.open_button.setToolTip(i18n.tr('preview.open_tip'))
         self.open_button.clicked.connect(self.openPdfRequested.emit)
         self.open_button.setEnabled(False)
         toolbar.addWidget(self.open_button)
 
         toolbar.addStretch(1)
-        self.status_label = QtWidgets.QLabel('Preview: idle', self)
-        self.status_label.setToolTip('Live preview status')
+        self.status_label = QtWidgets.QLabel(i18n.tr('preview.idle'), self)
+        self.status_label.setToolTip(i18n.tr('preview.status_tip'))
         toolbar.addWidget(self.status_label)
         layout.addLayout(toolbar)
 
@@ -120,8 +122,7 @@ class PreviewPanel(QtWidgets.QWidget):
             self._view = QPdfView(self)
             self._view.setDocument(self._document)
             self._view.viewport().installEventFilter(self)
-            self._view.setToolTip(
-                'Ctrl+Click a paragraph to go to its source line')
+            self._view.setToolTip(i18n.tr('preview.view_tip'))
             try:
                 self._view.pageNavigator().jumped.connect(
                     self._on_navigator_jumped)
@@ -415,33 +416,29 @@ class PreviewPanel(QtWidgets.QWidget):
         self._pdf_path = None
         self._link_annots = []
         self.open_button.setEnabled(False)
-        self.status_label.setText('Preview: idle')
+        self.status_label.setText(i18n.tr('preview.idle'))
         if self._view is None:
-            self._message.setText(
-                'Live preview needs Qt PDF support, which this build lacks.\n'
-                'Use Build → Compile (Ctrl+B) to write a PDF instead.')
+            self._message.setText(i18n.tr('preview.no_pdf_msg'))
             self._message.show()
             return
         self._show_view(False)
-        self._message.setText('Type to see a live preview…')
+        self._message.setText(i18n.tr('preview.empty_msg'))
 
     def show_loading(self):
-        self.status_label.setText('Preview: updating…')
+        self.status_label.setText(i18n.tr('preview.updating'))
         # Keep the old page visible while recompiling; only swap the
         # message layer when nothing was shown before.
         if self._pdf_path is None and self._view is not None:
             self._show_view(False)
-            self._message.setText('Rendering preview…')
+            self._message.setText(i18n.tr('preview.rendering'))
 
     def show_pdf(self, pdf_path):
         """Load *pdf_path* into the embedded viewer."""
         if self._view is None or self._document is None:
             self._pdf_path = pdf_path
-            self.status_label.setText('Preview: updated')
+            self.status_label.setText(i18n.tr('preview.updated'))
             self._message.setText(
-                f'Preview written to {pdf_path}\n'
-                'Qt PDF view is unavailable in this build — '
-                'use Open… to view it externally.')
+                i18n.tr('preview.written_msg', path=pdf_path))
             self._message.show()
             self.open_button.setEnabled(True)
             return
@@ -454,10 +451,12 @@ class PreviewPanel(QtWidgets.QWidget):
         try:
             error = self._document.load(pdf_path)
         except Exception as exc:
-            self.show_error(f'Could not display preview PDF: {exc}')
+            self.show_error(i18n.tr('preview.display_failed',
+                                    detail=exc))
             return
         if error != err_none:
-            self.show_error(f'Could not display preview PDF ({pdf_path}).')
+            self.show_error(i18n.tr('preview.display_failed_path',
+                                    path=pdf_path))
             return
         self._pdf_path = pdf_path
         self._show_view(True)
@@ -467,14 +466,14 @@ class PreviewPanel(QtWidgets.QWidget):
         except Exception:
             pass
         self.status_label.setText(
-            f'Preview: up to date ({count} page{"s" if count != 1 else ""})'
-            if count else 'Preview: up to date')
+            i18n.tr('preview.uptodate_pages', count=count)
+            if count else i18n.tr('preview.uptodate'))
         self.open_button.setEnabled(True)
         self._reload_link_annotations()
 
     def show_error(self, message):
         """Show a compile failure; keeps the last good PDF if there is one."""
-        self.status_label.setText('Preview: error')
+        self.status_label.setText(i18n.tr('preview.error'))
         self.open_button.setEnabled(self._pdf_path is not None)
         if self._pdf_path is not None and self._view is not None:
             # Stale page stays visible; the status bar flags the error.
@@ -612,3 +611,16 @@ class PreviewPanel(QtWidgets.QWidget):
 
     def set_auto_enabled(self, enabled):
         self.auto_check.setChecked(bool(enabled))
+
+    def retranslate_ui(self):
+        """Refresh translated chrome without touching the viewed PDF."""
+        self.refresh_button.setToolTip(i18n.tr('preview.refresh_tip'))
+        self.auto_check.setText(i18n.tr('preview.auto'))
+        self.auto_check.setToolTip(i18n.tr('preview.auto_tip'))
+        self.zoom_out.setToolTip(i18n.tr('preview.zoom_out_tip'))
+        self.zoom_in.setToolTip(i18n.tr('preview.zoom_in_tip'))
+        self.fit_button.setText(i18n.tr('preview.fit'))
+        self.fit_button.setToolTip(i18n.tr('preview.fit_tip'))
+        self.open_button.setText(i18n.tr('preview.open'))
+        self.open_button.setToolTip(i18n.tr('preview.open_tip'))
+        self.status_label.setToolTip(i18n.tr('preview.status_tip'))

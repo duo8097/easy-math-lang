@@ -2,7 +2,7 @@
 
 from PySide6 import QtCore, QtWidgets
 
-from . import positions
+from . import friendly_errors, i18n, positions
 
 
 class ProblemsPanel(QtWidgets.QWidget):
@@ -24,6 +24,8 @@ class ProblemsPanel(QtWidgets.QWidget):
         """Replace rows. Each diagnostic is a dict with line/start/end/message.
 
         ``severity`` is ``'error'`` or anything else (shown as warning).
+        Every row shows a plain-language explanation plus the raw
+        message, which is also kept in the item tooltip.
         """
         safe = []
         for diag in (diagnostics or []):
@@ -35,10 +37,19 @@ class ProblemsPanel(QtWidgets.QWidget):
             line = diag.get('line', 0)
             start = diag.get('start', 0)
             severity = diag.get('severity', 'error')
+            message = diag.get('message', '')
+            # Keep the position prefix + raw message (tests and muscle
+            # memory rely on it); the friendly sentence follows.
+            friendly = friendly_errors.format_friendly(message)
             text = positions.format_diagnostic(
-                severity, line, start, diag.get('message', ''))
+                severity, line, start, message)
+            if friendly:
+                text = f'{text}  —  {friendly}'
             item = QtWidgets.QListWidgetItem(text, self._list)
             item.setData(QtCore.Qt.UserRole, index)
+            if message:
+                item.setToolTip(
+                    f'{i18n.tr("friendly.technical_details")}\n{message}')
 
     def clear(self):
         self.set_diagnostics([])

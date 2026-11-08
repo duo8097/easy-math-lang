@@ -37,6 +37,29 @@ def _set_application_icon(app):
         pass
 
 
+# UI fonts, in preference order. Noto Sans and DejaVu Sans both cover
+# Vietnamese diacritics (including stacking tone marks) on every
+# platform; Qt falls back per glyph when a chosen family lacks one,
+# so frozen builds need no bundled fonts — they use the system fonts
+# via fontconfig (Linux), DirectWrite (Windows) or CoreText (macOS).
+UI_FONT_FAMILIES = ('Noto Sans', 'DejaVu Sans', 'Segoe UI',
+                    'SF Pro Text', 'Arial')
+
+
+def _set_application_font(app):
+    """Use a Vietnamese-capable UI font when one is installed."""
+    try:
+        available = set(QtGui.QFontDatabase.families())
+        for family in UI_FONT_FAMILIES:
+            if family in available:
+                font = QtGui.QFont(family)
+                app.setFont(font)
+                return family
+    except Exception:
+        pass
+    return None
+
+
 def parse_args(argv=None):
     """Parse command-line arguments (``argv`` excludes the program name)."""
     parser = argparse.ArgumentParser(
@@ -53,7 +76,10 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
-    # Set up fcitx5 IME support for Linux (if applicable)
+    # Set up fcitx5 IME support for Linux (if applicable). This must
+    # stay before QApplication creation and must not touch key
+    # handling: Vietnamese typing via fcitx5 (fcitx5-lotus) depends on
+    # the plugin path being set here, before any window exists.
     try:
         from .linux_ime import setup_fcitx5_ime
         setup_fcitx5_ime()
@@ -67,10 +93,12 @@ def main(argv=None):
     app.setOrganizationName('easy-math-lang')
     app.setApplicationName('easy-math-editor')
     _set_application_icon(app)
+    _set_application_font(app)
     window = MainWindow(no_save_prompt=args.no_save_prompt)
     if args.path:
         window.open_path(args.path)
     window.show()
+    window.maybe_show_welcome()
     return app.exec()
 
 

@@ -23,10 +23,99 @@ environment — it is declared in `pyproject.toml`.
 - A new document shows a short example to get you started.
   Delete it and type your own math, or open an example instead:
   `File → Open → examples/example.ezmath`.
+- On first run a dismissible welcome banner shows a 3-step quick
+  start and a button that opens a ready-to-run example. It can be
+  reopened from `Help → Welcome`; tick "Don't show again" to keep
+  it away. When the editor is empty it also shows a faint hint
+  pointing to `Help → Examples` and the symbol bar.
 - Press **Ctrl+B** (or `Build → Compile`) to turn the document into a PDF.
   The status bar tells you where the PDF was written.
 - If a document has unsaved changes, the window title shows a `*`
   and you will be asked before closing.
+
+---
+
+## Language (English / Vietnamese)
+
+- The editor interface is available in **English** (default) and
+  **Vietnamese (`vi`)**. On first run the language follows your
+  system locale (for example `LANG=vi_VN.UTF-8`); afterwards your
+  choice is remembered.
+- Change it any time with `View → Language…` (English, Vietnamese,
+  or System default). The change applies immediately, without
+  touching your document, cursor, or open files, and is persisted
+  in `~/.config/ezmath/config.ini` as `ui/language`.
+- Only UI chrome is translated. Language syntax and keywords
+  (`*vec`, `*draw`, `*point`, …), file names, code snippets, and
+  compiler/LSP identifiers are never translated. Command
+  descriptions and draw titles are translated by name/id
+  (`symbol.<name>.description`, `draw.<id>.title`); the registry
+  data itself stays canonical English and the UI looks the
+  translation up at display time.
+- Qt has no Vietnamese catalog, so Qt-generated texts are set
+  explicitly from the catalog: text-edit context menus
+  (`editor/qt_text.py`), standard dialog buttons, file dialog
+  labels (file dialogs are always Qt-drawn, never native, so
+  their labels can be translated), and input dialog buttons.
+  The font dialog's internal labels cannot be set this way and
+  stay Qt-generated (see remaining exceptions in
+  `scripts/audit_i18n_allowlist.json` and below).
+- UI fonts prefer Noto Sans / DejaVu Sans, which render Vietnamese
+  diacritics correctly; Qt falls back per glyph, so frozen builds
+  use system fonts (no bundled font files). Vietnamese typing via
+  fcitx5 (`fcitx5-lotus`) is unaffected — see [Linux input
+  methods](#linux-input-methods-vietnamese-etc) below.
+
+### Adding a language
+
+1. Copy `src/editor/locales/en.json` to
+   `src/editor/locales/<code>.json` (for example `fr.json`).
+2. Translate every value; keep the keys and every `{placeholder}`
+   exactly as in `en.json`. Do not translate `*commands`, file
+   extensions, or values that are examples of code.
+3. Add the code to `SUPPORTED_LOCALES` in
+   `src/editor/i18n.py` and to the picker in
+   `MainWindow._open_language_dialog`.
+4. Add a test that the new catalog has the same keys as `en.json`
+   (see `test_catalogs_have_the_same_keys` in
+   `tests/test_i18n.py`, which covers every `*.json` in the
+   directory once the file exists — just add the file).
+
+The catalogs are bundled automatically: `scripts/build_binaries.py`
+passes `src/editor/locales/` as `--add-data` for the editor build,
+so the Windows/Linux/macOS frozen builds and the installers that
+copy the whole bundle (Inno Setup `_internal/`, Arch `PKGBUILD`
+`cp -a dist/…`) carry them with no further changes.
+
+### Glossary (consistent Vietnamese terms)
+
+Repeated terms use one Vietnamese wording everywhere; the actual
+Vietnamese strings live only in `src/editor/locales/vi.json`
+(docs stay in English). The table below maps each English concept
+to its catalog key so new strings reuse the established term.
+
+| English concept | Catalog key (prefix) | Notes |
+|---|---|---|
+| File / Save / Open | `menu.file`, `btn.save` | Use "Save" for both menu and dialog button |
+| Vector | `symbol.vec.description` | Kept as "vector" (standard loanword) |
+| Angle / Right angle | `symbol.geo-angle.description` | Distinct keys for angle vs right-angle marker |
+| Circle | `draw.circle.title` | Standard term for a circle |
+| Midpoint / Centre | `draw.midpoint.title`, `field_labels.Center` | Distinguish midpoint from centre |
+| Line / Segment / Ray | `draw.line.title`, `draw.ray.title` | Segment vs ray vs line kept distinct |
+| Parallel / Perpendicular | `draw.parallel.title`, `draw.perp.title` | Keep the two constraints distinct |
+| Fraction / Equation | `examples.fraction_equation` | Reuse the Examples wording |
+| Compile / Export | `action.compile`, `action.export_as` | Compile = build to PDF; Export = save as other format |
+| Language server | `status.lsp_connected` | Keep the "LSP" abbreviation unchanged |
+| Welcome / Examples / Shortcuts | `welcome.*`, `examples.*`, `shortcuts.*` | Help menu wording |
+
+### Auditing translations
+
+Run `python scripts/audit_i18n.py` to list user-visible literals
+that bypass `tr()` (grouped by file) plus registry/catalog strings
+missing a translation. `scripts/audit_i18n_allowlist.json` records
+justified exceptions (glyphs, file-format names, example values,
+raw LSP/compiler text). `tests/test_i18n.py` runs the same audit
+as a regression guard and walks the Vietnamese UI offscreen.
 
 ---
 
@@ -47,6 +136,18 @@ environment — it is declared in `pyproject.toml`.
 - **Hover**: rest the mouse pointer on a name to see its value or meaning.
 - **Status bar**: cursor position (`Ln`/`Col`), problem count, and whether
   the language server is connected.
+- **Welcome, Examples, shortcuts** (`Help` menu): the welcome banner
+  (3-step quick start), `Help → Examples` with short ready-to-run
+  samples (basic math, a fraction/equation, a vector, a simple
+  `*draw` — each compiles on its own), and `Help → Keyboard
+  Shortcuts` listing the real shortcuts.
+- **Symbol bar tooltips**: every symbol button shows what it
+  inserts, its category, and a one-line `Example:` you can copy.
+- **Problems panel**: each row shows a plain-language explanation
+  and, where the cause is obvious, a "Did you mean …?" hint, with
+  the raw technical message kept in the row text and tooltip.
+  Compile and export failures use the same friendly text, with the
+  raw log below it.
 
 All of this comes from the built-in language server — see
 [Language server](lsp.md). If the status bar says `LSP: Disconnected`,

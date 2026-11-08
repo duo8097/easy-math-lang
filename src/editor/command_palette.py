@@ -2,6 +2,8 @@
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
+
 
 def fuzzy_score(query, text):
     """Subsequence match score (lower is better), or None for no match.
@@ -32,14 +34,15 @@ class CommandPalette(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Command Palette')
+        self.setWindowTitle(i18n.tr('palette_window.title'))
         self.setModal(True)
         self._commands = []  # (id, title, hint)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         self._input = QtWidgets.QLineEdit(self)
-        self._input.setPlaceholderText('Type a command…')
+        self._input.setPlaceholderText(
+            i18n.tr('palette_window.placeholder'))
         self._input.setClearButtonEnabled(True)
         layout.addWidget(self._input)
         self._list = QtWidgets.QListWidget(self)
@@ -48,7 +51,8 @@ class CommandPalette(QtWidgets.QDialog):
         self._input.textChanged.connect(self._refilter)
         self._input.returnPressed.connect(self._accept_current)
         self._list.itemActivated.connect(self._accept_item)
-        self.resize(520, 340)
+        self.resize(560, 340)
+        self.setMinimumWidth(420)
 
     def set_commands(self, commands):
         """Set available ``(id, title, shortcut_hint)`` commands."""

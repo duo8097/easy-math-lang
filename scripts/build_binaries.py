@@ -109,6 +109,7 @@ EDITOR_HIDDEN = [
     "editor.main_window",
     "editor.draw_gallery",
     "editor.draw_template",
+    "editor.help_dialogs",
     "editor.linux_ime",
 ]
 
@@ -275,6 +276,20 @@ def _build(name: str, import_line: str, full_pyside6: bool,
         if previews.is_dir():
             sep = ";" if os.name == "nt" else ":"
             cmd += ["--add-data", f"{previews}{sep}editor/assets/draw_previews"]
+        # Translation catalogs (editor/locales/*.json): bundled as data
+        # files under editor/locales/ so the frozen editor resolves
+        # them via paths.resource_path('editor', 'locales') exactly
+        # like the draw previews above. A missing directory fails the
+        # build fast, like the vendored Typst packages.
+        locales = ROOT / "src" / "editor" / "locales"
+        if locales.is_dir():
+            sep = ";" if os.name == "nt" else ":"
+            cmd += ["--add-data", f"{locales}{sep}editor/locales"]
+        else:
+            raise SystemExit(
+                f"::error::{locales} is missing — the frozen editor "
+                f"cannot load its UI translations. Expected the "
+                f"editor/locales/en.json + vi.json catalogs.")
         # Window/taskbar icon: only the single 256px PNG ships inside the
         # Python bundle (src/editor/assets/ezmath-256.png is a verbatim copy
         # of icons/ezmath-256.png kept inside the package so pip-installed
