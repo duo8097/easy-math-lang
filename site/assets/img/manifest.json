@@ -1,0 +1,83 @@
+{
+  "generator": "scripts/make_site_screenshots.py",
+  "note": "Every image below was produced by the project itself: editor screenshots come from the real editor rendered offscreen, the example images come from the project compiler. The SHA-256 digests let scripts/check_site.py detect placeholders, stale files and manual edits.",
+  "images": [
+    {
+      "file": "editor-draw-gallery.png",
+      "kind": "editor-screenshot",
+      "bytes": 150113,
+      "sha256": "78d191a76786c56d695417a58cc36dabb41a2b26045986b8e9906e2f1a309015",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=en, theme=light, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "editor-english-dark.png",
+      "kind": "editor-screenshot",
+      "bytes": 179460,
+      "sha256": "b387d8c178fe432fc429b00a6a9f07ee40ce7d7277cc2e5f583e9ef64de936ea",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=en, theme=dark, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "editor-english-light.png",
+      "kind": "editor-screenshot",
+      "bytes": 181453,
+      "sha256": "d79e35db15f39a2fa9c963100e4c4a5cd50905c5f7a0adb857a5bfe8adeab01c",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=en, theme=light, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "editor-vietnamese-dark.png",
+      "kind": "editor-screenshot",
+      "bytes": 183930,
+      "sha256": "24df5d69d8d8af7c47c9a571e32c51ab4c9f1a4fe4845fa3c1d74ba806404a54",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=vi, theme=dark, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "editor-vietnamese-light.png",
+      "kind": "editor-screenshot",
+      "bytes": 186724,
+      "sha256": "867a9274ce529d70d38efb7ea7b062c8f4aea6f47e5ddb4fed65124579359963",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=vi, theme=light, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "editor-welcome-panel.png",
+      "kind": "editor-screenshot",
+      "bytes": 55553,
+      "sha256": "a4f608b23e034565a1a5fd29df17394688adef0f5b28e48f93df64b08651fb5a",
+      "produced_by": "offscreen Qt screenshot of the real Easy Math Editor (MainWindow, ui language=en, theme=light, window 1200x800 logical pixels, device pixel ratio 2); document loaded: examples/example_2.ezmath"
+    },
+    {
+      "file": "example-basic-math.svg",
+      "kind": "compiled-example",
+      "bytes": 20892,
+      "sha256": "1f942c479fc6b8d7911a40abdd7764e852318a77fe9fd98caf3ba93263e3eb70",
+      "produced_by": "output of the project compiler: the editor built-in example 'basic-math' (src/editor/help_dialogs.py) compiled to SVG with compiler.pipeline.compile_ezmath (Typst), cropped to the content box"
+    },
+    {
+      "file": "example-fraction-equation.svg",
+      "kind": "compiled-example",
+      "bytes": 30922,
+      "sha256": "f186956a513b45506a158eb720407a1bcac4597f8f055466e77b36015c34ad58",
+      "produced_by": "output of the project compiler: the editor built-in example 'fraction-equation' (src/editor/help_dialogs.py) compiled to SVG with compiler.pipeline.compile_ezmath (Typst), cropped to the content box"
+    },
+    {
+      "file": "example-simple-draw.svg",
+      "kind": "compiled-example",
+      "bytes": 20443,
+      "sha256": "5d52f93fa9dbe7029b50af76b19000ccee59668be8b0a3b7a52566b2c62027d2",
+      "produced_by": "output of the project compiler: the editor built-in example 'simple-draw' (src/editor/help_dialogs.py) compiled to SVG with compiler.pipeline.compile_ezmath (Typst), cropped to the content box"
+    },
+    {
+      "file": "example-vector.svg",
+      "kind": "compiled-example",
+      "bytes": 36087,
+      "sha256": "75fcbcf6fe8887d502d38f3002f16db2c243e68606c5e6aa75e8f883fb4066d0",
+      "produced_by": "output of the project compiler: the editor built-in example 'vector' (src/editor/help_dialogs.py) compiled to SVG with compiler.pipeline.compile_ezmath (Typst), cropped to the content box"
+    },
+    {
+      "file": "ezmath-icon.png",
+      "kind": "icon",
+      "bytes": 49595,
+      "sha256": "bbafbd0f55d01c49234ac37665fd97caec39a1445e5ac5efa921dfee71fc022e",
+      "produced_by": "the repository app icon icons/ezmath-icon.png scaled to 256x256 px (not redrawn)"
+    }
+  ]
+}

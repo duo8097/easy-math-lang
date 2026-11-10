@@ -1,82 +1,127 @@
 {
+  "meta": {
+    "title": "Easy Math Lang — write math documents in plain text",
+    "description": "Easy Math Lang turns a plain text file into a clean PDF with fractions, Greek symbols and geometry drawings. Free, open source, with a desktop editor."
+  },
+  "nav": {
+    "skip": "Skip to content",
+    "theme": "Switch between light and dark mode",
+    "language": "Language"
+  },
   "hero": {
-    "title": "Easy Math Lang",
-    "subtitle": "Write math documents using simple text — no design skills needed.",
+    "eyebrow": "easy-math-lang",
+    "title": "Write math in plain text.",
+    "subtitle": "Easy Math Lang turns a simple text file into a clean PDF with real fractions, the full Greek alphabet and geometry drawings — no design skills needed.",
+    "note": "Made for teachers and students. Free and open source (MIT).",
     "buttons": {
       "download": "Download",
       "github": "GitHub",
       "docs": "Docs"
     }
   },
-  "code_result": {
-    "title": "Code → Result",
-    "description": "Real ezmath examples compiled to show you exactly what you can write"
+  "showcase": {
+    "title": "Code → result",
+    "subtitle": "The four ready-to-run samples from the editor's own Examples menu, compiled by the project compiler. Nothing on this page is drawn by hand.",
+    "items": {
+      "basic-math": {
+        "title": "Basic math",
+        "caption": "Variables and <code>calc()</code> do the arithmetic for you."
+      },
+      "fraction-equation": {
+        "title": "Fraction and equation",
+        "caption": "<code>*frac()</code> typesets fractions, and the equation is written like text."
+      },
+      "vector": {
+        "title": "Vector",
+        "caption": "<code>*vec()</code> and <code>*root()</code> build the vector and its length."
+      },
+      "simple-draw": {
+        "title": "Simple *draw",
+        "caption": "The <code>*draw</code> block draws a triangle with the constraint solver."
+      }
+    }
   },
   "editor": {
-    "title": "Editor Screenshots",
-    "description": " screenshots from the real Easy Math Editor showing the interface with Vietnamese UI"
+    "title": "The editor",
+    "subtitle": "Screenshots of the real Easy Math Editor, rendered from the application itself.",
+    "captions": {
+      "english-light": "English, light theme",
+      "english-dark": "English, dark theme",
+      "vietnamese-light": "Vietnamese interface, light theme",
+      "vietnamese-dark": "Vietnamese interface, dark theme",
+      "welcome": "The welcome banner shown on first start",
+      "gallery": "The *draw gallery: every geometry command with a thumbnail"
+    }
   },
   "features": {
-    "title": "Features",
+    "title": "What you get",
+    "subtitle": "Everything below ships with the app today.",
     "items": {
       "symbol_bar": {
-        "title": "Symbol Bar",
-        "desc": "Full Greek alphabet, arrows, relations and set/logic symbols"
+        "title": "Symbol bar",
+        "desc": "The full Greek alphabet, arrows, relations and set/logic symbols — click to insert at the cursor."
       },
       "draw_gallery": {
-        "title": "*draw Gallery",
-        "desc": "28 geometry commands with thumbnails, syntax and descriptions"
+        "title": "*draw gallery",
+        "desc": "28 geometry commands, each with a thumbnail, its syntax and a one-line description."
       },
-      "lsp_diagnostics": {
-        "title": "LSP Diagnostics",
-        "desc": "Error checking with friendly hints and hover info"
+      "lsp": {
+        "title": "Language server",
+        "desc": "Error checking with a plain-language explanation for every message, plus autocompletion and hover information."
       },
-      "vietnamese_ui": {
-        "title": "Vietnamese UI",
-        "desc": "Vietnamese input methods supported via fcitx5 (Vietnamese Telex)"
+      "language": {
+        "title": "English and Vietnamese",
+        "desc": "Switch the interface with View → Language…. Vietnamese input methods (Telex via fcitx5) are supported on Linux."
       },
-      "auto_close_pairs": {
-        "title": "Auto-close Pairs",
-        "desc": "Typing (, [, {, \" auto-inserts matching closer"
+      "auto_close": {
+        "title": "Auto-close brackets",
+        "desc": "Typing ( [ { or \" inserts the matching closing character, and Backspace removes an empty pair."
+      },
+      "export": {
+        "title": "Export",
+        "desc": "File → Export As… writes PDF, PNG, SVG, HTML or the Typst source."
+      },
+      "preview": {
+        "title": "Live preview",
+        "desc": "View → Live Preview recompiles as you type and shows the result next to your code."
+      },
+      "command_palette": {
+        "title": "Command palette",
+        "desc": "Ctrl+Shift+P runs any command by name; Ctrl+Shift+G opens the geometry gallery."
       }
     }
   },
   "download": {
     "title": "Download",
-    "description": "Get Easy Math Editor for your platform",
-    "detect_os": "Detecting your OS...",
+    "subtitle": "Installers for every platform are published on the releases page. The link below always points at the latest release.",
+    "hint": "Your system looks like {os}. Pick the matching installer.",
+    "hint_unknown": "Pick the installer for your system.",
     "windows": "Windows",
     "macos": "macOS",
-    "linux": "Linux"
+    "macos_note": "macOS 14+ on Apple Silicon (M1) or newer.",
+    "linux": "Linux",
+    "arch": "Arch Linux users: the repository also ships a PKGBUILD.",
+    "release": "All releases on GitHub",
+    "source": "Or run it from source — see the installation guide."
   },
   "docs": {
     "title": "Documentation",
-    "description": "All docs available on GitHub"
+    "subtitle": "The guides live in the repository as plain Markdown.",
+    "items": {
+      "editor": "Desktop editor",
+      "algebra": "Writing math",
+      "geometry": "Drawing geometry",
+      "lsp": "Language server",
+      "install": "Installation guide",
+      "cheatsheet": "Cheat sheet"
+    }
   },
   "footer": {
-    "license": "MIT License",
-    "github": "GitHub Repository",
-    "attribution": "Icon by Easy Math team"
-  },
-  "language": {
-    "en": "English",
-    "vi": "Vietnamese"
-  },
-  "common": {
-    "and": "and",
-    "or": "or",
-    "not": "not",
-    "for": "for",
-    "from": "from",
-    "to": "to",
-    "in": "in",
-    "on": "on",
-    "with": "with",
-    "of": "of",
-    "the": "the",
-    "a": "a",
-    "an": "an",
-    "this": "this",
-    "that": "that"
+    "license": "Released under the MIT License.",
+    "github": "GitHub repository",
+    "contributing": "Contributing",
+    "code_of_conduct": "Code of conduct",
+    "icons": "Editor icons by Lucide (ISC).",
+    "language": "Language"
   }
 }

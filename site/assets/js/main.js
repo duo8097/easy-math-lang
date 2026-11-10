@@ -1,232 +1,232 @@
-// Language translation functionality
-const translations = {
-  en: {
-    "hero.title": "Easy Math Lang",
-    "hero.subtitle": "Write math documents using simple text — no design skills needed.",
-    "hero.buttons.download": "Download",
-    "hero.buttons.github": "GitHub",
-    "hero.buttons.docs": "Docs",
-    "code_result.title": "Code → Result",
-    "code_result.description": "Real ezmath examples compiled to show you exactly what you can write",
-    "editor.title": "Editor Screenshots",
-    "editor.description": "Screenshots from the real Easy Math Editor showing the interface with Vietnamese UI",
-    "features.title": "Features",
-    "features.items.symbol_bar.title": "Symbol Bar",
-    "features.items.symbol_bar.desc": "Full Greek alphabet, arrows, relations and set/logic symbols",
-    "features.items.draw_gallery.title": "*draw Gallery",
-    "features.items.draw_gallery.desc": "28 geometry commands with thumbnails, syntax and descriptions",
-    "features.items.lsp_diagnostics.title": "LSP Diagnostics",
-    "features.items.lsp_diagnostics.desc": "Error checking with friendly hints and hover info",
-    "features.items.vietnamese_ui.title": "Vietnamese UI",
-    "features.items.vietnamese_ui.desc": "Vietnamese input methods supported via fcitx5 (Vietnamese Telex)",
-    "features.items.auto_close_pairs.title": "Auto-close Pairs",
-    "features.items.auto_close_pairs.desc": "Typing (, [, {, \" auto-inserts matching closer",
-    "download.title": "Download",
-    "download.description": "Get Easy Math Editor for your platform",
-    "download.detect_os": "Detecting your OS...",
-    "download.windows": "Windows",
-    "download.macos": "macOS",
-    "download.linux": "Linux",
-    "docs.title": "Documentation",
-    "docs.description": "All docs available on GitHub",
-    "footer.license": "MIT License",
-    "footer.github": "GitHub Repository",
-    "language.en": "English",
-    "language.vi": "Vietnamese",
-    "common.and": "and",
-    "common.or": "or",
-    "common.not": "not",
-    "common.for": "for",
-    "common.from": "from",
-    "common.to": "to",
-    "common.in": "in",
-    "common.on": "on",
-    "common.with": "with",
-    "common.of": "of",
-    "common.the": "the",
-    "common.a": "a",
-    "common.an": "an",
-    "common.this": "this",
-    "common.that": "that"
-  },
-  vi: {
-    "hero.title": "Easy Math Lang",
-    "hero.subtitle": "Viết tài liệu toán học bằng văn bản đơn giản — không cần kỹ năng thiết kế.",
-    "hero.buttons.download": "Tải xuống",
-    "hero.buttons.github": "GitHub",
-    "hero.buttons.docs": "Tài liệu",
-    "code_result.title": "Code → Kết quả",
-    "code_result.description": "Các ví dụ ezmath thực tế được biên dịch để cho bạn thấy chính xác những gì bạn có thể viết",
-    "editor.title": "Ảnh chụp màn hình trình soạn thảo",
-    "editor.description": "Các ảnh chụp màn hình từ Easy Math Editor thực sự hiển thị giao diện với UI tiếng Việt",
-    "features.title": "Tính năng",
-    "features.items.symbol_bar.title": "Thanh biểu tượng",
-    "features.items.symbol_bar.desc": "Bảng chữ cái Hy Lạp đầy đủ, mũi tên, quan hệ và ký hiệu tập hợp/đại số học",
-    "features.items.draw_gallery.title": "*draw Gallery",
-    "features.items.draw_gallery.desc": "28 lệnh hình học với hình thu nhỏ, cú pháp và mô tả",
-    "features.items.lsp_diagnostics.title": "Chẩn đoán LSP",
-    "features.items.lsp_diagnostics.desc": "Kiểm tra lỗi với gợi ý thân thiện và thông tin hiển thị",
-    "features.items.vietnamese_ui.title": "UI Tiếng Việt",
-    "features.items.vietnamese_ui.desc": "Phương pháp nhập liệu tiếng Việt được hỗ trợ qua fcitx5 (Vietnamese Telex)",
-    "features.items.auto_close_pairs.title": "Tự động đóng cặp",
-    "features.items.auto_close_pairs.desc": "Nhập (, [, {, \" tự động chèn ký tự đóng khớp",
-    "download.title": "Tải xuống",
-    "download.description": "Tải Easy Math Editor cho nền tảng của bạn",
-    "download.detect_os": "Đang phát hiện hệ điều hành của bạn...",
-    "download.windows": "Windows",
-    "download.macos": "macOS",
-    "download.linux": "Linux",
-    "docs.title": "Tài liệu",
-    "docs.description": "Tất cả tài liệu có sẵn trên GitHub",
-    "footer.license": "Giấy phép MIT",
-    "footer.github": "Kho lưu trữ GitHub",
-    "language.en": "English",
-    "language.vi": "Tiếng Việt",
-    "common.and": "và",
-    "common.or": "hoặc",
-    "common.not": "không",
-    "common.for": "cho",
-    "common.from": "từ",
-    "common.to": "đến",
-    "common.in": "trong",
-    "common.on": "trên",
-    "common.with": "với",
-    "common.of": "của",
-    "common.the": "cái",
-    "common.a": "một",
-    "common.an": "một",
-    "common.this": "này",
-    "common.that": "đó"
-  }
-};
+/* Easy Math Lang — landing page behaviour
+   ------------------------------------------------------------------
+   Three small jobs, no framework:
+     1. language toggle (EN/VI) driven by site/i18n/*.json
+     2. light/dark theme with a manual toggle
+     3. detect the visitor's OS and highlight the matching download
 
-let currentLang = 'en';
+   The page is fully readable in English with JavaScript disabled: the
+   English text lives in the HTML and the JSON files only add the
+   translation. Every storage access is wrapped in try/catch because
+   localStorage throws in private mode and in some file:// contexts. */
 
-function translate() {
-  const elements = document.querySelectorAll('[data-i18n]');
-  
-  elements.forEach(element => {
-    const key = element.getAttribute('data-i18n');
-    const translation = translations[currentLang][key];
-    
-    if (translation) {
-      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-        element.placeholder = translation;
-      } else if (element.tagName === 'A' && element.getAttribute('data-i18n-attr')) {
-        element.setAttribute(element.getAttribute('data-i18n-attr'), translation);
-      } else {
-        element.textContent = translation;
-      }
-    }
-  });
-  
-  // Update language buttons
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    const lang = btn.getAttribute('data-lang');
-    const textKey = `language.${lang}`;
-    const text = translations[currentLang][textKey];
-    
-    if (text) {
-      btn.textContent = text;
-    }
-  });
-  
-  // Update HTML lang attribute
-  document.documentElement.lang = currentLang;
-  
-  // Save to localStorage
-  try {
-    localStorage.setItem('ezmath-language', currentLang);
-  } catch (e) {
-    // localStorage not available
-  }
-}
+(function () {
+  'use strict';
 
-function setLanguage(lang) {
-  currentLang = lang;
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
-  });
-  translate();
-}
+  var STORAGE_LANG = 'ezmath-lang';
+  var STORAGE_THEME = 'ezmath-theme';
+  var DEFAULT_LANG = 'en';
+  var SUPPORTED = ['en', 'vi'];
 
-function detectOS() {
-  const platformLinks = document.querySelectorAll('.platform-link');
-  const userAgent = navigator.userAgent;
-  
-  let detectedPlatform = null;
-  
-  if (/Win/.test(userAgent)) {
-    detectedPlatform = 'windows';
-  } else if (/Mac/.test(userAgent)) {
-    detectedPlatform = 'macos';
-  } else if (/Linux/.test(userAgent)) {
-    detectedPlatform = 'linux';
-  }
-  
-  platformLinks.forEach(link => {
-    link.classList.toggle('active-platform', link.getAttribute('data-platform') === detectedPlatform);
-  });
-}
+  var currentLang = DEFAULT_LANG;
+  var strings = {};
 
-function init() {
-  // Check for saved language preference
-  try {
-    const savedLang = localStorage.getItem('ezmath-language');
-    if (savedLang && ['en', 'vi'].includes(savedLang)) {
-      currentLang = savedLang;
-    } else {
-      // Auto-detect from browser language
-      const browserLang = navigator.language || navigator.userLanguage;
-      if (browserLang.startsWith('vi')) {
-        currentLang = 'vi';
-      }
-    }
-  } catch (e) {
-    // localStorage not available or error
-  }
-  
-  // Apply initial language
-  setLanguage(currentLang);
-  
-  // Detect OS
-  detectOS();
-  
-  // Theme toggle
-  const themeToggle = document.getElementById('theme-toggle');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  // Check for saved theme preference
-  const savedTheme = localStorage.getItem('ezmath-theme');
-  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-    document.body.classList.add('dark-mode');
-  }
-  
-  themeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
+  /* ---------------------------------------------------------- helpers */
+
+  function readStorage(key) {
     try {
-      localStorage.setItem('ezmath-theme', isDark ? 'dark' : 'light');
-    } catch (e) {
-      // localStorage not available
+      return window.localStorage.getItem(key);
+    } catch (err) {
+      return null;
     }
-  });
-  
-  // Language switch
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const lang = btn.getAttribute('data-lang');
-      setLanguage(lang);
+  }
+
+  function writeStorage(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (err) {
+      /* storage unavailable — the choice simply is not remembered */
+    }
+  }
+
+  function detectLanguage() {
+    /* ?lang=vi shares the page in one language; it wins over the
+       stored choice. */
+    try {
+      var requested = (new URLSearchParams(window.location.search)
+        .get('lang') || '').toLowerCase();
+      if (SUPPORTED.indexOf(requested) !== -1) {
+        return requested;
+      }
+    } catch (err) {
+      /* no URLSearchParams — fall through */
+    }
+    var saved = readStorage(STORAGE_LANG);
+    if (saved && SUPPORTED.indexOf(saved) !== -1) {
+      return saved;
+    }
+    var nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    if (nav.indexOf('vi') === 0) {
+      return 'vi';
+    }
+    return DEFAULT_LANG;
+  }
+
+  function lookup(key) {
+    if (!key) { return null; }
+    var parts = key.split('.');
+    var node = strings;
+    for (var i = 0; i < parts.length; i += 1) {
+      if (node === null || typeof node !== 'object') { return null; }
+      node = node[parts[i]];
+    }
+    return typeof node === 'string' ? node : null;
+  }
+
+  /* --------------------------------------------------------- rendering */
+
+  function applyString(element, text) {
+    /* Only plain text is replaced — the English source may contain
+       inline markup (<code>…</code>), which is kept as-is. */
+    if (text.indexOf('<') === -1) {
+      element.textContent = text;
+      return;
+    }
+    var holder = document.createElement('div');
+    holder.innerHTML = text;
+    element.textContent = '';
+    while (holder.firstChild) {
+      element.appendChild(holder.firstChild);
+    }
+  }
+
+  function translate() {
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < nodes.length; i += 1) {
+      var text = lookup(nodes[i].getAttribute('data-i18n'));
+      if (text !== null) { applyString(nodes[i], text); }
+    }
+
+    var attrs = document.querySelectorAll('[data-i18n-attr-aria-label]');
+    for (var j = 0; j < attrs.length; j += 1) {
+      var label = lookup(attrs[j].getAttribute('data-i18n-attr-aria-label'));
+      if (label !== null) { attrs[j].setAttribute('aria-label', label); }
+    }
+
+    var meta = lookup('meta.title');
+    if (meta) { document.title = meta; }
+    var description = lookup('meta.description');
+    if (description) {
+      var tag = document.querySelector('meta[name="description"]');
+      if (tag) { tag.setAttribute('content', description); }
+    }
+
+    document.documentElement.lang = currentLang;
+    var buttons = document.querySelectorAll('.lang-btn');
+    for (var k = 0; k < buttons.length; k += 1) {
+      var pressed = buttons[k].getAttribute('data-lang') === currentLang;
+      buttons[k].setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    }
+  }
+
+  function loadLanguage(lang) {
+    currentLang = lang;
+    if (lang === DEFAULT_LANG) {
+      /* English is already in the markup — nothing to download. */
+      translate();
+      return;
+    }
+    fetch('i18n/' + lang + '.json', { cache: 'no-cache' })
+      .then(function (response) {
+        if (!response.ok) { throw new Error('HTTP ' + response.status); }
+        return response.json();
+      })
+      .then(function (data) {
+        strings = data || {};
+        translate();
+      })
+      .catch(function () {
+        /* Keep the English text (and the English lang attribute). */
+        document.documentElement.lang = DEFAULT_LANG;
+        var buttons = document.querySelectorAll('.lang-btn');
+        for (var i = 0; i < buttons.length; i += 1) {
+          buttons[i].setAttribute('aria-pressed', buttons[i].getAttribute('data-lang') === DEFAULT_LANG ? 'true' : 'false');
+        }
+      });
+  }
+
+  function setLanguage(lang) {
+    if (SUPPORTED.indexOf(lang) === -1) { return; }
+    writeStorage(STORAGE_LANG, lang);
+    loadLanguage(lang);
+  }
+
+  /* ------------------------------------------------------------ theme */
+
+  function prefersDark() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+
+  function applyTheme(theme) {
+    document.body.classList.toggle('dark', theme === 'dark');
+  }
+
+  function setTheme(theme, remember) {
+    applyTheme(theme);
+    if (remember) { writeStorage(STORAGE_THEME, theme); }
+  }
+
+  function initTheme() {
+    var saved = readStorage(STORAGE_THEME);
+    if (saved === 'dark' || saved === 'light') {
+      setTheme(saved, false);
+    } else {
+      setTheme(prefersDark() ? 'dark' : 'light', false);
+    }
+    var toggle = document.getElementById('theme-toggle');
+    if (!toggle) { return; }
+    toggle.addEventListener('click', function () {
+      setTheme(document.body.classList.contains('dark') ? 'light' : 'dark', true);
     });
-  });
-}
+  }
 
-// Initialize on DOM ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+  /* ------------------------------------------------------ OS detection */
 
-// Add 'active-platform' class to initially detected OS
-window.addEventListener('load', detectOS);
+  function detectOS() {
+    var agent = navigator.userAgent || '';
+    var platform = '';
+    if (/Windows/i.test(agent)) {
+      platform = 'windows';
+    } else if (/Mac OS X|Macintosh/i.test(agent)) {
+      platform = 'macos';
+    } else if (/Linux|X11|Android/i.test(agent)) {
+      platform = 'linux';
+    }
+    var links = document.querySelectorAll('[data-platform]');
+    var names = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+    for (var i = 0; i < links.length; i += 1) {
+      var match = links[i].getAttribute('data-platform') === platform;
+      links[i].parentNode.classList.toggle('is-detected', match);
+    }
+    var hint = document.getElementById('os-hint');
+    if (!hint) { return; }
+    if (!platform) { return; }
+    var text = lookup('download.hint');
+    if (text) { text = text.replace('{os}', names[platform]); }
+    else { text = 'Your system looks like ' + names[platform] + '.'; }
+    hint.textContent = text;
+    hint.hidden = false;
+  }
+
+  /* ------------------------------------------------------------- init */
+
+  function init() {
+    initTheme();
+    var lang = detectLanguage();
+    loadLanguage(lang);
+    detectOS();
+
+    var buttons = document.querySelectorAll('.lang-btn');
+    for (var i = 0; i < buttons.length; i += 1) {
+      buttons[i].addEventListener('click', function (event) {
+        setLanguage(event.currentTarget.getAttribute('data-lang'));
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

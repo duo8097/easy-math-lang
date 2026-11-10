@@ -181,12 +181,8 @@ venv.bak/
 # mkdocs documentation
 /docs/_build/
 
-# GitHub Pages site
-site/
-
-# Scripts and temporary files
-tempCodeRunnerFile.py
-*.typ
+# NOTE: the root site/ directory is the GitHub Pages source and is
+# tracked on purpose — do not ignore it.
 
 # mypy
 .mypy_cache/

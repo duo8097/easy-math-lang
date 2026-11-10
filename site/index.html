@@ -1,240 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy Math Lang - Write math documents using simple text</title>
-    <meta name="description" content="Easy Math Lang lets you write math documents using simple text — no design skills needed. Try it now!">
-    <meta name="author" content="duo8097/easy-math-lang">
-    <link rel="canonical" href="https://duo8097.github.io/easy-math-lang/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Math Lang — write math documents in plain text</title>
+<meta name="description" content="Easy Math Lang turns a plain text file into a clean PDF with fractions, Greek symbols and geometry drawings. Free, open source, with a desktop editor.">
+<link rel="canonical" href="https://duo8097.github.io/easy-math-lang/">
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://duo8097.github.io/easy-math-lang/">
-    <meta property="og:title" content="Easy Math Lang - Write math documents using simple text">
-    <meta property="og:description" content="Write math documents using simple text — no design skills needed. Try Easy Math Lang!">
-    <meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-screenshot-english-light.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://duo8097.github.io/easy-math-lang/">
+<meta property="og:site_name" content="Easy Math Lang">
+<meta property="og:title" content="Easy Math Lang — write math documents in plain text">
+<meta property="og:description" content="Turn a plain text file into a clean PDF with fractions, Greek symbols and geometry drawings. Free and open source.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-english-light.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1600">
+<meta property="og:image:alt" content="The Easy Math Editor showing an .ezmath document with the symbol bar and the outline panel">
+<meta property="og:locale" content="en">
+<meta property="og:locale:alternate" content="vi">
 
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://duo8097.github.io/easy-math-lang/">
-    <meta name="twitter:title" content="Easy Math Lang - Write math documents using simple text">
-    <meta name="twitter:description" content="Write math documents using simple text — no design skills needed. Try Easy Math Lang!">
-    <meta name="twitter:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-screenshot-english-light.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Easy Math Lang — write math documents in plain text">
+<meta name="twitter:description" content="Turn a plain text file into a clean PDF with fractions, Greek symbols and geometry drawings. Free and open source.">
+<meta name="twitter:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-english-light.png">
+<meta name="twitter:image:alt" content="The Easy Math Editor showing an .ezmath document with the symbol bar and the outline panel">
 
-    <link rel="icon" href="assets/img/ezmath-icon.png" type="image/png">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <script src="assets/js/main.js" defer></script>
+<link rel="icon" href="assets/img/ezmath-icon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/ezmath-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/main.js" defer></script>
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <img src="assets/img/ezmath-icon.png" alt="Easy Math Icon - (*Σ)">
-            <span data-i18n="hero.title">Easy Math Lang</span>
-        </div>
-        <nav>
-            <button id="theme-toggle" aria-label="Toggle dark mode">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5"></circle>
-                    <line x1="12" y1="1" x2="12" y2="3"></line>
-                    <line x1="12" y1="21" x2="12" y2="23"></line>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                    <line x1="1" y1="12" x2="3" y2="12"></line>
-                    <line x1="21" y1="12" x2="23" y2="12"></line>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-            </button>
-            <div class="language-switch">
-                <button class="lang-btn active" data-lang="en">EN</button>
-                <button class="lang-btn" data-lang="vi">VI</button>
-            </div>
-        </nav>
-    </header>
+<a class="skip-link" href="#main" data-i18n="nav.skip">Skip to content</a>
 
-    <main>
-        <section class="hero">
-            <h1>Easy Math Lang</h1>
-            <p class="subtitle" data-i18n="hero.subtitle">Write math documents using simple text — no design skills needed.</p>
-            <div class="cta-buttons">
-                <a href="#download" class="btn btn-primary" data-i18n="hero.buttons.download">Download</a>
-                <a href="https://github.com/duo8097/easy-math-lang" target="_blank" class="btn btn-secondary" data-i18n="hero.buttons.github">GitHub</a>
-                <a href="#docs" class="btn btn-outline" data-i18n="hero.buttons.docs">Docs</a>
-            </div>
-        </section>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top">
+      <img src="assets/img/ezmath-icon.png" alt="" width="36" height="36">
+      <span class="brand-name">Easy&nbsp;Math&nbsp;Lang</span>
+    </a>
+    <div class="header-tools">
+      <button id="theme-toggle" class="icon-button" type="button"
+              data-i18n-attr-aria-label="nav.theme" aria-label="Switch between light and dark mode">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+          <path class="icon-sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/>
+          <path class="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+        </svg>
+      </button>
+      <div class="lang-switch" role="group" data-i18n-attr-aria-label="nav.language" aria-label="Language">
+        <button type="button" class="lang-btn" data-lang="en" lang="en">EN</button>
+        <button type="button" class="lang-btn" data-lang="vi" lang="vi">VI</button>
+      </div>
+    </div>
+  </div>
+</header>
 
-        <section class="code-result" id="code-result">
-            <h2 data-i18n="code_result.title">Code → Result</h2>
-            <p class="section-desc" data-i18n="code_result.description">Real ezmath examples compiled to show you exactly what you can write</p>
+<main id="main">
+  <section class="hero" id="top">
+    <div class="wrap hero-inner">
+      <p class="eyebrow" data-i18n="hero.eyebrow">easy-math-lang</p>
+      <h1 data-i18n="hero.title">Write math in plain text.</h1>
+      <p class="lead" data-i18n="hero.subtitle">Easy Math Lang turns a simple text file into a clean PDF with real fractions, the full Greek alphabet and geometry drawings — no design skills needed.</p>
+      <p class="actions">
+        <a class="btn btn-primary" href="#download" data-i18n="hero.buttons.download">Download</a>
+        <a class="btn" href="https://github.com/duo8097/easy-math-lang" data-i18n="hero.buttons.github">GitHub</a>
+        <a class="btn" href="#docs" data-i18n="hero.buttons.docs">Docs</a>
+      </p>
+      <p class="hero-note" data-i18n="hero.note">Made for teachers and students. Free and open source (MIT).</p>
+    </div>
+    <div class="hero-mark" aria-hidden="true">{*&Sigma;}</div>
+  </section>
 
-            <div class="examples-grid">
-                <div class="example-card">
-                    <div class="code-block">
-                        <pre><code>// Area of a rectangle
-<width> = 5
-<height> = 3
-<area> = calc(<width> * <height>)
+  <section class="showcase" id="showcase">
+    <div class="wrap">
+      <h2 data-i18n="showcase.title">Code &rarr; result</h2>
+      <p class="section-intro" data-i18n="showcase.subtitle">The four ready-to-run samples from the editor's own Examples menu, compiled by the project compiler. Nothing on this page is drawn by hand.</p>
 
-Rectangle is <width> cm wide and <height> cm tall.
-Its area is: <width> . <height> = <area> cm²</code></pre>
-                    </div>
-                    <div class="output">
-                        <img src="assets/img/example-result-1.png" alt="Compiled PDF output showing the rectangle calculation: 5 cm wide, 3 cm tall, area: 5 . 3 = 15 cm²">
-                    </div>
-                </div>
+      <div class="showcase-grid">
+        <article class="sample">
+          <h3 data-i18n="showcase.items.basic-math.title">Basic math</h3>
+          <pre class="code"><code>&lt;width&gt; = 5
+&lt;area&gt; = calc(&lt;width&gt; * 2)
 
-                <div class="example-card">
-                    <div class="code-block">
-                        <pre><code>// Fraction and root
-*frac(2 ; 3)
-*root(3 ; x + 1)
-*sin(x)
-*log(x)</code></pre>
-                    </div>
-                    <div class="output">
-                        <img src="assets/img/example-result-2.png" alt="Compiled PDF showing fraction, cube root, sine, and logarithm symbols">
-                    </div>
-                </div>
+Area: &lt;area&gt;</code></pre>
+          <figure class="result">
+            <img src="assets/img/example-basic-math.svg" width="104" height="40" loading="lazy"
+                 alt="Compiled output of the basic math example: the text Area: 10">
+          </figure>
+          <p class="caption" data-i18n="showcase.items.basic-math.caption">Variables and <code>calc()</code> do the arithmetic for you.</p>
+        </article>
 
-                <div class="example-card">
-                    <div class="code-block">
-                        <pre><code>// Draw: Right triangle
-*draw(
+        <article class="sample">
+          <h3 data-i18n="showcase.items.fraction-equation.title">Fraction and equation</h3>
+          <pre class="code"><code>*frac(2 ; 3)
+
+*frac(x + 1 ; x - 1)
+
+Solve: *frac(x ; 2) + *frac(1 ; 3) = *frac(5 ; 6)</code></pre>
+          <figure class="result">
+            <img src="assets/img/example-fraction-equation.svg" width="180" height="175" loading="lazy"
+                 alt="Compiled output of the fraction and equation example: two fractions and the equation x/2 + 1/3 = 5/6">
+          </figure>
+          <p class="caption" data-i18n="showcase.items.fraction-equation.caption"><code>*frac()</code> typesets fractions, and the equation is written like text.</p>
+        </article>
+
+        <article class="sample">
+          <h3 data-i18n="showcase.items.vector.title">Vector</h3>
+          <pre class="code"><code>Vector: *vec(3 ; 4)
+
+Length: *root(2 ; *pow(3 ; 2) + *pow(4 ; 2))</code></pre>
+          <figure class="result">
+            <img src="assets/img/example-vector.svg" width="229" height="124" loading="lazy"
+                 alt="Compiled output of the vector example: the vector (3, 4) and its length, the square root of 3 squared plus 4 squared">
+          </figure>
+          <p class="caption" data-i18n="showcase.items.vector.caption"><code>*vec()</code> and <code>*root()</code> build the vector and its length.</p>
+        </article>
+
+        <article class="sample">
+          <h3 data-i18n="showcase.items.simple-draw.title">Simple *draw</h3>
+          <pre class="code"><code>*draw(
     *point(A = 0, 0)
-    *point(B = 4, 0)
-    *point(C)
-
-    *distance(A ; C ; 3)
-    *perp(A ; B ; A ; C)
-
+    *point(B = 3, 0)
+    *point(C = 0, 4)
     *triangle(A ; B ; C)
-    *right-angle(B ; A ; C)
-    *length(A ; B) = 4
-    *length(A ; C) = 3
 )</code></pre>
-                    </div>
-                    <div class="output">
-                        <img src="assets/img/example-result-3.png" alt="Compiled PDF showing right triangle geometry">
-                    </div>
-                </div>
-            </div>
-        </section>
+          <figure class="result">
+            <img src="assets/img/example-simple-draw.svg" width="119" height="148" loading="lazy"
+                 alt="Compiled output of the simple draw example: a triangle with the points A, B and C">
+          </figure>
+          <p class="caption" data-i18n="showcase.items.simple-draw.caption">The <code>*draw</code> block draws a triangle with the constraint solver.</p>
+        </article>
+      </div>
+    </div>
+  </section>
 
-        <section class="editor" id="editor">
-            <h2 data-i18n="editor.title">Editor Screenshots</h2>
-            <p class="section-desc" data-i18n="editor.description">Screenshots from the real Easy Math Editor showing the interface with Vietnamese UI</p>
+  <section class="editor" id="editor">
+    <div class="wrap">
+      <h2 data-i18n="editor.title">The editor</h2>
+      <p class="section-intro" data-i18n="editor.subtitle">Screenshots of the real Easy Math Editor, rendered from the application itself.</p>
 
-            <div class="screenshots-grid">
-                <div class="screenshot-card">
-                    <h3>English - Light Theme</h3>
-                    <img src="assets/img/editor-screenshot-english-light.png" alt="Easy Math Editor in English light theme">
-                </div>
-                <div class="screenshot-card">
-                    <h3>English - Dark Theme</h3>
-                    <img src="assets/img/editor-screenshot-english-dark.png" alt="Easy Math Editor in English dark theme">
-                </div>
-                <div class="screenshot-card">
-                    <h3>Vietnamese - Light Theme</h3>
-                    <img src="assets/img/editor-screenshot-vietnamese-light.png" alt="Easy Math Editor in Vietnamese light theme">
-                </div>
-                <div class="screenshot-card">
-                    <h3>Vietnamese - Dark Theme</h3>
-                    <img src="assets/img/editor-screenshot-vietnamese-dark.png" alt="Easy Math Editor in Vietnamese dark theme">
-                </div>
-            </div>
-        </section>
+      <figure class="shot shot-wide">
+        <img src="assets/img/editor-english-light.png" width="2400" height="1600" loading="lazy"
+             alt="Easy Math Editor in English with the light theme: menu bar, toolbar, outline panel, symbol bar and an .ezmath document with syntax highlighting">
+        <figcaption data-i18n="editor.captions.english-light">English, light theme</figcaption>
+      </figure>
 
-        <section class="features" id="features">
-            <h2 data-i18n="features.title">Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <h3 data-i18n="features.items.symbol_bar.title">Symbol Bar</h3>
-                    <p data-i18n="features.items.symbol_bar.desc">Full Greek alphabet, arrows, relations and set/logic symbols</p>
-                </div>
-                <div class="feature-card">
-                    <h3 data-i18n="features.items.draw_gallery.title">*draw Gallery</h3>
-                    <p data-i18n="features.items.draw_gallery.desc">28 geometry commands with thumbnails, syntax and descriptions</p>
-                </div>
-                <div class="feature-card">
-                    <h3 data-i18n="features.items.lsp_diagnostics.title">LSP Diagnostics</h3>
-                    <p data-i18n="features.items.lsp_diagnostics.desc">Error checking with friendly hints and hover info</p>
-                </div>
-                <div class="feature-card">
-                    <h3 data-i18n="features.items.vietnamese_ui.title">Vietnamese UI</h3>
-                    <p data-i18n="features.items.vietnamese_ui.desc">Vietnamese input methods supported via fcitx5 (Vietnamese Telex)</p>
-                </div>
-                <div class="feature-card">
-                    <h3 data-i18n="features.items.auto_close_pairs.title">Auto-close Pairs</h3>
-                    <p data-i18n="features.items.auto_close_pairs.desc">Typing (, [, {, " auto-inserts matching closer</p>
-                </div>
-            </div>
-        </section>
+      <div class="shot-grid">
+        <figure class="shot">
+          <img src="assets/img/editor-english-dark.png" width="2400" height="1600" loading="lazy"
+               alt="Easy Math Editor in English with the dark theme">
+          <figcaption data-i18n="editor.captions.english-dark">English, dark theme</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="assets/img/editor-vietnamese-light.png" width="2400" height="1600" loading="lazy"
+               alt="Easy Math Editor with the Vietnamese interface in the light theme: menu bar, toolbar and panels translated into Vietnamese">
+          <figcaption data-i18n="editor.captions.vietnamese-light">Vietnamese interface, light theme</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="assets/img/editor-vietnamese-dark.png" width="2400" height="1600" loading="lazy"
+               alt="Easy Math Editor with the Vietnamese interface in the dark theme">
+          <figcaption data-i18n="editor.captions.vietnamese-dark">Vietnamese interface, dark theme</figcaption>
+        </figure>
+      </div>
 
-        <section class="download" id="download">
-            <h2 data-i18n="download.title">Download</h2>
-            <p class="section-desc" data-i18n="download.description">Get Easy Math Editor for your platform</p>
+      <figure class="shot shot-wide">
+        <img src="assets/img/editor-welcome-panel.png" width="872" height="304" loading="lazy"
+             alt="The welcome banner of the Easy Math Editor: three steps to write math, a button to open a ready-to-run example, and a close button">
+        <figcaption data-i18n="editor.captions.welcome">The welcome banner shown on first start</figcaption>
+      </figure>
 
-            <div class="download-content">
-                <div class="platform-links">
-                    <a href="https://github.com/duo8097/easy-math-lang/releases/latest" target="_blank" class="platform-link" data-platform="windows">
-                        <span class="platform-name" data-i18n="download.windows">Windows</span>
-                        <span class="platform-version">EasyMathLang-Windows-x64-Setup.exe</span>
-                    </a>
-                    <a href="https://github.com/duo8097/easy-math-lang/releases/latest" target="_blank" class="platform-link" data-platform="macos">
-                        <span class="platform-name" data-i18n="download.macos">macOS</span>
-                        <span class="platform-version">EasyMathLang-macOS-arm64.dmg</span>
-                    </a>
-                    <a href="https://github.com/duo8097/easy-math-lang/releases/latest" target="_blank" class="platform-link" data-platform="linux">
-                        <span class="platform-name" data-i18n="download.linux">Linux</span>
-                        <span class="platform-version">EasyMathLang-Debian-amd64.deb / EasyMathLang-Fedora-amd64.rpm</span>
-                    </a>
-                </div>
-                <div class="arch-package">
-                    <p>Arch Linux users: See the repo for the PKGBUILD.</p>
-                </div>
-            </div>
-        </section>
+      <figure class="shot shot-wide">
+        <img src="assets/img/editor-draw-gallery.png" width="1800" height="1120" loading="lazy"
+             alt="The *draw geometry gallery of the Easy Math Editor: cards for point, line segment, ray, circle, triangle and arc, each with a thumbnail, the syntax and two buttons">
+        <figcaption data-i18n="editor.captions.gallery">The *draw gallery: every geometry command with a thumbnail</figcaption>
+      </figure>
+    </div>
+  </section>
 
-        <section class="docs" id="docs">
-            <h2 data-i18n="docs.title">Documentation</h2>
-            <p class="section-desc" data-i18n="docs.description">All docs available on GitHub</p>
-            <div class="docs-links">
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/editor.md" target="_blank" class="docs-link">
-                    <span class="docs-icon">📖</span>
-                    <span>Desktop Editor</span>
-                </a>
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/algebra.md" target="_blank" class="docs-link">
-                    <span class="docs-icon">📐</span>
-                    <span>Writing Math</span>
-                </a>
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/geometry.md" target="_blank" class="docs-link">
-                    <span class="docs-icon">🔺</span>
-                    <span>Drawing Geometry</span>
-                </a>
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/lsp.md" target="_blank" class="docs-link">
-                    <span class="docs-icon">🔍</span>
-                    <span>Language Server</span>
-                </a>
-            </div>
-        </section>
-    </main>
+  <section class="features" id="features">
+    <div class="wrap">
+      <h2 data-i18n="features.title">What you get</h2>
+      <p class="section-intro" data-i18n="features.subtitle">Everything below ships with the app today.</p>
+      <ul class="feature-list">
+        <li>
+          <h3 data-i18n="features.items.symbol_bar.title">Symbol bar</h3>
+          <p data-i18n="features.items.symbol_bar.desc">The full Greek alphabet, arrows, relations and set/logic symbols — click to insert at the cursor.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.draw_gallery.title">*draw gallery</h3>
+          <p data-i18n="features.items.draw_gallery.desc">28 geometry commands, each with a thumbnail, its syntax and a one-line description.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.lsp.title">Language server</h3>
+          <p data-i18n="features.items.lsp.desc">Error checking with a plain-language explanation for every message, plus autocompletion and hover information.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.language.title">English and Vietnamese</h3>
+          <p data-i18n="features.items.language.desc">Switch the interface with View → Language…. Vietnamese input methods (Telex via fcitx5) are supported on Linux.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.auto_close.title">Auto-close brackets</h3>
+          <p data-i18n="features.items.auto_close.desc">Typing ( [ { or &quot; inserts the matching closing character, and Backspace removes an empty pair.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.export.title">Export</h3>
+          <p data-i18n="features.items.export.desc">File → Export As… writes PDF, PNG, SVG, HTML or the Typst source.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.preview.title">Live preview</h3>
+          <p data-i18n="features.items.preview.desc">View → Live Preview recompiles as you type and shows the result next to your code.</p>
+        </li>
+        <li>
+          <h3 data-i18n="features.items.command_palette.title">Command palette</h3>
+          <p data-i18n="features.items.command_palette.desc">Ctrl+Shift+P runs any command by name; Ctrl+Shift+G opens the geometry gallery.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
 
-    <footer>
-        <div class="footer-content">
-            <div class="footer-info">
-                <p>&copy; 2026 Easy Math Lang Contributors</p>
-                <p data-i18n="footer.license">MIT License</p>
-                <p>Icon by Easy Math team</p>
-            </div>
-            <div class="footer-links">
-                <a href="https://github.com/duo8097/easy-math-lang" target="_blank" data-i18n="footer.github">GitHub Repository</a>
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md" target="_blank">Contributing</a>
-                <a href="https://github.com/duo8097/easy-math-lang/blob/main/CODE_OF_CONDUCT.md" target="_blank">Code of Conduct</a>
-            </div>
-        </div>
-    </footer>
+  <section class="download" id="download">
+    <div class="wrap">
+      <h2 data-i18n="download.title">Download</h2>
+      <p class="section-intro" data-i18n="download.subtitle">Installers for every platform are published on the releases page. The link below always points at the latest release.</p>
+      <p class="os-hint" id="os-hint" hidden></p>
+      <ul class="platforms">
+        <li>
+          <a href="https://github.com/duo8097/easy-math-lang/releases/latest" data-platform="windows">
+            <strong data-i18n="download.windows">Windows</strong>
+            <span>EasyMathLang-Windows-x64-Setup.exe</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/duo8097/easy-math-lang/releases/latest" data-platform="macos">
+            <strong data-i18n="download.macos">macOS</strong>
+            <span>EasyMathLang-macOS-arm64.dmg</span>
+            <span class="platform-note" data-i18n="download.macos_note">macOS 14+ on Apple Silicon (M1) or newer.</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/duo8097/easy-math-lang/releases/latest" data-platform="linux">
+            <strong data-i18n="download.linux">Linux</strong>
+            <span>EasyMathLang-Debian-amd64.deb · EasyMathLang-Fedora-amd64.rpm</span>
+          </a>
+        </li>
+      </ul>
+      <p class="download-notes">
+        <span data-i18n="download.arch">Arch Linux users: the repository also ships a PKGBUILD.</span>
+        <a href="https://github.com/duo8097/easy-math-lang/releases/latest" data-i18n="download.release">All releases on GitHub</a>
+        <span data-i18n="download.source">Or run it from source — see the installation guide.</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="docs" id="docs">
+    <div class="wrap">
+      <h2 data-i18n="docs.title">Documentation</h2>
+      <p class="section-intro" data-i18n="docs.subtitle">The guides live in the repository as plain Markdown.</p>
+      <ul class="doc-list">
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/editor.md"><span data-i18n="docs.items.editor">Desktop editor</span></a></li>
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/algebra.md"><span data-i18n="docs.items.algebra">Writing math</span></a></li>
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/geometry.md"><span data-i18n="docs.items.geometry">Drawing geometry</span></a></li>
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/lsp.md"><span data-i18n="docs.items.lsp">Language server</span></a></li>
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/installation.md"><span data-i18n="docs.items.install">Installation guide</span></a></li>
+        <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/cheatsheet.md"><span data-i18n="docs.items.cheatsheet">Cheat sheet</span></a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-copy">
+      <p>Easy Math Lang — <span data-i18n="footer.license">Released under the MIT License.</span></p>
+      <p class="muted" data-i18n="footer.icons">Editor icons by Lucide (ISC).</p>
+    </div>
+    <nav class="footer-links" data-i18n-attr-aria-label="footer.language" aria-label="Language">
+      <a href="https://github.com/duo8097/easy-math-lang" data-i18n="footer.github">GitHub repository</a>
+      <a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md" data-i18n="footer.contributing">Contributing</a>
+      <a href="https://github.com/duo8097/easy-math-lang/blob/main/CODE_OF_CONDUCT.md" data-i18n="footer.code_of_conduct">Code of conduct</a>
+    </nav>
+  </div>
+</footer>
 </body>
 </html>

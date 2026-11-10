@@ -1,82 +1,127 @@
 {
+  "meta": {
+    "title": "Easy Math Lang — viết tài liệu toán bằng văn bản thuần",
+    "description": "Easy Math Lang biến một tệp văn bản đơn giản thành PDF sạch đẹp với phân số, ký hiệu Hy Lạp và hình học. Miễn phí, mã nguồn mở, có trình soạn thảo."
+  },
+  "nav": {
+    "skip": "Bỏ qua, tới nội dung",
+    "theme": "Chuyển giữa chế độ sáng và chế độ tối",
+    "language": "Ngôn ngữ"
+  },
   "hero": {
-    "title": "Easy Math Lang",
-    "subtitle": "Viết tài liệu toán học bằng văn bản đơn giản — không cần kỹ năng thiết kế.",
+    "eyebrow": "easy-math-lang",
+    "title": "Viết toán bằng văn bản thuần.",
+    "subtitle": "Easy Math Lang biến một tệp văn bản đơn giản thành PDF sạch đẹp với phân số thật, toàn bộ bảng chữ cái Hy Lạp và hình học — không cần kỹ năng thiết kế.",
+    "note": "Làm cho giáo viên và học sinh. Miễn phí và mã nguồn mở (MIT).",
     "buttons": {
       "download": "Tải xuống",
       "github": "GitHub",
       "docs": "Tài liệu"
     }
   },
-  "code_result": {
-    "title": "Code → Kết quả",
-    "description": "Các ví dụ ezmath thực tế được biên dịch để cho bạn thấy chính xác những gì bạn có thể viết"
+  "showcase": {
+    "title": "Mã nguồn → kết quả",
+    "subtitle": "Bốn ví dụ chạy sẵn trong mục Ví dụ của chính trình soạn thảo, được biên dịch bởi bộ biên dịch của dự án. Không có hình nào trên trang này được vẽ bằng tay.",
+    "items": {
+      "basic-math": {
+        "title": "Toán cơ bản",
+        "caption": "Biến và <code>calc()</code> tự tính giúp bạn."
+      },
+      "fraction-equation": {
+        "title": "Phân số và phương trình",
+        "caption": "<code>*frac()</code> dàn trang phân số, còn phương trình viết như văn bản thuần."
+      },
+      "vector": {
+        "title": "Vector",
+        "caption": "<code>*vec()</code> và <code>*root()</code> tạo vector và độ dài của nó."
+      },
+      "simple-draw": {
+        "title": "*draw đơn giản",
+        "caption": "Khối <code>*draw</code> vẽ tam giác bằng bộ giải ràng buộc."
+      }
+    }
   },
   "editor": {
-    "title": "Ảnh chụp màn hình trình soạn thảo",
-    "description": " các ảnh chụp màn hình từ Easy Math Editor thực sự hiển thị giao diện với UI tiếng Việt"
+    "title": "Trình soạn thảo",
+    "subtitle": "Ảnh chụp từ chính Easy Math Editor, được kết xuất từ ứng dụng.",
+    "captions": {
+      "english-light": "Tiếng Anh, chế độ sáng",
+      "english-dark": "Tiếng Anh, chế độ tối",
+      "vietnamese-light": "Giao diện tiếng Việt, chế độ sáng",
+      "vietnamese-dark": "Giao diện tiếng Việt, chế độ tối",
+      "welcome": "Băng chào mừng hiện ra lần chạy đầu tiên",
+      "gallery": "Thư viện *draw: mọi lệnh hình học kèm hình thu nhỏ"
+    }
   },
   "features": {
-    "title": "Tính năng",
+    "title": "Bạn sẽ có gì",
+    "subtitle": "Tất cả những tính năng dưới đây đều có trong bản ứng dụng hiện tại.",
     "items": {
       "symbol_bar": {
-        "title": "Thanh biểu tượng",
-        "desc": "Bảng chữ cái Hy Lạp đầy đủ, mũi tên, quan hệ và ký hiệu tập hợp/đại số học"
+        "title": "Thanh ký hiệu",
+        "desc": "Toàn bộ bảng chữ cái Hy Lạp, mũi tên, quan hệ và ký hiệu tập hợp/đại số học — nhấp để chèn tại con trỏ."
       },
       "draw_gallery": {
-        "title": "*draw Gallery",
-        "desc": "28 lệnh hình học với hình thu nhỏ, cú pháp và mô tả"
+        "title": "Thư viện *draw",
+        "desc": "28 lệnh hình học, mỗi lệnh có hình thu nhỏ, cú pháp và mô tả một dòng."
       },
-      "lsp_diagnostics": {
-        "title": "Chẩn đoán LSP",
-        "desc": "Kiểm tra lỗi với gợi ý thân thiện và thông tin hiển thị"
+      "lsp": {
+        "title": "Máy chủ ngôn ngữ",
+        "desc": "Kiểm tra lỗi kèm câu giải thích dễ hiểu cho mọi thông báo, cùng tự động hoàn tất và thông tin hiển thị."
       },
-      "vietnamese_ui": {
-        "title": "UI Tiếng Việt",
-        "desc": "Phương pháp nhập liệu tiếng Việt được hỗ trợ qua fcitx5 (Vietnamese Telex)"
+      "language": {
+        "title": "Tiếng Anh và tiếng Việt",
+        "desc": "Đổi giao diện bằng Xem → Ngôn ngữ…. Trên Linux còn hỗ trợ phương pháp nhập tiếng Việt (Telex qua fcitx5)."
       },
-      "auto_close_pairs": {
-        "title": "Tự động đóng cặp",
-        "desc": "Nhập (, [, {, \" tự động chèn ký tự đóng khớp"
+      "auto_close": {
+        "title": "Tự động đóng ngoặc",
+        "desc": "Gõ ( [ { hoặc \" sẽ chèn thêm dấu đóng tương ứng, và phím Backspace xoá cặp rỗng."
+      },
+      "export": {
+        "title": "Xuất tệp",
+        "desc": "Tệp → Xuất thành… ghi ra PDF, PNG, SVG, HTML hoặc mã nguồn Typst."
+      },
+      "preview": {
+        "title": "Xem trước trực tiếp",
+        "desc": "Xem → Xem trước trực tiếp biên dịch lại khi bạn gõ và hiện kết quả bên cạnh mã nguồn."
+      },
+      "command_palette": {
+        "title": "Bảng lệnh",
+        "desc": "Ctrl+Shift+P chạy mọi lệnh theo tên; Ctrl+Shift+G mở thư viện hình học."
       }
     }
   },
   "download": {
     "title": "Tải xuống",
-    "description": "Tải Easy Math Editor cho nền tảng của bạn",
-    "detect_os": "Đang phát hiện hệ điều hành của bạn...",
+    "subtitle": "Bộ cài cho mọi nền tảng được phát hành trên trang phát hành. Liên kết bên dưới luôn trỏ tới bản phát hành mới nhất.",
+    "hint": "Hệ thống của bạn trông giống {os}. Hãy chọn bộ cài tương ứng.",
+    "hint_unknown": "Hãy chọn bộ cài cho hệ thống của bạn.",
     "windows": "Windows",
     "macos": "macOS",
-    "linux": "Linux"
+    "macos_note": "macOS 14 trở lên trên máy Apple Silicon (M1) hoặc mới hơn.",
+    "linux": "Linux",
+    "arch": "Người dùng Arch Linux: kho còn có sẵn tệp PKGBUILD.",
+    "release": "Tất cả bản phát hành trên GitHub",
+    "source": "Hoặc chạy từ mã nguồn — xem hướng dẫn cài đặt."
   },
   "docs": {
     "title": "Tài liệu",
-    "description": "Tất cả tài liệu có sẵn trên GitHub"
+    "subtitle": "Các hướng dẫn nằm trong kho lưu trữ dưới dạng Markdown thuần.",
+    "items": {
+      "editor": "Trình soạn thảo",
+      "algebra": "Viết công thức toán",
+      "geometry": "Vẽ hình học",
+      "lsp": "Máy chủ ngôn ngữ",
+      "install": "Hướng dẫn cài đặt",
+      "cheatsheet": "Bảng tra nhanh"
+    }
   },
   "footer": {
-    "license": "Giấy phép MIT",
+    "license": "Phát hành theo giấy phép MIT.",
     "github": "Kho lưu trữ GitHub",
-    "attribution": "Icon của nhóm Easy Math"
-  },
-  "language": {
-    "en": "English",
-    "vi": "Tiếng Việt"
-  },
-  "common": {
-    "and": "và",
-    "or": "hoặc",
-    "not": "không",
-    "for": "cho",
-    "from": "từ",
-    "to": "đến",
-    "in": "trong",
-    "on": "trên",
-    "with": "với",
-    "of": "của",
-    "the": "cái",
-    "a": "một",
-    "an": "một",
-    "this": "này",
-    "that": "đó"
+    "contributing": "Đóng góp",
+    "code_of_conduct": "Bộ quy tắc ứng xử",
+    "icons": "Biểu tượng trình soạn thảo của Lucide (ISC).",
+    "language": "Ngôn ngữ"
   }
 }
