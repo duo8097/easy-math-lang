@@ -16,6 +16,46 @@ def test_every_icon_name_resolves_to_a_file():
         assert path is not None and os.path.isfile(path), name
 
 
+def test_icon_pixmap_fills_the_requested_box(qapp):
+    """The SVG must be scaled into the requested box, not drawn at its
+    natural size and clipped.
+
+    QSvgRenderer paints an SVG at its natural size (24x24) unless an
+    explicit target rectangle is given. On a HiDPI screen the icon box
+    is smaller than the natural size in device pixels, so the glyph ends
+    up cropped into a corner of the pixmap. The icon registry therefore
+    renders into an explicit rectangle — the glyph then sits centred in
+    its box at any device pixel ratio.
+    """
+    from PySide6 import QtGui
+    from editor import icons
+
+    size = 64
+    for name in ('file-new', 'compile', 'find'):
+        for ratio in (1.0, 2.0):
+            pixmap = icons._render_pixmap(name, size, '#333333', ratio=ratio)
+            assert pixmap.width() == int(size * ratio)
+            assert pixmap.height() == int(size * ratio)
+
+            image = pixmap.toImage().convertToFormat(QtGui.QImage.Format_ARGB32)
+            left, right, top, bottom = image.width(), -1, image.height(), -1
+            for y in range(image.height()):
+                for x in range(image.width()):
+                    if image.pixelColor(x, y).alpha() > 8:
+                        left = min(left, x)
+                        right = max(right, x)
+                        top = min(top, y)
+                        bottom = max(bottom, y)
+            assert right >= left, f'{name}: the icon drew nothing'
+            # A scaled-into-the-box glyph is centred: the margins on
+            # both sides are about the same. A clipped natural-size draw
+            # hugs the top-left corner and touches the far edges.
+            margin_x = abs(left - (image.width() - 1 - right))
+            margin_y = abs(top - (image.height() - 1 - bottom))
+            assert margin_x < image.width() * 0.15, (name, ratio, 'x')
+            assert margin_y < image.height() * 0.15, (name, ratio, 'y')
+
+
 def test_license_file_present():
     path = os.path.join(os.path.dirname(__file__), '..', 'src', 'editor',
                         'assets', 'icons', 'LICENSE')

@@ -154,7 +154,13 @@ def set_theme_dark(dark):
     refresh_icons()
 
 
-def _render_pixmap(name, size, color):
+def _render_pixmap(name, size, color, ratio=None):
+    """Render one icon into a ``size`` x ``size`` logical-pixel pixmap.
+
+    *ratio* is the device pixel ratio of the target screen (the current
+    screen's when omitted); it is a parameter so the HiDPI path can be
+    tested without a HiDPI display.
+    """
     path = icon_path(name)
     if path is None:
         return QtGui.QPixmap()
@@ -170,19 +176,25 @@ def _render_pixmap(name, size, color):
         renderer = QtSvg.QSvgRenderer(QtCore.QByteArray(svg.encode('utf-8')))
         if not renderer.isValid():
             return QtGui.QPixmap()
-        ratio = 1.0
-        try:
-            screen = QtGui.QGuiApplication.primaryScreen()
-            if screen is not None:
-                ratio = float(screen.devicePixelRatio() or 1.0)
-        except Exception:
-            pass
+        if ratio is None:
+            ratio = 1.0
+            try:
+                screen = QtGui.QGuiApplication.primaryScreen()
+                if screen is not None:
+                    ratio = float(screen.devicePixelRatio() or 1.0)
+            except Exception:
+                pass
         pixmap = QtGui.QPixmap(int(size * ratio), int(size * ratio))
         pixmap.setDevicePixelRatio(ratio)
         pixmap.fill(QtCore.Qt.transparent)
         painter = QtGui.QPainter(pixmap)
         try:
-            renderer.render(painter)
+            # Render into an explicit rectangle. Without it QSvgRenderer
+            # paints the SVG at its *natural* size (24x24) in logical
+            # units, which overflows the requested box and gets clipped
+            # (badly so on a HiDPI screen, where the box is smaller than
+            # the natural size in device pixels).
+            renderer.render(painter, QtCore.QRectF(0, 0, size, size))
         finally:
             painter.end()
         return pixmap
