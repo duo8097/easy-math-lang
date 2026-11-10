@@ -1,0 +1,82 @@
+{
+  "hero": {
+    "title": "Easy Math Lang",
+    "subtitle": "Viết tài liệu toán học bằng văn bản đơn giản — không cần kỹ năng thiết kế.",
+    "buttons": {
+      "download": "Tải xuống",
+      "github": "GitHub",
+      "docs": "Tài liệu"
+    }
+  },
+  "code_result": {
+    "title": "Code → Kết quả",
+    "description": "Các ví dụ ezmath thực tế được biên dịch để cho bạn thấy chính xác những gì bạn có thể viết"
+  },
+  "editor": {
+    "title": "Ảnh chụp màn hình trình soạn thảo",
+    "description": " các ảnh chụp màn hình từ Easy Math Editor thực sự hiển thị giao diện với UI tiếng Việt"
+  },
+  "features": {
+    "title": "Tính năng",
+    "items": {
+      "symbol_bar": {
+        "title": "Thanh biểu tượng",
+        "desc": "Bảng chữ cái Hy Lạp đầy đủ, mũi tên, quan hệ và ký hiệu tập hợp/đại số học"
+      },
+      "draw_gallery": {
+        "title": "*draw Gallery",
+        "desc": "28 lệnh hình học với hình thu nhỏ, cú pháp và mô tả"
+      },
+      "lsp_diagnostics": {
+        "title": "Chẩn đoán LSP",
+        "desc": "Kiểm tra lỗi với gợi ý thân thiện và thông tin hiển thị"
+      },
+      "vietnamese_ui": {
+        "title": "UI Tiếng Việt",
+        "desc": "Phương pháp nhập liệu tiếng Việt được hỗ trợ qua fcitx5 (Vietnamese Telex)"
+      },
+      "auto_close_pairs": {
+        "title": "Tự động đóng cặp",
+        "desc": "Nhập (, [, {, \" tự động chèn ký tự đóng khớp"
+      }
+    }
+  },
+  "download": {
+    "title": "Tải xuống",
+    "description": "Tải Easy Math Editor cho nền tảng của bạn",
+    "detect_os": "Đang phát hiện hệ điều hành của bạn...",
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux"
+  },
+  "docs": {
+    "title": "Tài liệu",
+    "description": "Tất cả tài liệu có sẵn trên GitHub"
+  },
+  "footer": {
+    "license": "Giấy phép MIT",
+    "github": "Kho lưu trữ GitHub",
+    "attribution": "Icon của nhóm Easy Math"
+  },
+  "language": {
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "common": {
+    "and": "và",
+    "or": "hoặc",
+    "not": "không",
+    "for": "cho",
+    "from": "từ",
+    "to": "đến",
+    "in": "trong",
+    "on": "trên",
+    "with": "với",
+    "of": "của",
+    "the": "cái",
+    "a": "một",
+    "an": "một",
+    "this": "này",
+    "that": "đó"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "hero": {
+    "title": "Easy Math Lang",
+    "subtitle": "Write math documents using simple text — no design skills needed.",
+    "buttons": {
+      "download": "Download",
+      "github": "GitHub",
+      "docs": "Docs"
+    }
+  },
+  "code_result": {
+    "title": "Code → Result",
+    "description": "Real ezmath examples compiled to show you exactly what you can write"
+  },
+  "editor": {
+    "title": "Editor Screenshots",
+    "description": " screenshots from the real Easy Math Editor showing the interface with Vietnamese UI"
+  },
+  "features": {
+    "title": "Features",
+    "items": {
+      "symbol_bar": {
+        "title": "Symbol Bar",
+        "desc": "Full Greek alphabet, arrows, relations and set/logic symbols"
+      },
+      "draw_gallery": {
+        "title": "*draw Gallery",
+        "desc": "28 geometry commands with thumbnails, syntax and descriptions"
+      },
+      "lsp_diagnostics": {
+        "title": "LSP Diagnostics",
+        "desc": "Error checking with friendly hints and hover info"
+      },
+      "vietnamese_ui": {
+        "title": "Vietnamese UI",
+        "desc": "Vietnamese input methods supported via fcitx5 (Vietnamese Telex)"
+      },
+      "auto_close_pairs": {
+        "title": "Auto-close Pairs",
+        "desc": "Typing (, [, {, \" auto-inserts matching closer"
+      }
+    }
+  },
+  "download": {
+    "title": "Download",
+    "description": "Get Easy Math Editor for your platform",
+    "detect_os": "Detecting your OS...",
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux"
+  },
+  "docs": {
+    "title": "Documentation",
+    "description": "All docs available on GitHub"
+  },
+  "footer": {
+    "license": "MIT License",
+    "github": "GitHub Repository",
+    "attribution": "Icon by Easy Math team"
+  },
+  "language": {
+    "en": "English",
+    "vi": "Vietnamese"
+  },
+  "common": {
+    "and": "and",
+    "or": "or",
+    "not": "not",
+    "for": "for",
+    "from": "from",
+    "to": "to",
+    "in": "in",
+    "on": "on",
+    "with": "with",
+    "of": "of",
+    "the": "the",
+    "a": "a",
+    "an": "an",
+    "this": "this",
+    "that": "that"
+  }
+}

@@ -179,7 +179,14 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+/docs/_build/
+
+# GitHub Pages site
+site/
+
+# Scripts and temporary files
+tempCodeRunnerFile.py
+*.typ
 
 # mypy
 .mypy_cache/
