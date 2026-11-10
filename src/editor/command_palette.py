@@ -2,6 +2,25 @@
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
+from .icons import SIZE_MENU, icon as _icon
+
+# Command id -> icon (reuses the menu icons).
+COMMAND_ICONS = {
+    'file.new': 'file-new', 'file.open': 'file-open',
+    'file.save': 'file-save', 'file.saveAs': 'file-save-as',
+    'file.exit': 'exit', 'edit.find': 'find', 'edit.gotoLine': 'goto-line',
+    'view.toggleOutline': 'outline', 'view.toggleProblems': 'problems',
+    'view.togglePreview': 'preview', 'view.toggleTheme': 'theme',
+    'view.zoomIn': 'zoom-in', 'view.zoomOut': 'zoom-out',
+    'view.zoomReset': 'zoom-reset', 'view.chooseFont': 'font',
+    'draw.gallery': 'gallery', 'build.compile': 'compile',
+    'build.refreshPreview': 'refresh', 'build.restartLSP': 'refresh',
+    'file.exportPdf': 'export', 'file.exportPng': 'export',
+    'file.exportSvg': 'export', 'file.exportHtml': 'export',
+    'file.exportTyp': 'export',
+}
+
 
 def fuzzy_score(query, text):
     """Subsequence match score (lower is better), or None for no match.
@@ -32,14 +51,15 @@ class CommandPalette(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Command Palette')
+        self.setWindowTitle(i18n.tr('palette_window.title'))
         self.setModal(True)
         self._commands = []  # (id, title, hint)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         self._input = QtWidgets.QLineEdit(self)
-        self._input.setPlaceholderText('Type a command…')
+        self._input.setPlaceholderText(
+            i18n.tr('palette_window.placeholder'))
         self._input.setClearButtonEnabled(True)
         layout.addWidget(self._input)
         self._list = QtWidgets.QListWidget(self)
@@ -48,7 +68,8 @@ class CommandPalette(QtWidgets.QDialog):
         self._input.textChanged.connect(self._refilter)
         self._input.returnPressed.connect(self._accept_current)
         self._list.itemActivated.connect(self._accept_item)
-        self.resize(520, 340)
+        self.resize(560, 340)
+        self.setMinimumWidth(420)
 
     def set_commands(self, commands):
         """Set available ``(id, title, shortcut_hint)`` commands."""
@@ -68,6 +89,9 @@ class CommandPalette(QtWidgets.QDialog):
             label = f'{title}\t{hint}' if hint else title
             item = QtWidgets.QListWidgetItem(label, self._list)
             item.setData(QtCore.Qt.UserRole, cmd_id)
+            icon_name = COMMAND_ICONS.get(cmd_id)
+            if icon_name:
+                item.setIcon(_icon(icon_name, SIZE_MENU))
         if self._list.count():
             self._list.setCurrentRow(0)
 

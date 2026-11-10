@@ -2,6 +2,18 @@
 
 from PySide6 import QtCore, QtWidgets
 
+from . import i18n
+from .icons import SIZE_PANEL, icon as _icon
+
+# Outline kind (LSP identifier) -> icon. Unknown kinds get no icon.
+_KIND_ICONS = {
+    'Variable': 'variable', 'variable': 'variable',
+    'Function': 'function', 'function': 'function',
+    'define': 'define', 'Define': 'define',
+    'draw': 'draw', 'Draw': 'draw',
+    'heading': 'heading', 'Heading': 'heading',
+}
+
 
 class OutlinePanel(QtWidgets.QWidget):
     """Lists document symbols; click moves the cursor to the symbol."""
@@ -23,10 +35,20 @@ class OutlinePanel(QtWidgets.QWidget):
         self._symbols = list(symbols or [])
         self._list.clear()
         for symbol in self._symbols:
-            label = f"{symbol.get('name', '?')}  [{symbol.get('kind', '')}]"
+            kind = symbol.get('kind', '')
+            # Symbol kinds are LSP identifiers; their display names
+            # are translated, the identifiers themselves stay English.
+            translator = i18n.current_translator()
+            kind_text = (translator.tr(f'kind.{kind}')
+                         if kind and translator.has(f'kind.{kind}')
+                         else str(kind))
+            label = f"{symbol.get('name', '?')}  [{kind_text}]"
             item = QtWidgets.QListWidgetItem(label, self._list)
             item.setData(QtCore.Qt.UserRole, (symbol.get('line', 0),
                                               symbol.get('start', 0)))
+            icon_name = _KIND_ICONS.get(str(kind))
+            if icon_name:
+                item.setIcon(_icon(icon_name, SIZE_PANEL))
 
     def clear(self):
         self.set_symbols([])

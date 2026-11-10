@@ -82,6 +82,57 @@ def should_overtype(closing_char, next_char):
     return bool(next_char) and next_char == closing_char
 
 
+def count_preceding_backslashes(text_before):
+    """Number of consecutive backslashes at the end of *text_before*.
+
+    ``\\\\`` (two) is an escaped literal backslash in ezmath and
+    never toggles inline-math mode, so only an odd count escapes the
+    following character: odd = escaped, even = not escaped. This
+    mirrors the compiler's ``find_unescaped`` pair-skipping scan.
+    """
+    count = 0
+    for ch in reversed(text_before or ''):
+        if ch == '\\':
+            count += 1
+        else:
+            break
+    return count
+
+
+def is_escaped(text_before):
+    """True when a bracket after *text_before* is backslash-escaped."""
+    return count_preceding_backslashes(text_before) % 2 == 1
+
+
+def escaped_closer(opener):
+    """Escaped closer for *opener* (``(`` -> ``\\)``), or None."""
+    closer = OPENERS_FOR.get(opener)
+    if closer is None:
+        return None
+    return '\\' + closer
+
+
+def escaped_pair_ahead(next_two):
+    """Closer when *next_two* is an escaped closer (``\\)``), else None."""
+    if len(next_two or '') != 2 or next_two[0] != '\\':
+        return None
+    closer = next_two[1]
+    return closer if closer in CLOSERS else None
+
+
+def matching_escaped_pair(prev_opener, next_two):
+    """Closer when cursor sits between opener and its escaped closer.
+
+    ``prev_opener`` is the char before the cursor, ``next_two`` the
+    two chars after it (``\\)`` for ``(``). Returns the closer or None.
+    """
+    if not prev_opener or prev_opener not in OPENERS_FOR:
+        return None
+    if escaped_pair_ahead(next_two) != OPENERS_FOR[prev_opener]:
+        return None
+    return OPENERS_FOR[prev_opener]
+
+
 def matching_pair(prev_char, next_char):
     """Return the pair's closer iff *prev_char* and *next_char* form one.
 
@@ -93,6 +144,44 @@ def matching_pair(prev_char, next_char):
     if prev_char and OPENERS_FOR.get(prev_char) == next_char:
         return next_char
     return None
+
+
+# The backslash pair: typing ``\`` inserts ``\\`` with the cursor
+# between the two characters. It is deliberately NOT an opener in
+# ``PAIRS`` above — ezmath ``\`` toggles inline math, so ``\alpha``
+# and ``\(`` must stay single (smart rollback below).
+
+def is_backslash_pair(prev_char, next_char):
+    """True when the cursor sits between an auto-inserted ``\\`` pair."""
+    return prev_char == '\\' and next_char == '\\'
+
+
+def should_pair_backslash(next_char):
+    """True iff typing ``\\`` should also insert the second backslash.
+
+    Pairing happens at end of line, before whitespace, or before a
+    closing bracket. Never before a backslash itself (that is the
+    overtype case), a letter/digit (middle of a word/command), or an
+    opening bracket (the bracket will be escaped by the single
+    backslash instead).
+    """
+    if classify(next_char) == 'word':
+        return False
+    if next_char == '\\':
+        return False
+    if next_char in OPENERS_FOR:
+        return False
+    return classify(next_char) in ('empty', 'space', 'closer')
+
+
+def is_rollback_char(char):
+    """True when typing *char* after ``\\`` must drop the trailing ``\\``.
+
+    Letters/digits mean the user is writing a command (``\\alpha``)
+    and opening brackets mean an escaped bracket (``\\(``); in both
+    cases the auto-inserted second backslash would be stray.
+    """
+    return bool(char) and (char.isalnum() or char in OPENERS_FOR)
 
 
 def indent_of(line_text):
