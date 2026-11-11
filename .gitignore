@@ -179,7 +179,10 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+/docs/_build/
+
+# NOTE: the root site/ directory is the GitHub Pages source and is
+# tracked on purpose — do not ignore it.
 
 # mypy
 .mypy_cache/
