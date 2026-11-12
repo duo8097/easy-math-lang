@@ -73,6 +73,7 @@
   "status.save_before_compile": "Hãy lưu tệp trước khi biên dịch",
   "status.build_running": "Đã có bản biên dịch đang chạy",
   "status.compiling": "Đang biên dịch…",
+  "status.build_failed": "Bản biên dịch không khởi động được hoặc đã gặp sự cố — xem đầu ra của trình biên dịch",
   "status.could_not_start": "Không khởi động được trình biên dịch",
   "status.compiled_to": "Đã biên dịch thành {path}",
   "status.exported_to": "Đã xuất thành {path}",

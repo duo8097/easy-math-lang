@@ -192,17 +192,6 @@ def indent_of(line_text):
     return line_text[:i]
 
 
-def indent_of_with_closer(line_text):
-    """The leading whitespace run of a line, excluding the closer char if present."""
-    i = 0
-    while i < len(line_text) and line_text[i] in (' ', '\t'):
-        i += 1
-    if i > 0 and line_text[i] in CLOSERS:
-        # Skip the closer char as well
-        i += 1
-    return line_text[:i]
-
-
 def expansion_lines(line_before, line_after):
     """Compute the three lines for the Enter-between-a-pair expansion.
 
@@ -213,9 +202,11 @@ def expansion_lines(line_before, line_after):
     line matches the opener line's indentation.
     """
     indent = indent_of(line_before)
-    # The closer line should contain just the closer character
-    # The closer character is the last character of line_after
-    closer_line = line_after[-1] if line_after else ''
+    # The closer is the first closer character at/after the cursor — not
+    # necessarily the last character of *line_after* (trailing spaces or
+    # other text may follow).
+    closer_line = next(
+        (ch for ch in line_after if ch in CLOSERS), '')
     # The middle line should have one extra indent unit beyond the opener line
     # Use the same type of indentation (tabs if the indent uses tabs, spaces if it uses spaces)
     if indent and indent[0] == '\t':

@@ -59,10 +59,6 @@ class PreviewPanel(QtWidgets.QWidget):
     # Emitted for Ctrl+Click on an eml-src link: 0-based Typst position.
     sourceLinkActivated = QtCore.Signal(int, int)
 
-    refreshRequested = QtCore.Signal()
-    autoToggled = QtCore.Signal(bool)
-    openPdfRequested = QtCore.Signal()
-
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QtWidgets.QVBoxLayout(self)
@@ -423,6 +419,7 @@ class PreviewPanel(QtWidgets.QWidget):
     def show_empty(self):
         """No content yet (e.g. preview just opened)."""
         self._pdf_path = None
+        self._smap_path = None
         self._link_annots = []
         self.open_button.setEnabled(False)
         self.status_label.setText(i18n.tr('preview.idle'))

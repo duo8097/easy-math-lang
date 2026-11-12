@@ -72,6 +72,9 @@ class LspClient(QtCore.QObject):
                     pass
             self._process = None
             self._state = 'stopped'
+        # A fresh server speaks fresh frames: drop any partial frame left
+        # over from a dying server so its first frames parse cleanly.
+        self._framing = protocol.FramingBuffer()
         try:
             process = QtCore.QProcess(self)
             process.readyReadStandardOutput.connect(self._on_ready_read)
@@ -131,6 +134,7 @@ class LspClient(QtCore.QObject):
                 timer = QtCore.QTimer(self)
                 timer.setSingleShot(True)
                 timer.timeout.connect(lambda: self._ensure_reaped(process))
+                timer.timeout.connect(timer.deleteLater)
                 timer.start(2000)
             except RuntimeError:
                 # Owner already deleted; reap synchronously.
@@ -379,11 +383,17 @@ class LspClient(QtCore.QObject):
         if self._process is None and self._state == 'stopped':
             # Already aborted/reaped; avoid double disconnected + spurious error.
             return
+        self._framing = protocol.FramingBuffer()
         self._fail_all_pending('LSP server terminated')
         if self._state != 'stopping':
             self.process_error.emit(
                 f'LSP server terminated unexpectedly (code {exit_code})')
-        self._process = None
+        process, self._process = self._process, None
+        if process is not None:
+            try:
+                process.deleteLater()
+            except RuntimeError:
+                pass
         self._state = 'stopped'
         self.disconnected.emit(exit_code)
 

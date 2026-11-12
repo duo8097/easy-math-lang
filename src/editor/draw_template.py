@@ -225,16 +225,22 @@ class DrawTemplateDialog(QtWidgets.QDialog):
         in the document).  The caret moves with the insertion; the
         document stays untouched until Insert.
         """
+        from .positions import to_code_point_offset, to_lsp_offset
+
         doc = self.code.toPlainText()
         cursor = self.code.textCursor()
         sel_start = min(cursor.selectionStart(), cursor.selectionEnd())
         sel_end = max(cursor.selectionStart(), cursor.selectionEnd())
+        # QTextCursor positions are UTF-16; the code string and
+        # build_insert_text work in code points. Convert at the boundary.
+        cp_start = to_code_point_offset(doc, sel_start)
+        cp_end = to_code_point_offset(doc, sel_end)
         # Positions below are relative to the code *without* the
         # selection — removing it first inside the edit block makes
         # the two line up exactly (as in the document inserter).
-        base = doc[:sel_start] + doc[sel_end:]
+        base = doc[:cp_start] + doc[cp_end:]
         try:
-            change = build_insert_text(text, base, sel_start)
+            change = build_insert_text(text, base, cp_start)
         except ValueError:
             return
         cursor.beginEditBlock()
@@ -243,10 +249,14 @@ class DrawTemplateDialog(QtWidgets.QDialog):
             if sel_end > sel_start:
                 cursor.setPosition(sel_end, QtGui.QTextCursor.KeepAnchor)
                 cursor.insertText('')
-            cursor.setPosition(change.start)
-            cursor.setPosition(change.end, QtGui.QTextCursor.KeepAnchor)
+            cursor.setPosition(to_lsp_offset(base, change.start))
+            cursor.setPosition(to_lsp_offset(base, change.end), QtGui.QTextCursor.KeepAnchor)
             cursor.insertText(change.insert)
-            cursor.setPosition(change.cursor)
+            # change.cursor is an offset into the *resulting* text
+            # (base with the selection removed and change.insert
+            # spliced in) — convert against that text, not base.
+            new_text = base[:change.start] + change.insert + base[change.end:]
+            cursor.setPosition(to_lsp_offset(new_text, change.cursor))
         finally:
             cursor.endEditBlock()
         self.code.setTextCursor(cursor)
