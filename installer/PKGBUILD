@@ -5,7 +5,7 @@ pkgname=easy-math-lang-git
 # tarball). Keep it in sync with pyproject.toml so a raw copy of this
 # PKGBUILD (e.g. an AUR helper reading it without building) still shows
 # a sensible version; tests/test_installer_script.py checks the match.
-pkgver=6.0.0
+pkgver=7.0.0
 pkgrel=1
 pkgdesc='Plain-text math documents to PDF, images, HTML and Typst (compiler, language server and desktop editor)'
 arch=('x86_64')
