@@ -8,14 +8,15 @@ _URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s$]+')
 _URL_TRAILING = '.,;:!?)]}\'"”’'
 
 
-def mask_urls(text):
+def mask_urls(text, escape=True):
     """Mask bare URLs so text passes can't corrupt them.
 
-    Returns ``(masked, {ph: escaped_url})``. URLs are the one construct
-    users paste verbatim; symbol/subscript/undefined-var passes would
-    otherwise turn ``\u2026``, ``->`` and ``<x>`` inside them into math.
+    Returns ``(masked, {ph: url})``. URLs are the one construct users
+    paste verbatim; symbol/subscript/undefined-var passes would
+    otherwise turn ``...``, ``->`` and ``<x>`` inside them into math.
     Placeholders are digit-only control-char spans (never tokenized).
-    Restore with :func:`restore_urls` after the escape step.
+    Restore with :func:`restore_urls` after the escape step; the stored
+    URL is Typst-escaped when *escape* is true (default), raw otherwise.
     """
     placeholders = {}
 
@@ -26,7 +27,7 @@ def mask_urls(text):
             trimmed = url[-1] + trimmed
             url = url[:-1]
         ph = f'\x0b{len(placeholders)}\x0b'
-        placeholders[ph] = escape_typst_outside_math(url)
+        placeholders[ph] = escape_typst_outside_math(url) if escape else url
         return ph + trimmed
 
     return _URL_RE.sub(_mask, text), placeholders

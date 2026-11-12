@@ -135,7 +135,7 @@ def analyze_and_publish(ls, store, uri):
                         to_lsp_diagnostic(d, lines)
                         for d in analysis.analyze_text(text).diagnostics
                     ]
-                except Exception as e:
+                except Exception:
                     logger.exception('analyze_text failed for %s', uri)
                     lines = (text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
                              if isinstance(text, str) else [])

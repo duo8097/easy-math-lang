@@ -675,7 +675,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
                 sweep = 360.0 - sweep
             minor_deg.append(_minor_angle_deg(v1, v2))
             sweeps.append((a1, sweep))
-        for (arc_a1, sweep), (X, Y, Z) in zip(sweeps, ((A, B, C), (D, E, F))):
+        for (_a1, sweep), (X, Y, Z) in zip(sweeps, ((A, B, C), (D, E, F)), strict=True):
             if sweep < 0.5 or sweep > 359.5:
                 raise GeometryError(
                     f"*equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): "

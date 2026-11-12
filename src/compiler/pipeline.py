@@ -536,9 +536,16 @@ def _doc_title_plain(ctx, raw):
     from .symbols import replace_symbol_shortcuts
 
     s = replace_vars(ctx, raw)
+    _u_ph = {}
+    if '://' in s:
+        # Raw restore: this path builds an already-escaped metadata
+        # string, not typst content.
+        s, _u_ph = mask_urls(s, escape=False)
     s = replace_defines(ctx, s)
     s = apply_calc_in_string(ctx, s)
     s = replace_symbol_shortcuts(s)
+    if _u_ph:
+        s = restore_urls(s, _u_ph)
     s = s.replace('$', '').strip()
     s = re.sub(r'\s+', ' ', s)
     return s or 'Easy Math Document'
@@ -1379,8 +1386,6 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
         print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
         return False
-
-    from .comments import split_lines as _split_lines
 
     raw_text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
     lines = strip_comments(raw_text).split('\n')
