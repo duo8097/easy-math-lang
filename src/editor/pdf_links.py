@@ -146,10 +146,8 @@ def _annots_refs(page_body: bytes) -> list[tuple[str, tuple[int, int] | bytes]]:
     out: list[tuple[str, tuple[int, int] | bytes]] = []
     if m.group(2) is not None:
         inner = m.group(2)
-        pos = 0
         for ref in _REF_RE.finditer(inner):
             out.append(('ref', (int(ref.group(1)), int(ref.group(2)))))
-            pos = ref.end()
         # Direct dicts inside the array (rare): balanced <<...>> spans.
         for dstart in _dict_spans(inner):
             # Skip dicts already covered by refs (approx: dicts contain /Rect).

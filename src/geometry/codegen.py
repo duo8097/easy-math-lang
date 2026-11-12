@@ -260,7 +260,6 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         # Degenerate (collinear / zero-area) triangle check, scale-relative.
         import math as _math
 
-        import numpy as _np
         area2 = abs(
             (pts[B][0] - pts[A][0]) * (pts[C][1] - pts[A][1])
             - (pts[C][0] - pts[A][0]) * (pts[B][1] - pts[A][1])
@@ -356,7 +355,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             if not _math.isfinite(float(d)):
                 raise GeometryError(f"non-finite circle radius for {center} — skipping")
             if float(d) > 1e6:
-                raise GeometryError(f"circle radius exceeds the canvas limit (1e6) — skipping")
+                raise GeometryError("circle radius exceeds the canvas limit (1e6) — skipping")
             if d < 1e-9:
                 raise GeometryError(f"circle radius is zero: {center} and {r_or_pt} coincide")
             lines.append(f'  circle({_q(center)}, radius: {d:.3f})')

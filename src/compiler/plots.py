@@ -210,7 +210,7 @@ def split_plot_segments(x_values, y_values):
     segments = []
     cur_x, cur_y = [], []
     prev_y = None
-    for xi, yi, ok in zip(x.tolist(), y.tolist(), finite.tolist()):
+    for xi, yi, ok in zip(x.tolist(), y.tolist(), finite.tolist(), strict=True):
         if not ok:
             if cur_x:
                 segments.append((_np.array(cur_x), _np.array(cur_y)))

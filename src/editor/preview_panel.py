@@ -12,7 +12,7 @@ except ImportError:  # Qt build without Pdf modules: text fallback only
     _PDF_AVAILABLE = False
 
 from . import i18n
-from .icons import SIZE_PANEL, SIZE_TOOLBAR, apply_icon
+from .icons import SIZE_PANEL, apply_icon
 
 
 def pdf_available():

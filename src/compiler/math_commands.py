@@ -231,7 +231,7 @@ def space_out_bare_identifiers(s):
     for idx in range(0, len(parts), 2):
         seg = parts[idx]
 
-        def _repl(m):
+        def _repl(m, seg=seg):
             word = m.group(1)
             if len(word) < 2:
                 return word

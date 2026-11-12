@@ -99,7 +99,7 @@ def strip_comments(text):
         placeholder = '\x00URLSLASH\x00'
         line_prot = re.sub(
             r'([A-Za-z][A-Za-z0-9+.-]*://\S*)',
-            lambda m: m.group(1).replace('/', placeholder),
+            lambda m, placeholder=placeholder: m.group(1).replace('/', placeholder),
             raw_line,
         )
         protected = _protected_ranges(line_prot)
