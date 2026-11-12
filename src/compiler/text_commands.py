@@ -21,7 +21,8 @@ same protocol as plots.
 
 import os
 import re
-import sys
+
+from .diagnostics import report, source_col_for, _call_pattern
 
 STYLE_NAMES = ('bold', 'italic', 'underline')
 
@@ -101,10 +102,10 @@ def replace_styling_calls(text, ctx, line_no, cleaner, _depth=0,
     runs there).
     """
     if _depth > 20:
-        print('[Warning] text styling nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', None,
+               'text styling nested too deep — leaving as-is')
         return text
-    loc = f'Line {line_no}: ' if line_no is not None else ''
+    seen = {}
     pos = 0
     out = []
     while True:
@@ -113,23 +114,29 @@ def replace_styling_calls(text, ctx, line_no, cleaner, _depth=0,
             out.append(text[pos:])
             break
         name = match.group(1)
+        occurrence = seen.get(name, 0)
+        seen[name] = occurrence + 1
         out.append(text[pos:match.start()])
         end = _scan_balanced(text, match.end())
         if end is None:
-            print(
-                f'[Warning] {loc}unclosed *{name}(... — '
+            col, end_col = source_col_for(line_no, _call_pattern(name), occurrence)
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — '
                 f'missing closing parenthesis',
-                file=sys.stderr,
+                col=col, end_col=end_col,
             )
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         inner = text[match.end():end - 1]
         if not inner.strip():
-            print(
-                f'[Warning] {loc}*{name}(...) is empty — '
+            col, end_col = source_col_for(line_no, _call_pattern(name), occurrence)
+            report(
+                'Warning', line_no,
+                f'*{name}(...) is empty — '
                 f'leaving as-is',
-                file=sys.stderr,
+                col=col, end_col=end_col,
             )
             out.append(text[match.start():end])
             pos = end
@@ -137,8 +144,8 @@ def replace_styling_calls(text, ctx, line_no, cleaner, _depth=0,
         try:
             clean = cleaner(inner)
         except RecursionError:
-            print('[Warning] text styling nested too deep — leaving as-is',
-                  file=sys.stderr)
+            report('Warning', None,
+                   'text styling nested too deep — leaving as-is')
             out.append(text[match.start():end])
             pos = end
             continue
@@ -158,29 +165,36 @@ def _replace_pagebreak_calls(text, line_no, placeholders):
     pos = 0
     out = []
     idx = len(placeholders)
+    seen = {}
     while True:
         match = _PAGEBREAK_CALL_RE.search(text, pos)
         if not match:
             out.append(text[pos:])
             break
         name = match.group(1)
+        occurrence = seen.get(name, 0)
+        seen[name] = occurrence + 1
         out.append(text[pos:match.start()])
         end = _scan_balanced(text, match.end())
         if end is None:
-            print(
-                f'[Warning] Line {line_no}: unclosed *{name}(... — '
+            col, end_col = source_col_for(line_no, _call_pattern(name), occurrence)
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — '
                 f'missing closing parenthesis',
-                file=sys.stderr,
+                col=col, end_col=end_col,
             )
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         inner = text[match.end():end - 1]
         if inner.strip():
-            print(
-                f'[Warning] Line {line_no}: *{name}(...) takes no '
+            col, end_col = source_col_for(line_no, _call_pattern(name), occurrence)
+            report(
+                'Warning', line_no,
+                f'*{name}(...) takes no '
                 f'arguments — extra content ignored',
-                file=sys.stderr,
+                col=col, end_col=end_col,
             )
         ph = PLACEHOLDER_FMT.format(idx)
         idx += 1
@@ -259,6 +273,7 @@ def _expand_images(ctx, text, line_no, placeholders, _allow=True):
     pos = 0
     out = []
     idx = len(placeholders)
+    image_occurrence = 0
     source = getattr(ctx, 'source_file', '') or ''
     try:
         base_dir = (getattr(ctx, 'image_base_dir', None)
@@ -275,22 +290,28 @@ def _expand_images(ctx, text, line_no, placeholders, _allow=True):
             break
         if found[0] == 'unclosed':
             _, call_start, inner_start, _, _ = found
-            print(
-                f'[Warning] Line {line_no}: unclosed *image(... — '
-                f'missing closing parenthesis',
-                file=sys.stderr,
+            col, end_col = source_col_for(line_no, _call_pattern('image'), image_occurrence)
+            image_occurrence += 1
+            report(
+                'Warning', line_no,
+                'unclosed *image(... — '
+                'missing closing parenthesis',
+                col=col, end_col=end_col,
             )
             out.append(text[pos:inner_start])
             pos = inner_start
             continue
         _call_start, _inner_start, call_end, inner_raw = found
+        col, end_col = source_col_for(line_no, _call_pattern('image'), image_occurrence)
+        image_occurrence += 1
         out.append(text[pos:_call_start])
         if not _allow:
             # Codegen-time phases (document title) must not copy files.
-            print(
-                f'[Error] Line {line_no}: *image(...) is not allowed '
-                f'in *doc_title — dropped',
-                file=sys.stderr,
+            report(
+                'Error', line_no,
+                '*image(...) is not allowed '
+                'in *doc_title — dropped',
+                col=col, end_col=end_col,
             )
             out.append('[Image Error: *image(...) is not allowed in *doc_title]')
             pos = call_end
@@ -329,7 +350,7 @@ def _expand_images(ctx, text, line_no, placeholders, _allow=True):
             else:
                 width = f'{m.group(1)}{m.group(2) or "%"}'
         if err is not None:
-            print(f'[Error] Line {line_no}: {err}', file=sys.stderr)
+            report('Error', line_no, err, col=col, end_col=end_col)
             out.append(f'[Image Error: {err}]')
             pos = call_end
             continue
@@ -349,7 +370,8 @@ def _expand_images(ctx, text, line_no, placeholders, _allow=True):
                 _mark_staged_dir(typ_dir, ctx.plot_stem)
                 shutil.copyfile(abs_path, staged)
             except OSError as exc:
-                print(f'[Error] Line {line_no}: cannot stage image: {exc}', file=sys.stderr)
+                report('Error', line_no, f'cannot stage image: {exc}',
+                       col=col, end_col=end_col)
                 out.append('[Image Error: cannot copy image]')
                 pos = call_end
                 continue

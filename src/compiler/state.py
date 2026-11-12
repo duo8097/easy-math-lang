@@ -10,6 +10,13 @@ class CompileContext:
         self.mult_sym = '*'
         # Absolute .eml path for SourceSpans (set per compile_ezmath run).
         self.source_file = ''
+        # Original .ezmath source, one entry per line (no newlines), and
+        # the filename to show in diagnostic context blocks. Set per
+        # compile_ezmath run; the diagnostics helper reads them for the
+        # source-line preview under each diagnostic. Empty when the
+        # context is created outside a compile.
+        self.source_lines = []
+        self.source_name = ''
         # Document title set via *doc_title(...) (control line, consumed).
         # Stored raw and rendered at codegen so forward-referenced
         # variables still resolve. None means "use the default title".
