@@ -219,10 +219,14 @@ Only functions of `x`; write `*` for multiplication (`2*x`, not `2x`).
 
 | Message | What it means |
 |---|---|
-| `[Error] Line 7: undefined variable <widht>` | Typo in a variable name |
+| `[Error] Line 7: undefined variable <widht>` (with the source line + caret under the token) | Typo in a variable name |
 | `[Warning] … unknown command *fract …` | Misspelled command — a suggestion is printed |
 | `[Calc Error: division by zero]` | `calc()` tried to divide by 0 |
 | `Compiled … with 2 error(s), 1 warning(s)` | PDF was written anyway; fix these or use `--strict` |
+
+Every message points at a spot in your `.ezmath` file: the first line
+says the line number, the lines under it show the real source line and
+a caret under the exact character (`File "doc.ezmath", line 7, column 9`).
 
 Full guide with fixes: [Troubleshooting and FAQ](troubleshooting.md).
 

@@ -1,7 +1,8 @@
 """Variable (<name>) and define (bare-word) substitution."""
 
 import re
-import sys
+
+from .diagnostics import report, source_col_for
 
 #: Maximum length of one expanded variable value (256 KiB). A few doubling
 #: defines (``a = <b><b>`` chains) would otherwise expand exponentially and
@@ -31,17 +32,17 @@ def _looks_like_comparison(text, s, e):
 def _expand_single_var(ctx, name, _stack, _depth=0):
     """Recursively expand one variable value; None on cycle."""
     if _depth > 100:
-        print(
-            f'[WARNING] Variable expansion too deep (possible long chain): <{name}>. '
+        report(
+            'WARNING', None,
+            f'Variable expansion too deep (possible long chain): <{name}>. '
             f'Leaving unexpanded.',
-            file=sys.stderr,
         )
         return None
     if name in _stack:
-        print(
-            f'[WARNING] Circular variable reference detected: <{name}>. '
+        report(
+            'WARNING', None,
+            f'Circular variable reference detected: <{name}>. '
             f'Leaving unexpanded.',
-            file=sys.stderr,
         )
         return None
     if name not in ctx.variables:
@@ -66,10 +67,10 @@ def _expand_single_var(ctx, name, _stack, _depth=0):
             if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', inner):
                 return m.group(0)
             if inner in _stack:
-                print(
-                    f'[WARNING] Circular variable reference detected: <{inner}>. '
+                report(
+                    'WARNING', None,
+                    f'Circular variable reference detected: <{inner}>. '
                     f'Leaving unexpanded.',
-                    file=sys.stderr,
                 )
                 return m.group(0)
             if inner not in ctx.variables:
@@ -93,10 +94,10 @@ def _expand_single_var(ctx, name, _stack, _depth=0):
         for m, rep in reversed(parts):
             result = result[:m.start()] + rep + result[m.end():]
             if len(result) > _EXPANSION_CAP:
-                print(
-                    f'[WARNING] Variable <{name}> expands beyond '
+                report(
+                    'WARNING', None,
+                    f'Variable <{name}> expands beyond '
                     f'{_EXPANSION_CAP} bytes — leaving it unexpanded.',
-                    file=sys.stderr,
                 )
                 cache[name] = (str(ctx.variables[name]), None)
                 return None
@@ -159,6 +160,7 @@ def check_undefined_vars(text, line_no, ctx=None):
     # the loop so match offsets (from the original string) stay valid.
     replacements = []
     seen = set()
+    occurrences = {}
     for match in matches:
         name = match.group(1)
         # Only flag identifier-like names (tmp1, width). Symbol
@@ -187,11 +189,18 @@ def check_undefined_vars(text, line_no, ctx=None):
             continue
         if ctx is not None and stripped in ctx.defines:
             continue
+        token_occurrence = occurrences.get(stripped, 0)
+        occurrences[stripped] = token_occurrence + 1
         if stripped not in seen:
             seen.add(stripped)
-            print(
-                f'[Error] Line {line_no}: undefined variable <{stripped}>',
-                file=sys.stderr,
+            occurrence = token_occurrence
+            # Caret on the raw source line: the transformed text offsets
+            # are not valid anchors, so find the token by regex there.
+            pattern = r'<\s*' + re.escape(stripped) + r'\s*>'
+            col, end_col = source_col_for(line_no, pattern, occurrence)
+            report(
+                'Error', line_no, f'undefined variable <{stripped}>',
+                col=col, end_col=end_col,
             )
         replacements.append((match.start(), match.end(), stripped))
     for start, end, stripped in reversed(replacements):

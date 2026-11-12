@@ -36,6 +36,7 @@ document it in rule.txt + docs/algebra.md.
 import re
 
 from .calc import apply_calc_in_string
+from .diagnostics import report
 from .symbols import replace_symbol_shortcuts
 from .variables import replace_defines, replace_vars
 
@@ -259,23 +260,24 @@ def space_out_bare_identifiers(s):
     return ''.join(parts)
 
 
-def replace_math_call(text, name, min_args, formatter, _depth=0):
+def replace_math_call(text, name, min_args, formatter, _depth=0,
+                      line_no=None):
     """Replace *name(...) calls using depth-aware paren matching."""
-    import sys
     if _depth > 20:
-        print(f'[Warning] *{name}(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               f'*{name}(...) nested too deep — leaving as-is')
         return text
     try:
-        return _replace_math_call(text, name, min_args, formatter, _depth)
+        return _replace_math_call(text, name, min_args, formatter, _depth,
+                                  line_no=line_no)
     except RecursionError:
-        print(f'[Warning] *{name}(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               f'*{name}(...) nested too deep — leaving as-is')
         return text
 
 
-def _replace_math_call(text, name, min_args, formatter, _depth=0):
-    import sys
+def _replace_math_call(text, name, min_args, formatter, _depth=0,
+                       line_no=None):
     import re
     pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
     pos = 0
@@ -301,10 +303,9 @@ def _replace_math_call(text, name, min_args, formatter, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — missing closing parenthesis')
             # Emit the opener literally and continue scanning so later
             # valid calls on the same line are still processed.
             out.append(text[match.start():match.end()])
@@ -312,58 +313,54 @@ def _replace_math_call(text, name, min_args, formatter, _depth=0):
             continue
         args = split_top_level_args(text[start:i - 1])
         if len(args) < min_args:
-            print(
-                f'[Warning] *{name}(...) expects {min_args} argument(s), '
-                f'got {len(args)} — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) expects {min_args} argument(s), '
+                f'got {len(args)} — leaving as-is')
             out.append(text[match.start():i])
         elif any(a == '' for a in args[:min_args]):
-            print(
-                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
         else:
             if len(args) > min_args:
-                print(
-                    f'[Warning] *{name}(...) expects {min_args} argument(s), '
-                    f'got {len(args)} — extra arguments ignored',
-                    file=sys.stderr,
-                )
+                report(
+                    'Warning', line_no,
+                    f'*{name}(...) expects {min_args} argument(s), '
+                    f'got {len(args)} — extra arguments ignored')
                 args = args[:min_args]
             out.append(formatter(args))
         pos = i
     return ''.join(out)
 
 
-def clean_inner_math(ctx, s, _depth=0):
+def clean_inner_math(ctx, s, _depth=0, line_no=None):
     """Normalize a math argument: vars, defines, calc, nested math calls."""
-    import sys
     if _depth > 20:
-        print('[Warning] math nesting too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               'math nesting too deep — leaving as-is')
         return s
     try:
-        return _clean_inner_math(ctx, s, _depth)
+        return _clean_inner_math(ctx, s, _depth, line_no=line_no)
     except RecursionError:
-        print('[Warning] math nesting too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               'math nesting too deep — leaving as-is')
         return s
 
 
-def _clean_inner_math(ctx, s, _depth=0):
+def _clean_inner_math(ctx, s, _depth=0, line_no=None):
     from .text_commands import normalize_text_aliases, replace_styling_calls
     s = normalize_friendly_calls(s.strip())
     s = normalize_text_aliases(s)
     s = replace_styling_calls(
-        s, ctx, None,
-        lambda arg: clean_inner_math(ctx, arg, _depth + 1),
+        s, ctx, line_no,
+        lambda arg: clean_inner_math(ctx, arg, _depth + 1, line_no=line_no),
         _depth,
     )
     s = replace_vars(ctx, s.strip())
     s = replace_defines(ctx, s)
-    s = apply_calc_in_string(ctx, s)
+    s = apply_calc_in_string(ctx, s, line_no=line_no)
     # Unify *pi/*infinity with the text/math paths: text renders $pi$,
     # inline math renders pi inside $...$, so normalize to bare words
     # here before symbol shortcuts (which map *pi -> π).
@@ -375,14 +372,14 @@ def _clean_inner_math(ctx, s, _depth=0):
     s = replace_symbol_shortcuts(s)
     s = normalize_friendly_calls(s)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
-        s = replace_math_call(s, fn_name, fn_min, fn_fmt)
-    s = replace_int_calls(s, ctx, _depth)
-    s = replace_diff_calls(s, ctx, _depth)
-    s = replace_cases_call(s, ctx, _depth)
-    s = replace_det_calls(s, ctx, _depth)
-    s = replace_set_calls(s, ctx, _depth)
-    s = replace_align_calls(s, ctx, _depth)
-    s = replace_vec_calls(s, ctx, _depth=_depth)
+        s = replace_math_call(s, fn_name, fn_min, fn_fmt, line_no=line_no)
+    s = replace_int_calls(s, ctx, _depth, line_no=line_no)
+    s = replace_diff_calls(s, ctx, _depth, line_no=line_no)
+    s = replace_cases_call(s, ctx, _depth, line_no=line_no)
+    s = replace_det_calls(s, ctx, _depth, line_no=line_no)
+    s = replace_set_calls(s, ctx, _depth, line_no=line_no)
+    s = replace_align_calls(s, ctx, _depth, line_no=line_no)
+    s = replace_vec_calls(s, ctx, line_no=line_no, _depth=_depth)
     s = re.sub(r'\$([^$]+)\$', r'\1', s)
     # Escape thousands commas (100,000 -> 100\,000) so Typst does not
     # read them as argument separators. See escape_number_commas.
@@ -483,9 +480,8 @@ def _format_int(ctx, name, args):
             f"dif {clean_inner_math(ctx, args[3])}$")
 
 
-def _replace_single_int(text, ctx, name, _depth=0):
+def _replace_single_int(text, ctx, name, _depth=0, line_no=None):
     """Replace one of *int/*oint (variable 1-4 arity)."""
-    import sys
     pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
     pos = 0
     out = []
@@ -510,57 +506,52 @@ def _replace_single_int(text, ctx, name, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         args = split_top_level_args(text[start:i - 1])
         if len(args) < 1 or any(a == '' for a in args[:1]):
-            print(
-                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
         elif len(args) == 0:
-            print(
-                f'[Warning] *{name}(...) expects 1 argument(s), got 0 — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) expects 1 argument(s), got 0 — leaving as-is')
             out.append(text[match.start():i])
         elif any(a == '' for a in args):
-            print(
-                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
         else:
             if len(args) > 4:
-                print(
-                    f'[Warning] *{name}(...) expects 4 argument(s), '
-                    f'got {len(args)} — extra arguments ignored',
-                    file=sys.stderr,
-                )
+                report(
+                    'Warning', line_no,
+                    f'*{name}(...) expects 4 argument(s), '
+                    f'got {len(args)} — extra arguments ignored')
                 args = args[:4]
             out.append(_format_int(ctx, name, args))
         pos = i
     return ''.join(out)
 
 
-def replace_int_calls(text, ctx, _depth=0):
+def replace_int_calls(text, ctx, _depth=0, line_no=None):
     """Expand *int/*oint (variable arity) for text/math/nested paths."""
-    import sys
     if _depth > 20:
-        print('[Warning] *int(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*int(...) nested too deep — leaving as-is')
         return text
     # *integral( is normalized to *int( by normalize_friendly_calls, but
     # run it here too so direct calls without the outer pass still work.
     text = normalize_friendly_calls(text)
     for name in ('int', 'oint'):
-        text = _replace_single_int(text, ctx, name, _depth)
+        text = _replace_single_int(text, ctx, name, _depth,
+                                    line_no=line_no)
     return text
 
 
@@ -583,9 +574,8 @@ def _format_diff(ctx, name, args):
             f"{base} {clean_inner_math(ctx, args[1])}^{order})$")
 
 
-def _replace_single_diff(text, ctx, name, _depth=0):
+def _replace_single_diff(text, ctx, name, _depth=0, line_no=None):
     """Replace one of *diff/*pdiff (variable 2-3 arity)."""
-    import sys
     pattern = re.compile(r'\*' + re.escape(name) + r'\s*\(')
     pos = 0
     out = []
@@ -610,53 +600,49 @@ def _replace_single_diff(text, ctx, name, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                f'[Warning] unclosed *{name}(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         args = split_top_level_args(text[start:i - 1])
         if len(args) < 2 or any(a == '' for a in args[:2]):
-            print(
-                f'[Warning] *{name}(...) expects 2 argument(s), '
-                f'got {len(args)} — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) expects 2 argument(s), '
+                f'got {len(args)} — leaving as-is')
             out.append(text[match.start():i])
         elif any(a == '' for a in args):
-            print(
-                f'[Warning] *{name}(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*{name}(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
         else:
             if len(args) > 3:
-                print(
-                    f'[Warning] *{name}(...) expects 3 argument(s), '
-                    f'got {len(args)} — extra arguments ignored',
-                    file=sys.stderr,
-                )
+                report(
+                    'Warning', line_no,
+                    f'*{name}(...) expects 3 argument(s), '
+                    f'got {len(args)} — extra arguments ignored')
                 args = args[:3]
             out.append(_format_diff(ctx, name, args))
         pos = i
     return ''.join(out)
 
 
-def replace_diff_calls(text, ctx, _depth=0):
+def replace_diff_calls(text, ctx, _depth=0, line_no=None):
     """Expand *diff/*pdiff (variable arity) for text/math/nested paths."""
-    import sys
     if _depth > 20:
-        print('[Warning] *diff(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*diff(...) nested too deep — leaving as-is')
         return text
     for name in ('diff', 'pdiff'):
-        text = _replace_single_diff(text, ctx, name, _depth)
+        text = _replace_single_diff(text, ctx, name, _depth,
+                                    line_no=line_no)
     return text
 
 
-def replace_cases_call(text, ctx, _depth=0):
+def replace_cases_call(text, ctx, _depth=0, line_no=None):
     """Expand *cases(row1 | row2 | ...) to Typst cases(...).
 
     Rows split on top-level ``|`` with the same quote/nesting rules as
@@ -669,11 +655,10 @@ def replace_cases_call(text, ctx, _depth=0):
     rows are dropped (like tables); empty cells or fully-empty calls
     warn and stay as-is.
     """
-    import sys
     from . import tables as _tables
     if _depth > 20:
-        print('[Warning] *cases(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*cases(...) nested too deep — leaving as-is')
         return text
     pattern = re.compile(r'\*cases\s*\(')
     pos = 0
@@ -699,10 +684,9 @@ def replace_cases_call(text, ctx, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                '[Warning] unclosed *cases(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                'unclosed *cases(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
@@ -710,18 +694,16 @@ def replace_cases_call(text, ctx, _depth=0):
         rows_raw = _tables.split_rows_top_level(inner_raw)
         rows = [r.strip() for r in rows_raw if r.strip() != '']
         if not rows:
-            print(
-                '[Warning] *cases(...) is empty — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                '*cases(...) is empty — leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
         if any(r == '' for r in rows):
-            print(
-                '[Warning] *cases(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                '*cases(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
@@ -730,14 +712,14 @@ def replace_cases_call(text, ctx, _depth=0):
         for r in rows:
             cells = _tables.split_cells_top_level(r)
             if any(c == '' for c in cells):
-                print(
-                    '[Warning] *cases(...) has empty cell(s) — leaving as-is',
-                    file=sys.stderr,
-                )
+                report(
+                    'Warning', line_no,
+                    '*cases(...) has empty cell(s) — leaving as-is')
                 out.append(text[match.start():i])
                 broken = True
                 break
-            cleaned_cells = [clean_inner_math(ctx, c) for c in cells]
+            cleaned_cells = [clean_inner_math(ctx, c, line_no=line_no)
+                             for c in cells]
             rendered.append(' & '.join(cleaned_cells))
         if broken:
             pos = i
@@ -747,30 +729,26 @@ def replace_cases_call(text, ctx, _depth=0):
     return ''.join(out)
 
 
-def _render_det_grid(ctx, grid_raw):
+def _render_det_grid(ctx, grid_raw, line_no=None):
     """Render a raw det grid to Typst ``mat(delim: "|", ...)`` (no $).
 
     Returns None when the grid is empty (caller leaves input as-is).
     Ragged rows are padded with 0 (warning), like *matrix. Nested
     tables warn like matrix cells do.
-    Warnings carry no line number, like *cases.
     """
-    import sys
     kept = [r for r in grid_raw if any(c.strip() for c in r)]
     if not kept:
-        print(
-            '[Warning] *det(...) is empty — leaving as-is',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            '*det(...) is empty — leaving as-is')
         return None
     widths = [len(r) for r in kept]
     ncols = max(widths)
     if len(set(widths)) != 1:
-        print(
-            f'[Warning] *det(...) rows have different lengths {widths} — '
-            f'padding to {ncols} column(s)',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            f'*det(...) rows have different lengths {widths} — '
+            f'padding to {ncols} column(s)')
         kept = [r + [''] * (ncols - len(r)) for r in kept]
     rendered = []
     for row in kept:
@@ -780,13 +758,12 @@ def _render_det_grid(ctx, grid_raw):
                 r_out.append('')
                 continue
             if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
-                print(
-                    '[Warning] *det(...) cell contains a nested '
+                report(
+                    'Warning', line_no,
+                    '*det(...) cell contains a nested '
                     'table/matrix — only math commands are supported '
-                    'inside determinants',
-                    file=sys.stderr,
-                )
-            r_out.append(clean_inner_math(ctx, cell_raw))
+                    'inside determinants')
+            r_out.append(clean_inner_math(ctx, cell_raw, line_no=line_no))
         rendered.append(r_out)
     inner = '; '.join(
         ', '.join(c if c.strip() else '0' for c in row) for row in rendered
@@ -849,21 +826,20 @@ def _det_matrix_arg_inner(inner_raw):
     return ('ezmath', stripped[m.end():i - 1])
 
 
-def replace_det_calls(text, ctx, _depth=0):
+def replace_det_calls(text, ctx, _depth=0, line_no=None):
     """Expand *det(...) to a vertical-bar determinant.
 
     Emits Typst ``$mat(delim: "|", ...)$`` (real vertical bars, not a
     ``det`` word). Accepts either a single ``*matrix(...)`` argument
     or the same row/cell syntax as *matrix (``|`` rows, ``;`` or
     friendly ``,`` cells). Ragged rows pad with 0 (warning); empty
-    calls warn and stay as-is. Warnings carry no line number, like
-    *cases.
+    calls warn and stay as-is. Warnings carry the *line_no* of the
+    line being rendered when one is known.
     """
-    import sys
     from . import tables as _tables
     if _depth > 20:
-        print('[Warning] *det(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*det(...) nested too deep — leaving as-is')
         return text
     pattern = re.compile(r'\*det\s*\(')
     pos = 0
@@ -889,10 +865,9 @@ def replace_det_calls(text, ctx, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                '[Warning] unclosed *det(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                'unclosed *det(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
@@ -909,7 +884,7 @@ def replace_det_calls(text, ctx, _depth=0):
             grid_raw = _tables.parse_grid(mat_inner)
         else:
             grid_raw = _tables.parse_grid(inner_raw)
-        rendered = _render_det_grid(ctx, grid_raw)
+        rendered = _render_det_grid(ctx, grid_raw, line_no=line_no)
         if rendered is None:
             out.append(text[match.start():i])
             pos = i
@@ -919,7 +894,7 @@ def replace_det_calls(text, ctx, _depth=0):
     return ''.join(out)
 
 
-def replace_set_calls(text, ctx, _depth=0):
+def replace_set_calls(text, ctx, _depth=0, line_no=None):
     """Expand *set(...) to ``{x | condition}`` or ``{a, b, c}``.
 
     The rule is by separator (documented in docs/algebra.md): when
@@ -931,10 +906,9 @@ def replace_set_calls(text, ctx, _depth=0):
     set-builder. Conditions containing ``;`` can be quoted
     (``*set(x ; "a;b")``).
     """
-    import sys
     if _depth > 20:
-        print('[Warning] *set(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*set(...) nested too deep — leaving as-is')
         return text
     pattern = re.compile(r'\*set\s*\(')
     pos = 0
@@ -960,29 +934,27 @@ def replace_set_calls(text, ctx, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                '[Warning] unclosed *set(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                'unclosed *set(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         inner_raw = text[start:i - 1]
         args = split_top_level_args(inner_raw)
         if not args or any(a == '' for a in args):
-            print(
-                '[Warning] *set(...) has empty argument(s) — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                '*set(...) has empty argument(s) — leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
         if len(args) == 2 and _has_top_level_semi(inner_raw):
-            elem = clean_inner_math(ctx, args[0])
-            cond = clean_inner_math(ctx, args[1])
+            elem = clean_inner_math(ctx, args[0], line_no=line_no)
+            cond = clean_inner_math(ctx, args[1], line_no=line_no)
             out.append(f'$ {{{elem} | {cond}}} $')
         else:
-            cells = [clean_inner_math(ctx, a) for a in args]
+            cells = [clean_inner_math(ctx, a, line_no=line_no) for a in args]
             out.append(f"$ {{{', '.join(cells)}}} $")
         pos = i
     return ''.join(out)
@@ -1020,7 +992,7 @@ def _split_first_eq(s):
     return s, None
 
 
-def replace_align_calls(text, ctx, _depth=0):
+def replace_align_calls(text, ctx, _depth=0, line_no=None):
     """Expand *align(...) to equations aligned at ``=``.
 
     Rows split on top-level ``|`` with the same quote/nesting rules
@@ -1032,11 +1004,10 @@ def replace_align_calls(text, ctx, _depth=0):
     emitted as-is and never crash the build; only the first ``=``
     aligns, the rest stay literal.
     """
-    import sys
     from . import tables as _tables
     if _depth > 20:
-        print('[Warning] *align(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*align(...) nested too deep — leaving as-is')
         return text
     pattern = re.compile(r'\*align\s*\(')
     pos = 0
@@ -1062,10 +1033,9 @@ def replace_align_calls(text, ctx, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                '[Warning] unclosed *align(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                'unclosed *align(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
@@ -1073,16 +1043,15 @@ def replace_align_calls(text, ctx, _depth=0):
         rows_raw = _tables.split_rows_top_level(inner_raw)
         rows = [r.strip() for r in rows_raw if r.strip() != '']
         if not rows:
-            print(
-                '[Warning] *align(...) is empty — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                '*align(...) is empty — leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
         rendered = []
         for r in rows:
-            cleaned = clean_inner_math(ctx, r)
+            cleaned = clean_inner_math(ctx, r, line_no=line_no)
             left, right = _split_first_eq(cleaned)
             if right is None:
                 rendered.append(cleaned)
@@ -1105,15 +1074,12 @@ def replace_vec_calls(text, ctx, line_no=None, _depth=0):
     (via clean_inner_math), so *vec nests inside \\ ... \\ math,
     *matrix/*det cells and other math commands like the rest.
     Empty calls, empty components or a single component warn (with
-    *line_no* when known) and stay as-is; warnings carry no line
-    number in nested contexts, like *cases/*det.
+    *line_no* when known) and stay as-is.
     """
-    import sys
     if _depth > 20:
-        print('[Warning] *vec(...) nested too deep — leaving as-is',
-              file=sys.stderr)
+        report('Warning', line_no,
+               '*vec(...) nested too deep — leaving as-is')
         return text
-    loc = f'Line {line_no}: ' if line_no is not None else ''
     pattern = re.compile(r'\*vec\s*\(')
     pos = 0
     out = []
@@ -1138,34 +1104,32 @@ def replace_vec_calls(text, ctx, line_no=None, _depth=0):
                     depth -= 1
             i += 1
         if depth != 0:
-            print(
-                f'[Warning] {loc}unclosed *vec(... — missing closing parenthesis',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                'unclosed *vec(... — missing closing parenthesis')
             out.append(text[match.start():match.end()])
             pos = match.end()
             continue
         inner_raw = text[start:i - 1]
         args = split_top_level_args(inner_raw)
         if len(args) < 2:
-            print(
-                f'[Warning] {loc}*vec(...) expects at least 2 components, '
-                f'got {len(args)} — leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*vec(...) expects at least 2 components, '
+                f'got {len(args)} — leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
         if any(a == '' for a in args):
-            print(
-                f'[Warning] {loc}*vec(...) has empty component(s) — '
-                f'leaving as-is',
-                file=sys.stderr,
-            )
+            report(
+                'Warning', line_no,
+                f'*vec(...) has empty component(s) — '
+                f'leaving as-is')
             out.append(text[match.start():i])
             pos = i
             continue
-        rendered = [clean_inner_math(ctx, a) for a in args]
+        rendered = [clean_inner_math(ctx, a, line_no=line_no)
+                     for a in args]
         out.append(f"$vec({', '.join(rendered)})$")
         pos = i
     return ''.join(out)
@@ -1205,17 +1169,15 @@ def _outer_parens_balanced(s):
     return depth == 0
 
 
-def _format_pow(ctx, args):
-    import sys
+def _format_pow(ctx, args, line_no=None):
     base = group_power_base(ctx, args[0])
-    exp = clean_inner_math(ctx, args[1])
+    exp = clean_inner_math(ctx, args[1], line_no=line_no)
     # *pow(A ; *degree) means A° per spec, not A^(°).
     if exp == '°':
         return f'${base}°$'
     if not exp.strip():
-        print(
-            '[Warning] *pow(...) has empty exponent — emitting base only',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            '*pow(...) has empty exponent — emitting base only')
         return f'${base}$'
     return f'${base}^({exp})$'

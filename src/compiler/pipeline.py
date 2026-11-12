@@ -69,7 +69,7 @@ except ImportError:  # embedded layout: sources imported as one package
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
-from .diagnostics import warn_unknown_commands
+from .diagnostics import warn_unknown_commands, report, report_with_context, source_col_for, _call_pattern, last_unescaped_bs_col
 from .escaping import escape_typst_outside_math, index_replacer, mask_urls, merge_math, restore_urls
 from .inline_math import find_unescaped, process_math_inner
 from .math_commands import (
@@ -107,26 +107,52 @@ class _DiagCounter:
 
     Installed by the compile_ezmath decorator for the duration of one
     compile so the final message can report honest error/warning counts.
-    Counts case-insensitive ``[error`` / ``[warning`` markers (covers
-    ``[Error]``, ``[ERROR]``, ``[Warning]``, ``[WARNING]``). Forwards all
-    writes so capsys/preview captures keep working.
+    Counts case-insensitive ``[error`` / ``[warning`` markers, but only
+    at the start of a line — echoed source lines from the diagnostic
+    context block may contain ``[Error]``/``[Warning]`` substrings, and
+    diagnostic context lines are indented, so they never match. The
+    state is carried across ``write`` calls so split writes and
+    multi-line writes are handled correctly. Forwards all writes so
+    capsys/preview captures keep working.
     """
 
     def __init__(self, wrapped):
         self._wrapped = wrapped
         self.errors = 0
         self.warnings = 0
+        self._at_line_start = True
 
     def write(self, s):
         try:
-            low = str(s).lower()
-            if '[error' in low:
-                self.errors += low.count('[error')
-            if '[warning' in low:
-                self.warnings += low.count('[warning')
+            self._count_markers(s)
         except Exception:
             pass
         return self._wrapped.write(s)
+
+    def _count_markers(self, s):
+        low = str(s).lower()
+        i, n = 0, len(low)
+        at_start = self._at_line_start
+        while i < n:
+            if at_start:
+                if low.startswith('[error', i):
+                    self.errors += 1
+                    i += len('[error')
+                    at_start = False
+                    continue
+                if low.startswith('[warning', i):
+                    self.warnings += 1
+                    i += len('[warning')
+                    at_start = False
+                    continue
+                # Anything at the start of a line that is not a
+                # marker (including indentation) closes the line.
+                at_start = False
+                continue
+            if low[i] == '\n':
+                at_start = True
+            i += 1
+        self._at_line_start = at_start
 
     def writelines(self, lines):
         for line in lines:
@@ -164,6 +190,8 @@ def _with_diag_count(fn):
     """Decorate compile_ezmath: count diagnostics, honor strict."""
     import functools
 
+    from . import diagnostics as _diagnostics
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         global _ACTIVE_COUNTER
@@ -172,6 +200,7 @@ def _with_diag_count(fn):
             ctr = _DiagCounter(old)
             prev = _ACTIVE_COUNTER
             _ACTIVE_COUNTER = ctr
+            _diagnostics.unbind_source()
             sys.stderr = ctr
             try:
                 ok = fn(*args, **kwargs)
@@ -182,6 +211,7 @@ def _with_diag_count(fn):
             finally:
                 sys.stderr = old
                 _ACTIVE_COUNTER = prev
+                _diagnostics.unbind_source()
 
     return wrapper
 
@@ -282,6 +312,7 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
     idx = 0
     pos = 0
     out = []
+    table_seen = {}
     while True:
         found = _tables.find_next_call(text, pos)
         if not found:
@@ -289,15 +320,20 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
             break
         if found[0] == 'unclosed':
             _, name, call_start, inner_start, _, _ = found
-            print(
-                f'[Warning] Line {line_no}: unclosed *{name}(... — '
+            occurrence = table_seen.get(name, 0)
+            table_seen[name] = occurrence + 1
+            col, end_col = source_col_for(line_no, _call_pattern(name), occurrence)
+            report(
+                'Warning', line_no,
+                f'unclosed *{name}(... — '
                 f'missing closing parenthesis',
-                file=sys.stderr,
+                col=col, end_col=end_col,
             )
             out.append(text[pos:inner_start])
             pos = inner_start
             continue
         name, call_start, _inner_start, call_end, inner_raw = found
+        table_seen[name] = table_seen.get(name, 0) + 1
         out.append(text[pos:call_start])
         if _tables.is_table_call(name):
             grid_raw = _tables.parse_grid(inner_raw)
@@ -341,32 +377,42 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
                         r_out.append('')
                         continue
                     if re.search(r'\*image\s*\(', cell_raw):
-                        print(
-                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                        col, end_col = source_col_for(line_no, _call_pattern('image'), 0)
+                        report(
+                            'Warning', line_no,
+                            f'*{name}(...) cell '
                             f'contains *image(...) — images are text mode; '
                             f'only math commands are supported inside '
                             f'matrices — leaving as-is',
-                            file=sys.stderr,
+                            col=col, end_col=end_col,
                         )
                     if re.search(
                         r'(?<![A-Za-z0-9_*\\])\*'
                         r'(newpage|pagebreak)(?![A-Za-z0-9_\-])', cell_raw
                     ):
-                        print(
-                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                        col, end_col = source_col_for(
+                            line_no,
+                            r'(?<![A-Za-z0-9_*\\])\*(newpage|pagebreak)'
+                            r'(?![A-Za-z0-9_\-])', 0)
+                        report(
+                            'Warning', line_no,
+                            f'*{name}(...) cell '
                             f'contains a page break — page breaks are text '
                             f'mode; only math commands are supported '
                             f'inside matrices — leaving as-is',
-                            file=sys.stderr,
+                            col=col, end_col=end_col,
                         )
                     if re.search(r'\*(table|matrix|mat)\s*\(', cell_raw):
-                        print(
-                            f'[Warning] Line {line_no}: *{name}(...) cell '
+                        col, end_col = source_col_for(
+                            line_no, r'\*(table|matrix|mat)\s*\(', 0)
+                        report(
+                            'Warning', line_no,
+                            f'*{name}(...) cell '
                             f'contains a nested table/matrix — only math '
                             f'commands are supported inside matrices',
-                            file=sys.stderr,
+                            col=col, end_col=end_col,
                         )
-                    r_out.append(clean_inner_math(ctx, cell_raw))
+                    r_out.append(clean_inner_math(ctx, cell_raw, line_no=line_no))
                 rendered.append(r_out)
             typ = f'${_tables.build_matrix_math_inner(rendered)}$'
             ph = f'\x07{idx}\x07'
@@ -391,6 +437,7 @@ def _expand_plots(ctx, text, line_no, _allow=True):
     idx = 0
     pos = 0
     out = []
+    plot_seen = 0
     while True:
         found = _plots.find_next_plot_call(text, pos)
         if not _allow:
@@ -401,22 +448,28 @@ def _expand_plots(ctx, text, line_no, _allow=True):
             if found[0] == 'unclosed':
                 _, call_start = found[0], found[1]
                 out.append(text[pos:call_start])
-                print(
-                    f'[Error] Line {line_no}: *plot(...) is not allowed '
-                    f'in *doc_title — dropped',
-                    file=sys.stderr,
+                col, end_col = source_col_for(line_no, _call_pattern('plot'), plot_seen)
+                report(
+                    'Error', line_no,
+                    '*plot(...) is not allowed '
+                    'in *doc_title — dropped',
+                    col=col, end_col=end_col,
                 )
                 out.append('[Plot Error: *plot(...) is not allowed in *doc_title]')
+                plot_seen += 1
                 pos = len(text)
                 continue
             call_start, call_end = found[0], found[2]
             out.append(text[pos:call_start])
-            print(
-                f'[Error] Line {line_no}: *plot(...) is not allowed '
-                f'in *doc_title — dropped',
-                file=sys.stderr,
+            col, end_col = source_col_for(line_no, _call_pattern('plot'), plot_seen)
+            report(
+                'Error', line_no,
+                '*plot(...) is not allowed '
+                'in *doc_title — dropped',
+                col=col, end_col=end_col,
             )
             out.append('[Plot Error: *plot(...) is not allowed in *doc_title]')
+            plot_seen += 1
             pos = call_end
             continue
         if not found:
@@ -424,15 +477,20 @@ def _expand_plots(ctx, text, line_no, _allow=True):
             break
         if found[0] == 'unclosed':
             _, call_start, inner_start, _, _ = found
-            print(
-                f'[Warning] Line {line_no}: unclosed *plot(... — '
-                f'missing closing parenthesis',
-                file=sys.stderr,
+            col, end_col = source_col_for(line_no, _call_pattern('plot'), plot_seen)
+            plot_seen += 1
+            report(
+                'Warning', line_no,
+                'unclosed *plot(... — '
+                'missing closing parenthesis',
+                col=col, end_col=end_col,
             )
             out.append(text[pos:inner_start])
             pos = inner_start
             continue
         _call_start, _inner_start, call_end, inner_raw = found
+        col, end_col = source_col_for(line_no, _call_pattern('plot'), plot_seen)
+        plot_seen += 1
         out.append(text[pos:_call_start])
         args = split_top_level_args(inner_raw)
         err = None
@@ -455,7 +513,7 @@ def _expand_plots(ctx, text, line_no, _allow=True):
                     err = (f'*plot(...) needs xmin < xmax '
                            f'(got {xmin} >= {xmax})')
         if err is not None:
-            print(f'[Error] Line {line_no}: {err}', file=sys.stderr)
+            report('Error', line_no, err, col=col, end_col=end_col)
             out.append(f'[Plot Error: {err}]')
             pos = call_end
             continue
@@ -467,14 +525,13 @@ def _expand_plots(ctx, text, line_no, _allow=True):
         try:
             _plots.render_plot_svg(ctx, args[0], xmin, xmax, fpath)
         except ValueError as e:
-            print(f'[Error] Line {line_no}: *plot(...) {e}',
-                  file=sys.stderr)
+            report('Error', line_no, f'*plot(...) {e}', col=col, end_col=end_col)
             out.append(f'[Plot Error: {e}]')
             pos = call_end
             continue
         except Exception as e:
-            print(f'[Error] Line {line_no}: *plot(...) failed: {e}',
-                  file=sys.stderr)
+            report('Error', line_no, f'*plot(...) failed: {e}',
+                   col=col, end_col=end_col)
             out.append(f'[Plot Error: {e}]')
             pos = call_end
             continue
@@ -690,10 +747,10 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     left for Typst escaping.
     """
     if _table_depth > 20:
-        print(
-            f'[Warning] Line {line_no}: table/matrix nested too deep — '
-            f'leaving as-is',
-            file=sys.stderr,
+        report(
+            'Warning', line_no,
+            'table/matrix nested too deep — '
+            'leaving as-is',
         )
         return raw
     # --- 1. *p(...): raw passthrough segments (balanced parens, multiple
@@ -702,9 +759,11 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     p_segs = _extract_p_segments(raw)
     for is_raw, content in p_segs:
         if not is_raw and '*p(' in content:
-            print(
-                f'[Warning] Line {line_no}: unclosed *p( — treated as plain text',
-                file=sys.stderr,
+            col, end_col = source_col_for(line_no, r'\*\s*p\s*\(', 0)
+            report(
+                'Warning', line_no,
+                'unclosed *p( — treated as plain text',
+                col=col, end_col=end_col,
             )
             break
     if any(is_raw for is_raw, _ in p_segs):
@@ -766,10 +825,12 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
             break
         closing = _first_unescaped_bs(text[opening + 1:])
         if closing is None:
-            print(
-                f'[Error] Line {line_no}: unclosed math delimiter '
-                f'\\ ... \\ — missing closing \\.',
-                file=sys.stderr,
+            col, end_col = last_unescaped_bs_col(line_no)
+            report(
+                'Error', line_no,
+                'unclosed math delimiter '
+                '\\ ... \\ — missing closing \\.',
+                col=col, end_col=end_col,
             )
             break
         closing += opening + 1
@@ -789,7 +850,7 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     # Nested det (matrix cells, math args) is handled by the math
     # cleaners; the step-6 call below is a harmless idempotent cover.
     if _table_depth <= 20:
-        text = replace_det_calls(text, ctx)
+        text = replace_det_calls(text, ctx, line_no=line_no)
 
     # 5d. Tables and matrices (*table / *matrix / *mat). Runs after
     # vars/calc/inline-math (like math commands) so <vars> holding
@@ -827,13 +888,13 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
-        text = replace_math_call(text, fn_name, fn_min, fn_fmt)
-    text = replace_int_calls(text, ctx)
-    text = replace_diff_calls(text, ctx)
-    text = replace_cases_call(text, ctx)
-    text = replace_det_calls(text, ctx)
-    text = replace_set_calls(text, ctx)
-    text = replace_align_calls(text, ctx)
+        text = replace_math_call(text, fn_name, fn_min, fn_fmt, line_no=line_no)
+    text = replace_int_calls(text, ctx, line_no=line_no)
+    text = replace_diff_calls(text, ctx, line_no=line_no)
+    text = replace_cases_call(text, ctx, line_no=line_no)
+    text = replace_det_calls(text, ctx, line_no=line_no)
+    text = replace_set_calls(text, ctx, line_no=line_no)
+    text = replace_align_calls(text, ctx, line_no=line_no)
     text = replace_vec_calls(text, ctx, line_no)
 
     # 7. Warn about unknown *command(...)
@@ -959,15 +1020,13 @@ def _parse_draw_safe(block_text, line_no=None):
         try:
             from .. import geometry
         except ImportError as e:
-            loc = f' Line {line_no}:' if line_no else ''
-            print(f'[Error]{loc} geometry support missing ({e}) — draw skipped',
-                  file=sys.stderr)
+            report('Error', line_no or None,
+                   f'geometry support missing ({e}) — draw skipped')
             return '// [Error] draw skipped: geometry support missing'
     try:
         return geometry.parse_draw_block(block_text)
     except Exception as e:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} invalid *draw block ({e})', file=sys.stderr)
+        report('Error', line_no or None, f'invalid *draw block ({e})')
         return f'// [Error] invalid draw block: {e}'
 
 
@@ -1034,20 +1093,20 @@ def infer_export_format(output_path, explicit=None):
         if fmt in ('typst',):
             fmt = 'typ'
         if fmt not in SUPPORTED_EXPORT_FORMATS:
-            print(
-                f"[Error] unsupported export format {explicit!r} — "
+            report(
+                'Error', None,
+                f"unsupported export format {explicit!r} — "
                 f"choose from {', '.join(SUPPORTED_EXPORT_FORMATS)}",
-                file=sys.stderr,
             )
             return None
         return fmt
     ext = os.path.splitext(os.fspath(output_path))[1].lower()
     if ext in FORMAT_BY_EXT:
         return FORMAT_BY_EXT[ext]
-    print(
-        f"[Warning] unknown output extension {ext!r} — assuming pdf. "
+    report(
+        'Warning', None,
+        f"unknown output extension {ext!r} — assuming pdf. "
         f"Use --format to pick from {', '.join(SUPPORTED_EXPORT_FORMATS)}.",
-        file=sys.stderr,
     )
     return 'pdf'
 
@@ -1079,10 +1138,10 @@ def _resolve_export(output_pdf, explicit_format, explicit_ppi, input_str):
             if ppi <= 0 or ppi > 1200:
                 raise ValueError('ppi out of range')
         except (ValueError, TypeError, OverflowError):
-            print(
-                f"[Error] invalid --ppi {explicit_ppi!r} — "
+            report(
+                'Error', None,
+                f"invalid --ppi {explicit_ppi!r} — "
                 f"expected an integer 1..1200",
-                file=sys.stderr,
             )
             return None, None, None
     return out_path, fmt, ppi
@@ -1099,7 +1158,7 @@ def _paths_alias(left, right):
 
 
 def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
-                      image_files=()):
+                      image_files=(), typ_source_map=None):
     """Run typst.compile() for one export; True on success.
 
     - ``typ``: just copy the intermediate file to *output_path*.
@@ -1191,9 +1250,9 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
             print(f'\n[ERROR] Typst export failed: {e}', file=sys.stderr)
             return False
     if ppi is not None and fmt != 'png':
-        print(
-            f'[Warning] --ppi {ppi} only affects PNG export — ignoring for {fmt}',
-            file=sys.stderr,
+        report(
+            'Warning', None,
+            f'--ppi {ppi} only affects PNG export — ignoring for {fmt}',
         )
     try:
         parent = os.path.dirname(os.path.abspath(output_path))
@@ -1240,6 +1299,14 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         return False
     except Exception as e:
         # typst.TypstError (bad markup) and any other compile failure.
+        # When the error carries a position in the intermediate .typ
+        # and the source map can map it back, render the same context
+        # block for the .ezmath line. Otherwise leave the classic
+        # output untouched.
+        from .typst_errors import try_report_typst_error
+        if try_report_typst_error(e, typ_file=typst_file,
+                                  typ_source_map=typ_source_map):
+            return False
         msg = str(e)
         if 'cetz' in msg.lower() or 'download' in msg.lower() or 'package' in msg.lower():
             if package_path is None:
@@ -1343,7 +1410,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             _out_arg = os.fspath(_out_arg)
         input_str = os.fspath(input_file)
     except (TypeError, ValueError) as e:
-        print(f'[Error] Invalid input/output path: {e}', file=sys.stderr)
+        report('Error', None, f'Invalid input/output path: {e}')
         return False
 
     ctx = CompileContext()
@@ -1359,21 +1426,21 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         _map_dest = (os.fspath(source_map_path) if source_map_path is not None
                      else default_map_path(_typ_file_early) if source_map else None)
     except (TypeError, ValueError) as exc:
-        print(f'[Error] Invalid source-map path: {exc}', file=sys.stderr)
+        report('Error', None, f'Invalid source-map path: {exc}')
         return False
     # Validate before generating diagrams, intermediate source or the map:
     # an output alias must never destroy the user's input document.
     for destination in (_out_path, _typ_file_early, _map_dest):
         if destination is not None and _paths_alias(input_str, destination):
-            print(f'[Error] Output would overwrite input file {input_str!r}',
-                  file=sys.stderr)
+            report('Error', None,
+                   f'Output would overwrite input file {input_str!r}')
             return False
     if ((_fmt != 'typ' and _paths_alias(_out_path, _typ_file_early))
             or (_map_dest is not None and (
                 _paths_alias(_map_dest, _typ_file_early)
                 or _paths_alias(_map_dest, _out_path)))):
-        print('[Error] Output and intermediate/source-map paths must be distinct',
-              file=sys.stderr)
+        report('Error', None,
+               'Output and intermediate/source-map paths must be distinct')
         return False
     ctx.plot_dir = os.path.dirname(os.path.abspath(_typ_file_early)) or '.'
     ctx.plot_stem = _plots.sanitized_stem(
@@ -1384,12 +1451,18 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         with open(input_str, 'r', encoding='utf-8-sig') as f:
             raw_text = f.read()
     except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
-        print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
+        report('Error', None, f'Cannot open input file {input_str!r}: {e}')
         return False
 
     raw_text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
     lines = strip_comments(raw_text).split('\n')
     raw_source_lines = raw_text.split('\n')
+    # Bind the original source so the diagnostics helper can show the
+    # real .ezmath line under each diagnostic (see compiler.diagnostics).
+    ctx.source_lines = raw_source_lines
+    ctx.source_name = input_str
+    from . import diagnostics as _diagnostics
+    _diagnostics.bind_source(ctx)
     # Parallel to output_lines: original .eml span for each entry (None
     # for consumed control lines, which produce no output).
     output_lines: list[str] = []
@@ -1532,7 +1605,9 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             continue
         elif line == ')' and in_f_block:
             if block_type == '*draw(':
-                drawn = _parse_draw_safe('\n'.join(block_content), line_no=line_no)
+                # Multi-line *draw blocks report at the opening line.
+                drawn = _parse_draw_safe('\n'.join(block_content),
+                                         line_no=block_start_line)
                 _append_output(drawn, block_start_line, line_no)
                 if _is_draw_error_placeholder(drawn):
                     draw_failed = True
@@ -1568,26 +1643,35 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         _doc = _match_doc_title(line)
         if _doc is not None:
             if _doc[0] == 'unclosed':
-                print(
-                    f'[Warning] Line {line_no}: unclosed *{_doc[1]}(... — '
+                col, end_col = source_col_for(
+                    line_no, _call_pattern(_doc[1]), 0)
+                report(
+                    'Warning', line_no,
+                    f'unclosed *{_doc[1]}(... — '
                     f'missing closing parenthesis',
-                    file=sys.stderr,
+                    col=col, end_col=end_col,
                 )
             else:
                 _, _name, _inner = _doc
                 if not _inner.strip():
-                    print(
-                        f'[Warning] Line {line_no}: *{_name}(...) is empty — '
+                    col, end_col = source_col_for(
+                        line_no, _call_pattern(_name), 0)
+                    report(
+                        'Warning', line_no,
+                        f'*{_name}(...) is empty — '
                         f'using default title',
-                        file=sys.stderr,
+                        col=col, end_col=end_col,
                     )
                     continue
                 else:
                     if ctx.doc_title_raw is not None:
-                        print(
-                            f'[Warning] Line {line_no}: multiple *doc_title(...) — '
+                        col, end_col = source_col_for(
+                            line_no, _call_pattern(_name), 0)
+                        report(
+                            'Warning', line_no,
+                            f'multiple *doc_title(...) — '
                             f'using last one',
-                            file=sys.stderr,
+                            col=col, end_col=end_col,
                         )
                     ctx.doc_title_raw = _inner.strip()
                     ctx.doc_title_line = line_no
@@ -1599,18 +1683,24 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         _font = _match_doc_font(line)
         if _font is not None:
             if _font[0] == 'unclosed':
-                print(
-                    f'[Warning] Line {line_no}: unclosed *{_font[1]}(... — '
+                col, end_col = source_col_for(
+                    line_no, _call_pattern(_font[1]), 0)
+                report(
+                    'Warning', line_no,
+                    f'unclosed *{_font[1]}(... — '
                     f'missing closing parenthesis',
-                    file=sys.stderr,
+                    col=col, end_col=end_col,
                 )
             else:
                 _, _fname, _finner = _font
                 if not _finner.strip():
-                    print(
-                        f'[Warning] Line {line_no}: *{_fname}(...) is empty — '
+                    col, end_col = source_col_for(
+                        line_no, _call_pattern(_fname), 0)
+                    report(
+                        'Warning', line_no,
+                        f'*{_fname}(...) is empty — '
                         f'using default font',
-                        file=sys.stderr,
+                        col=col, end_col=end_col,
                     )
                     continue
                 _family_raw, _size_raw = _parse_doc_font(_finner)
@@ -1618,17 +1708,23 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 _size = _valid_doc_font_size(_size_raw) if _size_raw else \
                     DEFAULT_DOC_FONT_SIZE
                 if _family is None or (_size_raw and _size is None):
-                    print(
-                        f'[Warning] Line {line_no}: invalid *{_fname}(...) — '
+                    col, end_col = source_col_for(
+                        line_no, _call_pattern(_fname), 0)
+                    report(
+                        'Warning', line_no,
+                        f'invalid *{_fname}(...) — '
                         f'ignored: {line!r}',
-                        file=sys.stderr,
+                        col=col, end_col=end_col,
                     )
                     continue
                 if ctx.doc_font_family is not None:
-                    print(
-                        f'[Warning] Line {line_no}: multiple *doc_font(...) — '
+                    col, end_col = source_col_for(
+                        line_no, _call_pattern(_fname), 0)
+                    report(
+                        'Warning', line_no,
+                        f'multiple *doc_font(...) — '
                         f'using last one',
-                        file=sys.stderr,
+                        col=col, end_col=end_col,
                     )
                 ctx.doc_font_family = _family
                 ctx.doc_font_size = _size
@@ -1665,11 +1761,13 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         _append_output(_render_text_line(ctx, line, line_no), line_no, line_no)
 
     if in_math:
-        print(
-            f'[Error] Line {math_start}: unclosed math delimiter '
-            f'\\ ... \\ — missing closing \\. Emitting buffered '
-            f'content as text.',
-            file=sys.stderr,
+        col, end_col = last_unescaped_bs_col(math_start)
+        report(
+            'Error', math_start,
+            'unclosed math delimiter '
+            '\\ ... \\ — missing closing \\. Emitting buffered '
+            'content as text.',
+            col=col, end_col=end_col,
         )
         leftover = ' '.join(p for p in math_buf if p != '').strip()
         if leftover:
@@ -1680,10 +1778,11 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # the build loudly instead of reporting success with missing content.
     unclosed_block = in_f_block
     if in_f_block:
-        print(
-            "[ERROR] Unclosed block '(' detected — content inside was not emitted. "
+        report_with_context(
+            'ERROR',
+            "Unclosed block '(' detected — content inside was not emitted. "
             "Add the missing ')' to fix.",
-            file=sys.stderr,
+            line_no=block_start_line,
         )
 
     # ------------------------------------------------------------------
@@ -1702,20 +1801,20 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         except OSError:
             _tail = ''
         if _BUILD_ARTIFACT_MARKER not in _tail:
-            print(
-                f"[ERROR] {typst_file!r} already exists and was not "
+            report(
+                'ERROR', None,
+                f"{typst_file!r} already exists and was not "
                 f"generated by easy-math-lang — refusing to overwrite it. "
                 f"Rename or remove it and retry.",
-                file=sys.stderr,
             )
             return False
     if os.path.abspath(typst_file) == os.path.abspath(input_str):
         # Input already ends with .typ: writing the intermediate back
         # would destroy the source. Fail loudly instead.
-        print(
-            f"[ERROR] Input file {input_str!r} would be overwritten by the "
+        report(
+            'ERROR', None,
+            f"Input file {input_str!r} would be overwritten by the "
             f"intermediate Typst output — rename it to .ezmath and retry.",
-            file=sys.stderr,
         )
         return False
 
@@ -1826,11 +1925,15 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         with open(typst_file, 'w', encoding='utf-8', newline='\n') as tf:
             tf.write('\n'.join(typst_content) + '\n')
     except OSError as e:
-        print(f'\n[ERROR] Cannot write intermediate file {typst_file!r}: {e}',
-              file=sys.stderr)
+        report('ERROR', None,
+               f'Cannot write intermediate file {typst_file!r}: {e}')
         return False
 
     # --- Sidecar source map (additive; never breaks the build) ---
+    # In-memory source map (used by the Typst-failure path to render a
+    # context block for the .ezmath line); None when the map is off or
+    # was refused for this build.
+    typ_source_map = None
     try:
         _map_path: str | None = None
         if source_map_path is not None:
@@ -1848,11 +1951,11 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             except Exception:
                 _ours = False
             if not _ours:
-                print(
-                    f"[ERROR] Source map {_map_path!r} already exists and "
+                report(
+                    'ERROR', None,
+                    f"Source map {_map_path!r} already exists and "
                     f"was not written by easy-math-lang — keeping it and "
                     f"skipping the source map for this build.",
-                    file=sys.stderr,
                 )
                 _map_path = None
         if _map_path:
@@ -1901,8 +2004,9 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                     _run_span,
                 )
             _smap.save(_map_path)
+            typ_source_map = _smap
     except Exception as exc:  # additive only: log and continue
-        print(f'[Warning] could not write source map: {exc}', file=sys.stderr)
+        report('Warning', None, f'could not write source map: {exc}')
 
     try:
         # Drop CPython's source-line cache (tracebacks/warnings during
@@ -1917,18 +2021,18 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     print(f'Generated intermediate file: {typst_file}')
 
     if unclosed_block:
-        print(
-            '\n[ERROR] Build failed: unclosed block — output PDF not attempted. '
-            'Add the missing \')\' and retry.',
-            file=sys.stderr,
+        report(
+            'ERROR', None,
+            'Build failed: unclosed block — output PDF not attempted. '
+            "Add the missing ')' and retry.",
         )
         return False
 
     if draw_failed:
-        print(
-            '\n[ERROR] Build failed: invalid *draw block — output PDF not attempted. '
+        report(
+            'ERROR', None,
+            'Build failed: invalid *draw block — output PDF not attempted. '
             'Fix the geometry errors above and retry.',
-            file=sys.stderr,
         )
         return False
 
@@ -1940,6 +2044,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     return _run_typst_export(
         typst_file, _out_path, _fmt, _ppi, input_str=input_str,
         image_files=getattr(ctx, 'image_files', []),
+        typ_source_map=typ_source_map,
     )
 
 

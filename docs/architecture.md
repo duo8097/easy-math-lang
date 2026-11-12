@@ -59,7 +59,8 @@ modules — never fork the syntax into a second implementation.
 - `compile_ezmath(input, output, …)` (`pipeline.py`) — the public API.
   The editor preview, the tests, and the CLI all call this. It is
   wrapped by `@_with_diag_count`, which counts `[Error]`/`[Warning]`
-  writes and implements `--strict`.
+  writes (only at the start of a line, so echoed source lines in the
+  new context blocks never count) and implements `--strict`.
 
 ### What one compile does
 
@@ -94,7 +95,7 @@ modules — never fork the syntax into a second implementation.
 | Module | Responsibility |
 |---|---|
 | `pipeline.py` | Everything above: line loop, per-line phases, Typst output, CLI |
-| `state.py` | `CompileContext` — per-run state (variables, defines, doc title/font, plot counters) |
+| `state.py` | `CompileContext` — per-run state (variables, defines, doc title/font, plot counters, original source lines for diagnostics) |
 | `comments.py` | `//` stripping |
 | `statements.py` | `*define(...)`, `<x> = ...`, `let x = 5` normalization |
 | `variables.py` | `<name>` substitution + `undefined variable` errors |
@@ -107,7 +108,7 @@ modules — never fork the syntax into a second implementation.
 | `plots.py` | `*plot` → Matplotlib SVG → `#image(...)` |
 | `text_commands.py` | `*bold/*italic/*underline`, `*newpage`, `*image` |
 | `escaping.py` | Escaping text so it is safe in Typst |
-| `diagnostics.py` | Unknown-command warnings + "did you mean …?" |
+| `diagnostics.py` | Unknown-command warnings, "did you mean …?", and the `report()` helper that prints every diagnostic with a Python-style context block (file/line/column, the real source line and a caret) |
 | `source_map.py`, `source_links.py` | `.smap.json` sidecar + `eml-src://` PDF click-back links |
 | `update.py` | `--check-update` GitHub release lookup |
 

@@ -45,7 +45,8 @@ pipeline) so there are no import cycles.
 """
 
 import re
-import sys
+
+from .diagnostics import report
 
 TABLE_NAMES = ('table',)
 MATRIX_NAMES = ('matrix', 'mat')
@@ -229,18 +230,18 @@ def normalize_grid(grid, line_no, kind):
     """
     kept = [r for r in grid if any(c.strip() for c in r)]
     if not kept:
-        print(
-            f'[Warning] Line {line_no}: *{kind}(...) is empty — leaving as-is',
-            file=sys.stderr,
+        report(
+            'Warning', line_no,
+            f'*{kind}(...) is empty — leaving as-is',
         )
         return None
     widths = [len(r) for r in kept]
     ncols = max(widths)
     if len(set(widths)) != 1:
-        print(
-            f'[Warning] Line {line_no}: *{kind}(...) rows have different '
+        report(
+            'Warning', line_no,
+            f'*{kind}(...) rows have different '
             f'lengths {widths} — padding to {ncols} column(s)',
-            file=sys.stderr,
         )
         kept = [r + [''] * (ncols - len(r)) for r in kept]
     return kept
