@@ -230,8 +230,13 @@ def split_plot_segments(x_values, y_values):
 
 
 def plot_filename(stem, index):
-    """SVG file name for the *index*-th plot (1-based)."""
-    return f'{stem}-plot-{index}.svg'
+    """SVG file name for the *index*-th plot (1-based).
+
+    The stem derives from the input filename: strip anything that is
+    not safe in a file name or a Typst string.
+    """
+    safe = re.sub(r'[^A-Za-z0-9._-]+', '_', str(stem)).strip('.') or 'doc'
+    return f'{safe}-plot-{index}.svg'
 
 
 def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,

@@ -55,7 +55,7 @@ def test_calc_division_by_zero():
 
 def test_geometry_malformed_block():
     result = analysis.analyze_text("*draw(\n*point(A\n)\n")
-    assert any('unclosed parentheses' in d.message
+    assert any('unclosed command' in d.message
                for d in result.diagnostics)
 
 

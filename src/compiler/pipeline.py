@@ -38,6 +38,7 @@ docs/architecture.md.
 import os
 import re
 import sys
+import threading
 
 # The `typst` PDF backend is imported lazily by _require_typst() on first
 # export so processes that never compile (editor startup, LSP-only runs)
@@ -69,7 +70,7 @@ except ImportError:  # embedded layout: sources imported as one package
 from .calc import apply_calc_in_string
 from .comments import strip_comments
 from .diagnostics import warn_unknown_commands
-from .escaping import escape_typst_outside_math, index_replacer, merge_math
+from .escaping import escape_typst_outside_math, index_replacer, mask_urls, merge_math, restore_urls
 from .inline_math import find_unescaped, process_math_inner
 from .math_commands import (
     clean_inner_math,
@@ -94,6 +95,11 @@ from .variables import check_undefined_vars, replace_defines, replace_vars
 from . import tables as _tables
 from . import plots as _plots
 from . import text_commands as _textcmds
+
+# First line of every generated intermediate .typ: lets the compiler
+# recognize its own artifacts so a pre-existing hand-written file is
+# never overwritten silently (see the guard in compile_ezmath).
+_BUILD_ARTIFACT_MARKER = '// easy-math-lang build artifact — do not edit; regenerated on every compile'
 
 
 class _DiagCounter:
@@ -137,6 +143,10 @@ class _DiagCounter:
 
 
 _ACTIVE_COUNTER = None
+# Serializes compiles process-wide: a compile swaps process-global
+# sys.stderr (and _ACTIVE_COUNTER) for the duration, so two threads
+# compiling at once would attribute diagnostics to each other's document.
+_COMPILE_LOCK = threading.RLock()
 
 
 def _current_diag_counts():
@@ -157,20 +167,21 @@ def _with_diag_count(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         global _ACTIVE_COUNTER
-        old = sys.stderr
-        ctr = _DiagCounter(old)
-        prev = _ACTIVE_COUNTER
-        _ACTIVE_COUNTER = ctr
-        sys.stderr = ctr
-        try:
-            ok = fn(*args, **kwargs)
-            strict = kwargs.get('strict', False)
-            if strict and ctr.errors > 0:
-                return False
-            return ok
-        finally:
-            sys.stderr = old
-            _ACTIVE_COUNTER = prev
+        with _COMPILE_LOCK:
+            old = sys.stderr
+            ctr = _DiagCounter(old)
+            prev = _ACTIVE_COUNTER
+            _ACTIVE_COUNTER = ctr
+            sys.stderr = ctr
+            try:
+                ok = fn(*args, **kwargs)
+                strict = kwargs.get('strict', False)
+                if strict and ctr.errors > 0:
+                    return False
+                return ok
+            finally:
+                sys.stderr = old
+                _ACTIVE_COUNTER = prev
 
     return wrapper
 
@@ -366,7 +377,7 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
     return ''.join(out), placeholders
 
 
-def _expand_plots(ctx, text, line_no):
+def _expand_plots(ctx, text, line_no, _allow=True):
     """Expand ``*plot(expression ; xmin ; xmax)`` to ``#image(...)``.
 
     Each plot is rendered to ``<stem>-plot-<n>.svg`` next to the
@@ -382,6 +393,32 @@ def _expand_plots(ctx, text, line_no):
     out = []
     while True:
         found = _plots.find_next_plot_call(text, pos)
+        if not _allow:
+            # Codegen-time phases (document title) must not write files.
+            if found is None:
+                out.append(text[pos:])
+                break
+            if found[0] == 'unclosed':
+                _, call_start = found[0], found[1]
+                out.append(text[pos:call_start])
+                print(
+                    f'[Error] Line {line_no}: *plot(...) is not allowed '
+                    f'in *doc_title — dropped',
+                    file=sys.stderr,
+                )
+                out.append('[Plot Error: *plot(...) is not allowed in *doc_title]')
+                pos = len(text)
+                continue
+            call_start, call_end = found[0], found[2]
+            out.append(text[pos:call_start])
+            print(
+                f'[Error] Line {line_no}: *plot(...) is not allowed '
+                f'in *doc_title — dropped',
+                file=sys.stderr,
+            )
+            out.append('[Plot Error: *plot(...) is not allowed in *doc_title]')
+            pos = call_end
+            continue
         if not found:
             out.append(text[pos:])
             break
@@ -508,12 +545,13 @@ def _doc_title_plain(ctx, raw):
 
 
 def _escape_doc_title_brackets(rendered):
-    """Escape ``[``/``]`` outside ``$...$`` so a title stays inside ``[...]``."""
-    parts = re.split(r'(\$.*?\$)', rendered)
-    for i, tok in enumerate(parts):
-        if not (tok.startswith('$') and tok.endswith('$') and len(tok) >= 2):
-            parts[i] = tok.replace('[', r'\[').replace(']', r'\]')
-    return ''.join(parts)
+    """Escape ``[``/``]`` outside ``$...$`` so a title stays inside ``[...]``.
+
+    Generated markup spans (e.g. ``#strong[...]`` from a styled title)
+    are left intact.
+    """
+    from .escaping import escape_brackets_outside_math
+    return escape_brackets_outside_math(rendered)
 
 
 DOC_FONT_NAMES = ('doc_font', 'doc-font', 'docfont')
@@ -636,7 +674,7 @@ def _eml_line_span(source_file, start_1based, end_1based, raw_lines):
     )
 
 
-def _render_text_line(ctx, raw, line_no, _table_depth=0):
+def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     """Run the text pipeline for one logical (single-line) text unit.
 
     Handles ``*p(...)`` raw segments and balanced ``\\ ... \\`` inline
@@ -678,6 +716,13 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     else:
         text = raw
         placeholders = {}
+
+    # 1b. Mask bare URLs: symbol/subscript/undefined-var passes must not
+    # rewrite what users paste verbatim. Restored (escaped) after the
+    # escape step below.
+    url_placeholders = {}
+    if '://' in text:
+        text, url_placeholders = mask_urls(text)
 
     # Protect literal user '$' so later $...$ splits only see generated
     # math. Without this, "cost $5 and $x" pairs into a fake math span
@@ -753,7 +798,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     # basename is embedded, so the Typst build stays relocatable.
     plot_placeholders = {}
     if _table_depth <= 20:
-        text, plot_placeholders = _expand_plots(ctx, text, line_no)
+        text, plot_placeholders = _expand_plots(
+            ctx, text, line_no, _allow=_side_effects)
 
     # 5f. Text commands (*bold/*italic/*underline, *newpage, *image).
     # Runs after vars/calc/plots (like math commands) so <vars>
@@ -765,8 +811,10 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
         text, tc_placeholders = _textcmds.expand_text_commands(
             ctx, text, line_no,
             lambda arg: _render_text_line(
-                ctx, arg, line_no, _table_depth=_table_depth + 1),
+                ctx, arg, line_no, _table_depth=_table_depth + 1,
+                _side_effects=_side_effects),
             _table_depth,
+            _allow_effects=_side_effects,
         )
 
     # 6. Math constructs (friendly aliases + bare calls first).
@@ -838,6 +886,8 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0):
     # 13. Escape special Typst syntax characters outside math blocks
     # (user '$' are placeholders here; generated $...$ are preserved).
     text = escape_typst_outside_math(text, escape_dollar=True)
+    if url_placeholders:
+        text = restore_urls(text, url_placeholders)
     # Restore tables/matrices first so inner $/math placeholders kept
     # inside them are still restored by the steps below.
     for ph, typ in table_placeholders.items():
@@ -931,16 +981,22 @@ def _render_math_inner_multiline(ctx, full_raw, line_no):
             elif not content.strip():
                 out_parts.append(content)
             else:
-                sub = replace_vars(ctx, content)
+                _u_sub, _u_ph = mask_urls(content) if '://' in content else (content, {})
+                sub = replace_vars(ctx, _u_sub)
                 sub = check_undefined_vars(sub, line_no, ctx)
                 sub = replace_defines(ctx, sub)
                 sub = apply_calc_in_string(ctx, sub, line_no=line_no)
+                if _u_ph:
+                    sub = restore_urls(sub, _u_ph)
                 out_parts.append(process_math_inner(ctx, sub, line_no))
         return ' '.join(p for p in out_parts if p != '').strip()
-    sub = replace_vars(ctx, full_raw)
+    _u_raw, _u_ph = mask_urls(full_raw) if '://' in full_raw else (full_raw, {})
+    sub = replace_vars(ctx, _u_raw)
     sub = check_undefined_vars(sub, line_no, ctx)
     sub = replace_defines(ctx, sub)
     sub = apply_calc_in_string(ctx, sub, line_no=line_no)
+    if _u_ph:
+        sub = restore_urls(sub, _u_ph)
     return process_math_inner(ctx, sub, line_no)
 
 
@@ -1069,7 +1125,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
             if os.path.abspath(tdir) == os.path.abspath(ddir):
                 return
             os.makedirs(ddir, exist_ok=True)
-            for svg in sorted(_glob.glob(os.path.join(tdir, f'{tstem}-plot-*.svg'))):
+            for svg in sorted(_glob.glob(os.path.join(tdir, f'{_glob.escape(tstem)}-plot-*.svg'))):
                 try:
                     shutil.copyfile(
                         svg, os.path.join(ddir, os.path.basename(svg)))
@@ -1077,10 +1133,17 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
                     pass
             for abs_src, rel in (image_files or ()):
                 try:
+                    # rel is the typdir-relative path of the image; the
+                    # destination must stay inside dst_dir — a crafted
+                    # path with '..' must never escape the export dir.
                     dst = os.path.normpath(os.path.join(ddir, rel))
+                    ddir_abs = os.path.abspath(ddir)
+                    dst_abs = os.path.abspath(dst)
+                    if dst_abs != ddir_abs and not dst_abs.startswith(ddir_abs + os.sep):
+                        continue
                     if not os.path.isfile(abs_src):
                         continue
-                    if os.path.abspath(dst) == os.path.abspath(abs_src):
+                    if dst_abs == os.path.abspath(abs_src):
                         continue
                     parent = os.path.dirname(dst)
                     if parent:
@@ -1620,6 +1683,23 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # ------------------------------------------------------------------
     base, _ = os.path.splitext(input_str)
     typst_file = base + '.typ'
+    if os.path.isfile(typst_file):
+        try:
+            with open(typst_file, 'r', encoding='utf-8') as _tf_check:
+                _tf_check.seek(0, os.SEEK_END)
+                _size = _tf_check.tell()
+                _tf_check.seek(max(0, _size - (len(_BUILD_ARTIFACT_MARKER) + 32)))
+                _tail = _tf_check.read()
+        except OSError:
+            _tail = ''
+        if _BUILD_ARTIFACT_MARKER not in _tail:
+            print(
+                f"[ERROR] {typst_file!r} already exists and was not "
+                f"generated by easy-math-lang — refusing to overwrite it. "
+                f"Rename or remove it and retry.",
+                file=sys.stderr,
+            )
+            return False
     if os.path.abspath(typst_file) == os.path.abspath(input_str):
         # Input already ends with .typ: writing the intermediate back
         # would destroy the source. Fail loudly instead.
@@ -1660,7 +1740,8 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     if ctx.doc_title_raw is not None:
         _rendered_title = _escape_doc_title_brackets(
             _render_text_line(
-                ctx, ctx.doc_title_raw, ctx.doc_title_line or 1
+                ctx, ctx.doc_title_raw, ctx.doc_title_line or 1,
+                _side_effects=False,
             )
         )
         _plain_title = _doc_title_plain(ctx, ctx.doc_title_raw)
@@ -1729,6 +1810,9 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             typst_content.append('#v(0.65em)')
             _typ_span_for_line.append(None)
 
+    # Marker line LAST: prepending it would shift every generated line
+    # index the sidecar source map records. It marks the file as ours.
+    typst_content.append(_BUILD_ARTIFACT_MARKER)
     try:
         with open(typst_file, 'w', encoding='utf-8') as tf:
             tf.write('\n'.join(typst_content) + '\n')
@@ -1744,6 +1828,24 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             _map_path = os.fspath(source_map_path)
         elif source_map:
             _map_path = default_map_path(typst_file)
+        if _map_path and os.path.isfile(_map_path):
+            try:
+                with open(_map_path, 'r', encoding='utf-8') as _mf:
+                    import json as _json
+                    _mdata = _json.load(_mf)
+                _ours = (isinstance(_mdata, dict)
+                         and isinstance(_mdata.get('entries'), list)
+                         and 'source_file' in _mdata)
+            except Exception:
+                _ours = False
+            if not _ours:
+                print(
+                    f"[ERROR] Source map {_map_path!r} already exists and "
+                    f"was not written by easy-math-lang — keeping it and "
+                    f"skipping the source map for this build.",
+                    file=sys.stderr,
+                )
+                _map_path = None
         if _map_path:
             _smap = TypstSourceMap(
                 source_file=_src_id,
@@ -1915,7 +2017,7 @@ def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
     candidates = [typ_path, smap_path]
     if not keep_svgs:
         candidates.extend(
-            sorted(_glob.glob(os.path.join(typ_dir, f'{stem}-plot-*.svg'))))
+            sorted(_glob.glob(os.path.join(typ_dir, f'{_glob.escape(stem)}-plot-*.svg'))))
     for cand in candidates:
         try:
             cand_abs = os.path.abspath(cand)

@@ -247,13 +247,12 @@ def normalize_grid(grid, line_no, kind):
 
 
 def _escape_brackets_outside_math(s):
-    """Escape [ ] outside $...$ so table cells can't close [cell] early."""
-    parts = re.split(r'(\$.*?\$)', s)
-    for i, tok in enumerate(parts):
-        if not (tok.startswith('$') and tok.endswith('$') and len(tok) >= 2):
-            tok = tok.replace('[', r'\[').replace(']', r'\]')
-            parts[i] = tok
-    return ''.join(parts)
+    """Escape [ ] outside $...$ so table cells can't close [cell] early.
+
+    Generated markup spans (#strong[...] etc.) are left intact.
+    """
+    from .escaping import escape_brackets_outside_math
+    return escape_brackets_outside_math(s)
 
 
 def build_table_typst(rendered_grid):

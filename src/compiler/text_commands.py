@@ -214,7 +214,7 @@ def _typst_string(s):
     return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
-def _expand_images(ctx, text, line_no, placeholders):
+def _expand_images(ctx, text, line_no, placeholders, _allow=True):
     """Expand ``*image(path [; width])`` to ``#image(...)``.
 
     Relative paths resolve from the ``.ezmath`` file's folder (see
@@ -258,6 +258,16 @@ def _expand_images(ctx, text, line_no, placeholders):
             continue
         _call_start, _inner_start, call_end, inner_raw = found
         out.append(text[pos:_call_start])
+        if not _allow:
+            # Codegen-time phases (document title) must not copy files.
+            print(
+                f'[Error] Line {line_no}: *image(...) is not allowed '
+                f'in *doc_title — dropped',
+                file=sys.stderr,
+            )
+            out.append('[Image Error: *image(...) is not allowed in *doc_title]')
+            pos = call_end
+            continue
         args = split_top_level_args(inner_raw)
         err = None
         if len(args) not in (1, 2):
@@ -326,7 +336,7 @@ def _expand_images(ctx, text, line_no, placeholders):
     return ''.join(out)
 
 
-def expand_text_commands(ctx, text, line_no, cleaner, _depth=0):
+def expand_text_commands(ctx, text, line_no, cleaner, _depth=0, _allow_effects=True):
     """Expand styling, page breaks and images in one pass.
 
     Runs AFTER vars/calc/inline-math/plots (like math commands)
@@ -339,7 +349,7 @@ def expand_text_commands(ctx, text, line_no, cleaner, _depth=0):
     placeholders = {}
     text = normalize_text_aliases(text)
     text = _replace_pagebreak_calls(text, line_no, placeholders)
-    text = _expand_images(ctx, text, line_no, placeholders)
+    text = _expand_images(ctx, text, line_no, placeholders, _allow=_allow_effects)
     # Bare *newpage / *pagebreak (no parens) after the call forms so
     # '*newpage (' with a space still takes the call path above.
     def _bare_pagebreak(m):

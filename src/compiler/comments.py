@@ -55,6 +55,39 @@ def _balanced_spans(line, opener):
         pos = i
 
 
+def _is_escaped_bs(line, i):
+    """True when line[i] is preceded by an odd number of backslashes."""
+    n = 0
+    j = i - 1
+    while j >= 0 and line[j] == '\\':
+        n += 1
+        j -= 1
+    return n % 2 == 1
+
+
+def _quote_ranges(line):
+    """Ranges covered by double-quoted strings (never comments).
+
+    An unterminated string protects through end of line, mirroring
+    the rest of the compiler's handling of unterminated constructs.
+    """
+    ranges = []
+    start = None
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == '"' and not _is_escaped_bs(line, i):
+            if start is None:
+                start = i
+            else:
+                ranges.append((start, i + 1))
+                start = None
+        i += 1
+    if start is not None:
+        ranges.append((start, len(line)))
+    return ranges
+
+
 def _protected_ranges(line):
     """Ranges where // must not start a comment.
 
@@ -103,6 +136,7 @@ def strip_comments(text):
             raw_line,
         )
         protected = _protected_ranges(line_prot)
+        protected.extend(_quote_ranges(line_prot))
         # Track multiline math across source lines. Only actual text
         # delimiters affect state: raw *p(...) and assignment values are
         # consumed before inline math by the document pipeline.
