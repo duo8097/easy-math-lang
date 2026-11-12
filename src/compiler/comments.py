@@ -5,6 +5,19 @@ import re
 from .inline_math import find_unescaped
 
 
+def split_lines(text):
+    """Split *text* like LSP clients split a document.
+
+    ``str.splitlines()`` also splits on VT/FF/FS/GS/RS/US/NEL and the
+    Unicode line separators, which would invent lines that do not exist
+    in the client's view of the file and shift every diagnostic after
+    them. LSP clients split on \\r\\n, \\r and \\n only, so we normalize
+    and split on \\n — keeping compiler output and editor positions in
+    agreement.
+    """
+    return text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+
+
 def _math_ranges(line_prot):
     """Ranges covered by ``\\ ... \\`` math on one line (never comments).
 
@@ -118,7 +131,7 @@ def strip_comments(text):
     cleaned_lines = []
     in_math = False
     in_fence = False
-    for raw_line in text.splitlines():
+    for raw_line in split_lines(text):
         if raw_line.strip().startswith('```'):
             in_fence = not in_fence
             cleaned_lines.append(raw_line)

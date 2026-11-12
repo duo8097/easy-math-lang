@@ -77,6 +77,36 @@ def _mask_calc_spans(code):
     return _mask_ranges(code, spans)
 
 
+def _geometry_warning(cmd, parens=True):
+    """Message for a geometry command used outside *draw(...).
+
+    ``*draw`` itself gets the compiler's wording — the old message was
+    self-referential ('*draw(...) is only valid inside *draw(...)').
+    """
+    if cmd == 'draw':
+        return 'unclosed or malformed *draw(...) — treated as plain text'
+    if parens:
+        return f"*{cmd}(...) is only valid inside *draw(...) — treated as plain text"
+    return f"*{cmd} is only valid inside *draw(...) — treated as plain text"
+
+
+def _mask_matrix_spans(code):
+    """Blank balanced ``*matrix(``/``*mat(`` spans (offset-preserving).
+
+    Their cells go through the math cleaner, which never calls
+    warn_unknown_commands — so unknown commands inside matrix cells are
+    silent in the compiler and must be silent here too. The shape
+    checker still sees the unmasked line.
+    """
+    spans = []
+    for m in re.finditer(r'\*(matrix|mat)\s*\(', code):
+        close = _balanced_range(code, m.end() - 1)
+        if close is None:
+            continue
+        spans.append((m.start(), close))
+    return _mask_ranges(code, spans)
+
+
 def _mask_known_call_spans(code):
     """Blank balanced *known(...) spans (offset-preserving).
 
@@ -147,6 +177,28 @@ def _quiet():
     buf = io.StringIO()
     with contextlib.redirect_stderr(buf):
         yield buf
+
+
+@contextlib.contextmanager
+def _quiet_calc(analysis, line):
+    """Suppress compiler noise but keep ``calc()`` failures as diagnostics.
+
+    The compiler reports e.g. ``calc(1/0)`` only on stderr, which the LSP
+    otherwise swallows — leaving the user with nothing. Convert exactly
+    the calc-failure lines into diagnostics; everything else stays
+    suppressed.
+    """
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        yield buf
+    for raw in buf.getvalue().split('\n'):
+        s = raw.strip()
+        if 'calc()' not in s:
+            continue
+        if s.startswith('[Error') or s.startswith('[Calc Error'):
+            m = re.match(r'\[Error\]\s*(?:Line \d+:\s*)?(.*)', s, re.IGNORECASE)
+            msg = (m.group(1) if m else s).strip() or s
+            analysis.diagnostics.append(Diag(line, 0, 0, 'error', msg[:300]))
 
 
 def _balanced_range(text, open_index):
@@ -222,6 +274,18 @@ def _snapshot(ctx):
     return set(ctx.variables), set(ctx.defines)
 
 
+def _find_call_anchor(code, name):
+    """Offset of ``*name(`` in *code*, or 0 when absent.
+
+    Matches inside a balanced ``*p(...)`` span don't count (the compiler
+    treats them as raw text), replacing the old ``code.index`` that
+    mis-anchored diagnostics.
+    """
+    masked = _mask_p_segments(code)
+    m = re.search(r'\*' + re.escape(name) + r'\s*\(', masked)
+    return m.start() if m is not None else 0
+
+
 def _analyze_draw(block_text, lines, start_line, end_line, analysis):
     """Geometry diagnostics for one draw block (compiler output reused)."""
     with _quiet() as cap:
@@ -230,14 +294,20 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
     anchor_end = len(lines[start_line]) if start_line < len(lines) else 0
     # Single-line anchor on the block opener (Diag is single-line);
     # the message names the failing command for precise location.
-    for source in (cap.getvalue().splitlines(), out.splitlines()):
+    for source in (cap.getvalue().split('\n'), out.split('\n')):
         for raw in source:
             m = re.match(r'(?://\s*)?\[(GeometryError|GeometryWarning)\]\s*(.*)', raw.strip())
             if not m:
                 continue
             severity = 'error' if m.group(1) == 'GeometryError' else 'warning'
             message = m.group(2).strip() or m.group(1)
-            key = (severity, message, start_line, end_line)
+            # The compiler emits the same failure twice — to stderr with
+            # the command echoed and to the canvas as a bare comment
+            # ('*line(A; A): ...' vs '*line: ...'). Dedup on a
+            # command-prefix-free message so one error = one diagnostic.
+            norm = re.sub(r'^\*[A-Za-z][\w-]*(\([^)]*\))?:\s*', '', message)
+            norm = re.sub(r'\s+', ' ', norm).strip()
+            key = (severity, norm, start_line, end_line)
             if key in seen:
                 continue
             seen.add(key)
@@ -262,6 +332,79 @@ def _table_shape_message(inner, kind):
             f'{sorted(len(r) for r in kept)} — short rows are padded'
         )
     return None
+
+
+_PLOT_CALLS = frozenset({'plot'})
+_STYLE_CALLS = frozenset({'bold', 'italic', 'underline'})
+_IMAGE_CALLS = frozenset({'image'})
+
+
+def _validate_plot_image_styling(masked_code, idx, analysis, ctx):
+    """Shape checks for *plot/*image and styling calls (text mode)."""
+    try:
+        from compiler.math_commands import split_top_level_args
+        from compiler import plots as _plots
+    except Exception:
+        return
+
+    for m in CMD_CALL.finditer(masked_code):
+        cmd = m.group(1)
+        if cmd not in _PLOT_CALLS and cmd not in _IMAGE_CALLS and cmd not in _STYLE_CALLS:
+            continue
+        close = _balanced_range(masked_code, m.end() - 1)
+        if close is None:
+            analysis.diagnostics.append(Diag(
+                idx, m.start(), len(masked_code), 'error',
+                f'Unclosed *{cmd}(... — missing closing parenthesis',
+            ))
+            continue
+        if cmd in _STYLE_CALLS:
+            continue
+        inner_raw = masked_code[m.end():close - 1]
+        try:
+            args = split_top_level_args(inner_raw)
+        except Exception:
+            continue
+        if cmd == 'plot':
+            if not args[0].strip():
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    '*plot(...) needs an expression to plot',
+                ))
+                continue
+            if len(args) != 3:
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    f'*plot(...) needs 3 arguments: expression ; xmin ; xmax '
+                    f'(got {len(args)})',
+                ))
+                continue
+            try:
+                xmin = _plots.evaluate_bound(ctx, args[1])
+                xmax = _plots.evaluate_bound(ctx, args[2])
+            except ValueError as e:
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    f'*plot(...) invalid bounds: {e}',
+                ))
+                continue
+            if xmin >= xmax:
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    f'*plot(...) needs xmin < xmax (got {xmin} >= {xmax})',
+                ))
+        elif cmd == 'image':
+            if len(args) not in (1, 2):
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    f'*image(...) needs 1 or 2 arguments: path [; width] '
+                    f'(got {len(args)})',
+                ))
+            elif not args[0].strip():
+                analysis.diagnostics.append(Diag(
+                    idx, m.start(), close, 'error',
+                    '*image(...) needs a file path',
+                ))
 
 
 def _validate_table_calls(line_text, idx, analysis, *, in_math_pairs):
@@ -334,10 +477,83 @@ def analyze_text(text):
         return analysis
 
 
+def _analyze_math_body(ctx, head, idx, analysis):
+    """Checks for the math portion of a line (\\... or a multiline head).
+
+    Mirrors the compiler's validation of math bodies: undefined
+    variables get hard errors, ``calc(...)`` errors are reported, and
+    unknown commands inside math are flagged (the compiler's
+    ``warn_unknown_commands`` runs on math inners too). Positions are
+    relative to *head* (which starts at column 0 of the source line).
+    """
+    check_code = _mask_p_segments(head)
+
+    for occ in VAR_TOKEN.finditer(check_code):
+        raw_name = occ.group(1)
+        if not re.fullmatch(rf'\s*{IDENT}\s*', raw_name):
+            continue
+        if occ.start() > 0 and check_code[occ.start() - 1] == '<':
+            continue
+        if occ.end() < len(check_code) and check_code[occ.end()] == '>':
+            continue
+        clean = raw_name.strip()
+        if clean in ctx.variables or clean in ctx.defines:
+            continue
+        analysis.diagnostics.append(Diag(
+            idx, occ.start(), occ.end(), 'error',
+            f'Undefined variable <{clean}>',
+        ))
+
+    # Unknown commands inside math (the compiler warns too).
+    _masked = check_code
+    while True:
+        _o = _unescaped_bs_positions(_masked)
+        if len(_o) < 2:
+            break
+        _masked = (
+            _masked[:_o[0]] + ' ' * (_o[1] + 1 - _o[0]) + _masked[_o[1] + 1:]
+        )
+    for m in CMD_CALL.finditer(_masked):
+        cmd = m.group(1)
+        if cmd == 'calc':
+            continue
+        if cmd in KNOWN_COMMANDS:
+            continue
+        if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
+            analysis.diagnostics.append(Diag(
+                idx, m.start(), m.end(), 'warning',
+                _geometry_warning(cmd, parens=True),
+            ))
+            continue
+        analysis.diagnostics.append(Diag(
+            idx, m.start(), m.end(), 'warning',
+            f"Unknown command *{cmd}(...) — treated as plain text",
+        ))
+
+    for m in CALC_OPEN.finditer(check_code):
+        close = _balanced_range(check_code, m.end() - 1)
+        if close is None:
+            analysis.diagnostics.append(Diag(
+                idx, m.start(), len(check_code), 'error',
+                'Unclosed parenthesis in calc(...)',
+            ))
+            continue
+        expr = head[m.end():close - 1]
+        res = evaluate_calc(ctx, expr)
+        if res.startswith('[Calc Error'):
+            analysis.diagnostics.append(Diag(
+                idx, m.start(), close, 'error', res,
+            ))
+
+
 def _analyze_text_inner(text, analysis):
+    # LSP clients split lines on \r\n, \r and \n only; str.splitlines()
+    # would invent phantom lines for VT/FF/FS-US/NEL and mistranslate
+    # every diagnostic that follows them. Normalize first.
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
     ctx = CompileContext()
-    raw_lines = text.splitlines()
-    lines = strip_comments(text).splitlines()
+    raw_lines = text.split('\n')
+    lines = strip_comments(text).split('\n')
     # strip_comments preserves line count, but be defensive.
     while len(lines) < len(raw_lines):
         lines.append('')
@@ -354,6 +570,7 @@ def _analyze_text_inner(text, analysis):
     math_start = 0
     math_start_char = 0
 
+    ctx._doc_title_seen = False
     with _quiet():
         in_fence = False
         for idx, code in enumerate(lines):
@@ -384,7 +601,14 @@ def _analyze_text_inner(text, analysis):
                     # handled by the single-line tracking below).
                     in_math = False
                     first = _bs_close[0]
-                    code = code[first + 1:]
+                    # The math head is part of the math body: check it
+                    # (undefined vars/calc/unknown commands) before the
+                    # normal-text pass. Positions below start at column 0,
+                    # so they are exact. The head+closer are then masked
+                    # out of the tail's text checks (offset-preserving) —
+                    # nothing on them can leak in.
+                    _analyze_math_body(ctx, code[:first], idx, analysis)
+                    code = ' ' * (first + 1) + code[first + 1:]
                     s = code.strip()
                     if not s:
                         continue
@@ -394,10 +618,10 @@ def _analyze_text_inner(text, analysis):
             # (pipeline.py accepts '*define (x = 1)').
             _m_def = re.match(r'^(\*?define)\s*\((.*)\)\s*$', s)
             if not math_buffered and _m_def and _m_def.group(2) is not None:
-                prefix_len = len(_m_def.group(1)) + 1  # name + '('
                 inner = s[_m_def.start(2):_m_def.end(2)]
                 before = _snapshot(ctx)
-                process_assignment_or_define(ctx, 'define(' + inner + ')', line_no=idx + 1)
+                with _quiet_calc(analysis, idx):
+                    process_assignment_or_define(ctx, 'define(' + inner + ')', line_no=idx + 1)
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
@@ -409,7 +633,8 @@ def _analyze_text_inner(text, analysis):
                     or re.match(r'^<[^<>]+>\s*=', _norm)
                 ):
                     before = _snapshot(ctx)
-                    process_assignment_or_define(ctx, _norm, line_no=idx + 1)
+                    with _quiet_calc(analysis, idx):
+                        process_assignment_or_define(ctx, _norm, line_no=idx + 1)
                     _record_new(ctx, before, code, idx, analysis)
                     continue
 
@@ -418,7 +643,8 @@ def _analyze_text_inner(text, analysis):
                 inner = s[6:-1]
                 inner = replace_vars(ctx, inner)
                 inner = replace_defines(ctx, inner)
-                inner = apply_calc_in_string(ctx, inner)
+                with _quiet_calc(analysis, idx):
+                    inner = apply_calc_in_string(ctx, inner)
                 pos = code.index('*draw')
                 analysis.definitions.append(Definition('draw', 'draw', idx, pos, pos + 5))
                 if '[Calc Error' in inner:
@@ -433,7 +659,8 @@ def _analyze_text_inner(text, analysis):
                 inner = s[3:-1].strip()
                 if not (inner.startswith('frac(') or inner.startswith('root(')):
                     before = _snapshot(ctx)
-                    process_assignment_or_define(ctx, inner, line_no=idx + 1)
+                    with _quiet_calc(analysis, idx):
+                        process_assignment_or_define(ctx, inner, line_no=idx + 1)
                     _record_new(ctx, before, code, idx, analysis)
                     continue
             elif not math_buffered and ((s.startswith('*(') and s.endswith(')') and len(s) > 3)
@@ -446,7 +673,8 @@ def _analyze_text_inner(text, analysis):
                             or inner.startswith('define(')
                             or _inner_norm != inner):
                         before = _snapshot(ctx)
-                        process_assignment_or_define(ctx, inner, line_no=idx + 1)
+                        with _quiet_calc(analysis, idx):
+                            process_assignment_or_define(ctx, inner, line_no=idx + 1)
                         _record_new(ctx, before, code, idx, analysis)
                         continue
             if not math_buffered and s in ('*(', '*f(', 'f(', '*draw('):
@@ -457,7 +685,7 @@ def _analyze_text_inner(text, analysis):
                 continue
             elif not math_buffered and s == ')' and in_f_block:
                 if block_type == '*draw(':
-                    pos = lines[block_start].index('*draw')
+                    pos = _find_call_anchor(lines[block_start], 'draw')
                     analysis.definitions.append(
                         Definition('draw', 'draw', block_start, pos, pos + 5)
                     )
@@ -468,17 +696,19 @@ def _analyze_text_inner(text, analysis):
                 else:
                     for stmt_idx, stmt in block_content:
                         before = _snapshot(ctx)
-                        process_assignment_or_define(ctx, stmt, line_no=stmt_idx + 1)
+                        with _quiet_calc(analysis, stmt_idx):
+                            process_assignment_or_define(ctx, stmt, line_no=stmt_idx + 1)
                         _record_new(ctx, before, lines[stmt_idx], stmt_idx, analysis)
                 in_f_block = False
                 continue
 
-            # Multiline *table/*matrix/*mat/*align blocks: buffer rows for
-            # shape validation, but inner lines still get normal text
-            # checks below (variables/calc inside cells must resolve).
-            # *align rows are equations (no shape check on close).
+            # Multiline *table/*matrix/*mat/*align/*cases/*vec blocks:
+            # buffer rows for shape validation, but inner lines still
+            # get normal text checks below (variables/calc inside cells
+            # must resolve). *align/*cases rows are equations and *vec
+            # rows are components — no shape check on close.
             if not math_buffered and not in_f_block and s in (
-                '*table(', '*matrix(', '*mat(', '*align(',
+                '*table(', '*matrix(', '*mat(', '*align(', '*cases(', '*vec(',
             ):
                 in_table_block = True
                 table_type = s
@@ -486,7 +716,7 @@ def _analyze_text_inner(text, analysis):
                 table_start = idx
                 continue
             if not math_buffered and s == ')' and in_table_block:
-                if table_type != '*align(':
+                if table_type not in ('*align(', '*cases(', '*vec('):
                     _validate_table_block(
                         table_type, table_content, lines,
                         table_start, idx, analysis,
@@ -507,7 +737,8 @@ def _analyze_text_inner(text, analysis):
 
             if not math_buffered and not in_table_block and re.match(r'^<[^<>]+>\s*=', s):
                 before = _snapshot(ctx)
-                process_assignment_or_define(ctx, s, line_no=idx + 1)
+                with _quiet_calc(analysis, idx):
+                    process_assignment_or_define(ctx, s, line_no=idx + 1)
                 _record_new(ctx, before, code, idx, analysis)
                 continue
 
@@ -537,7 +768,7 @@ def _analyze_text_inner(text, analysis):
                                 break
                     if _close is None:
                         analysis.diagnostics.append(Diag(
-                            idx, code.index('*' + _dname) if ('*' + _dname) in code else 0,
+                            idx, _find_call_anchor(code, _dname),
                             len(code), 'warning',
                             f'Unclosed *{_dname}(... — missing closing parenthesis',
                         ))
@@ -549,11 +780,43 @@ def _analyze_text_inner(text, analysis):
                             _default = ('default font (Typst default, 12pt)'
                                         if _is_font else 'default title')
                             analysis.diagnostics.append(Diag(
-                                idx, code.index('*' + _dname) if ('*' + _dname) in code else 0,
+                                idx, _find_call_anchor(code, _dname),
                                 len(code), 'warning',
                                 f'*{_dname}(...) is empty — using {_default}',
                             ))
                             continue
+                        if _is_font:
+                            # Mirror the compiler's validation: invalid
+                            # family/size makes the *doc_font ignored.
+                            try:
+                                from compiler.pipeline import (
+                                    _valid_doc_font_family,
+                                    _valid_doc_font_size,
+                                )
+                                from compiler.math_commands import split_top_level_args
+                                _fargs = split_top_level_args(_inner)
+                            except Exception:
+                                _fargs = None
+                            if _fargs is not None:
+                                _fam = (_fargs[0] if _fargs else '').strip()
+                                _sz = (_fargs[1] if len(_fargs) > 1 else '').strip()
+                                if (_valid_doc_font_family(_fam) is None
+                                        or (len(_fargs) > 1
+                                            and _valid_doc_font_size(_sz) is None)):
+                                    analysis.diagnostics.append(Diag(
+                                        idx, _find_call_anchor(code, _dname),
+                                        len(code), 'error',
+                                        f'invalid *{_dname}(...) — ignored',
+                                    ))
+                        elif _dname.replace('-', '_') in ('doc_title', 'doctitle', 'title'):
+                            if ctx._doc_title_seen:
+                                analysis.diagnostics.append(Diag(
+                                    idx, _find_call_anchor(code, _dname),
+                                    _find_call_anchor(code, _dname) + 1,
+                                    'warning',
+                                    'multiple *doc_title(...) — last one wins',
+                                ))
+                            ctx._doc_title_seen = True
                         # Consumed control line: the compiler renders the
                         # title at codegen with final variables, so forward
                         # references are valid — skip per-line undefined
@@ -569,15 +832,19 @@ def _analyze_text_inner(text, analysis):
             # --- Inline math state (mirrors compiler toggle semantics) ---
             # Checks below still run on math contents (variables/calc are
             # valid inside math); this only tracks unclosed delimiters.
+            # Table/f-block rows never toggle math state — the compiler
+            # checks in_f_block/*table rows before math-open detection,
+            # so a stray \ in a cell can never swallow the document.
             bs = _unescaped_bs_positions(check_code)
-            if in_math:
-                if len(bs) % 2 == 1:
-                    in_math = False
-            else:
-                if len(bs) % 2 == 1:
-                    in_math = True
-                    math_start = idx
-                    math_start_char = bs[-1]
+            if not (in_table_block or in_f_block):
+                if in_math:
+                    if len(bs) % 2 == 1:
+                        in_math = False
+                else:
+                    if len(bs) % 2 == 1:
+                        in_math = True
+                        math_start = idx
+                        math_start_char = bs[-1]
             # Warn on empty \ \ pairs on this line.
             tmp = check_code
             while True:
@@ -594,7 +861,14 @@ def _analyze_text_inner(text, analysis):
                 else:
                     tmp = tmp[:o[0]] + ' ' * (o[1] + 1 - o[0]) + tmp[o[1] + 1:]
 
-            substituted = replace_vars(ctx, check_code)
+            # Unclosed *p( — the compiler warns too.
+            for m in re.finditer(r'\*p\(', check_code):
+                if _balanced_range(check_code, m.end() - 1) is None:
+                    analysis.diagnostics.append(Diag(
+                        idx, m.start(), len(check_code), 'warning',
+                        'Unclosed *p( — treated as plain text',
+                    ))
+
             known = sorted(set(ctx.variables) | set(ctx.defines))
             # Flag every undefined <name> occurrence in source offsets
             # (spacing variants like <oops> vs < oops > are distinct).
@@ -609,12 +883,8 @@ def _analyze_text_inner(text, analysis):
                 if occ.end() < len(check_code) and check_code[occ.end()] == '>':
                     continue
                 clean = raw_name.strip()
-                # Resolvability check on substituted values.
                 if clean in ctx.variables or clean in ctx.defines:
                     continue
-                # Also skip if substitution already resolved it
-                # (e.g. defined later on the same line is not supported;
-                # keep simple: undefined means not in ctx).
                 message = f'Undefined variable <{clean}>'
                 suggestion = difflib.get_close_matches(clean, known, n=1, cutoff=0.6)
                 if suggestion:
@@ -624,7 +894,9 @@ def _analyze_text_inner(text, analysis):
                 ))
 
             # Mask single-line math pairs so commands inside math don't
-            # warn (mirrors compiler placeholders before warn_unknown).
+            # warn (the text-mode scan). Math-pair contents get their
+            # own scan below, mirroring the compiler's
+            # warn_unknown_commands on inline math.
             _math_masked = check_code
             while True:
                 _o = _unescaped_bs_positions(_math_masked)
@@ -633,20 +905,58 @@ def _analyze_text_inner(text, analysis):
                 _math_masked = (
                     _math_masked[:_o[0]] + ' ' * (_o[1] + 1 - _o[0]) + _math_masked[_o[1] + 1:]
                 )
-            for m in CMD_CALL.finditer(_math_masked):
+            # Matrix/mat cells are transparent to the compiler's
+            # unknown-command check (clean_inner_math never calls it).
+            _cmd_scan_src = _mask_matrix_spans(_math_masked)
+            for m in CMD_CALL.finditer(_cmd_scan_src):
                 cmd = m.group(1)
+                if cmd == 'calc':
+                    # Unclosed *calc( is reported by the CALC_OPEN check;
+                    # the compiler strips the leading * and never warns.
+                    continue
                 if cmd in KNOWN_COMMANDS:
                     continue
                 if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), m.end(), 'warning',
-                        f"*{cmd}(...) is only valid inside *draw(...) — treated as plain text",
+                        _geometry_warning(cmd, parens=True),
                     ))
                     continue
                 analysis.diagnostics.append(Diag(
                     idx, m.start(), m.end(), 'warning',
                     f"Unknown command *{cmd}(...) — treated as plain text",
                 ))
+
+            # Inside math pairs: the compiler warns about unknown
+            # commands there too, and about text-mode commands (*image,
+            # *newpage, *pagebreak) that make no sense inside math.
+            _starts = _unescaped_bs_positions(check_code)
+            for _k in range(0, len(_starts) - 1, 2):
+                _i_start = _starts[_k] + 1
+                _inner = check_code[_i_start:_starts[_k + 1]]
+                _inner_unknown = _mask_matrix_spans(_inner)
+                for m in CMD_CALL.finditer(_inner_unknown):
+                    cmd = m.group(1)
+                    a, b = _i_start + m.start(), _i_start + m.end()
+                    if cmd in ('image', 'newpage', 'pagebreak'):
+                        analysis.diagnostics.append(Diag(
+                            idx, a, b, 'warning',
+                            f"*{cmd}(...) is text mode and cannot be used "
+                            f"inside math — leaving as-is",
+                        ))
+                        continue
+                    if cmd == 'calc' or cmd in KNOWN_COMMANDS:
+                        continue
+                    if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
+                        analysis.diagnostics.append(Diag(
+                            idx, a, b, 'warning',
+                            _geometry_warning(cmd, parens=True),
+                        ))
+                        continue
+                    analysis.diagnostics.append(Diag(
+                        idx, a, b, 'warning',
+                        f"Unknown command *{cmd}(...) — treated as plain text",
+                    ))
 
             # Bare *word without parens (mirrors the compiler warning).
             # Protected spans are hidden first: math pairs (above), calc()
@@ -663,7 +973,7 @@ def _analyze_text_inner(text, analysis):
                 if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                     analysis.diagnostics.append(Diag(
                         idx, m.start(), m.end(), 'warning',
-                        f"*{cmd} is only valid inside *draw(...) — treated as plain text",
+                        _geometry_warning(cmd, parens=False),
                     ))
                     continue
                 analysis.diagnostics.append(Diag(
@@ -677,6 +987,7 @@ def _analyze_text_inner(text, analysis):
             _validate_table_calls(
                 _math_masked, idx, analysis, in_math_pairs=False,
             )
+            _validate_plot_image_styling(_math_masked, idx, analysis, ctx)
             if _math_masked != check_code:
                 # Only the insides of \ ... \ pairs (offsets preserved):
                 # tables are invalid there, matrices get shape checks.
@@ -737,10 +1048,18 @@ def _analyze_text_inner(text, analysis):
 
     for d in analysis.definitions:
         kind, value = d.kind, d.value
-        if value is not None and '<' in value:
+        if value is not None and (
+            '[Calc Error' in str(value) or '[UNDEFINED' in str(value)
+        ):
+            # The stored "value" is the literal failure marker the
+            # compiler wrote in — never present it as a real value.
+            value = None
+        elif value is not None and '<' in value:
             with _quiet():
                 resolved = replace_vars(ctx, value)
-            if '<' not in resolved:
+            if '[Calc Error' in resolved or '[UNDEFINED' in resolved:
+                value = None
+            elif '<' not in resolved:
                 value = resolved
         analysis.values[d.name] = (kind, value, d.line)
     return analysis
@@ -765,7 +1084,7 @@ def _in_p_span(line_text, character):
 def complete(text, line, character):
     """Completion candidates at a cursor position (client filters by prefix)."""
     analysis = analyze_text(text)
-    lines = text.splitlines()
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
     cur = lines[line] if 0 <= line < len(lines) else ''
     # Inside *p(...) raw spans the compiler ignores variables; suppress
     # variable/define items there (keep symbol/function help).
@@ -811,7 +1130,7 @@ def complete(text, line, character):
 def hover(text, line, character):
     """Hover info for the identifier under the cursor, or None."""
     analysis = analyze_text(text)
-    lines = text.splitlines()
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
     if not (0 <= line < len(lines)):
         return None
     cur = lines[line]
@@ -820,7 +1139,7 @@ def hover(text, line, character):
         return None
     token = None
     for m in WORD_AT.finditer(cur):
-        if m.start() <= character < m.end():
+        if m.start() <= character <= m.end():
             token = m
             break
     if token is None:

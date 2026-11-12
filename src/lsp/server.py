@@ -88,6 +88,10 @@ def _line_at(lines, line):
     return lines[line] if 0 <= line < len(lines) else ''
 
 
+def _split_lines(text):
+    return text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+
+
 def _lsp_range(lines, line, start_cp, end_cp):
     line = _coerce_int(line, default=0)
     if line < 0:
@@ -125,7 +129,7 @@ def analyze_and_publish(ls, store, uri):
             if not isinstance(text, str):
                 diags = []
             else:
-                lines = text.splitlines()
+                lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
                 try:
                     diags = [
                         to_lsp_diagnostic(d, lines)
@@ -133,11 +137,13 @@ def analyze_and_publish(ls, store, uri):
                     ]
                 except Exception as e:
                     logger.exception('analyze_text failed for %s', uri)
-                    lines = text.splitlines() if isinstance(text, str) else []
+                    lines = (text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+                             if isinstance(text, str) else [])
                     diags = [
                         to_lsp_diagnostic(
                             analysis.Diag(0, 0, len(lines[0]) if lines else 0,
-                                          'error', f'Analysis failed: {e}'),
+                                          'error',
+                                          'Analysis failed (see server log)'),
                             lines,
                         )
                     ] if lines is not None else []
@@ -261,7 +267,7 @@ def create_server():
                 character_raw = int(pos.character)
             except (TypeError, ValueError):
                 return lsp.CompletionList(is_incomplete=False, items=[])
-            lines = text.splitlines()
+            lines = _split_lines(text)
             character = _to_code_point_offset(_line_at(lines, line), character_raw)
             items = [
                 lsp.CompletionItem(
@@ -289,7 +295,7 @@ def create_server():
                 character_raw = int(pos.character)
             except (TypeError, ValueError):
                 return None
-            lines = text.splitlines()
+            lines = _split_lines(text)
             if line < 0 or (lines and line >= len(lines)):
                 return None
             character = _to_code_point_offset(_line_at(lines, line), character_raw)
@@ -313,7 +319,7 @@ def create_server():
             text = store.get(uri)
             if text is None or not _cached_supported(uri):
                 return []
-            lines = text.splitlines()
+            lines = _split_lines(text)
             return [
                 lsp.SymbolInformation(
                     name=name,

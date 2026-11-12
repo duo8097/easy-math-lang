@@ -1380,8 +1380,11 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
         return False
 
-    lines = strip_comments(raw_text).splitlines()
-    raw_source_lines = raw_text.splitlines()
+    from .comments import split_lines as _split_lines
+
+    raw_text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
+    lines = strip_comments(raw_text).split('\n')
+    raw_source_lines = raw_text.split('\n')
     # Parallel to output_lines: original .eml span for each entry (None
     # for consumed control lines, which produce no output).
     output_lines: list[str] = []
