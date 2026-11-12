@@ -748,3 +748,67 @@ def test_auto_close_non_ascii_text_keeps_lsp_positions(window):
     assert col == 8
     # Round-trip through the LSP position helpers.
     assert positions.to_lsp_offset('đã xong()', col) == col
+
+
+def test_find_case_mode_after_astral_char(window):
+    # Astral chars occupy 2 UTF-16 units each; the find post-filter must
+    # compare code points, not UTF-16 slices of the Python string.
+    window.editor.setPlainText('😀 abc abc\n')
+    window._find_whole_word = True
+    window._find_match_case = True
+    ranges = window._find_all_ranges('abc')
+    assert len(ranges) == 2
+    # Ranges are UTF-16 offsets on the Qt document.
+    assert ranges[0] == (3, 6)
+
+
+def test_find_whole_word_after_astral_char(window):
+    window.editor.setPlainText('😀 abc ab\n')
+    window._find_whole_word = True
+    window._find_match_case = False
+    # \'ab\' must not match inside \'abc\' after an astral char.
+    ranges = window._find_all_ranges('ab')
+    assert len(ranges) == 1
+
+
+def test_insert_gallery_source_after_astral_char(window):
+    # Regression test for astral handling in the gallery inserter: the
+    # selection anchor must use code-point positions internally.
+    from editor.draw_catalog import build_insert_text
+
+    doc = '😀 *draw(\n    *line(A ; B)\n)'
+    window.editor.setPlainText(doc)
+    cursor = window.editor.textCursor()
+    # Select the middle line ('*line(A ; B)') in UTF-16 units.
+    start = doc.index('*line')
+    end = doc.index('*line') + len('    *line(A ; B)')
+    cursor.setPosition(len('😀 '.encode('utf-16-le')) // 2)
+    cursor.setPosition(
+        len('😀 *draw(\n    '.encode('utf-16-le')) // 2 + len('*line(A ; B)'),
+        QtGui.QTextCursor.KeepAnchor)
+    window.editor.setTextCursor(cursor)
+    window._insert_draw_gallery_source('*midpoint(A ; B ; M)')
+    text = window.editor.toPlainText()
+    assert '*midpoint(A ; B ; M)' in text
+    # Astral char must survive untouched.
+    assert text.startswith('😀')
+    assert text.count('*draw(') == 1
+
+
+def test_template_insert_code_after_astral_char(window):
+    panel = None
+    from editor.draw_template import DrawTemplateDialog
+    from editor.draw_catalog import catalog_entries
+
+    dlg = DrawTemplateDialog(window)
+    entry = catalog_entries()[0]
+    window._draw_template = dlg
+    dlg.code.setPlainText('😀 keep\n*draw(\n    *line(A ; B)\n)\n')
+    cursor = dlg.code.textCursor()
+    # Put the caret at the end of the code area.
+    cursor.movePosition(QtGui.QTextCursor.End)
+    dlg.code.setTextCursor(cursor)
+    dlg.insert_code('*midpoint(A ; B ; M)')
+    text = dlg.code.toPlainText()
+    assert '*midpoint(A ; B ; M)' in text
+    assert text.startswith('😀 keep')
