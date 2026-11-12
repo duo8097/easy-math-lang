@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-11-12
+
 ### Added
 - **Python-style diagnostics on the compiler** — every `[Error]`/`[Warning]` diagnostic now prints a Python-traceback-style context block under its classic first line (the first line stays byte-identical for existing consumers):
 
@@ -250,7 +252,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...HEAD
+[7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
 [6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
 [5.2.0]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/duo8097/easy-math-lang/compare/v5.0.0...v5.1.0

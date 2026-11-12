@@ -18,7 +18,7 @@ def _app_version():
             return found.strip()
     except Exception:
         pass
-    return '6.0.0'
+    return '7.0.0'
 
 
 def _set_application_icon(app):

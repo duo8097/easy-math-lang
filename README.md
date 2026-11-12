@@ -210,49 +210,45 @@ All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
 [Semantic Versioning](https://semver.org/)). The latest release:
 
-### [6.0.0] - 2026-11-07
+### [7.0.0] - 2026-11-12
 
 #### Added
-- **Auto-close brackets in the desktop editor** — typing `(`, `[`, `{` or `"` inserts the matching closer when the next character is end of line, whitespace, or a closer (quotes also require the previous character not be a word character); selections are wrapped, matching closers overtype, Backspace deletes an empty pair, Enter expands `(|)` to three lines with indentation, every action is a single undo step, and IME composition and programmatic edits (paste, completion, LSP) are unaffected. Toggle: `View → Auto-close Brackets` (**Ctrl+Shift+B**, persisted as `editor/autoCloseBrackets`, default on; `src/editor/auto_pairs.py` + `src/editor/editor_widget.py`, tests in `tests/test_editor_gui.py` and `tests/test_auto_pairs.py`, docs in `docs/editor.md`).
-- Plot expression hash cache — repeated `*plot(...)` with the same expression skips Matplotlib re-render.
-- **CeTZ is vendored and bundled — `*draw` works fully offline, with no first-run download.** The Typst packages `*draw` needs (cetz 0.4.2 and oxifmt 1.0.0 — its only transitive dependency, verified by compiling offline against an empty package cache) are committed under `vendor/typst-packages/` (downloaded and SHA-256-verified by `scripts/vendor_typst_packages.py`; manuals, galleries and docs are pruned — 473.4 KiB in total, `typst.toml`, all `.typ` sources, the LICENSE files and CeTZ's WASM core are kept) and ship in every packaged build: one copy under the shared bundle's `_internal/typst-packages/` (Windows, macOS, Debian/RPM, Arch; the CLI, the LSP and the editor all see the same copy) — and the wheel/sdist ship it as package data, so pip installs are offline-capable too. `_run_typst_export()` passes the bundle as Typst's `package_path`, which Typst consults before its user cache and the network; when the bundle is missing the compiler falls back to Typst's usual cache/download behavior and never crashes. The offline error message now only appears when the bundle is genuinely missing and the download also fails. cetz/oxifmt remain unmodified and replaceable; they are not MIT — `THIRD_PARTY_LICENSES` (CeTZ is LGPL-3.0-or-later) lists them with upstream URLs and ships in all installers. `src/typst_bundle/` is the single source of truth for the pinned versions; `tests/test_typst_bundle.py` enforces the vendored tree matches (each package's `typst.toml` must match its directory) and compiles `*draw` with every package-cache location redirected to an empty temporary directory, asserting the cache stays empty; `tests/test_packaged_build.py` does the same against the frozen binaries with dead proxies.
-- **`*equal-angle(A ; B ; C ; D ; E ; F)`** — angle ABC equals angle DEF, implemented end to end. The constraint solver moves the free points until the two interior angles match, and codegen draws the same equality mark on both angles (an arc with a tick, the same arc radius as `*angle`). The editor's `Insert command…` button and the template-window command palette now open a `geo-equal-angle` parameter dialog (six point fields, `*draw`-wrapped) instead of greying the card out, and the gallery thumbnail is re-rendered. Docs: `docs/geometry.md` (new section), `docs/cheatsheet.md` (constraint table), `rule.txt`, plus a runnable fourth block in `examples/draw_test.ezmath`.
-- LSP hover + completion description for `*draw(...)` — the language server advertised built-in descriptions but hovering/completing `*draw` gave nothing (the draw-block symbol shadowed it). `*draw` is now documented like every other built-in.
-- Linux input methods (Vietnamese etc.) — the desktop editor now supports fcitx5 IME methods (e.g., fcitx5-lotus Vietnamese Telex) on Linux. The fix activates only when fcitx is evident (`QT_IM_MODULE`/`XMODIFIERS`/`GTK_IM_MODULE`) and leaves ibus users untouched. The `.deb`/`.rpm` installers bundle a plugin compiled from source in CI against PySide6's exact Qt, and the Arch package bundles the system `fcitx5-qt` plugin when its Qt matches (frozen builds verify the plugin is bundled); from source, a matching system plugin is used automatically. `EZMATH_NO_IME_FIX=1` opts out.
+- **Python-style diagnostics on the compiler** — every `[Error]`/`[Warning]` diagnostic now prints a Python-traceback-style context block under its classic first line (the first line stays byte-identical for existing consumers):
 
-#### Changed
-- LSP source-range slicing fixed (`analysis.py`) so `calc(...)` expressions use original source offsets.
-- **Draw examples showcase auto-positioned points** — the under-constrained examples now pin enough points for a well-determined, canonical figure: the circle-with-tangent blocks (`examples/draw_test.ezmath`, `docs/geometry.md` Example 3) pin the radius point on the x-axis and give the tangent a length, the `examples/example_3.ezmath` on-circle demo pins P on the x-axis, and the single-line `*draw(...)` demo in `docs/geometry.md` pins its triangle instead of collapsing three auto points. `docs/geometry.md` gains a "What auto-placement decides" note: pin `A = 0, 0` / `B = x, 0` for a canonical orientation, results are deterministic, the solver is numeric (about 1% accurate), and constraints must determine the figure.
+  ```
+  [Error] Line 12: undefined variable <widht>
+    File "bai1.ezmath", line 12, column 8
+      Tong = <widht> + 2
+             ^^^^^^^
+  ```
+
+  The block shows the real `.ezmath` line (never transformed text), with a caret underline when a column is known (columns count characters, not bytes, so Vietnamese text aligns correctly; tabs are expanded; very long lines are truncated around the span with an ellipsis). Without a known column it prints the `File ... line N` header and the source line without a caret. Multi-line constructs (an unclosed `\ … \` math delimiter, an unterminated `*draw(` block) point at the line where they open. Color is only used on a TTY and never when `NO_COLOR` is set, so the editor's captured output stays plain text. When a Typst compile fails with an error that carries a position in the intermediate `.typ`, the same block is rendered for the `.ezmath` line it maps back to (via this build's own sidecar source map only; unmappable failures keep the classic `[ERROR] Typst compilation failed: ...` output untouched). The strict-mode diagnostic counter now only counts markers at the start of a line, so echoed source lines containing `[Error]` never inflate error counts. `calc()`, math-command (`*frac` etc.), inline-math and assignment diagnostics also go through the same printer now — those that know a line in the document show a context block. Documented in `docs/troubleshooting.md` and `docs/cheatsheet.md`.
 
 #### Fixed
-- Arch package (`installer/PKGBUILD`) installed only the three
-  executables and not the shared `_internal/` library directory, so the
-  packaged binaries could not run at all. It now installs the whole
-  shared bundle (like the `.deb`/`.rpm` path) and also ships
-  `THIRD_PARTY_LICENSES`.
-- Windows installer version — `installer/setup.iss` no longer carries a
-  hard-coded `AppVersion` (it lagged behind at 5.1.0 while the project was
-  5.2.0). CI reads the version from `pyproject.toml` (`tomllib`) and injects
-  it via `/DAppVersion=`; a hand-run `ISCC.exe installer\setup.iss` falls
-  back to a `0.0.0` placeholder instead of a stale number.
-- Arch `PKGBUILD` `pkgver` placeholder updated to 5.2.0 (overridden by
-  `pkgver()` at build time); a regression test keeps it in sync with
-  `pyproject.toml`.
-- Preview manifest (`manifest.json`) now regenerated automatically in test setup; stale-preview bugs no longer hidden by skips.
-- Duplicate docstring removed from `pipeline.py`.
-
-#### Changed
-
-- **Smaller installers** — the packaged binaries no longer ship three
-  separate copies of the heavy runtime libraries. The compiler CLI, the
-  language server and the desktop editor are now assembled into one shared
-  PyInstaller onedir bundle (`dist/easy-math-lang/` with a single `_internal/`
-  directory holding NumPy, Matplotlib, Typst, PySide6, …) instead of three
-  independent library sets. The CLI and the LSP reuse the desktop editor's
-  collected libraries, so an install now contains exactly one copy of each.
-  User-facing commands (`easy-math-lang`, `ezmath`, `easy-math-lsp`) and
-  behavior are unchanged; the LSP starts slightly faster with the shared
-  library directory.
+- **Geometry solver: one impossible construction no longer takes down the whole diagram.** A failing construction (e.g. `*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))` when the line misses the circle) previously aborted the entire `solve()`, so constraints were never applied and later constructed/free points were drawn at placeholder coordinates presented as authoritative. Failed constructions are now reported, the affected points (and dependents) are omitted from the canvas with an explanatory comment, constraints that read a failed construction (e.g. `*distance(F ; X ; 5)`) are skipped, and everything else still solves and renders.
+- **`*image(...)` outside the document root now works in every export format** — out-of-root images are staged next to the intermediate `.typ` (`<stem>-images/`) so Typst can resolve them, in-tree images keep their relative layout, and the staged folder is copied along on relocated `typ`/`html` exports (marked so build cleanup only ever removes what we created).
+- **Sanitized plot file names now match everywhere** — the export sidecar glob and the build-artifact cleanup use the same sanitization as `plot_filename()` (a `my doc.ezmath` now carries `my_doc-<hash>-plot-1.svg` along in `--format typ`), and sanitization is injective (`my doc` vs `my_doc` produce distinct files, with a stable hash suffix).
+- **LSP analysis now applies URL masking and the comparison guard too** — a `<missing>`-shaped token inside a bare URL (`https://a.com/<missing>`) and a `<name>`-token glued both sides like `0<x>1` are no longer reported as undefined variables, matching the compiler exactly.
+- **Geometry annotation swallowing same-line commands** — a trailing `= value` annotation (e.g. `*length(A ; B) = 5 *point(C = 1, 2)`) consumed the remainder of the line, silently dropping the following command; parsing now resumes at the embedded command.
+- **Compiler: arbitrary file write via `*image(...)` sidecar export** — the `<stem>-plot-*.svg` glob and the `*image` sidecar copy when exporting `typ`/`html` to another directory now confine destinations to the export directory (previously a crafted `..`/`[` filename could write outside it).
+- **Compiler: variable expansion exponential-time/memory DoS** — a few doubling `*define`s (`a = <b><b>`) could expand a tiny document to gigabytes; expansion is now memoized per compile and capped at 256 KiB per variable (past the cap the reference is left unexpanded with a warning).
+- **Compiler: inequalities glued to variables** — `0<x>1` (and similar both-sides-glued `<name>` tokens) no longer substitute the variable or trip `undefined variable` errors; only a `<name>` unglued on at least one side is treated as a variable.
+- **Compiler: `<doc>.typ`/`<doc>.smap.json` no longer silently overwritten** — the intermediate artifacts now carry an ownership marker; a pre-existing file not generated by easy-math-lang aborts the build with a loud error instead of being destroyed (and the source map is likewise never clobbered).
+- **Compiler: bare URLs corrupted by symbol passes** — `->`, `...`, `==`, `<name>` inside `https://…` URLs were rewritten (→, …, =) or flagged as undefined variables; URLs are now masked before symbol/undefined-var/subscript expansion and restored (Typst-escaped) after.
+- **Compiler: literal `*bold(hi)` etc. rendered as text** — the bracket escape for generated `#strong[…]`/`#emph[…]`/`#underline[…]` markup treated its brackets as user text, so styling inside `*table` cells and `*doc_title` silently printed as `strong [hi]`/`strong [Hi]`; generated markup spans are now recognized and left intact.
+- **Compiler: comment stripping treated `"a // b"` as a comment** — `//` inside double-quoted strings (bare prose, quoted paths, URLs) truncated the line silently.
+- **Compiler: `*doc_title(...)` is no longer re-rendered through the full text pipeline at codegen** — a title containing `*plot(...)`/`*image(...)` wrote files during a supposedly read-only phase; `*plot`/`*image` in `*doc_title` are now dropped with an error diagnostic instead.
+- **Compiler: `[Calc Error]` results leaked** — `calc((-2)^(1/3))` printed a complex `j` literal into the PDF; complex results are now rejected with a `[Calc Error]`.
+- **Compiler: intermediate diagnostic counter is thread-safe** — two concurrent compiles (preview thread + export) raced on process-global `sys.stderr`/`_ACTIVE_COUNTER`; compiles are now serialized process-wide (recursive builds unaffected — `RLock`).
+- **LSP: diagnostics and symbols on a math-closing line were anchored to tail-relative columns** — e.g. `<undef_var>` after a `\` was reported shifted left; the head and tail are now analyzed with exact source offsets, and the math head of the line (undefined vars/calc) is checked at all (it was silently skipped).
+- **LSP: stray `\` in `*table(`/`*matrix(` rows, and any `*cases(`/`*vec(` block, swallowed the rest of the document into math mode** — block rows no longer toggle math state, `*cases(`/`*vec(` are recognized multiline blocks, and trailing document content validates normally again.
+- **LSP: `*calc(` no longer also reported as "Unknown command", unknown commands inside math pairs warn like the compiler, matrix cells no longer warn on unknown commands the compiler is silent about, and `*image`/`*plot`/`*bold`/`*italic`/`*underline` get the same shape/arity/unclosed checks as the compiler.**
+- **LSP: `calc()` errors in assignments became diagnostics** (e.g. `<x> = calc(1/0)` previously reported nothing), and values stored at calculation-failure sites are no longer presented as real values in hover/completion.
+- **LSP: geometry errors no longer appear twice in Problems (dedup across stderr/canvas), line splitting matches LSP clients (no phantom lines at VT/FF/NEL), and the code handles unicode astral characters consistently in hover.**
+- **Editor: Enter between an empty pair on a line with trailing whitespace deleted the closing bracket** (document corruption on the most common pair path); an active selection spans and caret math across astral characters now uses code-point conversion consistently (gallery/template inserters, find post-filter, Save-As caret), `Escape` in the find bar clears highlights and refocuses, the LSP framing buffer resets on restart (no spurious frame errors), dead `QProcess`/worker objects are reaped, non-`FailedToStart` build errors clear the build state (previously silently blocked every later Ctrl+B), `PDF links parser no longer truncates `stream` inside string literals, `show_empty()` clears the stale source-map path, and pixel-size editor fonts no longer stick at `-1`pt.
+- **Geometry: quoted label/annotation text kept its quotes** on the canvas (`*label(A ; "a;b")` rendered `"a;b"`), tiny-but-legal circle/arc radii no longer rendered as `0.000`, and the grammar checks for angle sweeps are enforced before any mark is drawn (both angle markers now appear or neither does).
+- **Fuzz hardening**: analysis fuzzing across 3000 malformed documents (no crashes), geometry end-to-end fuzzing still at 0 crashes/hangs.
+- Tidies the tree: removed dead locals/imports, duplicate signal declarations and an unused helper, tightened `zip(strict=True)` and closure bindings, and refreshed `docs/troubleshooting.md` for the new solver wording.
 
 Earlier releases (v5.0.0 and before) are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
@@ -269,4 +265,4 @@ UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
 files and full license text live in `src/editor/assets/icons/`
 (see `src/editor/assets/icons/LICENSE` for attribution).
 
-[6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
+[7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
