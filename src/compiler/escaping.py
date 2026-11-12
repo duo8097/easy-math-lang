@@ -4,8 +4,18 @@ import re
 
 
 _URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s$]+')
-# Sentence punctuation that trails a URL in prose but is not part of it.
 _URL_TRAILING = '.,;:!?)]}\'"”’'
+
+
+def blank_urls(text):
+    """Blank bare URLs with spaces (offset-preserving, for scanners).
+
+    Same-length replacement so diagnostic columns stay exact; URL
+    contents (including ``<name>`` tokens) are invisible to variable,
+    command and math-delimiter scans. Trailing punctuation is blanked
+    too — harmless, since it can never be part of a token.
+    """
+    return _URL_RE.sub(lambda m: ' ' * len(m.group(0)), text)
 
 
 def mask_urls(text, escape=True):

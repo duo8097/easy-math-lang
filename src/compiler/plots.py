@@ -257,14 +257,28 @@ def split_plot_segments(x_values, y_values):
     return segments
 
 
-def plot_filename(stem, index):
-    """SVG file name for the *index*-th plot (1-based).
+#: Lazily created stem -> safe-name cache (kept small: one entry per
+#: input file in a session).
+def sanitized_stem(stem):
+    """Filesystem/ Typst-safe rendering of an input-derived stem.
 
-    The stem derives from the input filename: strip anything that is
-    not safe in a file name or a Typst string.
+    Strips anything that is not safe in a file name or a Typst string.
+    Not injective (``a b`` vs ``a_b``): when anything had to be changed,
+    a stable short hash of the *original* stem is appended so distinct
+    inputs never share an output name. Names that need no sanitizing
+    are returned unchanged.
     """
-    safe = re.sub(r'[^A-Za-z0-9._-]+', '_', str(stem)).strip('.') or 'doc'
-    return f'{safe}-plot-{index}.svg'
+    text = str(stem)
+    safe = re.sub(r'[^A-Za-z0-9._-]+', '_', text).strip('.') or 'doc'
+    if safe == text:
+        return safe
+    digest = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+    return f'{safe}-{digest}'
+
+
+def plot_filename(stem, index):
+    """SVG file name for the *index*-th plot (1-based)."""
+    return f'{sanitized_stem(stem)}-plot-{index}.svg'
 
 
 def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,

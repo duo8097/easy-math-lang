@@ -901,7 +901,7 @@ def test_draw_examples_not_underconstrained():
         for p in auto:
             referenced = any(
                 p in constraint_label
-                for constraint_label, _fn in solver.constraints)
+                for constraint_label, _fn, *rest in solver.constraints)
             assert referenced, (
                 f'{label}: auto point {p} is not referenced by any constraint'
             )

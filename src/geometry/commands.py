@@ -166,7 +166,8 @@ def _process_command(solver, cmd, args):
                       file=sys.stderr)
         solver.add_constraint(
             f"distance({A},{B}={d})",
-            lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2
+            lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2,
+            deps=(A, B),
         )
 
     elif cmd == 'perp':
@@ -193,7 +194,8 @@ def _process_command(solver, cmd, args):
                         P, c, d,
                         lambda: _perp_cost_4(P, a, b, c, d),
                     ),
-                )
+                ),
+                deps=(A, B, C, D),
             )
         elif len(args) == 3:
             A, B, C = [a.strip() for a in args]
@@ -218,7 +220,8 @@ def _process_command(solver, cmd, args):
                         P, b, c,
                         lambda: _perp_cost_3(P, a, b, c),
                     ),
-                )
+                ),
+                deps=(A, B, C),
             )
         else:
             raise GeometryError("*perp requires 3 or 4 arguments")
@@ -248,7 +251,8 @@ def _process_command(solver, cmd, args):
                     P, c, d,
                     lambda: _parallel_cost(P, a, b, c, d),
                 ),
-            )
+            ),
+            deps=(A, B, C, D),
         )
 
     elif cmd == 'on-line':
@@ -272,7 +276,8 @@ def _process_command(solver, cmd, args):
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
                 lambda: _online_cost(P, a, b, c),
-            )
+            ),
+            deps=(A, B, C),
         )
 
     elif cmd == 'on-circle':
@@ -297,7 +302,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"on-circle({A} on circle({O},{r}))",
-            lambda P, o=O, rv=r, a=A: (_norm(P[a] - P[o]) - rv) ** 2
+            lambda P, o=O, rv=r, a=A: (_norm(P[a] - P[o]) - rv) ** 2,
+            deps=(O, A),
         )
 
     elif cmd == 'equal-length':
@@ -309,7 +315,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"equal-length({A}{B}={C}{D})",
-            lambda P, a=A, b=B, c=C, d=D: (_norm(P[b] - P[a]) - _norm(P[d] - P[c])) ** 2
+            lambda P, a=A, b=B, c=C, d=D: (_norm(P[b] - P[a]) - _norm(P[d] - P[c])) ** 2,
+            deps=(A, B, C, D),
         )
 
     elif cmd == 'midpoint':
@@ -321,7 +328,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"midpoint({C} of {A}{B})",
-            lambda P, a=A, b=B, c=C: _norm(P[c] - (P[a] + P[b]) / 2) ** 2
+            lambda P, a=A, b=B, c=C: _norm(P[c] - (P[a] + P[b]) / 2) ** 2,
+            deps=(A, B, C),
         )
 
     elif cmd == 'intersection':
@@ -365,14 +373,16 @@ def _process_command(solver, cmd, args):
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
                 lambda: _inter_cost_1(P, a, b, c),
-            )
+            ),
+            deps=(A, B, C),
         )
         solver.add_constraint(
             f"intersection({C} on {D}{E})",
             lambda P, d=D, e=E, c=C: _seg_cost(
                 P, d, e,
                 lambda: _inter_cost_2(P, d, e, c),
-            )
+            ),
+            deps=(D, E, C),
         )
 
     elif cmd == 'equal-angle':
@@ -407,6 +417,7 @@ def _process_command(solver, cmd, args):
         solver.add_constraint(
             f"equal-angle({A}{B}{C}={D}{E}{F})",
             _equal_angle_cost,
+            deps=(A, B, C, D, E, F),
         )
 
     # Draw-only commands — just register for the draw pass

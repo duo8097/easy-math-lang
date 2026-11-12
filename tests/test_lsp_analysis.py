@@ -340,3 +340,25 @@ def test_vt_nel_does_not_create_phantom_lines():
     # No diagnostic on the phantom line; zzz flags on the real line 1.
     diags = [(d.line, d.message) for d in result.diagnostics]
     assert not any('zzz' in m and line != 1 for line, m in diags)
+
+
+def test_comparison_like_token_is_not_flagged():
+    assert analysis.analyze_text("0<x>1\n").diagnostics == []
+
+
+def test_variables_beside_comparison_still_work():
+    result = analysis.analyze_text("<x> = 5\n0<y>1\n")
+    assert result.diagnostics == []
+
+
+def test_url_variable_words_not_flagged():
+    assert analysis.analyze_text("see https://a.com/<missing>\n").diagnostics == []
+
+
+def test_url_backslash_does_not_toggle_math():
+    assert analysis.analyze_text("see https://a.com/\\alpha end\n").diagnostics == []
+
+
+def test_comparison_math_head_is_not_flagged():
+    result = analysis.analyze_text("\\\n0<x>1 \\\n")
+    assert result.diagnostics == []

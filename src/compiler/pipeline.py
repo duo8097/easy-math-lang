@@ -1127,7 +1127,7 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         import glob as _glob
         try:
             tdir = os.path.dirname(os.path.abspath(typst_file))
-            tstem = os.path.splitext(os.path.basename(typst_file))[0]
+            tstem = _plots.sanitized_stem(os.path.splitext(os.path.basename(typst_file))[0])
             ddir = os.path.abspath(dst_dir) if dst_dir else os.getcwd()
             if os.path.abspath(tdir) == os.path.abspath(ddir):
                 return
@@ -1376,8 +1376,8 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
               file=sys.stderr)
         return False
     ctx.plot_dir = os.path.dirname(os.path.abspath(_typ_file_early)) or '.'
-    ctx.plot_stem = os.path.splitext(
-        os.path.basename(_typ_file_early))[0] or 'doc'
+    ctx.plot_stem = _plots.sanitized_stem(
+        os.path.splitext(os.path.basename(_typ_file_early))[0] or 'doc')
     ctx.plot_index = 0
 
     try:
@@ -2003,7 +2003,9 @@ def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
     typ_path = base + '.typ'
     smap_path = base + '.smap.json'
     typ_dir = os.path.dirname(typ_path) or '.'
-    stem = os.path.splitext(os.path.basename(typ_path))[0] or 'doc'
+    from . import plots as _plots
+
+    stem = _plots.sanitized_stem(os.path.splitext(os.path.basename(typ_path))[0] or 'doc')
     try:
         out_abs = (os.path.abspath(os.fspath(output_file))
                    if output_file is not None else None)
@@ -2027,6 +2029,17 @@ def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
     if not keep_svgs:
         candidates.extend(
             sorted(_glob.glob(os.path.join(typ_dir, f'{_glob.escape(stem)}-plot-*.svg'))))
+    # Staged copies of out-of-tree *image() files (`<stem>-images/`).
+    # Only remove a marked folder — a user's own directory is never
+    # touched; kept for in-dir typ/html exports like the plot SVGs.
+    _staged = os.path.join(typ_dir, f'{stem}-images')
+    if not keep_svgs and os.path.isfile(os.path.join(_staged, '.easy-math-lang-images')):
+        try:
+            import shutil as _shutil
+            _shutil.rmtree(_staged, ignore_errors=True)
+            removed.append(_staged)
+        except OSError:
+            pass
     for cand in candidates:
         try:
             cand_abs = os.path.abspath(cand)

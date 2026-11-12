@@ -30,7 +30,10 @@ class GeometrySolver:
         self.points = {}        # name -> np.array([x, y])
         self.fixed = set()
         self.derived = {}       # name -> _DerivedPoint (constructed points)
-        self.constraints = []   # list of (label, lambda P: cost)
+        # list of (label, fn, deps): deps are the point names the
+        # constraint reads, used to skip constraints that reference a
+        # construction that failed.
+        self.constraints = []
         self.draw_commands = []  # list of (cmd, args)
         self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
         self.solve_errors = []   # construction failures found by solve()
@@ -89,8 +92,8 @@ class GeometrySolver:
             r = 3.0 + (h2 % 200) * 0.02
             self.points[name] = np.array([r * math.cos(ang), r * math.sin(ang)])
 
-    def add_constraint(self, label, fn):
-        self.constraints.append((label, fn))
+    def add_constraint(self, label, fn, deps=()):
+        self.constraints.append((label, fn, tuple(deps)))
 
     def add_derived_point(self, name, deps, compute, label=None):
         """Register a constructed point (computed analytically).
@@ -283,7 +286,12 @@ class GeometrySolver:
             # self.points (constraints index it by name at call time).
             failed = eval_derived(pts)
             total = 0.0
-            for _label, fn in self.constraints:
+            for _label, fn, deps in self.constraints:
+                if any(d in failed for d in deps):
+                    # A constraint that reads a failed construction is
+                    # meaningless against placeholder coordinates; it
+                    # must not move the surviving points.
+                    continue
                 try:
                     r = fn(pts)
                 except Exception:
@@ -388,7 +396,11 @@ class GeometrySolver:
 
         # Check per-constraint residuals to distinguish conflict from non-convergence
         if final_cost > 1e-2 and not final_failures:
-            residuals = [(label, fn(self.points)) for label, fn in self.constraints]
+            residuals = [
+                (label, fn(self.points))
+                for label, fn, deps in self.constraints
+                if not any(d in final_failures for d in deps)
+            ]
             conflicting = [(lbl, r) for lbl, r in residuals if r > 1e-2]
 
             if len(conflicting) > 1:

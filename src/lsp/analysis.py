@@ -34,9 +34,14 @@ from compiler.statements import (
     _normalize_friendly_statement,
     process_assignment_or_define,
 )
+from compiler.escaping import blank_urls
 from compiler.state import CompileContext
 from compiler import tables as _tables
-from compiler.variables import replace_defines, replace_vars
+from compiler.variables import (
+    _looks_like_comparison,
+    replace_defines,
+    replace_vars,
+)
 from geometry.parsing import parse_draw_block
 from . import builtins
 
@@ -487,6 +492,7 @@ def _analyze_math_body(ctx, head, idx, analysis):
     relative to *head* (which starts at column 0 of the source line).
     """
     check_code = _mask_p_segments(head)
+    check_code = blank_urls(check_code)
 
     for occ in VAR_TOKEN.finditer(check_code):
         raw_name = occ.group(1)
@@ -495,6 +501,8 @@ def _analyze_math_body(ctx, head, idx, analysis):
         if occ.start() > 0 and check_code[occ.start() - 1] == '<':
             continue
         if occ.end() < len(check_code) and check_code[occ.end()] == '>':
+            continue
+        if _looks_like_comparison(check_code, occ.start(), occ.end()):
             continue
         clean = raw_name.strip()
         if clean in ctx.variables or clean in ctx.defines:
@@ -826,6 +834,7 @@ def _analyze_text_inner(text, analysis):
             # --- Text line checks (positions refer to the source line) ---
             # *p(...) raw spans are masked so their contents bypass checks.
             check_code = _mask_p_segments(code)
+            check_code = blank_urls(check_code)
             if check_code.strip() == '':
                 continue
 
@@ -881,6 +890,8 @@ def _analyze_text_inner(text, analysis):
                 if occ.start() > 0 and check_code[occ.start() - 1] == '<':
                     continue
                 if occ.end() < len(check_code) and check_code[occ.end()] == '>':
+                    continue
+                if _looks_like_comparison(check_code, occ.start(), occ.end()):
                     continue
                 clean = raw_name.strip()
                 if clean in ctx.variables or clean in ctx.defines:
