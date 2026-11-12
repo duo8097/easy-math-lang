@@ -12,6 +12,18 @@ for those.
 
 ## [Unreleased]
 
+### Added
+- **Python-style diagnostics on the compiler** — every `[Error]`/`[Warning]` diagnostic now prints a Python-traceback-style context block under its classic first line (the first line stays byte-identical for existing consumers):
+
+  ```
+  [Error] Line 12: undefined variable <widht>
+    File "bai1.ezmath", line 12, column 9
+      Tong = <widht> + 2
+             ^^^^^^^
+  ```
+
+  The block shows the real `.ezmath` line (never transformed text), with a caret underline when a column is known (columns count characters, not bytes, so Vietnamese text aligns correctly; tabs are expanded; very long lines are truncated around the span with an ellipsis). Without a known column it prints the `File ... line N` header and the source line without a caret. Multi-line constructs (an unclosed `\ … \` math delimiter, an unterminated `*draw(` block) point at the line where they open. Color is only used on a TTY and never when `NO_COLOR` is set, so the editor's captured output stays plain text. When a Typst compile fails with an error that carries a position in the intermediate `.typ`, the same block is rendered for the `.ezmath` line it maps back to (via the sidecar source map); positions that cannot be mapped leave the classic `[ERROR] Typst compilation failed: ...` output untouched. The strict-mode diagnostic counter now only counts markers at the start of a line, so echoed source lines containing `[Error]` never inflate error counts. Documented in `docs/troubleshooting.md` and `docs/cheatsheet.md`.
+
 ### Fixed
 - **Geometry solver: one impossible construction no longer takes down the whole diagram.** A failing construction (e.g. `*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))` when the line misses the circle) previously aborted the entire `solve()`, so constraints were never applied and later constructed/free points were drawn at placeholder coordinates presented as authoritative. Failed constructions are now reported, the affected points (and dependents) are omitted from the canvas with an explanatory comment, constraints that read a failed construction (e.g. `*distance(F ; X ; 5)`) are skipped, and everything else still solves and renders.
 - **`*image(...)` outside the document root now works in every export format** — out-of-root images are staged next to the intermediate `.typ` (`<stem>-images/`) so Typst can resolve them, in-tree images keep their relative layout, and the staged folder is copied along on relocated `typ`/`html` exports (marked so build cleanup only ever removes what we created).

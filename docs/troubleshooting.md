@@ -15,12 +15,27 @@ During a build you may see lines like this:
 
 ```
 [Error] Line 12: undefined variable <widht>
+  File "bai1.ezmath", line 12, column 9
+    Tong = <widht> + 2
+           ^^^^^^^
 [Warning] Line 30: unknown command *fract — treated as plain text. Did you mean '*frac(...)'?
 ```
 
 - **Line numbers** count from the top of your `.ezmath` file.
 - **[Error]** — something is definitely wrong (typo, bad calculation).
 - **[Warning]** — suspicious, but the build carries on.
+- Every diagnostic prints a small context block under its first line:
+  the `File "name", line N, column M` header, the real
+  `.ezmath` line, and a caret (`^`) under the exact spot. Columns
+  count characters, not bytes (Vietnamese text works the same), and
+  tabs are expanded. When the column is not known there is no caret —
+  you just get the file/line header and the source line. Very long
+  lines are truncated around the caret with an ellipsis (`…`).
+- Color is only used on a terminal; when stderr is captured (as in
+  the editor) or `NO_COLOR` is set, the output stays plain text.
+- Multi-line constructs point at the line where they open: an
+  unclosed math delimiter (`\ … \`) or an unterminated `*draw(` block
+  is reported at the line with the opening delimiter.
 - By default the PDF is **still written** even with errors; the last
   line tells you honestly how many there were:
 
@@ -53,6 +68,13 @@ Step-by-step from scratch: [Installation guide](installation.md).
 ## Compiler messages, one by one
 
 ### `[Error] Line 7: undefined variable <widht>`
+
+```
+[Error] Line 7: undefined variable <widht>
+  File "doc.ezmath", line 7, column 9
+    Total = <widht> + 2
+            ^^^^^^^
+```
 
 You used `<widht>` but never defined it — almost always a typo
 (`<width>` was defined somewhere else), or you used it **before**
