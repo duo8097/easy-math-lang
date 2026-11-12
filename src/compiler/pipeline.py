@@ -1694,10 +1694,11 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     if os.path.isfile(typst_file):
         try:
             with open(typst_file, 'r', encoding='utf-8') as _tf_check:
-                _tf_check.seek(0, os.SEEK_END)
-                _size = _tf_check.tell()
-                _tf_check.seek(max(0, _size - (len(_BUILD_ARTIFACT_MARKER) + 32)))
-                _tail = _tf_check.read()
+                # Read the whole tail instead of seeking: text-mode seek
+                # cookies are not byte arithmetic, and Windows writes the
+                # file with \r\n translation — cookie math would decode
+                # mid-UTF-8-sequence and raise UnicodeDecodeError.
+                _tail = _tf_check.read()[-(len(_BUILD_ARTIFACT_MARKER) + 64):]
         except OSError:
             _tail = ''
         if _BUILD_ARTIFACT_MARKER not in _tail:
@@ -1822,7 +1823,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # index the sidecar source map records. It marks the file as ours.
     typst_content.append(_BUILD_ARTIFACT_MARKER)
     try:
-        with open(typst_file, 'w', encoding='utf-8') as tf:
+        with open(typst_file, 'w', encoding='utf-8', newline='\n') as tf:
             tf.write('\n'.join(typst_content) + '\n')
     except OSError as e:
         print(f'\n[ERROR] Cannot write intermediate file {typst_file!r}: {e}',
