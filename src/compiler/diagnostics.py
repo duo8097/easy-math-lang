@@ -6,7 +6,7 @@ tests, parsed by the editor, counted by the strict-mode counter) and
 adds a Python-traceback-style context block under it::
 
     [Error] Line 12: undefined variable <widht>
-      File "bai1.ezmath", line 12, column 9
+      File "bai1.ezmath", line 12, column 8
         Tong = <widht> + 2
                ^^^^^^^
 
@@ -125,7 +125,11 @@ def _active_source_line(ctx, line_no):
     if not lines:
         return None
     try:
-        src = lines[int(line_no) - 1]
+        index = int(line_no) - 1
+        if index < 0:
+            # Line numbers are 1-based; never wrap to the last line.
+            return None
+        src = lines[index]
     except (IndexError, TypeError, ValueError, OverflowError):
         return None
     return src if isinstance(src, str) else None

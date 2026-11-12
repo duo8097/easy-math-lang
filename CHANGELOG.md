@@ -17,7 +17,7 @@ for those.
 
   ```
   [Error] Line 12: undefined variable <widht>
-    File "bai1.ezmath", line 12, column 9
+    File "bai1.ezmath", line 12, column 8
       Tong = <widht> + 2
              ^^^^^^^
   ```
