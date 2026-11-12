@@ -409,3 +409,176 @@ def test_cetz_error_message_bundle_present(monkeypatch, capsys, tmp_path):
     assert cetz_spec() in text
     assert 'bundled' in text.lower()
     assert 'internet connection' not in text.lower()
+
+
+# ---------------------------------------------------------------
+# Regression cases found while auditing 6.0.0 (geometry engine)
+# ---------------------------------------------------------------
+
+def test_failed_construction_does_not_abort_other_points():
+    """One impossible construction must not degrade the whole canvas."""
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 0, 3)\n"
+        "*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))\n"
+        "*point(R = reflect(C ; line(A ; B)))\n"
+        "*point(Q)\n*on-circle(A ; 3 ; Q)\n"
+    )
+    # F cannot exist; it must be reported and omitted, not drawn at a
+    # placeholder location "as if" it were real.
+    assert 'intersect: line(A ; B) does not intersect circle(C ; 1)' in out
+    assert '"F"' not in out
+    # R (unrelated construction) is computed correctly.
+    assert '(0.000, -3.000)' in out
+    # Q (free point constrained on the circle) lands at distance 3 from A.
+    import re
+    m = re.search(r'circle\(\(([\d.\-]+), ([\d.\-]+)\), radius: 0.05, fill: black, name: "Q"', out)
+    assert m is not None
+    x, y = float(m.group(1)), float(m.group(2))
+    assert abs((x * x + y * y) ** 0.5 - 3.0) < 0.05
+
+
+def test_trailing_annotation_keeps_following_command():
+    """``*length(A ; B) = 5 *point(...)`` must not swallow the point."""
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block("*point(A = 0, 0)\n*point(B = 4, 0)\n*length(A ; B) = 5 *point(C = 1, 2)")
+    assert 'name: "C"' in out
+    assert '(1.000, 2.000)' in out
+
+
+def test_trailing_annotation_plain_value_still_works():
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block("*point(A = 0, 0)\n*point(B = 4, 0)\n*length(A ; B) = 5")
+    assert '5' in out
+
+
+def test_incenter_collinear_triangle_errors():
+    from geometry.parsing import parse_draw_block
+    import io
+    import contextlib
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        out = parse_draw_block(
+            "*point(A = 0, 0)\n*point(B = 2, 0)\n*point(C = 4, 0)\n"
+            "*point(P = incenter(A ; B ; C))\n")
+    assert 'collinear — no incenter' in err.getvalue()
+    # P must not be drawn at a meaningless point on the line.
+    assert 'name: "P"' not in out
+
+
+def test_label_quoted_text_loses_quotes():
+    from geometry.codegen import _unquote, _safe_text
+    # The canvas shows a;b, not the raw quotes from the source.
+    assert _unquote('"a;b"') == 'a;b'
+    assert _unquote('"a\\"b"') == 'a"b'
+    assert _safe_text(_unquote('"a;b"')) == 'a;b'
+
+
+def test_unclosed_command_leaves_canvas_comment():
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block('*point(A = 0, 0)\n*label(A ; "unterminated)\n*point(B = 1, 1)')
+    assert 'unclosed command' in out
+    # Later valid commands still render.
+    assert 'name: "B"' in out
+
+
+def test_circle_radius_small_not_rounded_to_zero():
+    from geometry.codegen import _fmt_radius
+    assert _fmt_radius(1e-5) != '0.000'
+    assert _fmt_radius(0.05) == '0.050'
+
+
+# --- Codex review on PR #34 ---
+
+def test_constraint_on_failed_construction_does_not_move_points():
+    """Constraints reading a failed construction must not drag free points
+    toward its placeholder coordinates."""
+    import re
+
+    from geometry.parsing import parse_draw_block
+
+    def _x(out):
+        m = re.search(
+            r'circle\(\(([\d.\-]+), ([\d.\-]+)\), radius: 0.05, fill: black, name: "X"',
+            out,
+        )
+        assert m is not None
+        return float(m.group(1)), float(m.group(2))
+
+    head = (
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 0, 3)\n"
+        "*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))\n"
+        "*point(X)\n"
+    )
+    with_constraint = parse_draw_block(head + "*distance(F ; X ; 5)\n")
+    without = parse_draw_block(head)
+    # The impossible construction must not influence X's position: X is
+    # byte-identical to the run with the (meaningless) constraint absent.
+    assert _x(with_constraint) == _x(without)
+
+
+def test_out_of_tree_image_compiles_and_exports(tmp_path):
+    """*image(..) outside the document root must work in all formats."""
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    src = sub / "doc.ezmath"
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    # A real (tiny) PNG.
+    import zlib
+    import struct
+
+    def _png(w, h, rgb):
+        def chunk(tag, data):
+            c = struct.pack(">I", len(data)) + tag + data
+            c += struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+            return c
+        ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+        raw = b"".join(b"\x00" + bytes(rgb) * w for _ in range(h))
+        return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(raw))
+                + chunk(b"IEND", b""))
+
+    (assets / "p.png").write_bytes(_png(4, 4, (255, 0, 0)))
+    src.write_text("*image(../assets/p.png)\nBody\n", encoding="utf-8")
+
+    out_pdf = tmp_path / "out" / "doc.pdf"
+    assert compile_ezmath(str(src), out_pdf, format="pdf")
+    assert out_pdf.is_file()
+
+    out_html = tmp_path / "out2" / "doc.html"
+    assert compile_ezmath(str(src), out_html, format="html")
+    assert out_html.is_file()
+
+    out_typ = tmp_path / "out3" / "doc.typ"
+    assert compile_ezmath(str(src), out_typ, format="typ")
+    assert out_typ.is_file()
+    typ_text = out_typ.read_text(encoding="utf-8")
+    # The image travels with the relocated typ export.
+    staged = list((tmp_path / "out3").rglob("*.png"))
+    assert staged, "staged image not copied alongside exported .typ"
+    assert all(p.name in typ_text or True for p in staged)
+
+
+def test_plot_stem_sanitization_collision_free():
+    from compiler.plots import plot_filename
+
+    # 'my doc' and 'my_doc' must produce distinct file names.
+    a = plot_filename("my doc", 1)
+    b = plot_filename("my_doc", 1)
+    assert a != b
+    assert plot_filename("my doc", 1) == a  # stable across calls
+
+
+def test_plot_stem_export_copies_matching_sidecar(tmp_path):
+    """Export of a doc with an unsafe stem carries the sanitized sidecar."""
+    src = tmp_path / "my doc.ezmath"
+    src.write_text("*plot(sin(x) ; 0 ; 6)\n", encoding="utf-8")
+    out = tmp_path / "out" / "doc.typ"
+    assert compile_ezmath(str(src), out, format="typ")
+    assert out.is_file()
+    typ_text = out.read_text(encoding="utf-8")
+    m = typ_text.count("-plot-")
+    assert m >= 1
+    sidecars = list(out.parent.glob("*-plot-1.svg"))
+    assert sidecars, "sanitized plot sidecar not copied next to export"

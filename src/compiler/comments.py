@@ -5,6 +5,19 @@ import re
 from .inline_math import find_unescaped
 
 
+def split_lines(text):
+    """Split *text* like LSP clients split a document.
+
+    ``str.splitlines()`` also splits on VT/FF/FS/GS/RS/US/NEL and the
+    Unicode line separators, which would invent lines that do not exist
+    in the client's view of the file and shift every diagnostic after
+    them. LSP clients split on \\r\\n, \\r and \\n only, so we normalize
+    and split on \\n — keeping compiler output and editor positions in
+    agreement.
+    """
+    return text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+
+
 def _math_ranges(line_prot):
     """Ranges covered by ``\\ ... \\`` math on one line (never comments).
 
@@ -55,6 +68,39 @@ def _balanced_spans(line, opener):
         pos = i
 
 
+def _is_escaped_bs(line, i):
+    """True when line[i] is preceded by an odd number of backslashes."""
+    n = 0
+    j = i - 1
+    while j >= 0 and line[j] == '\\':
+        n += 1
+        j -= 1
+    return n % 2 == 1
+
+
+def _quote_ranges(line):
+    """Ranges covered by double-quoted strings (never comments).
+
+    An unterminated string protects through end of line, mirroring
+    the rest of the compiler's handling of unterminated constructs.
+    """
+    ranges = []
+    start = None
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == '"' and not _is_escaped_bs(line, i):
+            if start is None:
+                start = i
+            else:
+                ranges.append((start, i + 1))
+                start = None
+        i += 1
+    if start is not None:
+        ranges.append((start, len(line)))
+    return ranges
+
+
 def _protected_ranges(line):
     """Ranges where // must not start a comment.
 
@@ -85,7 +131,7 @@ def strip_comments(text):
     cleaned_lines = []
     in_math = False
     in_fence = False
-    for raw_line in text.splitlines():
+    for raw_line in split_lines(text):
         if raw_line.strip().startswith('```'):
             in_fence = not in_fence
             cleaned_lines.append(raw_line)
@@ -99,10 +145,11 @@ def strip_comments(text):
         placeholder = '\x00URLSLASH\x00'
         line_prot = re.sub(
             r'([A-Za-z][A-Za-z0-9+.-]*://\S*)',
-            lambda m: m.group(1).replace('/', placeholder),
+            lambda m, placeholder=placeholder: m.group(1).replace('/', placeholder),
             raw_line,
         )
         protected = _protected_ranges(line_prot)
+        protected.extend(_quote_ranges(line_prot))
         # Track multiline math across source lines. Only actual text
         # delimiters affect state: raw *p(...) and assignment values are
         # consumed before inline math by the document pipeline.

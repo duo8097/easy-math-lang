@@ -457,11 +457,8 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
                 auto_pairs.OPENERS_FOR.get(prev_ch) != closer:
             return False
         block_text = block.text()
-        if cursor.positionInBlock() not in (utf16_units(prev_ch), 1) \
-                or block_text.strip() != f'{prev_ch}{closer}':
-            # Still allow simple cases where the block is exactly the pair
-            if block_text.strip() != f'{prev_ch}{closer}':
-                return False
+        if block_text.strip() != f'{prev_ch}{closer}':
+            return False
 
         cursor.beginEditBlock()
         try:

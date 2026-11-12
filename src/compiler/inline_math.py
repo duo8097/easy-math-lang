@@ -105,7 +105,6 @@ def process_math_inner(ctx, inner_raw, line_no=None):
         space_out_bare_identifiers,
     )
     from .symbols import replace_symbol_shortcuts
-    from . import tables as _tables
 
     inner = inner_raw.strip()
     if not inner:

@@ -115,6 +115,14 @@ def test_expansion_lines():
     # The closer_line should be just the closing character
     assert closer_line == ')'
 
+    # Trailing whitespace after the closer (the whole block is allowed to
+    # strip to just the pair): the closer is the first closer char, not the
+    # last char of line_after.
+    _, _, closer_line = auto_pairs.expansion_lines('(', ')  ')
+    assert closer_line == ')'
+    _, _, closer_line = auto_pairs.expansion_lines('(', ') x')
+    assert closer_line == ')'
+
 
 def test_pair_constants():
     """Test that all expected pairs are defined."""

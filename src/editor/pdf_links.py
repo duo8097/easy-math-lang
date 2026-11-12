@@ -52,9 +52,14 @@ def _parse_object_map(data: bytes) -> dict[tuple[int, int], bytes]:
     objects: dict[tuple[int, int], bytes] = {}
     for match in _OBJ_RE.finditer(data):
         num, gen, body = int(match.group(1)), int(match.group(2)), match.group(3)
-        # Split header dict from an optional stream payload.
-        head, sep, rest = body.partition(b'stream')
-        header = head if sep else body
+        # Split header dict from an optional stream payload. The stream
+        # keyword is only a delimiter when it stands on its own line —
+        # not when it appears inside a string in the dict (e.g. a URI).
+        m = re.search(rb'\r?\nstream(?:\r\n|\r|\n)', body)
+        if m is not None:
+            header, sep, rest = body[:m.start()], True, body[m.end():]
+        else:
+            header, sep, rest = body, False, b''
         if b'/Filter' in header and sep:
             payload, _, _ = rest.partition(b'endstream')
             payload = payload.strip(b'\r\n')
@@ -146,10 +151,8 @@ def _annots_refs(page_body: bytes) -> list[tuple[str, tuple[int, int] | bytes]]:
     out: list[tuple[str, tuple[int, int] | bytes]] = []
     if m.group(2) is not None:
         inner = m.group(2)
-        pos = 0
         for ref in _REF_RE.finditer(inner):
             out.append(('ref', (int(ref.group(1)), int(ref.group(2)))))
-            pos = ref.end()
         # Direct dicts inside the array (rare): balanced <<...>> spans.
         for dstart in _dict_spans(inner):
             # Skip dicts already covered by refs (approx: dicts contain /Rect).

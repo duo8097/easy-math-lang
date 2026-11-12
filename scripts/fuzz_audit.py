@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory() as td:
             if elapsed > 10:
                 hangs[cat] = hangs.get(cat, 0) + 1
                 # We don't abort, just record.
-        except Exception as exc:
+        except Exception:
             crashes[cat] += 1
             # Expected: compiler catches errors gracefully; uncaught exception is a crash.
 

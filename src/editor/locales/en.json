@@ -73,6 +73,7 @@
   "status.save_before_compile": "Save the file before compiling",
   "status.build_running": "A build is already running",
   "status.compiling": "Compiling…",
+  "status.build_failed": "Build failed to start or crashed — see the compiler output",
   "status.could_not_start": "Could not start compiler",
   "status.compiled_to": "Compiled to {path}",
   "status.exported_to": "Exported to {path}",

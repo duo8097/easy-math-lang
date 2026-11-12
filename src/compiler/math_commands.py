@@ -186,8 +186,14 @@ def escape_number_commas(s):
     compiles. Only a comma directly between two digits is escaped,
     so genuine ``", "`` separators (which the formatters below always
     emit with a trailing space) survive untouched.
+
+    Quoted spans are opaque text, not math: their content is left
+    byte-for-byte alone (a quoted ``100,000`` must stay as typed).
     """
-    return re.sub(r'(?<=\d),(?=\d)', r'\\,', s)
+    parts = re.split(r'("[^"]*")', s)
+    for i in range(0, len(parts), 2):
+        parts[i] = re.sub(r'(?<=\d),(?=\d)', r'\\,', parts[i])
+    return ''.join(parts)
 
 
 # Typst math identifiers that must survive space_out_bare_identifiers().
@@ -231,7 +237,7 @@ def space_out_bare_identifiers(s):
     for idx in range(0, len(parts), 2):
         seg = parts[idx]
 
-        def _repl(m):
+        def _repl(m, seg=seg):
             word = m.group(1)
             if len(word) < 2:
                 return word
@@ -799,9 +805,29 @@ def _det_matrix_arg_inner(inner_raw):
     before math commands run).
     """
     stripped = inner_raw.strip()
-    m = re.fullmatch(r'\$(mat\(.*\))\$', stripped, re.DOTALL)
-    if m:
-        return ('typst', m.group(1))
+    if stripped.startswith('$') and stripped.endswith('$') and len(stripped) >= 2:
+        # Accept the already-expanded Typst form ``$mat(...)$`` (the
+        # text pipeline expands tables before math commands run).
+        # Depth-aware, not greedy: ``*det($mat(a)$ $mat(b)$)`` must not
+        # swallow across spans.
+        inner = stripped[1:-1]
+        mm = re.match(r'mat\s*\(', inner)
+        if mm:
+            depth = 1
+            j = mm.end()
+            in_q = False
+            while j < len(inner) and depth:
+                ch = inner[j]
+                if ch == '"' and (j == 0 or inner[j - 1] != '\\'):
+                    in_q = not in_q
+                elif not in_q:
+                    if ch == '(':
+                        depth += 1
+                    elif ch == ')':
+                        depth -= 1
+                j += 1
+            if depth == 0 and j == len(inner):
+                return ('typst', inner)
     m = re.match(r'\*(matrix|mat)\s*\(', stripped)
     if not m:
         return None

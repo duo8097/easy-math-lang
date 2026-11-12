@@ -165,7 +165,7 @@ def test_solver_non_convergence_warning():
 def test_malformed_geometry_syntax(capsys):
     out = geometry.parse_draw_block("*point(A")
     captured = capsys.readouterr()
-    assert "unclosed parentheses" in captured.err
+    assert "unclosed command" in captured.err
     assert out  # still returns a (possibly empty) canvas
 
 

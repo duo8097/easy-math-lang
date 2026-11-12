@@ -125,8 +125,6 @@ def icon_path(name):
 
 def _theme_colors():
     """(normal, disabled) foreground colors for the current theme."""
-    from . import theme as app_theme
-
     app = QtWidgets.QApplication.instance()
     dark = False
     if app is not None:

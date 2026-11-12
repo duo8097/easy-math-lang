@@ -58,6 +58,39 @@ def _safe_text(text, limit=200):
     )
 
 
+def _unquote(text):
+    """Strip surrounding double quotes and unescape escape sequences inside.
+
+    Splitting keeps the quotes verbatim, so ``*label(A ; "a;b")`` arrives
+    here as ``"a;b"`` — the canvas should show ``a;b``, not the quotes.
+    Unquoted text is returned unchanged; escape sequences inside a quoted
+    span (``\\"`` and ``\\\\``) are decoded, and ``_safe_text`` re-encodes
+    them for Typst afterwards.
+    """
+    s = str(text).strip()
+    if len(s) >= 2 and s.startswith('"') and s.endswith('"'):
+        body = s[1:-1]
+        out = []
+        i = 0
+        while i < len(body):
+            ch = body[i]
+            if ch == '\\' and i + 1 < len(body) and body[i + 1] in '"\\':
+                out.append(body[i + 1])
+                i += 2
+                continue
+            out.append(ch)
+            i += 1
+        return ''.join(out)
+    return s
+
+
+def _fmt_radius(r):
+    """Format a circle/arc radius; never rounds a legal tiny radius to 0."""
+    if r >= 5e-4:
+        return f'{r:.3f}'
+    return f'{r:.10g}'
+
+
 def _fmt_num(x):
     """Compact number for measurement labels (5 not 5.000)."""
     s = f'{float(x):.3f}'
@@ -252,6 +285,17 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             raise GeometryError("*triangle requires 3 point args")
         if len(args) > 4 or (len(args) == 4 and args[3].strip().lower() != 'labels'):
             raise GeometryError(f"*triangle takes 3 points (optional 4th: labels), got {len(args)}")
+        if len(args) == 4:
+            # Documented in rule.txt, but every point's vertex label is
+            # drawn anyway — the flag is redundant. Say so instead of
+            # silently ignoring it.
+            print(
+                '[GeometryNote] *triangle(A ; B ; C ; labels) — vertex labels are '
+                'always drawn for every point; the 4th argument is accepted for '
+                'compatibility and has no additional effect',
+                file=sys.stderr,
+            )
+            lines.append('  // [GeometryNote] *triangle labels argument is redundant — vertex labels are always drawn')
         A, B, C = [a.strip() for a in args[:3]]
         for pt in [A, B, C]:
             if pt not in pts:
@@ -260,7 +304,6 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         # Degenerate (collinear / zero-area) triangle check, scale-relative.
         import math as _math
 
-        import numpy as _np
         area2 = abs(
             (pts[B][0] - pts[A][0]) * (pts[C][1] - pts[A][1])
             - (pts[C][0] - pts[A][0]) * (pts[B][1] - pts[A][1])
@@ -356,10 +399,10 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             if not _math.isfinite(float(d)):
                 raise GeometryError(f"non-finite circle radius for {center} — skipping")
             if float(d) > 1e6:
-                raise GeometryError(f"circle radius exceeds the canvas limit (1e6) — skipping")
+                raise GeometryError("circle radius exceeds the canvas limit (1e6) — skipping")
             if d < 1e-9:
                 raise GeometryError(f"circle radius is zero: {center} and {r_or_pt} coincide")
-            lines.append(f'  circle({_q(center)}, radius: {d:.3f})')
+            lines.append(f'  circle({_q(center)}, radius: {_fmt_radius(d)})')
         else:
             try:
                 r = parse_numeric_arg(r_or_pt)
@@ -375,7 +418,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
                 raise GeometryError(f"circle radius exceeds the canvas limit (1e6), got: {r_or_pt!r}")
             if r <= 0:
                 raise GeometryError(f"circle radius must be positive, got: {r_or_pt!r}")
-            lines.append(f'  circle({_q(center)}, radius: {r:.3f})')
+            lines.append(f'  circle({_q(center)}, radius: {_fmt_radius(r)})')
 
     elif cmd == 'right-angle':
         # Convention: right-angle(B ; A ; C) → right angle at vertex A
@@ -465,17 +508,17 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             if O in fixed and A in fixed and B in fixed:
                 raise GeometryError(
                     f"*arc({O} ; {A} ; {B}): endpoints at different radii "
-                    f"(|OA|={r:.3f}, |OB|={r2:.3f}) — move B onto the circle"
+                    f"(|OA|={r:.6g}, |OB|={r2:.6g}) — move B onto the circle"
                 )
             else:
                 lines.append(
                     f'  // [GeometryWarning] *arc({O} ; {A} ; {B}): '
-                    f'endpoints at different radii (|OA|={r:.3f}, |OB|={r2:.3f})'
+                    f'endpoints at different radii (|OA|={r:.6g}, |OB|={r2:.6g})'
                 )
         stop = a1 + sweep
         lines.append(
             f'  arc(({ox:.3f}, {oy:.3f}), start: {a1:.2f}deg, '
-            f'stop: {stop:.2f}deg, radius: {r:.3f})'
+            f'stop: {stop:.2f}deg, radius: {_fmt_radius(r)})'
         )
 
     elif cmd == 'angle':
@@ -516,13 +559,13 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         if len(args) == 4 and args[3].strip():
             mid = _math.radians(a1 + sweep / 2.0)
             lx, ly = bx + 0.68 * _math.cos(mid), by + 0.68 * _math.sin(mid)
-            lines.append(f'  content(({lx:.3f}, {ly:.3f}), [#"{_safe_text(args[3].strip())}"])')
+            lines.append(f'  content(({lx:.3f}, {ly:.3f}), [#"{_safe_text(_unquote(args[3]))}"])')
 
     elif cmd == 'label':
         # Custom text label attached to a point (beyond the auto label).
         if len(args) != 2:
             raise GeometryError(f"*label requires 2 args: point ; text (got {len(args)})")
-        P, text = args[0].strip(), args[1].strip()
+        P, text = args[0].strip(), _unquote(args[1])
         if P not in pts:
             raise GeometryError(f"undefined point '{P}'")
         _require_finite_pts(pts, [P])
@@ -549,7 +592,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
             raise GeometryError(f"*length({A} ; {B}): non-finite segment — skipping")
         if d < 1e-9:
             raise GeometryError(f"*length({A} ; {B}): zero-length segment — skipping")
-        shown = _safe_text(annot) if annot else _fmt_num(d)
+        shown = _safe_text(_unquote(annot)) if annot else _fmt_num(d)
         ax, ay = float(pts[A][0]), float(pts[A][1])
         bx, by = float(pts[B][0]), float(pts[B][1])
         mx, my = (ax + bx) / 2.0, (ay + by) / 2.0
@@ -589,7 +632,7 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
                 f'  arc(({bx:.3f}, {by:.3f}), start: {a1:.2f}deg, '
                 f'stop: {a1 + sweep:.2f}deg, radius: 0.300)'
             )
-        shown = _safe_text(annot) if annot else f'{_fmt_num(deg)}°'
+        shown = _safe_text(_unquote(annot)) if annot else f'{_fmt_num(deg)}°'
         mid = _math.radians(a1 + sweep / 2.0)
         lx, ly = bx + 0.58 * _math.cos(mid), by + 0.58 * _math.sin(mid)
         lines.append(f'  content(({lx:.3f}, {ly:.3f}), [#"{shown}"])')
@@ -609,9 +652,10 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
         _require_finite_pts(pts, [A, B, C, D, E, F])
         import math as _math
 
-        # Coincident / non-finite arms must fail before anything is drawn
-        # (both marks appear or neither does).
+        # Coincident / non-finite arms and degenerate sweeps must fail
+        # before anything is drawn (both marks appear or neither does).
         minor_deg = []
+        sweeps = []
         for (X, Y, Z) in ((A, B, C), (D, E, F)):
             v1, v2 = pts[X] - pts[Y], pts[Z] - pts[Y]
             n1, n2 = float(_norm(v1)), float(_norm(v2))
@@ -623,7 +667,19 @@ def _generate_command(lines, solver, cmd, args, xmin, ymin, xmax, ymax,
                 raise GeometryError(
                     f"*equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): "
                     f"coincident points in angle {X}{Y}{Z} — skipping")
+            a1 = _vec_angle_deg(v1)
+            sweep = (_vec_angle_deg(v2) - a1) % 360.0
+            if sweep > 180.0:
+                # Marker shows the interior (minor) arc, not the reflex one.
+                a1 = (a1 + sweep) % 360.0
+                sweep = 360.0 - sweep
             minor_deg.append(_minor_angle_deg(v1, v2))
+            sweeps.append((a1, sweep))
+        for (_a1, sweep), (X, Y, Z) in zip(sweeps, ((A, B, C), (D, E, F)), strict=True):
+            if sweep < 0.5 or sweep > 359.5:
+                raise GeometryError(
+                    f"*equal-angle({A} ; {B} ; {C} ; {D} ; {E} ; {F}): "
+                    f"angle {X}{Y}{Z} is ~0°/180°/360° — both marks omitted")
         if abs(minor_deg[0] - minor_deg[1]) > 1.0:
             # A solved constraint satisfies this; a hand-fixed scene may
             # not (all six points given coordinates by hand).

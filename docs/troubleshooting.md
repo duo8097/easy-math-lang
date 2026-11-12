@@ -129,11 +129,13 @@ Add the missing ')' and retry.
 
 Count your parentheses — each `*draw(` needs exactly one `)`.
 
-### `[GeometryError] *perp(A ; B ; C ; D): constraint conflict — …`
+### `[GeometryError] *perp(A ; B ; C ; D): constraint conflict or non-convergence — …`
 
-Your geometry rules contradict each other (e.g. `*distance(A ; B ; 5)`
-together with `*distance(A ; B ; 9)`). Reread the rules and remove the
-one that can't be true — the message names the constraints involved.
+Either your geometry rules contradict each other (e.g. `*distance(A ; B ; 5)`
+together with `*distance(A ; B ; 9)`), or the solver did not converge —
+the message names the constraints involved. If they truly conflict, reread
+the rules and remove the one that can't be true; if the numbers look fine,
+the figure may be under-constrained — pin enough points to determine it.
 
 ### `[GeometryError] *point(P = midpint(A ; B)): unknown construction '…'`
 

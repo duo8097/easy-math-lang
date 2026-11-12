@@ -110,6 +110,8 @@ def process_assignment_or_define(ctx, statement, line_no=None):
         v = apply_calc_in_string(ctx, v, line_no=line_no)
         ctx.defines[k] = v
         ctx.variables[k] = v
+        # New definition: expansions cached before it may be stale.
+        ctx._expansion_cache = {}
         return
 
     if statement.startswith('<') and '=' in statement:
@@ -138,6 +140,8 @@ def process_assignment_or_define(ctx, statement, line_no=None):
         val_part = replace_vars(ctx, val_part)
         val_part = apply_calc_in_string(ctx, val_part, line_no=line_no)
         ctx.variables[var_name] = val_part
+        # New definition: expansions cached before it may be stale.
+        ctx._expansion_cache = {}
         return
     # Not an assignment/define (e.g. stray text inside a block).
     print(

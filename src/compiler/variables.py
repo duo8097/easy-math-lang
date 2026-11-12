@@ -3,6 +3,30 @@
 import re
 import sys
 
+#: Maximum length of one expanded variable value (256 KiB). A few doubling
+#: defines (``a = <b><b>`` chains) would otherwise expand exponentially and
+#: hang or OOM the compiler; anything past this cap is left unexpanded
+#: with a warning instead.
+_EXPANSION_CAP = 256 * 1024
+
+
+def _is_operand_char(ch):
+    return bool(ch) and (ch.isalnum() or ch == '_')
+
+
+def _looks_like_comparison(text, s, e):
+    """True when a ``<token>`` match sits glued between two operands.
+
+    ``0<x>1`` (and ``a<b>c``) read as chained comparisons, not variable
+    references: both neighbours of the ``<x>`` token are operand
+    characters. A variable alone on either side (``calc(<x>+1)``) stays
+    a variable — only a both-sides-glued token is treated as an
+    operator. Spaced comparisons (``x < y``) never match anyway.
+    """
+    before = text[s - 1] if s > 0 else ''
+    after = text[e] if e < len(text) else ''
+    return _is_operand_char(before) and _is_operand_char(after)
+
 
 def _expand_single_var(ctx, name, _stack, _depth=0):
     """Recursively expand one variable value; None on cycle."""
@@ -22,6 +46,17 @@ def _expand_single_var(ctx, name, _stack, _depth=0):
         return None
     if name not in ctx.variables:
         return None
+    # Memoize per compile: sibling tokens and repeated references reuse
+    # the same expansion instead of re-walking the tree every time.
+    # Entries are keyed by the variable's current raw value, so a
+    # redefined variable is never served from a stale expansion.
+    cache = getattr(ctx, '_expansion_cache', None)
+    if cache is None:
+        cache = ctx._expansion_cache = {}
+    else:
+        cached = cache.get(name)
+        if cached is not None and cached[0] == str(ctx.variables[name]):
+            return cached[1]
     _stack.add(name)
     try:
         val = str(ctx.variables[name])
@@ -50,11 +85,22 @@ def _expand_single_var(ctx, name, _stack, _depth=0):
             s, e = m.start(), m.end()
             if (s > 0 and val[s - 1] == '<') or (e < len(val) and val[e] == '>'):
                 continue
+            if _looks_like_comparison(val, s, e):
+                continue
             parts.append((m, _inner(m)))
         # Apply replacements back-to-front so offsets stay valid.
         result = val
         for m, rep in reversed(parts):
             result = result[:m.start()] + rep + result[m.end():]
+            if len(result) > _EXPANSION_CAP:
+                print(
+                    f'[WARNING] Variable <{name}> expands beyond '
+                    f'{_EXPANSION_CAP} bytes — leaving it unexpanded.',
+                    file=sys.stderr,
+                )
+                cache[name] = (str(ctx.variables[name]), None)
+                return None
+        cache[name] = (str(ctx.variables[name]), result)
         return result
     finally:
         _stack.discard(name)
@@ -76,6 +122,8 @@ def replace_vars(ctx, text, _visited=None):
         # Skip << B >> style operators: a match touching another
         # angle bracket belongs to a multi-char symbol, not a variable.
         if (s > 0 and text[s - 1] == '<') or (e < len(text) and text[e] == '>'):
+            continue
+        if _looks_like_comparison(text, s, e):
             continue
         name = m.group(1).strip()
         if name not in ctx.variables:
@@ -124,6 +172,8 @@ def check_undefined_vars(text, line_no, ctx=None):
         if match.start() > 0 and original[match.start() - 1] == '<':
             continue
         if match.end() < len(original) and original[match.end()] == '>':
+            continue
+        if _looks_like_comparison(original, match.start(), match.end()):
             continue
         # Idempotency for nested pipelines (e.g. table cells re-run
         # the full text pipeline): <name> inside an already-emitted

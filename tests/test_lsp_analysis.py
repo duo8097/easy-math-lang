@@ -55,7 +55,7 @@ def test_calc_division_by_zero():
 
 def test_geometry_malformed_block():
     result = analysis.analyze_text("*draw(\n*point(A\n)\n")
-    assert any('unclosed parentheses' in d.message
+    assert any('unclosed command' in d.message
                for d in result.diagnostics)
 
 
@@ -194,3 +194,171 @@ def test_equal_angle_completion():
     equal_angle = [i for i in items if i['label'] == 'equal-angle']
     assert len(equal_angle) == 1
     assert 'A ; B ; C ; D ; E ; F' in equal_angle[0]['detail']
+
+
+# --- Audit 6.0.0 regressions (math-delimiter handling, blocks, parity) ---
+
+def test_math_closing_line_anchors_tail_diagnostics():
+    # Line 1 closes multiline math at column 2; the tail is normal text.
+    result = analysis.analyze_text("\\\nx \\ <undef_var>\n")
+    assert [(d.line, d.start, d.end) for d in result.diagnostics] == [(1, 4, 15)]
+
+
+def test_math_closing_line_definition_anchor():
+    # Definition on the tail of a math-closing line gets exact columns.
+    result = analysis.analyze_text("\\\nx \\ <tailvar> = 3\n")
+    assert [(d.name, d.line, d.start, d.end) for d in result.definitions] == [
+        ('tailvar', 1, 4, 13),
+    ]
+
+
+def test_math_closing_line_head_is_checked():
+    # The math head of a closing line is part of the math body: an
+    # undefined variable there is an error (compiler parity).
+    result = analysis.analyze_text("\\\nfoo <head_var> bar \\\n")
+    diags = [d for d in result.diagnostics if d.severity == 'error']
+    assert diags and all(d.start == 4 for d in diags)
+    assert any('head_var' in d.message for d in diags)
+
+
+def test_eof_unclosed_math_reports_tail_column():
+    # Math reopened in the tail of a closing line: EOF points at the
+    # reopening delimiter, not at the head's backslash.
+    result = analysis.analyze_text("\\\nclose \\ tail \\\n")
+    unclosed = [d for d in result.diagnostics
+                if 'Unclosed math delimiter' in d.message]
+    assert unclosed and unclosed[0].start == 13
+
+
+def test_matrix_row_stray_backslash_does_not_swallow_file():
+    result = analysis.analyze_text("*matrix(\n1 \\\n2\n)\n<zach> = 3\n<zach>\n")
+    assert result.diagnostics == []
+
+
+def test_cases_block_is_recognized():
+    result = analysis.analyze_text("*cases(\na = 1 \\\nb = 2\n)\n<a> = 3\n<a>\n")
+    assert result.diagnostics == []
+
+
+def test_vec_block_is_recognized():
+    result = analysis.analyze_text("*vec(\nx\ny\n)\n<w> = 3\n<w>\n")
+    assert result.diagnostics == []
+
+
+def test_empty_math_warning_still_fires_with_blocks():
+    result = analysis.analyze_text("*table(\n\\ \\\n)\n")
+    assert any('Empty math' in d.message for d in result.diagnostics)
+
+
+def test_calc_call_not_flagged_as_unknown_command():
+    result = analysis.analyze_text("*calc(\n")
+    assert not any('Unknown command' in d.message for d in result.diagnostics)
+    assert any(d.severity == 'error' for d in result.diagnostics)
+
+
+def test_unknown_command_inside_math_warns():
+    result = analysis.analyze_text("\\ *boguscmd(x) \\\n")
+    assert any('*boguscmd' in d.message and d.severity == 'warning'
+               for d in result.diagnostics)
+
+
+def test_matrix_cells_silent_like_compiler():
+    result = analysis.analyze_text("*matrix(*bogus(x) ; 1)\n")
+    assert not any('*bogus' in d.message for d in result.diagnostics)
+
+
+def test_table_cells_warn_like_compiler():
+    result = analysis.analyze_text("*table(*bogus(x) | 1)\n")
+    assert any('*bogus' in d.message for d in result.diagnostics)
+
+
+def test_calc_error_in_assignment_becomes_diagnostic():
+    result = analysis.analyze_text("<x> = calc(1/0)\n")
+    assert any(d.severity == 'error' and 'division by zero' in d.message
+               for d in result.diagnostics)
+
+
+def test_calc_error_value_not_stored_as_truth():
+    result = analysis.analyze_text("<x> = calc(1/0)\n")
+    assert result.values['x'][1] is None
+
+
+def test_plot_arity_error():
+    result = analysis.analyze_text("*plot(1 ; 2)\n")
+    assert any('*plot(...)' in d.message and d.severity == 'error'
+               for d in result.diagnostics)
+
+
+def test_plot_bounds_error():
+    result = analysis.analyze_text("*plot(sin(x) ; 2 ; 1)\n")
+    assert any('xmin < xmax' in d.message for d in result.diagnostics)
+
+
+def test_image_arity_error():
+    result = analysis.analyze_text("*image(a ; b ; c)\n")
+    assert any('*image(...)' in d.message for d in result.diagnostics)
+
+
+def test_image_empty_path_error():
+    result = analysis.analyze_text("*image()\n")
+    assert any(d.severity == 'error' for d in result.diagnostics)
+
+
+def test_image_inside_math_warns():
+    result = analysis.analyze_text("\\ *image(a.png) \\\n")
+    assert any('text mode' in d.message and d.severity == 'warning'
+               for d in result.diagnostics)
+
+
+def test_unclosed_styling_call_errors():
+    result = analysis.analyze_text("*bold(x\n")
+    assert any('Unclosed *bold(' in d.message for d in result.diagnostics)
+
+
+def test_midline_draw_message_not_self_referential():
+    result = analysis.analyze_text("text *draw(\n")
+    assert not any('draw(...) is only valid inside *draw(...)' in d.message
+                   for d in result.diagnostics)
+
+
+def test_geometry_error_not_duplicated():
+    text = "*draw(\n*point(A = 0, 0)\n*point(B = A)\n)\n"
+    result = analysis.analyze_text(text)
+    diags = [d for d in result.diagnostics if d.severity == 'error']
+    assert len(diags) == len(set((d.line, d.start, d.end, d.message) for d in diags))
+
+
+def test_hover_word_at_end_of_identifier():
+    text = "*define(width = 10)\nwidth\n"
+    # Cursor exactly at the end of the word (client convention).
+    assert analysis.hover(text, 1, len("width")) is not None
+
+
+def test_vt_nel_does_not_create_phantom_lines():
+    # VT (\x0b) is not an LSP line separator; splitlines() would split.
+    result = analysis.analyze_text("<a> = 1\x0b<nope> = 2\n<nope> <zzz>\n")
+    # No diagnostic on the phantom line; zzz flags on the real line 1.
+    diags = [(d.line, d.message) for d in result.diagnostics]
+    assert not any('zzz' in m and line != 1 for line, m in diags)
+
+
+def test_comparison_like_token_is_not_flagged():
+    assert analysis.analyze_text("0<x>1\n").diagnostics == []
+
+
+def test_variables_beside_comparison_still_work():
+    result = analysis.analyze_text("<x> = 5\n0<y>1\n")
+    assert result.diagnostics == []
+
+
+def test_url_variable_words_not_flagged():
+    assert analysis.analyze_text("see https://a.com/<missing>\n").diagnostics == []
+
+
+def test_url_backslash_does_not_toggle_math():
+    assert analysis.analyze_text("see https://a.com/\\alpha end\n").diagnostics == []
+
+
+def test_comparison_math_head_is_not_flagged():
+    result = analysis.analyze_text("\\\n0<x>1 \\\n")
+    assert result.diagnostics == []

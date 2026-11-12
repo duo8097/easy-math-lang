@@ -120,7 +120,7 @@ def _prune(package_dir: Path) -> None:
                 os.remove(os.path.join(dirpath, filename))
     # Drop directories that are now empty (the tarballs ship an empty
     # gallery/ directory for CeTZ).
-    for dirpath, dirnames, _ in os.walk(package_dir, topdown=False):
+    for dirpath, _dirnames, _ in os.walk(package_dir, topdown=False):
         if dirpath != str(package_dir) and not os.listdir(dirpath):
             os.rmdir(dirpath)
 

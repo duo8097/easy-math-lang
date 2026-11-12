@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -186,7 +185,6 @@ def find_violations(editor_dir=EDITOR_DIR):
                     'snippet': _snippet(node, lines),
                 })
                 continue
-            first = node.args[0]
             # Skip parent/widget arguments: getText(parent, title, ...)
             # and QMessageBox.critical(parent, title, text, ...) put
             # the visible text at args[1]/args[2]; check all string
@@ -226,7 +224,6 @@ def registry_coverage(editor_dir=EDITOR_DIR):
     field label/help, draw title/description and shortcut action
     has a catalog entry in both locales.
     """
-    import importlib.util
     import json as _json
 
     def _load(locale):

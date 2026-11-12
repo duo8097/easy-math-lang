@@ -146,12 +146,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._reopen_after_connect = False  # re-didOpen after a restart
 
         self.editor = EditorWidget(self)
-        self._default_font_size = self.editor.font().pointSizeF() or 12.0
+        _default_size = self.editor.font().pointSizeF()
+        # pointSizeF() returns -1 for pixel-size fonts; keep the default.
+        self._default_font_size = _default_size if _default_size and _default_size > 0 else 12.0
 
         self._find_bar = FindBar()
         self._find_bar.findRequested.connect(self._on_find_requested)
         self._find_bar.replaceRequested.connect(self._on_replace_requested)
         self._find_bar.optionsChanged.connect(self._on_find_options_changed)
+        self._find_bar.closed.connect(self._on_find_closed)
         self._find_match_case = False
         self._find_whole_word = False
         central = QtWidgets.QWidget(self)
@@ -371,7 +374,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception:
                     pass
         self.statusBar().showMessage(message, 8000)
-        sys.stderr.write(f'[easy-math-editor] {message}\n')
+        try:
+            from .preview import COMPILE_LOCK
+        except ImportError:
+            COMPILE_LOCK = None
+        try:
+            if COMPILE_LOCK is not None:
+                with COMPILE_LOCK:
+                    sys.stderr.write(f'[easy-math-editor] {message}\n')
+            else:
+                sys.stderr.write(f'[easy-math-editor] {message}\n')
+        except Exception:
+            pass
 
     def _set_lsp_status(self, text):
         self._lsp_label.setText(text)
@@ -919,17 +933,22 @@ class MainWindow(QtWidgets.QMainWindow):
         reverts the whole insertion.
         """
         from .draw_catalog import build_insert_text
+        from .positions import to_code_point_offset, to_lsp_offset
 
         doc = self.editor.toPlainText()
         cursor = self.editor.textCursor()
         sel_start = min(cursor.selectionStart(), cursor.selectionEnd())
         sel_end = max(cursor.selectionStart(), cursor.selectionEnd())
+        # QTextCursor positions are UTF-16; the document string and
+        # build_insert_text work in code points. Convert at the boundary.
+        cp_start = to_code_point_offset(doc, sel_start)
+        cp_end = to_code_point_offset(doc, sel_end)
         # Positions below are relative to the document *without* the
         # selection — removing it first inside the edit block makes the
         # two line up exactly.
-        base = doc[:sel_start] + doc[sel_end:]
+        base = doc[:cp_start] + doc[cp_end:]
         try:
-            change = build_insert_text(source, base, sel_start)
+            change = build_insert_text(source, base, cp_start)
         except ValueError as exc:
             self.statusBar().showMessage(str(exc), 5000)
             return
@@ -940,10 +959,14 @@ class MainWindow(QtWidgets.QMainWindow):
             if sel_end > sel_start:
                 cursor.setPosition(sel_end, QtGui.QTextCursor.KeepAnchor)
                 cursor.insertText('')
-            cursor.setPosition(change.start)
-            cursor.setPosition(change.end, QtGui.QTextCursor.KeepAnchor)
+            cursor.setPosition(to_lsp_offset(base, change.start))
+            cursor.setPosition(to_lsp_offset(base, change.end), QtGui.QTextCursor.KeepAnchor)
             cursor.insertText(change.insert)
-            cursor.setPosition(change.cursor)
+            # change.cursor is an offset into the *resulting* text
+            # (base with the selection removed and change.insert
+            # spliced in) — convert against that text, not base.
+            new_text = base[:change.start] + change.insert + base[change.end:]
+            cursor.setPosition(to_lsp_offset(new_text, change.cursor))
         finally:
             cursor.endEditBlock()
         self.editor.setTextCursor(cursor)
@@ -1023,11 +1046,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 action()
                 return
 
+    def _on_find_closed(self):
+        self._clear_find_highlights()
+        self.editor.setFocus()
+
     def _toggle_find(self):
         if self._find_bar.isVisible():
             self._find_bar.hide_bar()
-            self._clear_find_highlights()
-            self.editor.setFocus()
             return
         selected = self.editor.textCursor().selectedText()
         self._find_bar.show_bar(selected or self.editor.word_under_cursor())
@@ -1107,6 +1132,9 @@ class MainWindow(QtWidgets.QMainWindow):
             pattern.setPatternOptions(
                 QtCore.QRegularExpression.CaseInsensitiveOption)
         doc = self.editor.document()
+        from .positions import to_code_point_offset
+
+        plain = self.editor.toPlainText()
         ranges = []
         cursor = QtGui.QTextCursor(doc)
         cursor.setPosition(0)
@@ -1118,17 +1146,16 @@ class MainWindow(QtWidgets.QMainWindow):
             # QTextDocument.find() regex matching is case-insensitive
             # regardless of the pattern options, so enforce exact
             # case (and whole-word boundaries) by post-filtering.
+            # start/end are UTF-16 offsets; convert to code points
+            # before indexing the Python string.
+            cp_start = to_code_point_offset(plain, start)
+            cp_end = to_code_point_offset(plain, end)
             if getattr(self, '_find_match_case', False):
-                try:
-                    actual = doc.toPlainText()[start:end]
-                except Exception:
-                    actual = text
-                if actual != text:
+                if plain[cp_start:cp_end] != text:
                     continue
             if getattr(self, '_find_whole_word', False):
-                plain = doc.toPlainText()
-                before = plain[start - 1] if start > 0 else ' '
-                after = plain[end] if end < len(plain) else ' '
+                before = plain[cp_start - 1] if cp_start > 0 else ' '
+                after = plain[cp_end] if cp_end < len(plain) else ' '
                 if (before.isalnum() or before == '_'
                         or after.isalnum() or after == '_'):
                     continue
@@ -1439,11 +1466,14 @@ class MainWindow(QtWidgets.QMainWindow):
             _qt_critical(self, i18n.tr('dialog.save_failed'), str(e))
             return False
         self._recent.add(path)
+        from .positions import utf16_units
+
         cursor_pos = self.editor.textCursor().position()
-        self._switch_document(path, self.editor.toPlainText())
+        text = self.editor.toPlainText()
+        self._switch_document(path, text)
         try:
             restored = self.editor.textCursor()
-            restored.setPosition(max(0, min(cursor_pos, len(self.editor.toPlainText()))))
+            restored.setPosition(max(0, min(cursor_pos, utf16_units(text))))
             self.editor.setTextCursor(restored)
             self.editor.setFocus()
         except (RuntimeError, ValueError):
@@ -1471,25 +1501,35 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage(i18n.tr('status.build_running'), 5000)
             return
         cmd = resolve_compiler_command(self._file_path)
+        if len(cmd) < 2:
+            # A compiler command needs at least [python, ..., file]; an
+            # empty argv would fail opaquely.
+            self.statusBar().showMessage(i18n.tr('status.could_not_start'), 8000)
+            return
         process = QtCore.QProcess(self)
         process.setProcessChannelMode(QtCore.QProcess.MergedChannels)
         process.finished.connect(self._on_build_finished)
         process.errorOccurred.connect(self._on_build_error)
         # '--' separator so a file literally named '--format' etc.
         # is treated as an operand (pipeline.main supports it).
-        process.start(cmd[0], cmd[1:-1] + ['--', cmd[-1]] if len(cmd) > 1 else [])
+        process.start(cmd[0], cmd[1:-1] + ['--', cmd[-1]])
         self._build_process = process
         self.statusBar().showMessage(i18n.tr('status.compiling'))
 
     def _on_build_error(self, error):
+        # Clear the build state on ANY QProcess error (not just
+        # FailedToStart): otherwise later compile attempts silently
+        # refuse with "a build is already running".
+        proc, self._build_process = self._build_process, None
+        if proc is not None:
+            try:
+                proc.deleteLater()
+            except RuntimeError:
+                pass
         if error == QtCore.QProcess.ProcessError.FailedToStart:
-            proc, self._build_process = self._build_process, None
-            if proc is not None:
-                try:
-                    proc.deleteLater()
-                except RuntimeError:
-                    pass
             self.statusBar().showMessage(i18n.tr('status.could_not_start'), 8000)
+        else:
+            self.statusBar().showMessage(i18n.tr('status.build_failed'), 8000)
 
     def _on_build_finished(self, exit_code, _status):
         if getattr(self, '_closing', False):
@@ -2045,7 +2085,9 @@ class MainWindow(QtWidgets.QMainWindow):
         new_size = self._coerce_font_size(size)
         if new_size is None:
             try:
-                new_size = float(current.pointSizeF()) or self._default_font_size
+                _sz = float(current.pointSizeF())
+                # -1 (pixel-size fonts) is truthy but useless; keep default.
+                new_size = _sz if _sz > 0 else self._default_font_size
             except (TypeError, ValueError):
                 new_size = self._default_font_size
         if new_family == current.family() and new_size == current.pointSizeF():
@@ -2345,6 +2387,16 @@ class MainWindow(QtWidgets.QMainWindow):
         thread = getattr(self, '_preview_thread', None)
         worker = getattr(self, '_preview_worker', None)
         if thread is not None:
+            if worker is not None:
+                try:
+                    # Delete the worker inside its own thread, before
+                    # the loop quits, so the deferred delete actually
+                    # runs (posting to a stopped loop never does).
+                    QtCore.QMetaObject.invokeMethod(
+                        worker, 'deleteLater',
+                        QtCore.Qt.ConnectionType.QueuedConnection)
+                except RuntimeError:
+                    pass
             thread.quit()
             if not thread.wait(3000):
                 # Compile running >3s: terminate to avoid destroying a
@@ -2355,11 +2407,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 except RuntimeError:
                     pass
                 thread.wait(3000)
-            try:
-                if worker is not None:
-                    worker.deleteLater()
-            except RuntimeError:
-                pass
         workdir = getattr(self, '_preview_workdir', None)
         if workdir:
             shutil.rmtree(workdir, ignore_errors=True)

@@ -1,6 +1,7 @@
 """Registration of geometry commands into the solver."""
 
 import re
+import sys
 
 from .errors import GeometryError
 from .vectors import _cross2d, _norm
@@ -141,27 +142,32 @@ def _process_command(solver, cmd, args):
         # require the solver to travel ~1e6 units from the default r=3
         # circle (max ~5000 steps * 1.0 clip). If exactly one endpoint is
         # fixed, place the free one at distance d; if both are free,
-        # separate them along +x.
-        try:
-            a_fixed = A in solver.fixed
-            b_fixed = B in solver.fixed
-            if d > 1e-9:
-                def _clamp(v):
-                    return max(-1e6, min(1e6, float(v)))
-                if a_fixed and not b_fixed:
-                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
-                elif b_fixed and not a_fixed:
-                    bx, by = float(solver.points[B][0]), float(solver.points[B][1])
-                    solver.points[A] = np.array([_clamp(bx - d), _clamp(by)])
-                elif not a_fixed and not b_fixed:
-                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
-        except Exception:
-            pass
+        # separate them along +x. Constructed endpoints are skipped: the
+        # solver recomputes them analytically, so a seed based on their
+        # pre-solve placeholder would be a phantom.
+        if A not in solver.derived and B not in solver.derived:
+            try:
+                a_fixed = A in solver.fixed
+                b_fixed = B in solver.fixed
+                if d > 1e-9:
+                    def _clamp(v):
+                        return max(-1e6, min(1e6, float(v)))
+                    if a_fixed and not b_fixed:
+                        ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                        solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
+                    elif b_fixed and not a_fixed:
+                        bx, by = float(solver.points[B][0]), float(solver.points[B][1])
+                        solver.points[A] = np.array([_clamp(bx - d), _clamp(by)])
+                    elif not a_fixed and not b_fixed:
+                        ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                        solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
+            except (TypeError, ValueError, IndexError, KeyError) as e:
+                print(f'[GeometryWarning] distance seeding skipped for {A}-{B}: {e}',
+                      file=sys.stderr)
         solver.add_constraint(
             f"distance({A},{B}={d})",
-            lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2
+            lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2,
+            deps=(A, B),
         )
 
     elif cmd == 'perp':
@@ -188,7 +194,8 @@ def _process_command(solver, cmd, args):
                         P, c, d,
                         lambda: _perp_cost_4(P, a, b, c, d),
                     ),
-                )
+                ),
+                deps=(A, B, C, D),
             )
         elif len(args) == 3:
             A, B, C = [a.strip() for a in args]
@@ -213,7 +220,8 @@ def _process_command(solver, cmd, args):
                         P, b, c,
                         lambda: _perp_cost_3(P, a, b, c),
                     ),
-                )
+                ),
+                deps=(A, B, C),
             )
         else:
             raise GeometryError("*perp requires 3 or 4 arguments")
@@ -243,7 +251,8 @@ def _process_command(solver, cmd, args):
                     P, c, d,
                     lambda: _parallel_cost(P, a, b, c, d),
                 ),
-            )
+            ),
+            deps=(A, B, C, D),
         )
 
     elif cmd == 'on-line':
@@ -267,7 +276,8 @@ def _process_command(solver, cmd, args):
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
                 lambda: _online_cost(P, a, b, c),
-            )
+            ),
+            deps=(A, B, C),
         )
 
     elif cmd == 'on-circle':
@@ -292,7 +302,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"on-circle({A} on circle({O},{r}))",
-            lambda P, o=O, rv=r, a=A: (_norm(P[a] - P[o]) - rv) ** 2
+            lambda P, o=O, rv=r, a=A: (_norm(P[a] - P[o]) - rv) ** 2,
+            deps=(O, A),
         )
 
     elif cmd == 'equal-length':
@@ -304,7 +315,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"equal-length({A}{B}={C}{D})",
-            lambda P, a=A, b=B, c=C, d=D: (_norm(P[b] - P[a]) - _norm(P[d] - P[c])) ** 2
+            lambda P, a=A, b=B, c=C, d=D: (_norm(P[b] - P[a]) - _norm(P[d] - P[c])) ** 2,
+            deps=(A, B, C, D),
         )
 
     elif cmd == 'midpoint':
@@ -316,7 +328,8 @@ def _process_command(solver, cmd, args):
             solver.add_point(pt)
         solver.add_constraint(
             f"midpoint({C} of {A}{B})",
-            lambda P, a=A, b=B, c=C: _norm(P[c] - (P[a] + P[b]) / 2) ** 2
+            lambda P, a=A, b=B, c=C: _norm(P[c] - (P[a] + P[b]) / 2) ** 2,
+            deps=(A, B, C),
         )
 
     elif cmd == 'intersection':
@@ -360,14 +373,16 @@ def _process_command(solver, cmd, args):
             lambda P, a=A, b=B, c=C: _seg_cost(
                 P, a, b,
                 lambda: _inter_cost_1(P, a, b, c),
-            )
+            ),
+            deps=(A, B, C),
         )
         solver.add_constraint(
             f"intersection({C} on {D}{E})",
             lambda P, d=D, e=E, c=C: _seg_cost(
                 P, d, e,
                 lambda: _inter_cost_2(P, d, e, c),
-            )
+            ),
+            deps=(D, E, C),
         )
 
     elif cmd == 'equal-angle':
@@ -402,6 +417,7 @@ def _process_command(solver, cmd, args):
         solver.add_constraint(
             f"equal-angle({A}{B}{C}={D}{E}{F})",
             _equal_angle_cost,
+            deps=(A, B, C, D, E, F),
         )
 
     # Draw-only commands — just register for the draw pass

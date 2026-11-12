@@ -3,6 +3,7 @@
 import hashlib
 import math
 import re
+import sys
 
 from .errors import GeometryError, GeometryWarning
 from .vectors import _norm
@@ -29,9 +30,13 @@ class GeometrySolver:
         self.points = {}        # name -> np.array([x, y])
         self.fixed = set()
         self.derived = {}       # name -> _DerivedPoint (constructed points)
-        self.constraints = []   # list of (label, lambda P: cost)
+        # list of (label, fn, deps): deps are the point names the
+        # constraint reads, used to skip constraints that reference a
+        # construction that failed.
+        self.constraints = []
         self.draw_commands = []  # list of (cmd, args)
         self.draw_annotations = {}  # draw_commands index -> trailing "= value" text
+        self.solve_errors = []   # construction failures found by solve()
 
     def _is_free(self, name):
         """True when the solver may move *name* (not fixed, not constructed)."""
@@ -87,8 +92,8 @@ class GeometrySolver:
             r = 3.0 + (h2 % 200) * 0.02
             self.points[name] = np.array([r * math.cos(ang), r * math.sin(ang)])
 
-    def add_constraint(self, label, fn):
-        self.constraints.append((label, fn))
+    def add_constraint(self, label, fn, deps=()):
+        self.constraints.append((label, fn, tuple(deps)))
 
     def add_derived_point(self, name, deps, compute, label=None):
         """Register a constructed point (computed analytically).
@@ -168,6 +173,21 @@ class GeometrySolver:
                     continue
                 if arg.lower() in _keywords:
                     continue
+                # *circle(O ; r): the radius slot must be numeric or a
+                # point name — but it is NOT a point reference, so report
+                # it as such instead of "undefined point".
+                if cmd == 'circle' and i == 1:
+                    if arg in self.points:
+                        continue
+                    from .commands import parse_numeric_arg
+                    try:
+                        parse_numeric_arg(arg)
+                        continue
+                    except ValueError:
+                        raise GeometryError(
+                            f"circle radius must be numeric or an existing point name, "
+                            f"got: {arg!r} in *circle({'; '.join(args)})"
+                        )
                 # Nested refs like line(A;B) / line(D;Typo): validate the
                 # inner identifiers so typos don't become phantom points.
                 if '(' in arg or ';' in arg:
@@ -229,33 +249,64 @@ class GeometrySolver:
         derived_order = self._derived_order()
         velocity = {p: np.zeros(2) for p in self.points if self._is_free(p)}
 
+        def eval_derived(pts):
+            """Recompute constructed points; return {name: msg} failures.
+
+            Never raises: one failing construction (its line misses a
+            circle, its triangle is degenerate, …) must not abort the
+            whole solve nor poison unrelated constraints/constructions.
+            Dependents of a failed construction are marked failed too.
+            """
+            failed = {}
+            for pname in derived_order:
+                entry = self.derived[pname]
+                bad_deps = [d for d in entry.deps if d in failed]
+                if bad_deps:
+                    failed[pname] = (
+                        f"depends on {', '.join(sorted(bad_deps))}, "
+                        f"which could not be constructed")
+                    continue
+                try:
+                    val = entry.compute(pts)
+                except GeometryError as e:
+                    failed[pname] = str(e)
+                    continue
+                except Exception as e:
+                    failed[pname] = (
+                        f"construction for point '{pname}' "
+                        f"({entry.label}) failed: {e}")
+                    continue
+                pts[pname] = np.asarray(val, dtype=float)
+            return failed
+
         def eval_constraints(pts):
             # Constructed points track their inputs: recompute them
             # before every cost evaluation so gradients flow *through*
             # them to the free points they depend on. pts is always
             # self.points (constraints index it by name at call time).
-            for pname in derived_order:
-                entry = self.derived[pname]
-                try:
-                    val = entry.compute(pts)
-                except GeometryError:
-                    raise
-                except Exception as e:
-                    raise GeometryError(
-                        f"construction for point '{pname}' "
-                        f"({entry.label}) failed: {e}"
-                    )
-                pts[pname] = np.asarray(val, dtype=float)
+            failed = eval_derived(pts)
             total = 0.0
-            for _label, fn in self.constraints:
-                total += fn(pts)
-            return total
+            for _label, fn, deps in self.constraints:
+                if any(d in failed for d in deps):
+                    # A constraint that reads a failed construction is
+                    # meaningless against placeholder coordinates; it
+                    # must not move the surviving points.
+                    continue
+                try:
+                    r = fn(pts)
+                except Exception:
+                    # A constraint that cannot be evaluated here
+                    # contributes nothing — it must not mask the
+                    # residuals of the rest.
+                    continue
+                if isinstance(r, (int, float)) and math.isfinite(r):
+                    total += r
+            return total, failed
 
         import math as _math
-
         for _step in range(5000):
             eps = 1e-5
-            base_cost = eval_constraints(self.points)
+            base_cost, _ = eval_constraints(self.points)
             if not _math.isfinite(base_cost):
                 raise GeometryError(
                     "solver diverged (non-finite cost) — check constraints for degeneracy"
@@ -281,11 +332,11 @@ class GeometrySolver:
                 orig = self.points[p].copy()
 
                 self.points[p][0] += eps
-                cx = eval_constraints(self.points)
+                cx, _ = eval_constraints(self.points)
                 self.points[p][0] = orig[0]
 
                 self.points[p][1] += eps
-                cy = eval_constraints(self.points)
+                cy, _ = eval_constraints(self.points)
                 self.points[p][1] = orig[1]
 
                 grads[p][0] = (cx - base_cost) / eps
@@ -313,7 +364,7 @@ class GeometrySolver:
                             )
                         self.points[p][_axis] = max(-1e6, min(1e6, _v))
 
-        final_cost = eval_constraints(self.points)
+        final_cost, final_failures = eval_constraints(self.points)
         import math as _math2
 
         if not _math2.isfinite(final_cost):
@@ -331,15 +382,32 @@ class GeometrySolver:
                     "solver diverged (invalid final coordinates) — diagram coordinates invalid"
                 )
 
+        # Constructions that failed at the end are reported and their
+        # points are removed so placeholder coordinates are never drawn
+        # as if they were real; everything else still renders.
+        self.solve_errors = []
+        if final_failures:
+            for pname in sorted(final_failures):
+                msg = f"[GeometryError] *point({pname} = ...): {final_failures[pname]}"
+                print(msg, file=sys.stderr)
+                self.solve_errors.append(msg)
+            for pname in final_failures:
+                self.points.pop(pname, None)
+
         # Check per-constraint residuals to distinguish conflict from non-convergence
-        if final_cost > 1e-2:
-            residuals = [(label, fn(self.points)) for label, fn in self.constraints]
+        if final_cost > 1e-2 and not final_failures:
+            residuals = [
+                (label, fn(self.points))
+                for label, fn, deps in self.constraints
+                if not any(d in final_failures for d in deps)
+            ]
             conflicting = [(lbl, r) for lbl, r in residuals if r > 1e-2]
 
             if len(conflicting) > 1:
                 labels = ', '.join(lbl for lbl, _ in conflicting)
                 raise GeometryError(
-                    f"constraint conflict — these constraints cannot be satisfied simultaneously: {labels}"
+                    f"constraint conflict or non-convergence — these "
+                    f"constraints could not all be satisfied: {labels}"
                 )
             else:
                 worst = max([r for _, r in residuals] or [final_cost])
