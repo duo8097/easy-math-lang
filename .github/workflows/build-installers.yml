@@ -165,7 +165,7 @@ jobs:
 
       - name: Cache the Qt SDK
         id: cache-qt
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/qt
           key: qt-sdk-${{ steps.qtver.outputs.qt_version }}-${{ matrix.runner }}
@@ -193,7 +193,7 @@ jobs:
 
       - name: Cache the fcitx5-qt build
         id: cache-fcitx5qt
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/fcitx5-qt
           key: fcitx5-qt-${{ steps.qtver.outputs.fcitx5_qt_ref }}-qt-${{ steps.qtver.outputs.qt_version }}-${{ matrix.runner }}
