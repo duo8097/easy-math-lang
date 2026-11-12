@@ -305,6 +305,26 @@ def report(severity, line_no, message, *, col=None, end_col=None):
 
 
 
+def report_with_context(severity, message, *, line_no, col=None, end_col=None):
+    """Print ``[severity] message`` then the context block for *line_no*.
+
+    The first line has no ``Line N:`` marker, keeping it byte-identical
+    to the legacy single-line output; the context block (the .ezmath
+    line the caller knows) is appended. Used for diagnostics whose
+    classic first line must stay unchanged while the block still
+    points at the opening line of a multi-line construct.
+    """
+    try:
+        print(f'[{severity}] {message}', file=sys.stderr)
+    except Exception:
+        return
+    try:
+        _print_source_context(severity, line_no, col, end_col)
+    except Exception:
+        # A broken context block must never break the build.
+        pass
+
+
 def _print_source_context(severity, line_no, col, end_col):
     ctx = _active_ctx
     src = _active_source_line(ctx, line_no)

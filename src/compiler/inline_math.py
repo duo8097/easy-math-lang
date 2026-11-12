@@ -15,6 +15,8 @@ Structural scanner (not a global string replace). Rules:
 import re
 import sys
 
+from .diagnostics import report
+
 BS_PLACEHOLDER = '\x0600\x06'
 
 
@@ -109,16 +111,14 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     inner = inner_raw.strip()
     if not inner:
         if line_no is not None:
-            print(
-                f'[WARNING] Line {line_no}: empty math expression '
-                f'\\ \\ — emitting nothing.',
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                'empty math expression '
+                '\\ \\ — emitting nothing.')
         else:
-            print(
-                '[WARNING] empty math expression \\ \\ — emitting nothing.',
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', None,
+                'empty math expression \\ \\ — emitting nothing.')
         return ''
     # Protect literal \\ so it never toggles math and survives Typst.
     inner = inner.replace('\\\\', BS_PLACEHOLDER)
@@ -126,26 +126,23 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     if re.search(r'\*(matrix|mat)\s*\(', inner):
         inner = _expand_matrices_in_math(ctx, inner, line_no)
     if re.search(r'\*table\s*\(', inner):
-        print(
-            f'[Warning] Line {line_no}: *table(...) is text mode and '
-            f'cannot be used inside math \\ ... \\ — leaving as-is',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            '*table(...) is text mode and '
+            'cannot be used inside math \\ ... \\ — leaving as-is')
     if re.search(r'\*image\s*\(', inner):
-        print(
-            f'[Warning] Line {line_no}: *image(...) is text mode (image file) '
-            f'and cannot be used inside math \\ ... \\ — leaving as-is',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            '*image(...) is text mode (image file) '
+            'and cannot be used inside math \\ ... \\ — leaving as-is')
     if re.search(
         r'(?<![A-Za-z0-9_*\\])\*(newpage|pagebreak)(?![A-Za-z0-9_\-])',
         inner,
     ):
-        print(
-            f'[Warning] Line {line_no}: *newpage/*pagebreak is text mode '
-            f'and cannot be used inside math \\ ... \\ — leaving as-is',
-            file=sys.stderr,
-        )
+        report(
+            'Warning', line_no,
+            '*newpage/*pagebreak is text mode '
+            'and cannot be used inside math \\ ... \\ — leaving as-is')
     inner = normalize_friendly_calls(inner)
     from .text_commands import normalize_text_aliases, replace_styling_calls
     inner = normalize_text_aliases(inner)
@@ -154,16 +151,16 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     # stay text-mode-only (warned above).
     inner = replace_styling_calls(
         inner, ctx, line_no,
-        lambda arg: clean_inner_math(ctx, arg),
+        lambda arg: clean_inner_math(ctx, arg, line_no=line_no),
     )
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
-        inner = replace_math_call(inner, fn_name, fn_min, fn_fmt)
-    inner = replace_int_calls(inner, ctx)
-    inner = replace_diff_calls(inner, ctx)
-    inner = replace_cases_call(inner, ctx)
-    inner = replace_det_calls(inner, ctx)
-    inner = replace_set_calls(inner, ctx)
-    inner = replace_align_calls(inner, ctx)
+        inner = replace_math_call(inner, fn_name, fn_min, fn_fmt, line_no=line_no)
+    inner = replace_int_calls(inner, ctx, line_no=line_no)
+    inner = replace_diff_calls(inner, ctx, line_no=line_no)
+    inner = replace_cases_call(inner, ctx, line_no=line_no)
+    inner = replace_det_calls(inner, ctx, line_no=line_no)
+    inner = replace_set_calls(inner, ctx, line_no=line_no)
+    inner = replace_align_calls(inner, ctx, line_no=line_no)
     inner = replace_vec_calls(inner, ctx, line_no)
     if line_no is not None:
         # Unknown *cmd(...) inside math never reaches the text-pass
@@ -218,11 +215,10 @@ def _expand_matrices_in_math(ctx, text, line_no):
             _, name, call_start, inner_start, _, _ = found
             # Only matrices are expanded here; tables warn upstream.
             if name in ('matrix', 'mat'):
-                print(
-                    f'[Warning] Line {line_no}: unclosed *{name}(... — '
-                    f'missing closing parenthesis',
-                    file=sys.stderr,
-                )
+                report(
+                    'Warning', line_no,
+                    f'unclosed *{name}(... — '
+                    f'missing closing parenthesis')
             out.append(text[pos:inner_start])
             pos = inner_start
             continue
@@ -246,7 +242,7 @@ def _expand_matrices_in_math(ctx, text, line_no):
                 if not cell_raw.strip():
                     r_out.append('')
                     continue
-                r_out.append(clean_inner_math(ctx, cell_raw))
+                r_out.append(clean_inner_math(ctx, cell_raw, line_no=line_no))
             rendered.append(r_out)
         # No $ wrapper: process_math_inner unwraps $...$ later and adds
         # its own outer $...$, so emit bare mat(...) here.

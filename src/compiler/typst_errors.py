@@ -20,7 +20,6 @@ untouched.
 
 import os
 import re
-import sys
 
 from . import diagnostics as _diagnostics
 
@@ -42,35 +41,20 @@ def _same_file(candidate, typ_file):
         return False
 
 
-def _resolve_span(typ_source_map, typ_file, typ_line, typ_col):
-    smap = typ_source_map
-    if smap is None:
-        try:
-            from .source_map import TypstSourceMap, default_map_path
-            smap = TypstSourceMap.load(default_map_path(typ_file))
-        except Exception:
-            return None
+def _resolve_span(typ_source_map, typ_line, typ_col):
+    """Map a position through this build's own source map.
+
+    Only the in-memory map built and verified by the active compile is
+    used. A sidecar found on disk is never consulted: it may be stale
+    or belong to another source, and attributing a Typst failure to a
+    wrong .ezmath line is worse than the legacy untouched output.
+    """
+    if typ_source_map is None:
+        return None
     try:
-        return smap.resolve(typ_line, typ_col)
+        return typ_source_map.resolve(typ_line, typ_col)
     except Exception:
         return None
-
-
-def report_with_context(severity, message, *, line_no, col=None, end_col=None):
-    """Print ``[severity] message`` then the context block for *line_no*.
-
-    The first line has no ``Line N:`` marker, keeping it byte-identical
-    to the legacy ``[ERROR] Typst compilation failed: ...`` output.
-    """
-    try:
-        print(f'[{severity}] {message}', file=sys.stderr)
-    except Exception:
-        return
-    try:
-        _diagnostics._print_source_context(severity, line_no, col, end_col)
-    except Exception:
-        # A broken context block must never break the build.
-        pass
 
 
 def try_report_typst_error(exc, *, typ_file, typ_source_map=None):
@@ -102,10 +86,10 @@ def try_report_typst_error(exc, *, typ_file, typ_source_map=None):
                 continue
             if typ_line < 0:
                 continue
-            span = _resolve_span(typ_source_map, typ_file, typ_line, typ_col)
+            span = _resolve_span(typ_source_map, typ_line, typ_col)
             if span is None and typ_col > 0:
                 # Some Typst versions print 1-based columns.
-                span = _resolve_span(typ_source_map, typ_file,
+                span = _resolve_span(typ_source_map,
                                      typ_line, typ_col - 1)
             if span is None:
                 continue
@@ -125,7 +109,7 @@ def try_report_typst_error(exc, *, typ_file, typ_source_map=None):
                 message = str(exc)
             except Exception:
                 message = repr(exc)
-            report_with_context(
+            _diagnostics.report_with_context(
                 'ERROR', f'Typst compilation failed: {message}',
                 line_no=eml_line, col=col, end_col=end_col)
             return True

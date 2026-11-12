@@ -69,7 +69,7 @@ except ImportError:  # embedded layout: sources imported as one package
 
 from .calc import apply_calc_in_string
 from .comments import strip_comments
-from .diagnostics import warn_unknown_commands, report, source_col_for, _call_pattern, last_unescaped_bs_col
+from .diagnostics import warn_unknown_commands, report, report_with_context, source_col_for, _call_pattern, last_unescaped_bs_col
 from .escaping import escape_typst_outside_math, index_replacer, mask_urls, merge_math, restore_urls
 from .inline_math import find_unescaped, process_math_inner
 from .math_commands import (
@@ -412,7 +412,7 @@ def _expand_tables_and_matrices(ctx, text, line_no, depth):
                             f'commands are supported inside matrices',
                             col=col, end_col=end_col,
                         )
-                    r_out.append(clean_inner_math(ctx, cell_raw))
+                    r_out.append(clean_inner_math(ctx, cell_raw, line_no=line_no))
                 rendered.append(r_out)
             typ = f'${_tables.build_matrix_math_inner(rendered)}$'
             ph = f'\x07{idx}\x07'
@@ -850,7 +850,7 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     # Nested det (matrix cells, math args) is handled by the math
     # cleaners; the step-6 call below is a harmless idempotent cover.
     if _table_depth <= 20:
-        text = replace_det_calls(text, ctx)
+        text = replace_det_calls(text, ctx, line_no=line_no)
 
     # 5d. Tables and matrices (*table / *matrix / *mat). Runs after
     # vars/calc/inline-math (like math commands) so <vars> holding
@@ -888,13 +888,13 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     # 6. Math constructs (friendly aliases + bare calls first).
     text = normalize_friendly_calls(text)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
-        text = replace_math_call(text, fn_name, fn_min, fn_fmt)
-    text = replace_int_calls(text, ctx)
-    text = replace_diff_calls(text, ctx)
-    text = replace_cases_call(text, ctx)
-    text = replace_det_calls(text, ctx)
-    text = replace_set_calls(text, ctx)
-    text = replace_align_calls(text, ctx)
+        text = replace_math_call(text, fn_name, fn_min, fn_fmt, line_no=line_no)
+    text = replace_int_calls(text, ctx, line_no=line_no)
+    text = replace_diff_calls(text, ctx, line_no=line_no)
+    text = replace_cases_call(text, ctx, line_no=line_no)
+    text = replace_det_calls(text, ctx, line_no=line_no)
+    text = replace_set_calls(text, ctx, line_no=line_no)
+    text = replace_align_calls(text, ctx, line_no=line_no)
     text = replace_vec_calls(text, ctx, line_no)
 
     # 7. Warn about unknown *command(...)
@@ -1778,10 +1778,11 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     # the build loudly instead of reporting success with missing content.
     unclosed_block = in_f_block
     if in_f_block:
-        report(
-            'ERROR', None,
+        report_with_context(
+            'ERROR',
             "Unclosed block '(' detected — content inside was not emitted. "
             "Add the missing ')' to fix.",
+            line_no=block_start_line,
         )
 
     # ------------------------------------------------------------------

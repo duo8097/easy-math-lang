@@ -3,10 +3,10 @@
 import ast
 import operator
 import re
-import sys
 
 from .safemath import bounded_power, preprocess_math_expr, scalar_consts, scalar_funcs
 from .variables import replace_defines, replace_vars
+from .diagnostics import report
 
 safe_operators = {
     ast.Add: operator.add,
@@ -23,8 +23,8 @@ safe_operators = {
 
 def evaluate_calc(ctx, expression, line_no=None, _depth=0):
     if _depth > 20:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        report('Error', line_no or None,
+               f'calc(): nested too deep in: {expression!r}')
         return '[Calc Error: nested too deep]'
     expression = replace_vars(ctx, expression)
     expression = replace_defines(ctx, expression)
@@ -32,8 +32,8 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
     try:
         nested = apply_calc_in_string(ctx, expression, line_no=line_no, _depth=_depth + 1)
     except RecursionError:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        report('Error', line_no or None,
+               f'calc(): nested too deep in: {expression!r}')
         return '[Calc Error: nested too deep]'
     if nested != expression:
         expression = nested
@@ -95,24 +95,23 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
                 res = int(res)
         return str(res)
     except ZeroDivisionError:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): division by zero in: {expression!r}', file=sys.stderr)
+        report('Error', line_no or None,
+               f'calc(): division by zero in: {expression!r}')
         return '[Calc Error: division by zero]'
     except RecursionError:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): nested too deep in: {expression!r}', file=sys.stderr)
+        report('Error', line_no or None,
+               f'calc(): nested too deep in: {expression!r}')
         return '[Calc Error: nested too deep]'
     except Exception as e:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): {e} in: {expression!r}', file=sys.stderr)
+        report('Error', line_no or None, f'calc(): {e} in: {expression!r}')
         return f'[Calc Error: {e}]'
 
 
 def apply_calc_in_string(ctx, text, line_no=None, _depth=0):
     """Evaluate every calc(...) in text (handles nested parentheses)."""
     if _depth > 20:
-        loc = f' Line {line_no}:' if line_no else ''
-        print(f'[Error]{loc} calc(): nested too deep — leaving as-is', file=sys.stderr)
+        report('Error', line_no or None,
+               f'calc(): nested too deep — leaving as-is')
         return text
     out = []
     pos = 0
@@ -124,10 +123,9 @@ def apply_calc_in_string(ctx, text, line_no=None, _depth=0):
             break
         matched = m.group(0)
         if matched.startswith('*'):
-            loc = f' Line {line_no}:' if line_no else ''
-            print(
-                f'[Warning]{loc} *calc(...) — leading * ignored, treating as calc(...)',
-                file=sys.stderr,
+            report(
+                'Warning', line_no or None,
+                f'*calc(...) — leading * ignored, treating as calc(...)',
             )
             out.append(text[pos:m.start()])
             # Skip the leading '*' but keep 'calc(' for evaluation below.
@@ -146,10 +144,9 @@ def apply_calc_in_string(ctx, text, line_no=None, _depth=0):
                 depth -= 1
             i += 1
         if depth != 0:
-            loc = f' Line {line_no}:' if line_no else ''
-            print(
-                f'[Error]{loc} calc(): unclosed parenthesis — leaving as-is',
-                file=sys.stderr,
+            report(
+                'Error', line_no or None,
+                'calc(): unclosed parenthesis — leaving as-is',
             )
             out.append(text[m.start():])
             break

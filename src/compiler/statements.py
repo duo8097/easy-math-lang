@@ -1,9 +1,9 @@
 """*define(...) and <var> = ... assignment processing."""
 
 import re
-import sys
 
 from .calc import apply_calc_in_string
+from .diagnostics import report
 from .variables import replace_vars
 
 IDENT_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
@@ -56,10 +56,9 @@ def process_assignment_or_define(ctx, statement, line_no=None):
             pass  # fall through to generic define handling
         else:
             if not statement.endswith(')'):
-                print(
-                    f"[WARNING] Line {line_no}: unclosed define(write_type.multiplication...) — ignored: {statement!r}",
-                    file=sys.stderr,
-                )
+                report(
+                    'WARNING', line_no,
+                    f"unclosed define(write_type.multiplication...) — ignored: {statement!r}")
                 return
             clean_stmt = statement[:-1]
             # Value is after the FIRST '=' following the known prefix.
@@ -81,10 +80,9 @@ def process_assignment_or_define(ctx, statement, line_no=None):
             # ($, \, <, >, #, @, `) that would inject math/escapes downstream.
             allowed = {'.', ',', '·', '×', 'x', '*', '⋅', ':'}
             if not val or val not in allowed:
-                print(
-                    f"[WARNING] Line {line_no}: invalid multiplication symbol {val!r} — ignored",
-                    file=sys.stderr,
-                )
+                report(
+                    'WARNING', line_no,
+                    f"invalid multiplication symbol {val!r} — ignored")
             else:
                 ctx.mult_sym = val
             return
@@ -92,19 +90,17 @@ def process_assignment_or_define(ctx, statement, line_no=None):
     if statement.startswith('define(') and statement.endswith(')'):
         inner = statement[7:-1].strip()
         if '=' not in inner:
-            print(
-                f"[WARNING] Line {line_no}: *define() without '=' — ignored: {statement!r}",
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                f"*define() without '=' — ignored: {statement!r}")
             return
         k, v = inner.split('=', 1)
         k = k.strip()
         v = v.strip()
         if not k or not IDENT_RE.match(k):
-            print(
-                f"[WARNING] Line {line_no}: invalid define name {k!r} — ignored",
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                f"invalid define name {k!r} — ignored")
             return
         v = replace_vars(ctx, v)
         v = apply_calc_in_string(ctx, v, line_no=line_no)
@@ -118,25 +114,22 @@ def process_assignment_or_define(ctx, statement, line_no=None):
         var_part, val_part = statement.split('=', 1)
         var_name = var_part.strip()
         if not (var_name.startswith('<') and var_name.endswith('>')):
-            print(
-                f"[WARNING] Line {line_no}: malformed assignment — ignored: {statement!r}",
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                f"malformed assignment — ignored: {statement!r}")
             return
         var_name = var_name[1:-1].strip()
         if not var_name or not IDENT_RE.match(var_name):
-            print(
-                f"[WARNING] Line {line_no}: invalid variable name {var_name!r} — ignored",
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                f"invalid variable name {var_name!r} — ignored")
             return
         val_part = val_part.strip()
         if '\\' in val_part:
-            print(
-                f"[WARNING] Line {line_no}: assignment value contains '\\' "
-                f"(math delimiters are not expanded in values) — stored literally: {statement!r}",
-                file=sys.stderr,
-            )
+            report(
+                'WARNING', line_no,
+                f"assignment value contains '\\' "
+                f"(math delimiters are not expanded in values) — stored literally: {statement!r}")
         val_part = replace_vars(ctx, val_part)
         val_part = apply_calc_in_string(ctx, val_part, line_no=line_no)
         ctx.variables[var_name] = val_part
@@ -144,7 +137,6 @@ def process_assignment_or_define(ctx, statement, line_no=None):
         ctx._expansion_cache = {}
         return
     # Not an assignment/define (e.g. stray text inside a block).
-    print(
-        f"[WARNING] Line {line_no}: line inside block is not an assignment or define — ignored: {statement!r}",
-        file=sys.stderr,
-    )
+    report(
+        'WARNING', line_no,
+        f"line inside block is not an assignment or define — ignored: {statement!r}")

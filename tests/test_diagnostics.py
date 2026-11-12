@@ -138,6 +138,9 @@ def test_eof_multiline_unclosed_draw_reports_opening_line(tmp_path, monkeypatch,
     src = "*draw(\n    *point(A = 0, 0)\n"  # never closed
     _, err = compile_text(tmp_path, monkeypatch, capsys, src)
     assert "[ERROR] Unclosed block" in err
+    # The opening line is shown with a context block.
+    assert f'  File "{tmp_path / "case.ezmath"}"' in err
+    assert "    *draw(" in err
 
 
 def test_missing_source_only_prints_first_line(monkeypatch, capsys):
