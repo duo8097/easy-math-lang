@@ -1374,7 +1374,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     ctx.plot_index = 0
 
     try:
-        with open(input_str, 'r', encoding='utf-8') as f:
+        with open(input_str, 'r', encoding='utf-8-sig') as f:
             raw_text = f.read()
     except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
         print(f'[Error] Cannot open input file {input_str!r}: {e}', file=sys.stderr)
@@ -1534,7 +1534,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                 if cmd_name == 'vec':
                     # One component per line: newlines are the
                     # separator (like *matrix rows), not "|".
-                    joined = '; '.join(block_content)
+                    joined = _tables.join_block_lines(block_content, sep='; ')
                 else:
                     joined = _tables.join_block_lines(block_content)
                 single = f'*{cmd_name}({joined})'

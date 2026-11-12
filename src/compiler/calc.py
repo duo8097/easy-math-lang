@@ -86,6 +86,8 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
 
         res = eval_node(tree)
         import math as _math
+        if isinstance(res, complex):
+            raise ValueError('calc: result is a complex number')
         if isinstance(res, float):
             if not _math.isfinite(res):
                 raise ValueError('calc: result is not finite (inf/nan)')

@@ -29,10 +29,32 @@ import os
 import re
 import warnings
 
+from collections import OrderedDict
+
 from .safemath import bounded_power, numpy_consts, numpy_funcs, preprocess_math_expr
 
 PLOT_SAMPLES = 1000
-_PLOT_CACHE = {}
+
+#: Bounded LRU cache of rendered plots keyed by content hash (the value
+#: is the output path). Unbounded growth in a long-lived editor process
+#: is avoided; old SVG paths are cheap to re-render.
+_PLOT_CACHE: "OrderedDict[str, str]" = OrderedDict()
+_PLOT_CACHE_MAX = 256
+
+
+def _cache_get(key, out_path):
+    entry = _PLOT_CACHE.get(key)
+    if entry == out_path and os.path.isfile(out_path):
+        _PLOT_CACHE.move_to_end(key)
+        return True
+    return False
+
+
+def _cache_put(key, out_path):
+    _PLOT_CACHE[key] = out_path
+    _PLOT_CACHE.move_to_end(key)
+    while len(_PLOT_CACHE) > _PLOT_CACHE_MAX:
+        _PLOT_CACHE.pop(next(iter(_PLOT_CACHE)))
 
 _PLOT_CALL_RE = re.compile(r'\*plot\s*\(')
 
@@ -205,7 +227,13 @@ def split_plot_segments(x_values, y_values):
     finite = _np.isfinite(y)
     if not bool(_np.any(finite)):
         return []
-    span = float(_np.max(y[finite]) - _np.min(y[finite]))
+    try:
+        _y_ext = y[finite].astype(_np.longdouble)
+        span = float(_y_ext.max() - _y_ext.min())
+    except (TypeError, ValueError, AttributeError):
+        span = float(_np.max(y[finite]) - _np.min(y[finite]))
+    if not (span < float('inf') and span > 0):
+        span = float('inf')
     jump = span / 30.0 if span > 0 else float('inf')
     segments = []
     cur_x, cur_y = [], []
@@ -253,9 +281,8 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
     key = hashlib.md5(
         f"{raw_expr}:{xmin}:{xmax}:{samples}".encode()
     ).hexdigest()
-    if key in _PLOT_CACHE and _PLOT_CACHE[key] == out_path:
-        if os.path.isfile(out_path):
-            return raw_expr.strip()
+    if _cache_get(key, out_path):
+        return raw_expr.strip()
     import numpy as _np
     x = _np.linspace(float(xmin), float(xmax), int(samples), dtype=float)
     y = evaluate_on_grid(ctx, raw_expr, x)
@@ -301,5 +328,5 @@ def render_plot_svg(ctx, raw_expr, xmin, xmax, out_path,
     finally:
         if fig is not None:
             plt.close(fig)
-    _PLOT_CACHE[key] = out_path
+    _cache_put(key, out_path)
     return raw_expr.strip()

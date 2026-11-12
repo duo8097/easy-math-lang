@@ -273,7 +273,16 @@ def build_matrix_math_inner(rendered_grid):
     return f'mat({"; ".join(rows)})'
 
 
-def join_block_lines(lines):
+def _is_escaped_quote(line, i):
+    n = 0
+    j = i - 1
+    while j >= 0 and line[j] == '\\':
+        n += 1
+        j -= 1
+    return n % 2 == 1
+
+
+def join_block_lines(lines, sep=' | '):
     """Join multiline *table/*matrix block lines into one inner string.
 
     Newlines act as row breaks too (``|`` still works): lines are
@@ -285,5 +294,25 @@ def join_block_lines(lines):
 
         Name ; Age |
         Alice ; 20
+
+    Quote-aware: a line ending inside a quoted string continues the
+    string on the next line (the newline is kept as content) instead
+    of being silently replaced by a cell separator.
     """
-    return ' | '.join(l.strip() for l in lines)
+    out = ''
+    in_quote = False
+    for idx, raw in enumerate(lines):
+        l = raw.strip()
+        if idx == 0:
+            out = l
+        elif in_quote:
+            out = out + '\n' + l
+        else:
+            out = out + sep + l
+        count = 0
+        for i, ch in enumerate(l):
+            if ch == '"' and not _is_escaped_quote(l, i):
+                count += 1
+        if count % 2 == 1:
+            in_quote = not in_quote
+    return out
