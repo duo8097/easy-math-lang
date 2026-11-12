@@ -409,3 +409,80 @@ def test_cetz_error_message_bundle_present(monkeypatch, capsys, tmp_path):
     assert cetz_spec() in text
     assert 'bundled' in text.lower()
     assert 'internet connection' not in text.lower()
+
+
+# ---------------------------------------------------------------
+# Regression cases found while auditing 6.0.0 (geometry engine)
+# ---------------------------------------------------------------
+
+def test_failed_construction_does_not_abort_other_points():
+    """One impossible construction must not degrade the whole canvas."""
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block(
+        "*point(A = 0, 0)\n*point(B = 4, 0)\n*point(C = 0, 3)\n"
+        "*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))\n"
+        "*point(R = reflect(C ; line(A ; B)))\n"
+        "*point(Q)\n*on-circle(A ; 3 ; Q)\n"
+    )
+    # F cannot exist; it must be reported and omitted, not drawn at a
+    # placeholder location "as if" it were real.
+    assert 'intersect: line(A ; B) does not intersect circle(C ; 1)' in out
+    assert '"F"' not in out
+    # R (unrelated construction) is computed correctly.
+    assert '(0.000, -3.000)' in out
+    # Q (free point constrained on the circle) lands at distance 3 from A.
+    import re
+    m = re.search(r'circle\(\(([\d.\-]+), ([\d.\-]+)\), radius: 0.05, fill: black, name: "Q"', out)
+    assert m is not None
+    x, y = float(m.group(1)), float(m.group(2))
+    assert abs((x * x + y * y) ** 0.5 - 3.0) < 0.05
+
+
+def test_trailing_annotation_keeps_following_command():
+    """``*length(A ; B) = 5 *point(...)`` must not swallow the point."""
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block("*point(A = 0, 0)\n*point(B = 4, 0)\n*length(A ; B) = 5 *point(C = 1, 2)")
+    assert 'name: "C"' in out
+    assert '(1.000, 2.000)' in out
+
+
+def test_trailing_annotation_plain_value_still_works():
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block("*point(A = 0, 0)\n*point(B = 4, 0)\n*length(A ; B) = 5")
+    assert '5' in out
+
+
+def test_incenter_collinear_triangle_errors():
+    from geometry.parsing import parse_draw_block
+    import io
+    import contextlib
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        out = parse_draw_block(
+            "*point(A = 0, 0)\n*point(B = 2, 0)\n*point(C = 4, 0)\n"
+            "*point(P = incenter(A ; B ; C))\n")
+    assert 'collinear — no incenter' in err.getvalue()
+    # P must not be drawn at a meaningless point on the line.
+    assert 'name: "P"' not in out
+
+
+def test_label_quoted_text_loses_quotes():
+    from geometry.codegen import _unquote, _safe_text
+    # The canvas shows a;b, not the raw quotes from the source.
+    assert _unquote('"a;b"') == 'a;b'
+    assert _unquote('"a\\"b"') == 'a"b'
+    assert _safe_text(_unquote('"a;b"')) == 'a;b'
+
+
+def test_unclosed_command_leaves_canvas_comment():
+    from geometry.parsing import parse_draw_block
+    out = parse_draw_block('*point(A = 0, 0)\n*label(A ; "unterminated)\n*point(B = 1, 1)')
+    assert 'unclosed command' in out
+    # Later valid commands still render.
+    assert 'name: "B"' in out
+
+
+def test_circle_radius_small_not_rounded_to_zero():
+    from geometry.codegen import _fmt_radius
+    assert _fmt_radius(1e-5) != '0.000'
+    assert _fmt_radius(0.05) == '0.050'

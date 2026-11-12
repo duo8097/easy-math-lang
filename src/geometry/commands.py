@@ -1,6 +1,7 @@
 """Registration of geometry commands into the solver."""
 
 import re
+import sys
 
 from .errors import GeometryError
 from .vectors import _cross2d, _norm
@@ -141,24 +142,28 @@ def _process_command(solver, cmd, args):
         # require the solver to travel ~1e6 units from the default r=3
         # circle (max ~5000 steps * 1.0 clip). If exactly one endpoint is
         # fixed, place the free one at distance d; if both are free,
-        # separate them along +x.
-        try:
-            a_fixed = A in solver.fixed
-            b_fixed = B in solver.fixed
-            if d > 1e-9:
-                def _clamp(v):
-                    return max(-1e6, min(1e6, float(v)))
-                if a_fixed and not b_fixed:
-                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
-                elif b_fixed and not a_fixed:
-                    bx, by = float(solver.points[B][0]), float(solver.points[B][1])
-                    solver.points[A] = np.array([_clamp(bx - d), _clamp(by)])
-                elif not a_fixed and not b_fixed:
-                    ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
-                    solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
-        except Exception:
-            pass
+        # separate them along +x. Constructed endpoints are skipped: the
+        # solver recomputes them analytically, so a seed based on their
+        # pre-solve placeholder would be a phantom.
+        if A not in solver.derived and B not in solver.derived:
+            try:
+                a_fixed = A in solver.fixed
+                b_fixed = B in solver.fixed
+                if d > 1e-9:
+                    def _clamp(v):
+                        return max(-1e6, min(1e6, float(v)))
+                    if a_fixed and not b_fixed:
+                        ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                        solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
+                    elif b_fixed and not a_fixed:
+                        bx, by = float(solver.points[B][0]), float(solver.points[B][1])
+                        solver.points[A] = np.array([_clamp(bx - d), _clamp(by)])
+                    elif not a_fixed and not b_fixed:
+                        ax, ay = float(solver.points[A][0]), float(solver.points[A][1])
+                        solver.points[B] = np.array([_clamp(ax + d), _clamp(ay)])
+            except (TypeError, ValueError, IndexError, KeyError) as e:
+                print(f'[GeometryWarning] distance seeding skipped for {A}-{B}: {e}',
+                      file=sys.stderr)
         solver.add_constraint(
             f"distance({A},{B}={d})",
             lambda P, a=A, b=B, dv=d: (_norm(P[a] - P[b]) - dv) ** 2

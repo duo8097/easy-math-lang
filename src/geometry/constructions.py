@@ -306,7 +306,13 @@ def _eval_intersect(args, pts):
         base = O1 + x * u
         left = base + h * np.array([-u[1], u[0]])  # left of O1->O2
         right = base - h * np.array([-u[1], u[0]])
-        return left if k == 1 else right
+        if k == 1:
+            return left
+        if k == 2:
+            return right
+        raise GeometryError(
+            f'intersect: k must be 1 or 2, got {k!r}'
+        )
 
     # line-circle, ordered along the line's A->B direction.
     A, B = line.eval(pts)
@@ -325,7 +331,13 @@ def _eval_intersect(args, pts):
     sq = math.sqrt(max(disc, 0.0))
     t1 = (-qb - sq) / (2.0 * qa)
     t2 = (-qb + sq) / (2.0 * qa)
-    return A + (t1 if k == 1 else t2) * d
+    if k == 1:
+        return A + t1 * d
+    if k == 2:
+        return A + t2 * d
+    raise GeometryError(
+        f'intersect: k must be 1 or 2, got {k!r}'
+    )
 
 
 def _eval_centroid(args, pts):
@@ -367,6 +379,26 @@ def _eval_incenter(args, pts):
     A = np.asarray(args[0].eval(pts), dtype=float)
     B = np.asarray(args[1].eval(pts), dtype=float)
     C = np.asarray(args[2].eval(pts), dtype=float)
+    # Degenerate check (like circumcenter/orthocenter): a collinear or
+    # coincident "triangle" has no angular bisectors, so the weighted
+    # average is meaningless. Scale-relative area test.
+    cross = float((B[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (B[1] - A[1]))
+    max_edge = max(float(_norm(B - C)), float(_norm(A - C)), float(_norm(A - B)))
+    if not math.isfinite(cross) or not math.isfinite(max_edge):
+        raise GeometryError(
+            f'{args[0].label}, {args[1].label}, {args[2].label} are '
+            f'degenerate — no incenter'
+        )
+    if max_edge < _EPS:
+        raise GeometryError(
+            f'{args[0].label}, {args[1].label}, {args[2].label} are '
+            f'coincident points — no incenter'
+        )
+    if abs(cross) <= _EPS * max_edge * max_edge:
+        raise GeometryError(
+            f'{args[0].label}, {args[1].label}, {args[2].label} are '
+            f'collinear — no incenter'
+        )
     a = float(_norm(B - C))
     b = float(_norm(A - C))
     c = float(_norm(A - B))
