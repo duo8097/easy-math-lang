@@ -1158,7 +1158,7 @@ def _paths_alias(left, right):
 
 
 def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
-                      image_files=()):
+                      image_files=(), typ_source_map=None):
     """Run typst.compile() for one export; True on success.
 
     - ``typ``: just copy the intermediate file to *output_path*.
@@ -1299,6 +1299,14 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         return False
     except Exception as e:
         # typst.TypstError (bad markup) and any other compile failure.
+        # When the error carries a position in the intermediate .typ
+        # and the source map can map it back, render the same context
+        # block for the .ezmath line. Otherwise leave the classic
+        # output untouched.
+        from .typst_errors import try_report_typst_error
+        if try_report_typst_error(e, typ_file=typst_file,
+                                  typ_source_map=typ_source_map):
+            return False
         msg = str(e)
         if 'cetz' in msg.lower() or 'download' in msg.lower() or 'package' in msg.lower():
             if package_path is None:
@@ -1921,6 +1929,10 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         return False
 
     # --- Sidecar source map (additive; never breaks the build) ---
+    # In-memory source map (used by the Typst-failure path to render a
+    # context block for the .ezmath line); None when the map is off or
+    # was refused for this build.
+    typ_source_map = None
     try:
         _map_path: str | None = None
         if source_map_path is not None:
@@ -1991,6 +2003,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
                     _run_span,
                 )
             _smap.save(_map_path)
+            typ_source_map = _smap
     except Exception as exc:  # additive only: log and continue
         report('Warning', None, f'could not write source map: {exc}')
 
@@ -2030,6 +2043,7 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
     return _run_typst_export(
         typst_file, _out_path, _fmt, _ppi, input_str=input_str,
         image_files=getattr(ctx, 'image_files', []),
+        typ_source_map=typ_source_map,
     )
 
 
