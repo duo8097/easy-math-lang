@@ -28,10 +28,13 @@ jobs:
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           # The site is plain HTML/CSS/JS — it is uploaded as it is.
           path: site
+          # v4+ excludes dotfiles by default; site/.nojekyll must be
+          # published so GitHub Pages does not run the site through Jekyll.
+          include-hidden-files: true
 
   deploy:
     needs: build
