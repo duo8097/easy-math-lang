@@ -2,14 +2,6 @@ name: Build Installers
 
 on:
   push:
-    # main covers post-merge state; tags drive releases. Branch pushes
-    # are covered by pull_request — otherwise every branch push runs the
-    # whole installer matrix twice (and the macOS-15 runner often
-    # starves, leaving the duplicate job stuck pending).
-    branches:
-      - main
-    tags:
-      - 'v*'
   pull_request:
   workflow_dispatch: {}
   schedule:
