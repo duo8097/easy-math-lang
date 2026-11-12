@@ -16,21 +16,25 @@ During a build you may see lines like this:
 ```
 [Error] Line 12: undefined variable <widht>
   File "bai1.ezmath", line 12, column 9
-    Tong = <widht> + 2
-           ^^^^^^^
+    Total = <widht> + 2
+            ^^^^^^^
 [Warning] Line 30: unknown command *fract — treated as plain text. Did you mean '*frac(...)'?
 ```
 
 - **Line numbers** count from the top of your `.ezmath` file.
 - **[Error]** — something is definitely wrong (typo, bad calculation).
 - **[Warning]** — suspicious, but the build carries on.
-- Every diagnostic prints a small context block under its first line:
+- Diagnostics print a small context block under their first line:
   the `File "name", line N, column M` header, the real
   `.ezmath` line, and a caret (`^`) under the exact spot. Columns
   count characters, not bytes (Vietnamese text works the same), and
   tabs are expanded. When the column is not known there is no caret —
   you just get the file/line header and the source line. Very long
-  lines are truncated around the caret with an ellipsis (`…`).
+  lines are truncated around the caret with an ellipsis (`…`). Almost
+  every compiler diagnostic shows this block; the few that cannot point
+  at a line in your file — CLI-level errors and Typst failures whose
+  message carries no mappable position — keep the classic single-line
+  output.
 - Color is only used on a terminal; when stderr is captured (as in
   the editor) or `NO_COLOR` is set, the output stays plain text.
 - Multi-line constructs point at the line where they open: an
