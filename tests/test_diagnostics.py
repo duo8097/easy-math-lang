@@ -47,7 +47,7 @@ def test_undefined_variable_block_format(tmp_path, monkeypatch, capsys):
     lines = err.splitlines()
     assert "[Error] Line 1: undefined variable <foo>" in lines
     file_line = next(ln for ln in lines if ln.startswith("  File "))
-    assert file_line == f'  File "{tmp_path}/case.ezmath", line 1, column 6'
+    assert file_line == f'  File "{tmp_path / "case.ezmath"}", line 1, column 6'
     assert "    Need <foo> here" in lines
     caret = next(ln for ln in lines if set(ln) <= set(" ^") and "^" in ln)
     assert caret == "    " + " " * 5 + "^^^^^"
@@ -115,7 +115,7 @@ def test_missing_column_prints_file_line_without_caret(tmp_path, monkeypatch, ca
     _, err = compile_text(tmp_path, monkeypatch, capsys, "*table()\n")
     assert "[Warning] Line 1: *table(...) is empty" in err
     file_line = next(ln for ln in err.splitlines() if ln.startswith("  File "))
-    assert file_line == f'  File "{tmp_path}/case.ezmath", line 1'
+    assert file_line == f'  File "{tmp_path / "case.ezmath"}", line 1'
     assert "    *table()" in err
     assert "^" not in err
 
@@ -129,7 +129,7 @@ def test_multiline_unclosed_math_points_at_opening_line(tmp_path, monkeypatch, c
     idx = next(i for i, ln in enumerate(lines)
                if ln.startswith("[Error] Line 1: unclosed math delimiter"))
     file_line = lines[idx + 1]
-    assert file_line == f'  File "{tmp_path}/case.ezmath", line 1, column 12'
+    assert file_line == f'  File "{tmp_path / "case.ezmath"}", line 1, column 12'
     assert lines[idx + 2] == "    Tong = 1 + \\"
     assert lines[idx + 3] == "    " + " " * 11 + "^"
 
