@@ -348,7 +348,8 @@ def test_cli_check_update_newer(monkeypatch, capsys):
 
     monkeypatch.setattr(sys, 'argv', ['easy-math-lang', '--check-update'])
     monkeypatch.setattr(
-        _update, 'get_latest_release_info', lambda **k: ('9.9.9', TAG_URL))
+        _update, 'get_latest_release',
+        lambda **k: _update.ReleaseInfo('9.9.9', TAG_URL, '', False, '', []))
     with pytest.raises(SystemExit) as exc:
         _pipeline.main()
     assert exc.value.code == 0
@@ -364,7 +365,7 @@ def test_cli_check_update_network_failure(monkeypatch, capsys):
         raise UpdateCheckError('network unavailable.')
 
     monkeypatch.setattr(sys, 'argv', ['easy-math-lang', '--check-update'])
-    monkeypatch.setattr(_update, 'get_latest_release_info', _boom)
+    monkeypatch.setattr(_update, 'get_latest_release', _boom)
     with pytest.raises(SystemExit) as exc:
         _pipeline.main()
     assert exc.value.code == 0
@@ -382,7 +383,7 @@ def test_cli_flag_after_filename_does_not_hijack_compile(
 
     monkeypatch.setattr(
         sys, 'argv', ['easy-math-lang', 'doc.ezmath', '--check-update'])
-    monkeypatch.setattr(_update, 'get_latest_release_info', _must_not_run)
+    monkeypatch.setattr(_update, 'get_latest_release', _must_not_run)
     with pytest.raises(SystemExit) as exc:
         _pipeline.main()
     # Falls through to the compile path: missing file -> failure, exit 1.
