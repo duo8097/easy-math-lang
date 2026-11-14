@@ -188,6 +188,8 @@ class ShortcutsDialog(QtWidgets.QDialog):
 class AboutDialog(QtWidgets.QDialog):
     """Simple About box (version + one-line description)."""
 
+    checkUpdatesRequested = QtCore.Signal()
+
     def __init__(self, version=None, parent=None):
         super().__init__(parent)
         if version is None:
@@ -203,6 +205,13 @@ class AboutDialog(QtWidgets.QDialog):
         label.setWordWrap(True)
         label.setMinimumWidth(420)
         layout.addWidget(label)
+        # "Check for updates" link-style button (opens the update flow).
+        self.check_button = QtWidgets.QPushButton(
+            i18n.tr('about.check_updates'), self)
+        self.check_button.setObjectName('about-check-updates')
+        self.check_button.setFlat(True)
+        self.check_button.clicked.connect(self._on_check_updates)
+        layout.addWidget(self.check_button)
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok, self)
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(
@@ -211,3 +220,7 @@ class AboutDialog(QtWidgets.QDialog):
                    'ok', SIZE_DIALOG)
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)
+
+    def _on_check_updates(self):
+        self.checkUpdatesRequested.emit()
+        self.accept()

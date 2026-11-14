@@ -93,6 +93,8 @@ def main(argv=None):
         window.open_path(args.path)
     window.show()
     window.maybe_show_welcome()
+    # Next-start failure notice from a previous self-update (if any).
+    window.maybe_show_update_failure()
     return app.exec()
 
 

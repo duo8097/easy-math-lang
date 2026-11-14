@@ -48,6 +48,8 @@ from .find_bar import FindBar
 from .help_dialogs import (EXAMPLES, AboutDialog, ShortcutsDialog,
                            WelcomePanel, example_source)
 from .symbol_bar import SymbolBar
+from .update_ui import (UpdateCheckWorker, UpdateDialog, UpdateDownloadWorker,
+                        UpdateFailedDialog, UpdateNoticeBanner)
 from .symbol_dialog import SymbolDialog
 from .symbol_registry import build_source, cursor_offset_for_insert, get_symbol
 from .lsp_client import LspClient, default_server_command
@@ -170,6 +172,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._welcome_panel.hide()
         central_layout.addWidget(self._welcome_panel)
         central_layout.addWidget(self._find_bar)
+        # Non-modal "a newer release exists" banner; hidden until the
+        # background check finds one. The host owns the flow (see
+        # maybe_show_update_failure / _start_update_check).
+        self._update_banner = UpdateNoticeBanner(self)
+        self._update_banner.actionRequested.connect(self._open_update_dialog)
+        self._update_banner.dismissed.connect(self._dismiss_update_banner)
+        self._update_banner.hide()
+        central_layout.addWidget(self._update_banner)
         self._symbol_bar = SymbolBar(self)
         self._symbol_bar.symbolChosen.connect(self._on_symbol_activated)
         central_layout.addWidget(self._symbol_bar)
@@ -280,6 +290,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.preview.openPdfRequested.connect(self._open_preview_externally)
         self.preview.sourceLinkActivated.connect(self._on_preview_source_link)
 
+        # Update check/download threads — same pattern as the preview
+        # worker: one long-lived QThread each, shut down in closeEvent.
+        self._update_check_thread = QtCore.QThread(self)
+        self._update_check_worker = UpdateCheckWorker()
+        self._update_check_worker.moveToThread(self._update_check_thread)
+        self._update_check_worker.done.connect(self._on_update_check_done)
+        self._update_check_thread.start()
+        self._update_download_thread = None
+        self._update_download_worker = None
+        self._update_inflight = False
+        self._update_manual = False
+        self._update_payload = None
+        self._update_dialog = None
+        self._update_banner_payload = None
+
         self._create_menus()
         self._connect_editor()
         self._apply_theme(self._theme_name, save=False)
@@ -290,6 +315,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._new_document()
         self._update_title()
+        # Background update check, shortly after startup (manual checks
+        # go through the Help menu). No UI work happens until results
+        # arrive; failures are silent there.
+        QtCore.QTimer.singleShot(3000, self._auto_update_check)
 
     # ------------------------------------------------------------------
     # LSP lifecycle
@@ -1763,6 +1792,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._auto_close_brackets_action.setChecked(self._auto_close_brackets)
         self._auto_close_brackets_action.setShortcut('Ctrl+Shift+B')
         self._auto_close_brackets_action.triggered.connect(self._toggle_auto_close_brackets)
+        self._auto_update_action = view_menu.addAction(i18n.tr('action.auto_updates'))
+        self._register(self._auto_update_action, 'action.auto_updates', 'action.auto_updates.tip', icon_name='update')
+        self._auto_update_action.setCheckable(True)
+        self._auto_update_action.setChecked(self._auto_update_enabled())
+        self._auto_update_action.triggered.connect(self._toggle_auto_update)
         view_menu.addSeparator()
         palette_action = view_menu.addAction(i18n.tr('action.palette'))
         self._register(palette_action, 'action.palette', 'action.palette.tip', icon_name='palette')
@@ -1825,6 +1859,9 @@ class MainWindow(QtWidgets.QMainWindow):
         shortcuts_action = help_menu.addAction(i18n.tr('action.shortcuts'))
         self._register(shortcuts_action, 'action.shortcuts', 'action.shortcuts.tip', icon_name='shortcuts')
         shortcuts_action.triggered.connect(self._show_shortcuts)
+        update_action = help_menu.addAction(i18n.tr('action.check_updates'))
+        self._register(update_action, 'action.check_updates', 'action.check_updates.tip', icon_name='update')
+        update_action.triggered.connect(self._manual_update_check)
         about_action = help_menu.addAction(i18n.tr('action.about'))
         self._register(about_action, 'action.about', 'action.about.tip', icon_name='about')
         about_action.triggered.connect(self._show_about)
@@ -1876,6 +1913,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._outline_dock.setWindowTitle(i18n.tr('dock.outline'))
         self._problems_dock.setWindowTitle(i18n.tr('dock.problems'))
         self._preview_dock.setWindowTitle(i18n.tr('dock.preview'))
+        # Dynamic update chrome (banner has its own text/size retranslate).
+        for widget in (getattr(self, '_update_banner', None),
+                       getattr(self, '_update_dialog', None)):
+            if widget is not None:
+                try:
+                    widget.retranslate_ui()
+                except (RuntimeError, AttributeError):
+                    pass
         for dock, key in ((self._outline_dock, 'dock.outline'),
                           (self._problems_dock, 'dock.problems'),
                           (self._preview_dock, 'dock.preview')):
@@ -2013,8 +2058,276 @@ class MainWindow(QtWidgets.QMainWindow):
         ShortcutsDialog(self).exec()
 
     def _show_about(self):
-        from .app import _app_version
-        AboutDialog(version=_app_version(), parent=self).exec()
+        dialog = AboutDialog(parent=self)
+        dialog.checkUpdatesRequested.connect(self._manual_update_check)
+        dialog.exec()
+
+    # ------------------------------------------------------------------
+    # Updates — check, notice, download, self-install
+    # ------------------------------------------------------------------
+    def _auto_update_enabled(self):
+        try:
+            return bool(self._settings.value('update/autoCheck', True,
+                                             type=bool))
+        except (TypeError, ValueError, RuntimeError):
+            return True
+
+    def _toggle_auto_update(self, checked):
+        try:
+            self._settings.setValue('update/autoCheck', bool(checked))
+            self._settings.sync()
+        except (TypeError, ValueError, RuntimeError):
+            pass
+        # Mirror into the compiler-owned state file (both locations
+        # carry the flag; the compiler ignores the config file).
+        try:
+            from compiler import update as _update
+
+            _update.set_auto_check(bool(checked))
+        except Exception:
+            pass
+
+    def _auto_update_check(self):
+        if self._closing:
+            return
+        if not self._auto_update_enabled():
+            return
+        self._start_update_check(interactive=False)
+
+    def _manual_update_check(self):
+        self._start_update_check(interactive=True)
+
+    def _start_update_check(self, interactive):
+        if getattr(self, '_update_inflight', False):
+            return
+        self._update_inflight = True
+        self._update_manual = bool(interactive)
+        # Queued from the GUI thread; the worker runs the (network)
+        # check in the background and emits `done` when finished.
+        QtCore.QMetaObject.invokeMethod(
+            self._update_check_worker, 'check',
+            QtCore.Qt.QueuedConnection,
+            QtCore.Q_ARG(bool, bool(interactive)))
+
+    @QtCore.Slot(object)
+    def _on_update_check_done(self, payload):
+        self._update_inflight = False
+        manual = bool(self._update_manual)
+        if not payload.get('ok'):
+            if manual:
+                _qt_critical(self, i18n.tr('update.dialog_title'),
+                             i18n.tr('update.check_failed',
+                                     reason=payload.get('error') or '?'))
+            return
+        if payload.get('status') != 'newer' or payload.get('latest') is None:
+            if manual:
+                self.statusBar().showMessage(
+                    i18n.tr('update.up_to_date'), 5000)
+            return
+        self._update_payload = payload
+        if payload.get('skipped'):
+            # The user asked to skip this exact version; stay quiet
+            # unless they explicitly opened the dialog.
+            return
+        latest = payload['latest']
+        self._update_banner_payload = payload
+        self._update_banner.set_info(payload.get('current', ''), latest.version)
+        self._update_banner.show()
+        if manual:
+            self._open_update_dialog()
+
+    def _show_update_banner(self):
+        if self._update_banner_payload is not None:
+            self._update_banner.show()
+
+    def _dismiss_update_banner(self):
+        self._update_banner.hide()
+
+    def _open_update_dialog(self):
+        payload = getattr(self, '_update_payload', None)
+        if not payload or payload.get('latest') is None:
+            return
+        info = payload['latest']
+        dialog = self._update_dialog
+        if dialog is None:
+            dialog = UpdateDialog(self)
+            dialog.updateNowRequested.connect(self._on_update_now)
+            dialog.downloadRequested.connect(self._on_download_requested)
+            dialog.skipRequested.connect(self._on_skip_requested)
+            dialog.cancelDownloadRequested.connect(
+                self._cancel_update_download)
+            dialog.finished.connect(self._on_update_dialog_closed)
+            self._update_dialog = dialog
+        platform_note = None
+        method = payload.get('method') or 'unknown'
+        if method == 'windows':
+            platform_note = 'update.uac_note'
+        elif method in ('debian', 'fedora', 'arch'):
+            platform_note = 'update.polkit_note'
+        elif method == 'macos':
+            platform_note = 'update.macos_note'
+        dialog.configure(info, payload.get('current', ''),
+                         bool(payload.get('one_click')), platform_note,
+                         payload.get('asset'))
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _on_update_dialog_closed(self, _result):
+        self._update_dialog = None
+
+    def _on_skip_requested(self):
+        payload = getattr(self, '_update_payload', None)
+        version = ''
+        if payload and payload.get('latest') is not None:
+            version = payload['latest'].version
+        try:
+            from compiler import update as _update
+
+            _update.skip_version(version)
+        except Exception:
+            pass
+        self._update_banner.hide()
+        self.statusBar().showMessage(
+            i18n.tr('update.skip_done', version=version), 5000)
+
+    def _on_download_requested(self):
+        payload = getattr(self, '_update_payload', None)
+        if not payload:
+            return
+        info = payload['latest']
+        asset = payload.get('asset')
+        url = asset.download_url if asset is not None else info.html_url
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
+    def _on_update_now(self):
+        payload = getattr(self, '_update_payload', None)
+        if not payload:
+            return
+        asset = payload.get('asset')
+        sums = payload.get('sums')
+        info = payload['latest']
+        if asset is None or sums is None:
+            if self._update_dialog is not None:
+                self._update_dialog.set_error(
+                    i18n.tr('update.unsupported'))
+            return
+        # Reuse the existing close/save logic: unsaved documents are
+        # saved (or the update is aborted) with the same prompt the
+        # window close uses.
+        if not self._maybe_save():
+            return
+        self._start_update_download(info, asset, sums)
+
+    def _start_update_download(self, info, asset, sums):
+        if self._update_download_thread is not None:
+            return
+        dialog = self._update_dialog
+        thread = QtCore.QThread(self)
+        worker = UpdateDownloadWorker(asset, sums.download_url)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._on_download_progress)
+        worker.finished.connect(self._on_download_finished)
+        worker.failed.connect(self._on_download_failed)
+        worker.cancelled.connect(self._on_download_cancelled)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.cancelled.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_download_thread_finished)
+        self._update_download_thread = thread
+        self._update_download_worker = worker
+        if dialog is not None:
+            dialog.set_busy(i18n.tr('update.downloading', name=asset.name))
+        thread.start()
+
+    def _on_download_progress(self, downloaded, total):
+        if self._update_dialog is not None:
+            self._update_dialog.set_progress(downloaded, total)
+
+    def _on_download_finished(self, result):
+        # The download (and its SHA-256 verification) succeeded. Stage
+        # the helper plan and spawn the detached installer; the app
+        # then quits through its normal close path.
+        payload = getattr(self, '_update_payload', None)
+        info = payload['latest'] if payload else None
+        method = payload.get('method') if payload else None
+        try:
+            from compiler import updater as _updater
+            from compiler import update as _update
+
+            staged_ok = self._stage_and_spawn(_updater, info, method,
+                                              result)
+        except Exception as exc:
+            staged_ok = str(exc)
+        if staged_ok is True:
+            if self._update_dialog is not None:
+                self._update_dialog.set_installing()
+            self.statusBar().showMessage(i18n.tr('update.installing'), 4000)
+            # Give the status row a beat to paint, then quit cleanly.
+            QtCore.QTimer.singleShot(600, self.close)
+            return
+        if self._update_dialog is not None:
+            self._update_dialog.set_error(str(staged_ok))
+
+    def _stage_and_spawn(self, _updater, info, method, result):
+        if info is None or method is None:
+            return 'missing update metadata'
+        method_info = _updater.InstallInfo(method, True, '')
+        plan_path = _updater.stage_update_plan(
+            info, method_info, result, relaunch_argv=[sys.executable],
+            pid=os.getpid())
+        _updater.spawn_helper(plan_path)
+        return True
+
+    def _on_download_failed(self, reason):
+        if self._update_dialog is not None:
+            self._update_dialog.set_error(reason)
+
+    def _on_download_cancelled(self):
+        if self._update_dialog is not None:
+            self._update_dialog.set_ready()
+
+    def _cancel_update_download(self):
+        worker = getattr(self, '_update_download_worker', None)
+        if worker is not None:
+            worker.cancel()
+
+    def _on_download_thread_finished(self):
+        self._update_download_thread = None
+        self._update_download_worker = None
+
+    def maybe_show_update_failure(self):
+        """Show the "last update failed" notice once (next start)."""
+        try:
+            from compiler import update as _update
+
+            failure = _update.last_update_error()
+        except Exception:
+            return
+        if not failure:
+            return
+        # Consume it now so it is shown exactly once, even if the
+        # dialog is dismissed without being read.
+        try:
+            from compiler import update as _update
+
+            _update.clear_update_error()
+        except Exception:
+            pass
+        dialog = UpdateFailedDialog(failure.get('reason'),
+                                    failure.get('log_path'), parent=self)
+        dialog.downloadRequested.connect(self._download_update_manually)
+        self._update_failed_dialog = dialog
+        dialog.show()
+
+    def _download_update_manually(self):
+        from compiler import update as _update
+
+        QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl(_update.RELEASES_PAGE_URL))
 
     # ------------------------------------------------------------------
     # Editor text size
@@ -2410,6 +2723,35 @@ class MainWindow(QtWidgets.QMainWindow):
         workdir = getattr(self, '_preview_workdir', None)
         if workdir:
             shutil.rmtree(workdir, ignore_errors=True)
+        self._shutdown_update_threads()
+
+    def _shutdown_update_threads(self):
+        """Stop the update check/download threads without leaking them."""
+        if getattr(self, '_update_threads_shutdown', False):
+            return
+        self._update_threads_shutdown = True
+        # A download in flight is cancelled and given a chance to unwind.
+        worker = getattr(self, '_update_download_worker', None)
+        if worker is not None:
+            try:
+                worker.cancel()
+            except RuntimeError:
+                pass
+        for attr in ('_update_check_thread', '_update_download_thread'):
+            thread = getattr(self, attr, None)
+            if thread is None:
+                continue
+            try:
+                thread.quit()
+                if not thread.wait(3000):
+                    thread.terminate()
+                    thread.wait(1000)
+            except RuntimeError:
+                pass
+        self._update_check_thread = None
+        self._update_download_thread = None
+        self._update_check_worker = None
+        self._update_download_worker = None
 
     def __del__(self):
         # Destroying a MainWindow via Python GC (tests drop the reference

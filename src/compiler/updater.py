@@ -1189,9 +1189,10 @@ def run_self_update(*, current_version=None, yes=False, ask=None, out=None,
 
     # --- stage + spawn the helper, then exit before installing -----------
     try:
-        plan_path = _stage_update(
-            info, method_info, result_dl, urlopen=urlopen,
-            prepare_macos_fn=prepare_macos_fn, state_path=state_path)
+        plan_path = stage_update_plan(
+            info, method_info, result_dl, relaunch_argv=[],
+            prepare_macos_fn=prepare_macos_fn, state_path=state_path,
+            pid=os.getpid())
     except DownloadError as exc:
         try:
             shutil.rmtree(result_dl.temp_dir, ignore_errors=True)
@@ -1223,9 +1224,13 @@ def _format_size(size):
     return f'{size / (1024 * 1024):.1f} MB'
 
 
-def _stage_update(info, method_info, result_dl, *, urlopen=None,
-                  prepare_macos_fn=None, state_path=None):
-    """Build the helper plan (and stage the macOS bundle) for the update."""
+def stage_update_plan(info, method_info, result_dl, *, relaunch_argv,
+                      prepare_macos_fn=None, state_path=None, pid=None):
+    """Build the helper plan (and stage the macOS bundle) for the update.
+
+    *relaunch_argv* is empty for the CLI (nothing to restart) or the
+    editor binary (GUI update) when the install finishes.
+    """
     macos = None
     if method_info.method == METHOD_MACOS:
         prepare = prepare_macos_fn or prepare_macos_update
@@ -1240,7 +1245,8 @@ def _stage_update(info, method_info, result_dl, *, urlopen=None,
     plan = build_update_plan(
         version=info.version, method=method_info.method,
         asset_path=result_dl.path, temp_dir=result_dl.temp_dir,
-        relaunch_argv=[], macos=macos, pid=os.getpid(),
+        relaunch_argv=relaunch_argv, macos=macos,
+        pid=pid if pid is not None else os.getpid(),
         state_path=state_path)
     plan_path = default_plan_path(result_dl.temp_dir)
     write_plan(plan, plan_path)
