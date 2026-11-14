@@ -688,9 +688,41 @@ def load_plan(path):
     return plan
 
 
+def _helper_cli_candidates():
+    """Ordered candidate argv lists for the update helper binary.
+
+    The helper is the CLI binary (it understands ``--apply-update``),
+    never the editor GUI. In the frozen bundle the CLI ships next to
+    the editor inside the same directory; for frozen CLI runs the
+    current executable is the CLI itself.
+    """
+    candidates = []
+    exe = sys.executable
+    name = os.path.basename(exe).lower()
+    exe_dir = os.path.dirname(exe)
+    cli = 'easy-math-lang.exe' if os.name == 'nt' else 'easy-math-lang'
+    sibling = os.path.join(exe_dir, cli)
+    if name in ('easy-math-lang', 'easy-math-lang.exe', 'ezmath',
+                'ezmath.exe'):
+        candidates.append([exe, '--apply-update'])
+    if os.path.isfile(sibling):
+        candidates.append([sibling, '--apply-update'])
+    return candidates
+
+
 def spawn_helper(plan_path, *, log_path=None):
-    """Spawn the detached helper (this binary with --apply-update)."""
-    argv = [sys.executable, '--apply-update', str(plan_path)]
+    """Spawn the detached helper (the CLI binary with --apply-update)."""
+    argv = None
+    for candidate in _helper_cli_candidates():
+        path = candidate[0]
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
+            argv = candidate + [str(plan_path)]
+            break
+    if argv is None:
+        raise FileNotFoundError(
+            'the update helper (easy-math-lang CLI binary) could not '
+            'be located next to this executable; aborting before the '
+            'app quits')
     if os.name == 'nt':
         flags = getattr(subprocess, 'DETACHED_PROCESS', 0) \
             | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
@@ -820,8 +852,6 @@ def prepare_macos_update(dmg_path, *, target_app=None, run_cmd=None,
     except BaseException:
         if new_app is not None:
             shutil.rmtree(new_app, ignore_errors=True)
-        raise
-    finally:
         if attached:
             try:
                 _detach()
@@ -832,9 +862,16 @@ def prepare_macos_update(dmg_path, *, target_app=None, run_cmd=None,
                 shutil.rmtree(tmp_dir, ignore_errors=True)
             except OSError:
                 pass
+        raise
+    # On success the DMG stays mounted until the helper swaps the new
+    # bundle in place and detaches it there; the plan records the
+    # mountpoint (and the staging dir when we created one).
     backup = target_app.rstrip(os.sep) + '.update-backup'
-    return {'target_app': target_app, 'new_app': new_app,
-            'backup': backup, 'mountpoint': mountpoint}
+    result = {'target_app': target_app, 'new_app': new_app,
+              'backup': backup, 'mountpoint': mountpoint}
+    if created_tmp:
+        result['stage_dir'] = tmp_dir
+    return result
 
 
 # ----------------------------------------------------------------------
@@ -909,7 +946,7 @@ def _relaunch(plan, log, relaunch=None):
         log(f'could not relaunch {argv}: {exc}')
 
 
-def _macos_swap(plan, log, *, rename=os.rename):
+def _macos_swap(plan, log, *, rename=os.rename, run_cmd=None):
     """Swap the new .app bundle into place with a backup + rollback."""
     macos = plan.get('macos') or {}
     target = macos.get('target_app')
@@ -917,7 +954,27 @@ def _macos_swap(plan, log, *, rename=os.rename):
     backup = macos.get('backup')
     if not target or not new_app or not backup:
         return False, 'incomplete macOS swap plan'
+    run_cmd = run_cmd or _helper_run_cmd
+
+    def _detach():
+        mountpoint = macos.get('mountpoint')
+        if not mountpoint:
+            return
+        try:
+            rc = run_cmd(['hdiutil', 'detach', mountpoint])
+            log(f'hdiutil detach exited with {rc}')
+        except Exception as exc:
+            log(f'could not detach the DMG at {mountpoint}: {exc}')
+        stage_dir = macos.get('stage_dir')
+        if stage_dir and os.path.basename(stage_dir.rstrip(os.sep)).startswith('easymath-dmg-'):
+            try:
+                shutil.rmtree(stage_dir, ignore_errors=True)
+                log(f'removed staging dir {stage_dir}')
+            except OSError as exc:
+                log(f'could not remove staging dir {stage_dir}: {exc}')
+
     if not os.path.isdir(new_app):
+        _detach()
         return False, f'new app bundle not found at {new_app}'
     had_old = os.path.isdir(target)
     try:
@@ -938,8 +995,10 @@ def _macos_swap(plan, log, *, rename=os.rename):
             except OSError as restore_exc:
                 log(f'ROLLBACK FAILED: could not restore {backup}: '
                     f'{restore_exc}')
+                _detach()
                 return False, (f'swap failed and rollback failed: {exc} '
                                f'(old app kept at {backup})')
+        _detach()
         return False, f'swap failed: {exc}'
     # Swap succeeded; drop the backup.
     try:
@@ -948,6 +1007,7 @@ def _macos_swap(plan, log, *, rename=os.rename):
             log(f'removed backup {backup}')
     except OSError as exc:
         log(f'could not remove backup {backup}: {exc}')
+    _detach()
     return True, 'ok'
 
 
@@ -1013,7 +1073,7 @@ def apply_update(plan, *, wait_pid_exit_fn=None, run_cmd=None, relaunch=None,
     log('application exited; installing update')
 
     if plan.get('method') == METHOD_MACOS:
-        ok, detail = _macos_swap(plan, log, rename=_rename)
+        ok, detail = _macos_swap(plan, log, rename=_rename, run_cmd=run_cmd)
     else:
         ok, detail = _run_installer(plan, log, run_cmd=run_cmd)
 

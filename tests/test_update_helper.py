@@ -420,10 +420,37 @@ def test_prepare_macos_update_full_flow(tmp_path):
                                  run_cmd=fake_run_cmd,
                                  temp_dir=str(tmp_path / 'stage'))
     assert macos['target_app'] == target
+    assert macos['mountpoint'] == mountpoint_holder['mp']
+    # The DMG stays mounted for the helper to swap and detach.
+    assert macos.get('stage_dir') is None  # caller-provided temp dir
     assert os.path.isdir(macos['new_app'])
     with open(os.path.join(macos['new_app'], 'Contents', 'MacOS',
                            'easy-math-editor'), encoding='utf-8') as handle:
         assert handle.read() == 'new-bin'
+
+
+def test_macos_helper_detaches_dmg_and_cleans_staging(tmp_path):
+    target, new_app, macos = _macos_plan(tmp_path)
+    macos['mountpoint'] = str(tmp_path / 'dmg-mount')
+    stage_dir = tmp_path / 'easymath-dmg-cafe1234'
+    stage_dir.mkdir()
+    macos['stage_dir'] = str(stage_dir)
+    plan = _make_plan(tmp_path, method=METHOD_MACOS, asset_name='dmg',
+                      macos=macos)
+    calls = []
+
+    def fake_run_cmd(argv):
+        calls.append(list(argv))
+        return 0
+
+    result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
+                          run_cmd=fake_run_cmd,
+                          relaunch=lambda argv: None,
+                          _rename=os.rename)
+    assert result == 0
+    assert calls and calls[0][:2] == ['hdiutil', 'detach']
+    assert calls[0][2] == macos['mountpoint']
+    assert not stage_dir.exists()  # staging dir cleaned up
 
 
 def test_prepare_macos_update_mount_failure(tmp_path):
@@ -454,6 +481,52 @@ def test_prepare_macos_update_empty_dmg_is_an_error(tmp_path):
 # --------------------------------------------------------------------------
 # Helper CLI wiring
 # --------------------------------------------------------------------------
+
+@pytest.mark.skipif(os.name == 'nt', reason='sibling resolution is POSIX-shaped here')
+def test_spawn_helper_prefers_sibling_cli(tmp_path, monkeypatch):
+    bin_dir = tmp_path / 'bundle bin'  # space in the path on purpose
+    bin_dir.mkdir()
+    cli = bin_dir / 'easy-math-lang'
+    cli.write_text('#!/bin/sh\nexit 0\n')
+    cli.chmod(0o755)
+    editor = bin_dir / 'easy-math-editor'
+    editor.write_text('#!/bin/sh\nexit 0\n')
+    editor.chmod(0o755)
+    monkeypatch.setattr(sys, 'executable', str(editor))
+    spawned = []
+
+    class FakePopen:
+        def __init__(self, argv, **kwargs):
+            spawned.append(argv)
+
+    monkeypatch.setattr(_updater.subprocess, 'Popen', FakePopen)
+    _updater.spawn_helper('/tmp/plan with spaces.json')
+    assert spawned[0][0] == str(cli)
+    assert spawned[0][1:] == ['--apply-update', '/tmp/plan with spaces.json']
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='sibling resolution is POSIX-shaped here')
+def test_spawn_helper_uses_current_cli(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, 'executable', str(tmp_path / 'easy-math-lang'))
+    (tmp_path / 'easy-math-lang').write_text('#!/bin/sh\nexit 0\n')
+    (tmp_path / 'easy-math-lang').chmod(0o755)
+    spawned = []
+
+    class FakePopen:
+        def __init__(self, argv, **kwargs):
+            spawned.append(argv)
+
+    monkeypatch.setattr(_updater.subprocess, 'Popen', FakePopen)
+    _updater.spawn_helper('/tmp/plan.json')
+    assert spawned[0][0] == str(tmp_path / 'easy-math-lang')
+
+
+def test_spawn_helper_missing_cli_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, 'executable',
+                        str(tmp_path / 'easy-math-editor'))
+    with pytest.raises(FileNotFoundError):
+        _updater.spawn_helper('/tmp/plan.json')
+
 
 def test_apply_update_flag_rejects_extra_args(monkeypatch, capsys):
     from compiler import pipeline as _pipeline

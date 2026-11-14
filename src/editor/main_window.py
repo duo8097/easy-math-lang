@@ -113,6 +113,7 @@ class _PreviewWorker(QtCore.QObject):
 
 class MainWindow(QtWidgets.QMainWindow):
     _preview_request = QtCore.Signal(int, str, str, str)
+    _update_request = QtCore.Signal(bool)
 
     def __init__(self, start_lsp=True, parent=None, no_save_prompt=False):
         super().__init__(parent)
@@ -295,6 +296,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_check_thread = QtCore.QThread(self)
         self._update_check_worker = UpdateCheckWorker()
         self._update_check_worker.moveToThread(self._update_check_thread)
+        self._update_request.connect(
+            self._update_check_worker.check, QtCore.Qt.QueuedConnection)
         self._update_check_worker.done.connect(self._on_update_check_done)
         self._update_check_thread.start()
         self._update_download_thread = None
@@ -2102,12 +2105,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._update_inflight = True
         self._update_manual = bool(interactive)
-        # Queued from the GUI thread; the worker runs the (network)
-        # check in the background and emits `done` when finished.
-        QtCore.QMetaObject.invokeMethod(
-            self._update_check_worker, 'check',
-            QtCore.Qt.QueuedConnection,
-            QtCore.Q_ARG(bool, bool(interactive)))
+        # Runs in the background thread; the worker emits `done`.
+        self._update_request.emit(bool(interactive))
 
     @QtCore.Slot(object)
     def _on_update_check_done(self, payload):

@@ -312,3 +312,33 @@ def test_update_threads_shut_down_cleanly(window):
     assert window._update_check_thread is None
     # Idempotent.
     window._shutdown_update_threads()
+
+
+def test_auto_check_end_to_end_via_worker_thread(window, monkeypatch):
+    """The real signal→worker→done path (with a faked network layer)."""
+    import compiler.update as _update
+    from PySide6.QtTest import QTest
+
+    class _FakeResult:
+        status = 'newer'
+        current = '7.0.0'
+        skipped = False
+        latest = INFO
+        error = None
+
+    monkeypatch.setattr(_update, 'check_for_update',
+                        lambda **kwargs: _FakeResult())
+    monkeypatch.setattr(_update, 'is_prerelease_version', lambda v: False)
+    monkeypatch.setattr('compiler.updater.detect_install_method',
+                        lambda: type('M', (), {'method': 'windows',
+                                               'one_click': True,
+                                               'detail': 'bundle'})())
+    monkeypatch.setattr('compiler.updater.one_click_supported',
+                        lambda info, **kw: True)
+    window._start_update_check(interactive=False)
+    for _ in range(100):
+        QTest.qWait(20)
+        if window._update_inflight is False:
+            break
+    assert not window._update_inflight
+    assert window._update_banner.isVisible()
