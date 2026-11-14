@@ -167,16 +167,31 @@ def test_pkgbuild_pkgver_matches_pyproject():
     the pyproject.toml version for the source tarball CI packs), but the
     placeholder is what ``makepkg --printsrcinfo`` / AUR helpers show
     before building — it sat at 5.1.0 while the project was 5.2.0.
+
+    pacman's ``pkgver`` cannot contain ``-``, so a prerelease project
+    version (``7.1.0-rc.1``) maps to the pacman-safe ``7.1.0rc1`` (the
+    mapping is ``scripts/bump_version.py:pkgbuild_pkgver`` and shared by
+    the release script and this test).
     """
+    import importlib.util
+
     with open(PYPROJECT, 'rb') as handle:
         version = tomllib.load(handle)['project']['version']
+    spec = importlib.util.spec_from_file_location(
+        'bump_version',
+        os.path.join(os.path.dirname(PKGBUILD), '..', 'scripts',
+                     'bump_version.py'))
+    bump_version = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bump_version)
+    expected = bump_version.pkgbuild_pkgver(version)
     with open(PKGBUILD, encoding='utf-8') as handle:
         pkgbuild = handle.read()
     match = re.search(r'(?m)^pkgver=(\S+)\s*$', pkgbuild)
     assert match, 'PKGBUILD has no pkgver= line'
-    assert match.group(1) == version, (
+    assert match.group(1) == expected, (
         f'PKGBUILD pkgver placeholder ({match.group(1)}) does not match '
-        f'pyproject.toml version ({version}) — bump it together'
+        f'the pacman-safe rendering ({expected}) of pyproject.toml '
+        f'version ({version}) — bump it together'
     )
     # The placeholder is only a fallback: pkgver() must still override it.
     assert re.search(r'(?m)^pkgver\(\)\s*\{', pkgbuild), \

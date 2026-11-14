@@ -250,7 +250,7 @@ All notable changes to easy-math-lang are documented in
 - **Fuzz hardening**: analysis fuzzing across 3000 malformed documents (no crashes), geometry end-to-end fuzzing still at 0 crashes/hangs.
 - Tidies the tree: removed dead locals/imports, duplicate signal declarations and an unused helper, tightened `zip(strict=True)` and closure bindings, and refreshed `docs/troubleshooting.md` for the new solver wording.
 
-Earlier releases (v5.0.0 and before) are listed in
+Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
 [GitHub releases page](https://github.com/duo8097/easy-math-lang/releases).
 
