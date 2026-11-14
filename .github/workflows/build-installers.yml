@@ -496,6 +496,38 @@ jobs:
           merge-multiple: true
           path: release-files
 
+      # --- Checksums (MANDATORY) ---------------------------------------------
+      # The built-in updater verifies every downloaded asset against
+      # SHA256SUMS.txt from the SAME release; a release without it makes
+      # self-update impossible. Covers every file downloaded above.
+      - name: Generate SHA256SUMS.txt
+        working-directory: release-files
+        run: |
+          set -euo pipefail
+          rm -f SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          test "$(wc -l < SHA256SUMS.txt)" -eq "$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | wc -l)"
+
+      - name: Verify all expected release assets are present
+        working-directory: release-files
+        run: |
+          set -euo pipefail
+          for f in EasyMathLang-Windows-x64-Setup.exe \
+                   EasyMathLang-macOS-arm64.dmg \
+                   EasyMathLang-Debian-amd64.deb \
+                   EasyMathLang-Fedora-amd64.rpm; do
+            test -f "$f" || { echo "::error::missing release asset: $f" >&2; exit 1; }
+            grep -F "  $f" SHA256SUMS.txt > /dev/null \
+              || { echo "::error::SHA256SUMS.txt does not cover $f" >&2; exit 1; }
+          done
+          shopt -s nullglob
+          arches=(easy-math-lang-git-*-x86_64.pkg.tar.zst)
+          test "${#arches[@]}" -eq 1 || { echo "::error::expected exactly one Arch package, found ${#arches[@]}" >&2; exit 1; }
+          grep -F "  ${arches[0]}" SHA256SUMS.txt > /dev/null \
+            || { echo "::error::SHA256SUMS.txt does not cover ${arches[0]}" >&2; exit 1; }
+          echo "Release assets OK ($(ls -1 | wc -l) files, incl. SHA256SUMS.txt)"
+
       # --- GitHub Release (tag builds only) ----------------------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
