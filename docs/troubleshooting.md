@@ -64,6 +64,40 @@ During a build you may see lines like this:
 | macOS blocks the app on first launch | Right-click the app → **Open** → **Open** again (the app is ad-hoc signed, not notarized). See [Installation → macOS](installation.md#option-a2--macos-disk-image-easiest). |
 | Windows installer: `LSP: Disconnected` | The installed editor and its helpers now ship in one folder; if the `LSP: Disconnected` persists, use **Build → Restart Language Server**. Details: [Desktop editor → helper programs](editor.md#under-the-hood-helper-programs). |
 | Arch/Debian package installed but the editor doesn't see the helpers | The packages install to `/usr/bin` + `/usr/lib/easy-math-lang`; if you moved files, set `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` to point at them. |
+| Windows installer: every `.exe` fails with `Failed to load Python DLL '…\_internal\python312.dll'` | Installs made with the broken v6.0.0/v7.0.0 setup flattened the shared `_internal\` folder into `bin\`. Reinstall with the current Windows installer, or repair the layout by hand — see below. |
+
+### Windows: `Failed to load Python DLL '…\_internal\python312.dll'`
+
+```
+Failed to load Python DLL 'C:\Program Files\EasyMathLang\bin\_internal\python312.dll'.
+LoadLibrary: The specified module could not be found.
+```
+
+Every Easy Math executable on Windows (`easy-math-lang.exe`,
+`ezmath.exe`, `easy-math-editor.exe`, `easy-math-lsp.exe`) fails at
+startup with this message. The PyInstaller onedir bootloader loads its
+runtime from `_internal\` **next to** the executables; the v6.0.0 and
+v7.0.0 Windows installers copied the *contents* of `_internal\`
+straight into `bin\`, so `bin\_internal\python312.dll` never existed.
+
+Reinstalling with the current Windows installer fixes it. Running the
+new setup over an existing (flattened) install is safe: the new
+`bin\_internal\` folder is created and the executables are replaced;
+leftover flattened files directly in `bin\` are ignored by the
+bootloader. If you cannot reinstall right now, repair the layout by
+hand:
+
+1. Close Easy Math and any `easy-math-lang` terminals.
+2. Open `C:\Program Files\EasyMathLang\bin\` in Explorer (confirm the
+   administrator prompt).
+3. Create a folder named `_internal` inside `bin\`.
+4. Move **everything** in `bin\` into `bin\_internal\` **except the
+   four executables** `easy-math-lang.exe`, `easy-math-lsp.exe`,
+   `easy-math-editor.exe` and `ezmath.exe`.
+5. Start **Easy Math Editor** again — it should open normally.
+
+If you installed to a custom folder, use that install's `bin\`
+instead of `C:\Program Files\EasyMathLang\bin\`.
 
 Step-by-step from scratch: [Installation guide](installation.md).
 
