@@ -2181,6 +2181,20 @@ def main():
             args = args[:cut]
     # Standalone flags are only honored in flag position (args[0]); a
     # trailing flag after a filename must not hijack the compile job.
+    if not positional_only and args[:1] == ['--apply-update']:
+        # Internal helper mode (undocumented): the detached update
+        # helper applies a plan after the app has exited.
+        if len(args) != 2:
+            _standalone_flag_error('--apply-update')
+        from . import updater
+
+        try:
+            plan = updater.load_plan(args[1])
+        except Exception as exc:
+            print(f'error: cannot read update plan {args[1]}: {exc}',
+                  file=sys.stderr)
+            sys.exit(2)
+        sys.exit(updater.apply_update(plan))
     if not positional_only and args[:1] == ['--check-update']:
         if len(args) > 1:
             _standalone_flag_error('--check-update')

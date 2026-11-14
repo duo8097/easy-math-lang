@@ -35,8 +35,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .update import CHECK_TIMEOUT, ReleaseAsset, ReleaseInfo, \
-    USER_AGENT, normalize_version
+from .update import (CHECK_TIMEOUT, ReleaseAsset, ReleaseInfo, USER_AGENT,
+                     clear_update_error, record_update_error)
 
 ALLOWED_DOWNLOAD_HOSTS = frozenset({
     'github.com',
@@ -564,3 +564,466 @@ def one_click_supported(info, *, which=None, environ=None):
 def manual_commands_for(method, asset_name=None):
     """The exact manual command(s) to update, for fallback display."""
     return update_hint(method, asset_name)
+
+
+# ----------------------------------------------------------------------
+# Per-platform install commands (B4) — argv lists only, never shell
+# ----------------------------------------------------------------------
+
+HELPER_WAIT_SECONDS = 120
+INSTALL_TIMEOUT = 900
+
+
+def windows_setup_command(asset_path, log_path):
+    """Inno Setup silent flags for the Windows installer.
+
+    PrivilegesRequired=admin in setup.iss, so Windows shows the UAC
+    prompt — that is the user's verification. The flags must stay valid
+    for this setup.iss (they are all standard Inno Setup 6 flags).
+    """
+    return [
+        asset_path,
+        '/SILENT',
+        '/SP-',
+        '/NORESTART',
+        '/CLOSEAPPLICATIONS',
+        '/RESTARTAPPLICATIONS',
+        f'/LOG={log_path}',
+    ]
+
+
+def debian_install_command(asset_path):
+    return ['pkexec', 'apt-get', 'install', '-y', asset_path]
+
+
+def debian_fallback_command(asset_path):
+    return ['pkexec', 'dpkg', '-i', asset_path]
+
+
+def fedora_install_command(asset_path):
+    return ['pkexec', 'dnf', 'install', '-y', asset_path]
+
+
+def fedora_fallback_command(asset_path):
+    return ['pkexec', 'rpm', '-U', asset_path]
+
+
+def arch_install_command(asset_path):
+    return ['pkexec', 'pacman', '-U', '--noconfirm', asset_path]
+
+
+# ----------------------------------------------------------------------
+# Update helper (B5) — the running app is never replaced while running
+# ----------------------------------------------------------------------
+# The helper is this same CLI binary invoked with ``--apply-update
+# <plan.json>`` (works inside the frozen bundle, needs no interpreter on
+# the target machine). It waits for the app's PID to exit, runs the
+# platform installer command, logs to a file in the config dir, then
+# relaunches the app. The helper itself never runs with more privilege
+# than needed — only the installer command (pkexec/UAC) is elevated.
+# On any failure the old version is left runnable and the failure is
+# written to the state file; the next editor start shows it once.
+
+
+def default_log_path():
+    from .update import default_config_dir
+
+    return os.path.join(default_config_dir(), 'update.log')
+
+
+def default_plan_path(temp_dir):
+    return os.path.join(temp_dir, 'update-plan.json')
+
+
+def build_update_plan(*, version, method, asset_path, temp_dir,
+                      relaunch_argv, pid=None, wait_timeout=HELPER_WAIT_SECONDS,
+                      macos=None, state_path=None, log_path=None,
+                      install_log_path=None):
+    """Assemble the JSON-able plan consumed by ``--apply-update``."""
+    plan = {
+        'version': version,
+        'method': method,
+        'installer': asset_path,
+        'pid': int(pid if pid is not None else os.getpid()),
+        'relaunch_argv': list(relaunch_argv or []),
+        'log_path': log_path or default_log_path(),
+        'state_path': state_path or _default_state_path_safe(),
+        'temp_dir': temp_dir,
+        'wait_timeout': int(wait_timeout),
+        'install_log_path': install_log_path
+        or os.path.join(temp_dir, 'installer.log'),
+    }
+    if macos is not None:
+        plan['macos'] = dict(macos)
+    return plan
+
+
+def _default_state_path_safe():
+    from .update import default_state_path
+
+    try:
+        return default_state_path()
+    except Exception:
+        return ''
+
+
+def write_plan(plan, path):
+    with open(path, 'w', encoding='utf-8') as handle:
+        json.dump(plan, handle, indent=1, sort_keys=True)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+def load_plan(path):
+    with open(path, 'r', encoding='utf-8') as handle:
+        plan = json.load(handle)
+    if not isinstance(plan, dict):
+        raise ValueError('update plan must be a JSON object')
+    for key in ('version', 'method', 'installer', 'pid', 'log_path',
+                'temp_dir', 'relaunch_argv'):
+        if key not in plan:
+            raise ValueError(f'update plan is missing {key!r}')
+    return plan
+
+
+def spawn_helper(plan_path, *, log_path=None):
+    """Spawn the detached helper (this binary with --apply-update)."""
+    argv = [sys.executable, '--apply-update', str(plan_path)]
+    if os.name == 'nt':
+        flags = getattr(subprocess, 'DETACHED_PROCESS', 0) \
+            | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        process = subprocess.Popen(argv, close_fds=True,
+                                   creationflags=flags)
+    else:
+        process = subprocess.Popen(argv, close_fds=True,
+                                   start_new_session=True)
+    return process
+
+
+# ----------------------------------------------------------------------
+# PID waiting (platform dependent; injectable for tests)
+# ----------------------------------------------------------------------
+
+def wait_pid_exit(pid, timeout, *, _poll=None, _sleep=None):
+    """True when *pid* is gone within *timeout* seconds."""
+    import time
+
+    poll = _poll or _default_pid_gone
+    sleep = _sleep or time.sleep
+    deadline = time.monotonic() + max(0.0, float(timeout))
+    while True:
+        if poll(pid):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        sleep(0.2)
+
+
+def _default_pid_gone(pid):
+    if os.name == 'nt':
+        return _windows_pid_gone(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False  # exists, owned by someone else
+    except OSError:
+        return True
+    return False
+
+
+def _windows_pid_gone(pid):
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+    except Exception:
+        # Without ctypes we cannot tell; assume the app is gone so the
+        # helper does not deadlock — the installer would fail safely.
+        return True
+    synchronize = 0x00100000  # SYNCHRONIZE
+    wait_object_0 = 0x00000000
+    handle = kernel32.OpenProcess(synchronize, False, pid)
+    if not handle:
+        return True  # ERROR_INVALID_PARAMETER: no such process
+    try:
+        return kernel32.WaitForSingleObject(handle, 0) == wait_object_0
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+# ----------------------------------------------------------------------
+# macOS: mount the DMG and stage the new bundle (pre-quit, fail-safe)
+# ----------------------------------------------------------------------
+
+def prepare_macos_update(dmg_path, *, target_app=None, run_cmd=None,
+                         temp_dir=None, version=None, **plan_kwargs):
+    """Mount the DMG, copy the new .app next to the target, detach.
+
+    Runs BEFORE the app quits; on any failure nothing is left behind
+    and the error is raised so the caller can show it without quitting.
+    The actual bundle swap happens in the helper after the app exits.
+    Returns the ``macos`` dict for the update plan.
+    """
+    run_cmd = run_cmd or _helper_run_cmd
+    executable = plan_kwargs.get('executable') or sys.executable
+    if target_app is None:
+        target_app = _macos_bundle_for(executable)
+    if target_app is None:
+        raise DownloadError('not running from an .app bundle — use the '
+                            'manual steps in the release notes.')
+    created_tmp = temp_dir is None
+    tmp_dir = temp_dir or tempfile.mkdtemp(prefix='easymath-dmg-')
+    try:
+        os.chmod(tmp_dir, 0o700)
+    except OSError:
+        pass
+    mountpoint = os.path.join(tmp_dir, 'dmg')
+    os.makedirs(mountpoint, exist_ok=True)
+
+    def _detach():
+        rc = run_cmd(['hdiutil', 'detach', mountpoint])
+        return rc == 0
+
+    attached = False
+    new_app = None
+    try:
+        rc = run_cmd(['hdiutil', 'attach', '-nobrowse', '-readonly',
+                      '-mountpoint', mountpoint, dmg_path])
+        if rc != 0:
+            raise DownloadError(f'could not mount the DMG (hdiutil exited '
+                                f'with {rc}).')
+        attached = True
+        app_in_dmg = None
+        try:
+            for entry in os.listdir(mountpoint):
+                if entry.endswith('.app'):
+                    app_in_dmg = os.path.join(mountpoint, entry)
+                    break
+        except OSError as exc:
+            raise DownloadError(f'could not read the mounted DMG: {exc}')
+        if app_in_dmg is None:
+            raise DownloadError('the DMG contains no .app bundle.')
+        target_dir = os.path.dirname(target_app.rstrip(os.sep)) or '.'
+        suffix = os.urandom(4).hex()
+        new_app = os.path.join(target_dir,
+                               f'.EasyMathLang-update-{suffix}.app')
+        try:
+            shutil.copytree(app_in_dmg, new_app, symlinks=True)
+        except (OSError, shutil.Error) as exc:
+            shutil.rmtree(new_app, ignore_errors=True)
+            new_app = None
+            raise DownloadError(f'could not copy the new app bundle: {exc}')
+    except BaseException:
+        if new_app is not None:
+            shutil.rmtree(new_app, ignore_errors=True)
+        raise
+    finally:
+        if attached:
+            try:
+                _detach()
+            except Exception:
+                pass
+        if created_tmp:
+            try:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            except OSError:
+                pass
+    backup = target_app.rstrip(os.sep) + '.update-backup'
+    return {'target_app': target_app, 'new_app': new_app,
+            'backup': backup, 'mountpoint': mountpoint}
+
+
+# ----------------------------------------------------------------------
+# The helper itself
+# ----------------------------------------------------------------------
+
+def _helper_log(path):
+    def log(message):
+        try:
+            with open(path, 'a', encoding='utf-8') as handle:
+                handle.write(f'[{_now_iso()}] {message}\n')
+        except OSError:
+            pass
+    return log
+
+
+def _now_iso():
+    import datetime
+
+    return datetime.datetime.now().isoformat(timespec='seconds')
+
+
+def _helper_run_cmd(argv):
+    try:
+        result = subprocess.run(argv, timeout=INSTALL_TIMEOUT, check=False)
+        return result.returncode
+    except subprocess.TimeoutExpired:
+        return 124
+    except OSError:
+        return 127
+
+
+def _fail_update(plan, log, reason):
+    version = plan.get('version', '?')
+    log_path = plan.get('log_path') or default_log_path()
+    log(f'update FAILED: {reason}')
+    record_update_error(version, reason, log_path, plan.get('state_path') or None)
+
+
+def _cleanup_temp(plan, log):
+    temp_dir = plan.get('temp_dir')
+    if not temp_dir:
+        return
+    try:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        log(f'removed temp dir {temp_dir}')
+    except OSError as exc:
+        log(f'could not remove temp dir {temp_dir}: {exc}')
+
+
+def _relaunch(plan, log, relaunch=None):
+    argv = plan.get('relaunch_argv') or []
+    if not argv:
+        log('no relaunch requested (e.g. CLI update); done')
+        return
+    if relaunch is not None:
+        relaunch(argv)
+        log(f'relaunched: {argv}')
+        return
+    try:
+        if plan.get('method') == METHOD_MACOS:
+            subprocess.Popen(['open', '-n'] + argv, close_fds=True,
+                             start_new_session=True)
+        elif os.name == 'nt':
+            flags = getattr(subprocess, 'DETACHED_PROCESS', 0) \
+                | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+            subprocess.Popen(argv, close_fds=True, creationflags=flags)
+        else:
+            subprocess.Popen(argv, close_fds=True, start_new_session=True)
+        log(f'relaunched: {argv}')
+    except Exception as exc:
+        log(f'could not relaunch {argv}: {exc}')
+
+
+def _macos_swap(plan, log, *, rename=os.rename):
+    """Swap the new .app bundle into place with a backup + rollback."""
+    macos = plan.get('macos') or {}
+    target = macos.get('target_app')
+    new_app = macos.get('new_app')
+    backup = macos.get('backup')
+    if not target or not new_app or not backup:
+        return False, 'incomplete macOS swap plan'
+    if not os.path.isdir(new_app):
+        return False, f'new app bundle not found at {new_app}'
+    had_old = os.path.isdir(target)
+    try:
+        if had_old:
+            if os.path.isdir(backup):
+                shutil.rmtree(backup)
+            rename(target, backup)
+            log(f'backed up {target} -> {backup}')
+        rename(new_app, target)
+        log(f'moved {new_app} -> {target}')
+    except OSError as exc:
+        # Roll back: restore the backup if the swap failed halfway.
+        log(f'swap failed: {exc}')
+        if had_old and not os.path.isdir(target) and os.path.isdir(backup):
+            try:
+                rename(backup, target)
+                log(f'restored backup {backup} -> {target}')
+            except OSError as restore_exc:
+                log(f'ROLLBACK FAILED: could not restore {backup}: '
+                    f'{restore_exc}')
+                return False, (f'swap failed and rollback failed: {exc} '
+                               f'(old app kept at {backup})')
+        return False, f'swap failed: {exc}'
+    # Swap succeeded; drop the backup.
+    try:
+        if os.path.isdir(backup):
+            shutil.rmtree(backup)
+            log(f'removed backup {backup}')
+    except OSError as exc:
+        log(f'could not remove backup {backup}: {exc}')
+    return True, 'ok'
+
+
+def _run_installer(plan, log, run_cmd=None):
+    method = plan.get('method')
+    installer = plan.get('installer')
+    run_cmd = run_cmd or _helper_run_cmd
+    if method == METHOD_WINDOWS:
+        argv = windows_setup_command(installer, plan.get('install_log_path')
+                                     or (plan.get('log_path', '') + '.setup.log'))
+        log(f'running Windows installer: {argv}')
+        rc = run_cmd(argv)
+        log(f'installer exited with {rc}')
+        return (rc == 0), (f'installer exited with {rc}' if rc != 0 else 'ok')
+    if method == METHOD_DEBIAN:
+        for argv in (debian_install_command(installer),
+                     debian_fallback_command(installer)):
+            log(f'running {argv}')
+            rc = run_cmd(argv)
+            log(f'command exited with {rc}')
+            if rc == 0:
+                return True, 'ok'
+        return False, 'both `pkexec apt-get install -y` and ' \
+            '`pkexec dpkg -i` failed (see log)'
+    if method == METHOD_FEDORA:
+        for argv in (fedora_install_command(installer),
+                     fedora_fallback_command(installer)):
+            log(f'running {argv}')
+            rc = run_cmd(argv)
+            log(f'command exited with {rc}')
+            if rc == 0:
+                return True, 'ok'
+        return False, 'both `pkexec dnf install -y` and ' \
+            '`pkexec rpm -U` failed (see log)'
+    if method == METHOD_ARCH:
+        argv = arch_install_command(installer)
+        log(f'running {argv}')
+        rc = run_cmd(argv)
+        log(f'command exited with {rc}')
+        return (rc == 0), (f'`pkexec pacman -U --noconfirm` exited with {rc}'
+                           if rc != 0 else 'ok')
+    if method == METHOD_MACOS:
+        ok, detail = _macos_swap(plan, log)
+        return ok, detail
+    return False, f'unsupported install method: {method!r}'
+
+
+def apply_update(plan, *, wait_pid_exit_fn=None, run_cmd=None, relaunch=None,
+                 _rename=os.rename):
+    """The helper's entry point. Returns the process exit code."""
+    log = _helper_log(plan.get('log_path') or default_log_path())
+    log(f'update helper started for v{plan.get("version")} '
+        f'(pid {plan.get("pid")}, method {plan.get("method")})')
+
+    wait = wait_pid_exit_fn or wait_pid_exit
+    if not wait(plan.get('pid'), plan.get('wait_timeout', HELPER_WAIT_SECONDS)):
+        _fail_update(plan, log,
+                     f'the application (pid {plan.get("pid")}) did not exit '
+                     f'within {plan.get("wait_timeout")}s — update aborted; '
+                     f'nothing was changed')
+        _cleanup_temp(plan, log)
+        return 1
+    log('application exited; installing update')
+
+    if plan.get('method') == METHOD_MACOS:
+        ok, detail = _macos_swap(plan, log, rename=_rename)
+    else:
+        ok, detail = _run_installer(plan, log, run_cmd=run_cmd)
+
+    if not ok:
+        _fail_update(plan, log, detail)
+        _relaunch(plan, log, relaunch)
+        _cleanup_temp(plan, log)
+        return 1
+    clear_update_error(plan.get('state_path') or None)
+    log('update installed successfully')
+    _relaunch(plan, log, relaunch)
+    _cleanup_temp(plan, log)
+    return 0

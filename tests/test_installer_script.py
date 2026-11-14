@@ -198,6 +198,28 @@ def test_pkgbuild_pkgver_matches_pyproject():
         'PKGBUILD must keep its pkgver() build-time override'
 
 
+def test_setup_has_stable_app_id_for_in_place_upgrade(iss_text):
+    """Same AppId across releases = the silent updater upgrades in place.
+
+    The updater invokes the Setup.exe with /SILENT from a detached
+    helper; without a stable AppId, Inno would register the app as a
+    second installation instead of updating the existing one.
+    """
+    setup = re.search(r'(?ms)^\[Setup\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert setup, 'no [Setup] section found'
+    match = re.search(r'(?im)^AppId\s*=\s*(\S+)\s*$', setup.group(1))
+    assert match, 'setup.iss must declare a stable AppId'
+    # Literal constant (not a per-build GUID) so upgrades find the
+    # previous install.
+    assert match.group(1) == '{{EasyMathLang}}', (
+        f'AppId must stay stable across releases (got: {match.group(1)})')
+    # Closing/restarting the app during install must keep working for
+    # the /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS silent flags.
+    assert re.search(r'(?im)^CloseApplications\s*=\s*yes\s*$', setup.group(1))
+    assert re.search(r'(?im)^RestartApplications\s*=\s*yes\s*$',
+                     setup.group(1))
+
+
 def test_setup_ships_third_party_licenses(iss_text):
     # MIT project, vendored CeTZ is LGPL-3.0-or-later: the notices file
     # must be installed alongside the binaries.
