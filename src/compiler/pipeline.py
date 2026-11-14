@@ -2066,6 +2066,8 @@ def _print_usage():
     print('  --version       Show version and exit')
     print('  --check-update  Check whether a newer EasyMath release '
           'is available')
+    print('  --update        Download and install the latest release '
+          '(asks for confirmation; --yes skips the prompt for scripts)')
     print('  --format FMT    Export format: pdf, png, svg, html, typ')
     print('  --ppi PPI       PNG resolution 1..1200 (default: Typst default)')
     print('  -o, --output FILE  Output file (same as positional [output])')
@@ -2200,6 +2202,13 @@ def main():
             _standalone_flag_error('--check-update')
         from .update import run_check_update
         sys.exit(run_check_update())
+    if not positional_only and args[:1] == ['--update']:
+        extra = args[1:]
+        yes = bool(extra) and extra == ['--yes']
+        if extra and extra != ['--yes']:
+            _standalone_flag_error('--update')
+        from . import updater as _updater
+        sys.exit(_updater.run_self_update(yes=yes))
     if not positional_only and args[:1] == ['--version']:
         if len(args) > 1:
             _standalone_flag_error('--version')

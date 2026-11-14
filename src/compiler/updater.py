@@ -1027,3 +1027,221 @@ def apply_update(plan, *, wait_pid_exit_fn=None, run_cmd=None, relaunch=None,
     _relaunch(plan, log, relaunch)
     _cleanup_temp(plan, log)
     return 0
+
+
+# ----------------------------------------------------------------------
+# CLI self-update (B6) — `easy-math-lang --update` / `ezmath --update`
+# ----------------------------------------------------------------------
+
+NOTES_SUMMARY_LIMIT = 700
+DOWNLOAD_BAR_WIDTH = 28
+
+
+def _notes_summary(notes, limit=NOTES_SUMMARY_LIMIT):
+    text = (notes or '').strip()
+    if not text:
+        return ''
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    # Prefer a line boundary; fall back to a hard cut.
+    if '\n' in cut:
+        cut = cut.rsplit('\n', 1)[0]
+    return cut.rstrip() + '\n…'
+
+
+def _text_progress(stream):
+    def progress(done, total):
+        if total and total > 0:
+            pct = done / total
+            filled = int(DOWNLOAD_BAR_WIDTH * pct)
+            bar = '#' * filled + '.' * (DOWNLOAD_BAR_WIDTH - filled)
+            stream.write(f'\rDownloading [{bar}] {pct * 100:5.1f}% '
+                         f'({done / 1e6:.1f}/{total / 1e6:.1f} MB)')
+        else:
+            stream.write(f'\rDownloading… {done / 1e6:.1f} MB')
+        try:
+            stream.flush()
+        except Exception:
+            pass
+    return progress
+
+
+def run_self_update(*, current_version=None, yes=False, ask=None, out=None,
+                    err=None, urlopen=None, state_path=None, download_fn=None,
+                    detect_fn=None, prepare_macos_fn=None, spawn_fn=None):
+    """The ``--update`` flow. Returns the process exit code.
+
+    Shows current vs latest and a notes summary, asks for confirmation
+    (``yes=True`` skips only the prompt — verification can never be
+    skipped), downloads with a text progress bar, verifies SHA-256,
+    then hands over to the detached helper and exits 0. Exits non-zero
+    on failure (network, verification, unsupported install) and says
+    what to do instead.
+    """
+    from . import update as _update
+
+    emit = out or print
+    err_emit = err or (lambda msg: print(msg, file=sys.stderr))
+    stream = out if out is not None else sys.stdout
+
+    def _fail(reason):
+        err_emit(f'Update failed: {reason}')
+        _manual_hint()
+        return 1
+
+    current = current_version or _update.get_current_version()
+    emit(f'{_update.APP_NAME} {current}')
+
+    result = _update.check_for_update(current, interactive=True,
+                                      urlopen=urlopen, state_path=state_path)
+    if result.error is not None:
+        err_emit(f'Could not check for updates: {result.error}')
+        emit(_update.RELEASES_PAGE_URL)
+        return 1
+    info = result.latest
+    if result.status != 'newer' or info is None:
+        emit('You are up to date.')
+        return 0
+
+    emit(f'A new version is available: {info.version}')
+    emit(info.html_url)
+    if info.published:
+        emit(f'Published: {info.published}')
+    summary = _notes_summary(info.notes)
+    if summary:
+        emit('Release notes (summary):')
+        emit(summary)
+
+    method_info = (detect_fn or detect_install_method)()
+    asset = release_asset_for(method_info.method, info.assets)
+    sums = sha256sums_asset(info.assets)
+    one_click = one_click_supported(method_info)
+
+    def _manual_hint():
+        if asset is not None:
+            emit(f'Download the asset for this installation: '
+                 f'{asset.name} ({_format_size(asset.size)})')
+        emit(update_hint(method_info.method,
+                         asset.name if asset is not None else None))
+        emit(f'Or download it manually from:\n{info.html_url}')
+
+    if not one_click or asset is None or sums is None:
+        emit('')
+        if method_info.method == METHOD_SOURCE:
+            emit('This is a source checkout — updates are applied with '
+                 'git, not by this tool.')
+        elif sums is None:
+            emit('This release is missing SHA256SUMS.txt — the download '
+                 'cannot be verified, so it will not be installed.')
+        else:
+            emit('One-click update is not available for this installation '
+                 f'({method_info.detail or method_info.method}).')
+        _manual_hint()
+        return 1
+
+    emit('')
+    emit(f'Asset: {asset.name} ({_format_size(asset.size)})')
+    if method_info.method == METHOD_WINDOWS:
+        emit('You will see a UAC prompt from Windows — that is your '
+             'verification.')
+    elif method_info.method in (METHOD_DEBIAN, METHOD_FEDORA, METHOD_ARCH):
+        emit('You will be asked to authenticate (polkit) — that is your '
+             'verification.')
+    emit('The app must restart to finish the update. Unsaved documents '
+         'should be saved first.')
+
+    if not yes:
+        prompter = ask or (lambda: input('Update now? [y/N] '))
+        try:
+            answer = prompter()
+        except (EOFError, KeyboardInterrupt, OSError):
+            err_emit('No terminal to ask for confirmation '
+                     '(use --yes to proceed non-interactively).')
+            return 1
+        if not str(answer).strip().lower().startswith('y'):
+            emit('Update cancelled.')
+            return 0
+
+    # --- download + verify (verification can never be skipped) -----------
+    download = download_fn or download_asset
+    try:
+        result_dl = download(
+            asset.download_url, dest_name=asset.name,
+            expected_size=asset.size or None,
+            sha256sums_url=sums.download_url,
+            progress=_text_progress(stream), urlopen=urlopen)
+    except DownloadCancelled:
+        emit('\nDownload cancelled.')
+        return 0
+    except DownloadError as exc:
+        return _fail(str(exc))
+    except Exception as exc:
+        return _fail(f'download failed: {exc}')
+    if hasattr(stream, 'write'):
+        try:
+            stream.write('\n')
+            stream.flush()
+        except Exception:
+            pass
+    emit(f'Downloaded {result_dl.path}')
+    emit(f'SHA-256 verified: {result_dl.sha256}')
+
+    # --- stage + spawn the helper, then exit before installing -----------
+    try:
+        plan_path = _stage_update(
+            info, method_info, result_dl, urlopen=urlopen,
+            prepare_macos_fn=prepare_macos_fn, state_path=state_path)
+    except DownloadError as exc:
+        try:
+            shutil.rmtree(result_dl.temp_dir, ignore_errors=True)
+        except OSError:
+            pass
+        return _fail(str(exc))
+    spawn = spawn_fn or spawn_helper
+    try:
+        spawn(plan_path)
+    except Exception as exc:
+        try:
+            shutil.rmtree(result_dl.temp_dir, ignore_errors=True)
+        except OSError:
+            pass
+        return _fail(f'could not launch the update helper: {exc}')
+    emit('The update will be installed in the background after this '
+         'process exits.')
+    emit(f'If anything goes wrong, see {default_log_path()}')
+    return 0
+
+
+def _format_size(size):
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        return 'unknown size'
+    if size <= 0:
+        return 'unknown size'
+    return f'{size / (1024 * 1024):.1f} MB'
+
+
+def _stage_update(info, method_info, result_dl, *, urlopen=None,
+                  prepare_macos_fn=None, state_path=None):
+    """Build the helper plan (and stage the macOS bundle) for the update."""
+    macos = None
+    if method_info.method == METHOD_MACOS:
+        prepare = prepare_macos_fn or prepare_macos_update
+        macos = prepare(result_dl.path, executable=sys.executable,
+                        version=info.version)
+    from .update import default_state_path
+
+    try:
+        state_path = state_path or default_state_path()
+    except Exception:
+        state_path = ''
+    plan = build_update_plan(
+        version=info.version, method=method_info.method,
+        asset_path=result_dl.path, temp_dir=result_dl.temp_dir,
+        relaunch_argv=[], macos=macos, pid=os.getpid(),
+        state_path=state_path)
+    plan_path = default_plan_path(result_dl.temp_dir)
+    write_plan(plan, plan_path)
+    return plan_path

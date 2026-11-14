@@ -329,6 +329,7 @@ def test_cli_help_mentions_check_update(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert '--check-update' in out
     assert 'Check whether a newer EasyMath release is available' in out
+    assert '--update' in out
     assert '--version' in out
 
 
