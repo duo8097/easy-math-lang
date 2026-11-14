@@ -109,25 +109,6 @@ def edit_update_py(text, old_version, new_version):
     return pattern.sub(f"FALLBACK_VERSION = '{new_version}'", text, count=1)
 
 
-def edit_lsp_server(text, old_version, new_version):
-    pattern = re.compile(r"(?m)^SERVER_VERSION = '[^']*'$")
-    _sub_count(pattern, text, 'src/lsp/server.py SERVER_VERSION')
-    return pattern.sub(f"SERVER_VERSION = '{new_version}'", text, count=1)
-
-
-def edit_editor_app(text, old_version, new_version):
-    pattern = re.compile(r"(?m)^    return '[^']*'$")
-    _sub_count(pattern, text, 'src/editor/app.py frozen-build fallback')
-    return pattern.sub(f"    return '{new_version}'", text, count=1)
-
-
-def edit_help_dialogs(text, old_version, new_version):
-    pattern = re.compile(r"(?m)^    def __init__\(self, version='[^']*', parent=None\):$")
-    _sub_count(pattern, text, 'src/editor/help_dialogs.py AboutDialog default')
-    return pattern.sub(f"    def __init__(self, version='{new_version}', parent=None):",
-                       text, count=1)
-
-
 def edit_pkgbuild(text, old_version, new_version):
     pattern = re.compile(r'(?m)^pkgver=[^\s]+$')
     _sub_count(pattern, text, 'installer/PKGBUILD pkgver')
@@ -145,12 +126,6 @@ LITERAL_FILES = [
     ('pyproject.toml', edit_pyproject, 'pyproject.toml [project] version'),
     ('src/compiler/update.py', edit_update_py,
      'src/compiler/update.py FALLBACK_VERSION'),
-    ('src/lsp/server.py', edit_lsp_server,
-     'src/lsp/server.py SERVER_VERSION'),
-    ('src/editor/app.py', edit_editor_app,
-     'src/editor/app.py frozen-build fallback'),
-    ('src/editor/help_dialogs.py', edit_help_dialogs,
-     'src/editor/help_dialogs.py AboutDialog default'),
     ('installer/PKGBUILD', edit_pkgbuild, 'installer/PKGBUILD pkgver'),
     ('.github/ISSUE_TEMPLATE/bug_report.yml', edit_bug_report,
      '.github/ISSUE_TEMPLATE/bug_report.yml placeholder'),
@@ -353,13 +328,6 @@ def find_version_mismatches(root):
 
     _check('src/compiler/update.py', r"(?m)^FALLBACK_VERSION = '([^']*)'$",
            'compiler.update.FALLBACK_VERSION')
-    _check('src/lsp/server.py', r"(?m)^SERVER_VERSION = '([^']*)'$",
-           'lsp.server.SERVER_VERSION')
-    _check('src/editor/app.py', r"(?m)^    return '([^']*)'$",
-           'editor.app frozen-build fallback')
-    _check('src/editor/help_dialogs.py',
-           r"(?m)^    def __init__\(self, version='([^']*)', parent=None\):$",
-           'AboutDialog default')
     _check('installer/PKGBUILD', r'(?m)^pkgver=([^\s]+)$',
            'PKGBUILD pkgver (pacman-safe)', expect=pkgver)
     _check('.github/ISSUE_TEMPLATE/bug_report.yml',

@@ -64,6 +64,15 @@ def _load_check_tag_version():
     return module
 
 
+def test_deduplicated_modules_carry_no_literal():
+    """server.py/app.py/help_dialogs.py must not hard-code the version."""
+    for relpath in ('src/lsp/server.py', 'src/editor/app.py',
+                    'src/editor/help_dialogs.py'):
+        text = (REPO_ROOT / relpath).read_text(encoding='utf-8')
+        assert 'get_current_version' in text, relpath
+        assert '7.0.0' not in text, relpath
+
+
 def test_tag_guard_passes_on_synced_tree():
     check_tag_version = _load_check_tag_version()
     assert check_tag_version.main(['--all']) == 0
@@ -75,7 +84,7 @@ def test_tag_guard_rejects_stale_location(monkeypatch):
     check_tag_version = _load_check_tag_version()
     monkeypatch.setattr(
         check_tag_version, 'synced_location_mismatches',
-        lambda root=None: ['src/lsp/server.py: lsp.server.SERVER_VERSION '
-                           "is '6.0.0'"])
+        lambda root=None: ['src/compiler/update.py: '
+                           "compiler.update.FALLBACK_VERSION is '6.0.0'"])
     assert check_tag_version.main(['refs/tags/v7.0.0']) == 1
     assert check_tag_version.main(['--all']) == 1

@@ -43,27 +43,6 @@ FALLBACK_VERSION = '{version}'
 REPO = 'duo8097/easy-math-lang'
 '''
 
-LSP_SERVER = '''"""fixture."""
-
-SERVER_NAME = 'easy-math-lsp'
-SERVER_VERSION = '{version}'
-'''
-
-EDITOR_APP = '''"""fixture."""
-
-
-def _app_version():
-    return '{version}'
-'''
-
-HELP_DIALOGS = '''"""fixture."""
-
-
-class AboutDialog:
-    def __init__(self, version='{version}', parent=None):
-        pass
-'''
-
 PKGBUILD = '''# fixture
 pkgname=easy-math-lang-git
 pkgver={pkgver}
@@ -136,10 +115,6 @@ def temp_repo(tmp_path):
     _write(tmp_path, 'pyproject.toml', PYPROJECT.format(version=version))
     _write(tmp_path, 'uv.lock', UV_LOCK.format(version=version))
     _write(tmp_path, 'src/compiler/update.py', UPDATE_PY.format(version=version))
-    _write(tmp_path, 'src/lsp/server.py', LSP_SERVER.format(version=version))
-    _write(tmp_path, 'src/editor/app.py', EDITOR_APP.format(version=version))
-    _write(tmp_path, 'src/editor/help_dialogs.py',
-           HELP_DIALOGS.format(version=version))
     _write(tmp_path, 'installer/PKGBUILD',
            PKGBUILD.format(pkgver=version))
     _write(tmp_path, '.github/ISSUE_TEMPLATE/bug_report.yml',
@@ -233,11 +208,6 @@ def test_bump_patch(temp_repo):
         assert tomllib.load(handle)['project']['version'] == '7.0.1'
     assert "FALLBACK_VERSION = '7.0.1'" in (
         temp_repo / 'src/compiler/update.py').read_text()
-    assert "SERVER_VERSION = '7.0.1'" in (
-        temp_repo / 'src/lsp/server.py').read_text()
-    assert "return '7.0.1'" in (temp_repo / 'src/editor/app.py').read_text()
-    assert "version='7.0.1'" in (
-        temp_repo / 'src/editor/help_dialogs.py').read_text()
     assert 'pkgver=7.0.1\n' in (temp_repo / 'installer/PKGBUILD').read_text()
     assert 'placeholder: "7.0.1"' in (
         temp_repo / '.github/ISSUE_TEMPLATE/bug_report.yml').read_text()

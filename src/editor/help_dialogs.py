@@ -188,8 +188,12 @@ class ShortcutsDialog(QtWidgets.QDialog):
 class AboutDialog(QtWidgets.QDialog):
     """Simple About box (version + one-line description)."""
 
-    def __init__(self, version='7.0.0', parent=None):
+    def __init__(self, version=None, parent=None):
         super().__init__(parent)
+        if version is None:
+            from compiler.update import get_current_version
+
+            version = get_current_version()
         self.setObjectName('aboutDialog')
         self.setWindowTitle(i18n.tr('about.title'))
         layout = QtWidgets.QVBoxLayout(self)
