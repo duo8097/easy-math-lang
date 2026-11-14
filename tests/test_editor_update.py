@@ -314,6 +314,25 @@ def test_update_threads_shut_down_cleanly(window):
     window._shutdown_update_threads()
 
 
+def test_auto_update_disabled_by_env_var(window, monkeypatch):
+    monkeypatch.setenv('EZMATH_NO_AUTO_UPDATE', '1')
+    called = []
+    monkeypatch.setattr(window, '_start_update_check',
+                        lambda **kw: called.append(kw))
+    window._auto_update_check()
+    assert called == []
+
+
+def test_auto_update_respects_setting(window, monkeypatch):
+    monkeypatch.delenv('EZMATH_NO_AUTO_UPDATE', raising=False)
+    monkeypatch.setattr(window, '_auto_update_enabled', lambda: False)
+    called = []
+    monkeypatch.setattr(window, '_start_update_check',
+                        lambda **kw: called.append(kw))
+    window._auto_update_check()
+    assert called == []
+
+
 def test_auto_check_end_to_end_via_worker_thread(window, monkeypatch):
     """The real signal→worker→done path (with a faked network layer)."""
     import compiler.update as _update

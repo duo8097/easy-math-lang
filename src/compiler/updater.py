@@ -635,6 +635,12 @@ def default_plan_path(temp_dir):
     return os.path.join(temp_dir, 'update-plan.json')
 
 
+def default_install_log_path():
+    from .update import default_config_dir
+
+    return os.path.join(default_config_dir(), 'update-install.log')
+
+
 def build_update_plan(*, version, method, asset_path, temp_dir,
                       relaunch_argv, pid=None, wait_timeout=HELPER_WAIT_SECONDS,
                       macos=None, state_path=None, log_path=None,
@@ -651,7 +657,7 @@ def build_update_plan(*, version, method, asset_path, temp_dir,
         'temp_dir': temp_dir,
         'wait_timeout': int(wait_timeout),
         'install_log_path': install_log_path
-        or os.path.join(temp_dir, 'installer.log'),
+        or default_install_log_path(),
     }
     if macos is not None:
         plan['macos'] = dict(macos)

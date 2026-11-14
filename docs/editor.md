@@ -396,7 +396,8 @@ for new versions so you do not have to remember to look.
   appears under the toolbar ("Easy Math Lang X is available"). Turn the
   automatic check off any time with **View → Check for updates
   automatically** (or set `update/autoCheck=false` in
-  `~/.config/ezmath/config.ini`).
+  `~/.config/ezmath/config.ini`). Scripts and tests can disable it
+  entirely with `EZMATH_NO_AUTO_UPDATE=1`.
 - **Check manually:** `Help → Check for Updates…` opens the update
   dialog; failures are reported only for manual checks.
 - **The banner / dialog:** shows the current and new version, the

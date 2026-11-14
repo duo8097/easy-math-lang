@@ -100,6 +100,15 @@ def test_arch_command_exact_argv():
     assert '-Sy' not in arch_install_command('/x.pkg.tar.zst')
 
 
+def test_plan_default_install_log_lives_in_config_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr('compiler.update.default_config_dir',
+                        lambda: str(tmp_path / 'cfg'))
+    plan = build_update_plan(version='7.1.0', method=METHOD_WINDOWS,
+                             asset_path='/x/setup.exe', temp_dir='/x',
+                             relaunch_argv=[], pid=1)
+    assert plan['install_log_path'] == str(tmp_path / 'cfg' / 'update-install.log')
+
+
 def test_plan_roundtrip(tmp_path):
     plan = _make_plan(tmp_path)
     path = tmp_path / 'plan.json'

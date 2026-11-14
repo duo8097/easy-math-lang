@@ -2093,6 +2093,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _auto_update_check(self):
         if self._closing:
             return
+        # Escape hatch for tests and scripts (mirrors EZMATH_NO_IME_FIX).
+        if os.environ.get('EZMATH_NO_AUTO_UPDATE') == '1':
+            return
         if not self._auto_update_enabled():
             return
         self._start_update_check(interactive=False)
