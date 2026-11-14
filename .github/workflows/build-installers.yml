@@ -368,6 +368,51 @@ jobs:
           )
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=%APP_VERSION% installer\setup.iss
 
+      # --- Smoke test the installed app ---------------------------------------
+      # Must run after the installer is compiled and before the artifact is
+      # uploaded, so a broken package never ships. The PyInstaller onedir
+      # bootloader loads the shared runtime from <exe dir>\_internal; the
+      # v6.0.0/v7.0.0 installers copied _internal\* straight into bin\ (the
+      # folder itself was lost), so every installed .exe failed with
+      # "Failed to load Python DLL ...\bin\_internal\python312.dll".
+      # python312.dll tracks .python-version (3.12).
+      - name: Smoke test the installer (silent install)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $smokeDir = Join-Path $env:RUNNER_TEMP 'easymath-smoke'
+          if (Test-Path $smokeDir) { Remove-Item -Recurse -Force $smokeDir }
+          New-Item -ItemType Directory -Path $smokeDir | Out-Null
+          $setup = Join-Path $PWD 'installer\Output\EasyMathLang-Windows-x64-Setup.exe'
+          if (-not (Test-Path $setup)) {
+            Write-Host "::error file=installer/setup.iss::Installer output not found: $setup"
+            exit 1
+          }
+          $proc = Start-Process -FilePath $setup -Wait -PassThru -NoNewWindow `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$smokeDir"
+          if ($proc.ExitCode -ne 0) {
+            Write-Host "::error file=installer/setup.iss::Silent install of $setup failed with exit code $($proc.ExitCode)."
+            exit 1
+          }
+          $pythonDll = Join-Path $smokeDir 'bin\_internal\python312.dll'
+          if (-not (Test-Path $pythonDll)) {
+            Write-Host "::error file=installer/setup.iss::Installed app is missing bin\_internal\python312.dll - the shared PyInstaller _internal bundle must be installed to {app}\bin\_internal (not flattened into {app}\bin). See docs/troubleshooting.md and installer/setup.iss [Files]."
+            exit 1
+          }
+          foreach ($exe in @('easy-math-lang.exe', 'ezmath.exe')) {
+            $exePath = Join-Path (Join-Path $smokeDir 'bin') $exe
+            if (-not (Test-Path $exePath)) {
+              Write-Host "::error file=installer/setup.iss::$exePath not found after silent install."
+              exit 1
+            }
+            & $exePath --version
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error file=installer/setup.iss::$exe --version exited with code $LASTEXITCODE - the installed app cannot load bin\_internal\python312.dll (PyInstaller _internal layout). See docs/troubleshooting.md."
+              exit 1
+            }
+          }
+          Write-Host "Installer smoke test OK: bin\_internal\python312.dll present; easy-math-lang.exe and ezmath.exe --version exit 0."
+
       # --- Artifact ----------------------------------------------------------
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7

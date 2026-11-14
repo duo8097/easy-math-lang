@@ -8,6 +8,13 @@ HKLM fails on some machines with
 aborting the install. The PATH task must target the per-user
 ``HKCU\\Environment`` key instead, and the ``NeedsAddPath`` check must
 read the same hive it writes.
+
+Also guards the shared PyInstaller ``_internal`` directory: it must be
+installed as ``{app}\\bin\\_internal`` (a directory holding the DLLs),
+never flattened into ``{app}\\bin`` — the onedir bootloader resolves
+``<exe dir>\\_internal\\python312.dll``, so flattening breaks every
+installed executable with "Failed to load Python DLL ...
+LoadLibrary: The specified module could not be found."
 """
 
 import os
@@ -180,3 +187,59 @@ def test_setup_ships_third_party_licenses(iss_text):
     # MIT project, vendored CeTZ is LGPL-3.0-or-later: the notices file
     # must be installed alongside the binaries.
     assert "THIRD_PARTY_LICENSES" in iss_text
+
+
+# ----------------------------------------------------------------------
+# Shared PyInstaller _internal directory (onedir layout)
+# ----------------------------------------------------------------------
+
+def _files_entries(iss_text):
+    section = re.search(
+        r'(?ms)^\[Files\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert section, 'no [Files] section found'
+    return [line.strip() for line in section.group(1).splitlines()
+            if line.strip() and not line.strip().startswith(';')]
+
+
+def _internal_entries(iss_text):
+    entries = [e for e in _files_entries(iss_text)
+               if re.search(r'(?i)_internal\\\*', e)]
+    assert entries, 'no [Files] entry copies the shared _internal directory'
+    return entries
+
+
+def _dest_dir(entry):
+    match = re.search(r'(?i)\bDestDir:\s*"([^"]+)"', entry)
+    assert match, f'[Files] entry has no DestDir: {entry}'
+    # Inno Setup paths are case-insensitive; tolerate '/' and trailing
+    # backslashes so a cosmetic rewrite does not slip past the guard.
+    dest = match.group(1).replace('/', '\\').lower().rstrip('\\')
+    return dest
+
+
+def test_internal_dir_installs_as_bin_internal(iss_text):
+    """``_internal\\*`` must install to ``{app}\\bin\\_internal``.
+
+    The PyInstaller onedir bootloader loads the shared runtime from
+    ``<exe dir>\\_internal``; anything else breaks every installed
+    executable.
+    """
+    for entry in _internal_entries(iss_text):
+        assert _dest_dir(entry) == r'{app}\bin\_internal', (
+            f'_internal must install to {{app}}\\bin\\_internal '
+            f'(got: {_dest_dir(entry)})')
+
+
+def test_internal_dir_is_not_flattened_into_bin(iss_text):
+    """No ``[Files]`` entry may send ``_internal\\*`` to plain ``{app}\\bin``.
+
+    That was the v6.0.0/v7.0.0 layout bug: the contents of ``_internal\\*``
+    landed directly in ``bin\\`` (python312.dll next to the exes), so
+    every installed .exe failed with "Failed to load Python DLL ...
+    LoadLibrary: The specified module could not be found."
+    """
+    for entry in _files_entries(iss_text):
+        if not re.search(r'(?i)_internal\\\*', entry):
+            continue
+        assert _dest_dir(entry) != r'{app}\bin', (
+            f'_internal\\* must not install to plain {{app}}\\bin: {entry}')

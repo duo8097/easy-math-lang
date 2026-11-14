@@ -40,9 +40,12 @@ even if you have never set up a programming tool before.
 
 No further setup is needed: the editor finds its helper programs
 (`easy-math-lsp`, `easy-math-lang`) next to itself automatically —
-see [Desktop editor](editor.md#under-the-hood-helper-programs). All of
-them (editor + helpers) install into the same folder, which also holds
-the single shared library directory.
+see [Desktop editor](editor.md#under-the-hood-helper-programs). The
+editor and the helpers all install into one folder,
+`C:\Program Files\EasyMathLang\bin\`, which also holds the single
+shared library directory `_internal\` (installed as
+`bin\_internal\`). The executables load their runtime from
+`bin\_internal\`; keep that folder next to the `.exe` files.
 
 ---
 
@@ -282,7 +285,7 @@ You will see your finished document appear:
 | `uv: command not found` | Close and reopen the terminal after installing uv |
 | `Python not found` | Re-install Python and check "Add to PATH" |
 | PDF looks empty | Check your `.ezmath` file for typos |
-| Editor installed from setup says `LSP: Disconnected` | Keep the installed folders together (`editor/` next to `bin/`). Then use `Build → Restart Language Server`. If you moved the binaries, point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files — see [Desktop editor](editor.md#under-the-hood-helper-programs). |
+| Editor installed from setup says `LSP: Disconnected` | Keep the installed folders together (`bin\` and `bin\_internal\` next to each other). Then use `Build → Restart Language Server`. If you moved the binaries, point `EASYMATH_LSP_EXE` / `EASYMATH_COMPILER_EXE` at the right files — see [Desktop editor](editor.md#under-the-hood-helper-programs). |
 
 More problems and every compiler message explained:
 [Troubleshooting and FAQ](troubleshooting.md).

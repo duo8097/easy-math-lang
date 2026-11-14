@@ -12,6 +12,9 @@ for those.
 
 ## [Unreleased]
 
+### Fixed
+- **Windows installer flattened the shared PyInstaller `_internal/` directory — every installed `.exe` failed to start.** `installer/setup.iss` copied the contents of `_internal\*` into `{app}\bin` directly (introduced in the shared-bundle rework, shipped in v6.0.0 and v7.0.0), so the onedir bootloader never found `bin\_internal\python312.dll` and each installed executable aborted with "Failed to load Python DLL '…\bin\_internal\python312.dll'. LoadLibrary: The specified module could not be found." The bundle now installs to `{app}\bin\_internal` (flags unchanged; the four `.exe` files still go to `{app}\bin`), `tests/test_installer_script.py` guards the layout statically, the Windows CI job silently installs the built installer and verifies `bin\_internal\python312.dll` exists and `easy-math-lang.exe --version` / `ezmath.exe --version` exit 0 before uploading the artifact, and `docs/troubleshooting.md` documents the error with a manual repair workaround (create `_internal\` next to the executables and move everything except the `.exe` files into it, or reinstall with the fixed installer).
+
 ## [7.0.0] - 2026-11-12
 
 ### Added

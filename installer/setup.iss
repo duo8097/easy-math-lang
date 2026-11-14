@@ -32,7 +32,7 @@ Source: "..\dist\easy-math-lang\easy-math-lang.exe"; DestDir: "{app}\bin"; Flags
 Source: "..\dist\easy-math-lang\easy-math-lsp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\easy-math-lang\easy-math-editor.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\easy-math-lang\ezmath.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\dist\easy-math-lang\_internal\*"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\easy-math-lang\_internal\*"; DestDir: "{app}\bin\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; MIT license plus third-party notices (CeTZ is LGPL-3.0-or-later,
 ; bundled for offline *draw): see docs/packaging.md.
 Source: "..\THIRD_PARTY_LICENSES"; DestDir: "{app}"; Flags: ignoreversion

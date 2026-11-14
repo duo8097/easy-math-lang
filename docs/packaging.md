@@ -55,6 +55,13 @@ location, and creating keys directly under `HKLM` fails on some machines
 with `RegCreateKeyEx failed; code 87`, aborting the whole install.
 `tests/test_installer_script.py` guards this statically.
 
+CI also smoke-tests the compiled installer on Windows before the
+artifact is uploaded: it installs silently into a temporary folder
+(`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=<temp>`), asserts
+that `bin\_internal\python312.dll` exists and runs
+`easy-math-lang.exe --version` and `ezmath.exe --version`, failing the
+job on a non-zero exit code. The desktop editor is never launched.
+
 Note: ISCC prints a `UsedUserAreasWarning` because the setup runs
 elevated (`PrivilegesRequired=admin`) yet writes `HKCU`. That is intended:
 with the usual UAC consent prompt `HKCU` is the installing user's own
