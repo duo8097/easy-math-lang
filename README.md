@@ -54,6 +54,46 @@ The easiest way to use easy-math-lang — no Python needed:
 
 ---
 
+## Updating
+
+Easy Math Lang checks [GitHub Releases](https://github.com/duo8097/easy-math-lang/releases)
+for new versions — automatically about once a day, or on demand. Nothing
+is ever installed without your explicit "Update now" confirmation, and
+the download is always verified against `SHA256SUMS.txt` from the same
+release before anything is changed.
+
+- **Automatic check:** silent; if a newer release exists, a small
+  dismissible banner appears in the editor. Turn it off any time with
+  `View → Check for updates automatically`.
+- **Check manually:** `Help → Check for Updates…` in the editor, or
+  `easy-math-lang --check-update` / `--update` (asks first; `--yes`
+  skips the prompt for scripts) on the command line.
+- **One-click update** is offered when the install can actually be
+  updated in place: the Windows installer (UAC prompt), the macOS app
+  bundle in a writable Applications folder (the app restarts by itself),
+  or the Debian/Fedora/Arch package when this binary belongs to it
+  (polkit prompt). Everywhere else, the editor shows exactly what to
+  download and the commands to run.
+- **From source** (`git clone` + `uv sync`): update with
+  `git pull && uv sync`; the tool never updates a source checkout for you.
+- **If an update fails**, the old version stays runnable, the reason is
+  logged to `~/.config/ezmath/update.log`, and the next start shows the
+  error once with a manual-download button. See
+  [Troubleshooting → Updates](docs/troubleshooting.md#updates).
+
+**Privacy & security:** update checks are GET requests to the GitHub
+Releases API and the release assets — nothing about you or your
+documents is ever sent (no tokens, no identifiers, no cookies; the
+client sends only a constant `User-Agent`). Everything comes from
+GitHub over HTTPS and is verified SHA-256 against the `SHA256SUMS.txt`
+published with each release. The checksum proves the download was not
+corrupted or swapped in transit — it does **not** prove authenticity
+(anyone who can publish a release could also publish a matching sum);
+code signing / notarization is future work. See
+[SECURITY.md](SECURITY.md).
+
+---
+
 ## Requirements (run from source only)
 
 | What | Version | Why you need it |

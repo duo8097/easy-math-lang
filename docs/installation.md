@@ -278,6 +278,25 @@ You will see your finished document appear:
 
 ---
 
+## Updating later
+
+Once installed, you update with one command (or one click in the
+editor):
+
+- `easy-math-lang --update` — checks GitHub Releases, shows what would
+  be installed (with release notes), asks `Update now? [y/N]`, then
+  downloads, verifies `SHA256SUMS.txt` from the same release and hands
+  over to a small helper that installs it after the app exits. `--yes`
+  skips the prompt for scripts.
+- `easy-math-lang --check-update` — just reports whether a newer
+  release exists (always exits 0).
+- From source: `git pull && uv sync` (the tool never updates a source
+  checkout by itself).
+
+Automatic update checks are on by default in the editor (about once a
+day, silent on failure); see [Updating](../README.md#updating) and
+[Desktop editor](editor.md#keeping-the-editor-up-to-date).
+
 ## Something went wrong?
 
 | Problem | Solution |

@@ -335,6 +335,22 @@ Details: [Language server → Troubleshooting](lsp.md#troubleshooting).
 
 ---
 
+## Updates
+
+| Problem | Fix |
+|---|---|
+| No "Update now" button | One-click update is only offered when this exact install can be replaced in place (Windows installer, macOS `.app` in a writable folder, or the Debian/Fedora/Arch package that owns the running binary, with `pkexec` available). Use **Download…** and install manually, or see the hint shown in the dialog. |
+| Update failed: `SHA-256 mismatch` | **Do not run the downloaded file.** The file did not match the `SHA256SUMS.txt` published with the release — it may be corrupted or tampered with. Delete it and retry later; if it persists, report it on GitHub Issues. |
+| Update failed with a pkexec error / polkit window never appears | No polkit agent is reachable (e.g. minimal session, SSH, container). The updater will not fall back to sudo — run the manual command shown in the dialog instead: `sudo apt install ./EasyMathLang-Debian-amd64.deb`, `sudo dnf install ./EasyMathLang-Fedora-amd64.rpm`, `sudo pacman -U ./….pkg.tar.zst`, or on Arch `sudo pacman -U`. |
+| Update failed: "the application did not exit within 120s" | The editor was still running (e.g. another window held it). Close everything and try again — the old version was kept and nothing was changed. |
+| "Last update failed: …" on startup | The previous update did not finish. The dialog shows the exact reason and the log path (`~/.config/ezmath/update.log`). Use **Download manually** to get the asset from the release page, or read the log for details. |
+| Check always says it could not check | Network is down or GitHub rate-limited this machine (unauthenticated API). Wait and retry; automatic checks are limited to once per 24h and use ETag, so they cost practically nothing. |
+| The editor shows an old version after an update | The update did not happen: check `~/.config/ezmath/update.log`, or reinstall manually from the Releases page. |
+| I want to stop the update checks | `View → Check for updates automatically` (or `update/autoCheck=false` in `~/.config/ezmath/config.ini`). Manual checks via `Help → Check for Updates…` still work. |
+| Updates from source? | Source checkouts are never updated by the tool: `git pull && uv sync`. |
+
+---
+
 ## Still stuck?
 
 1. Re-run with `--save-build-artifacts` and open the generated

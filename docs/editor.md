@@ -386,6 +386,59 @@ on first launch.
 
 ---
 
+## Keeping the editor up to date
+
+Easy Math Lang checks [GitHub Releases](https://github.com/duo8097/easy-math-lang/releases)
+for new versions so you do not have to remember to look.
+
+- **Automatic check:** about once a day, in the background, silent on
+  failure. When a newer release exists, a small dismissible banner
+  appears under the toolbar ("Easy Math Lang X is available"). Turn the
+  automatic check off any time with **View → Check for updates
+  automatically** (or set `update/autoCheck=false` in
+  `~/.config/ezmath/config.ini`).
+- **Check manually:** `Help → Check for Updates…` opens the update
+  dialog; failures are reported only for manual checks.
+- **The banner / dialog:** shows the current and new version, the
+  release notes (scrollable), the download size and the install hint.
+  "Update now" is offered only when this install can be updated in
+  place — see below — otherwise the dialog points at the manual
+  download instead.
+- **Unsaved documents:** "Update now" asks you to save first — the same
+  prompt you get on window close. The app restarts itself after the
+  update is installed.
+- **One-click update** per platform:
+  - **Windows**: runs the signed-less setup silently; Windows shows a
+    UAC prompt — that is your verification. The installer upgrades the
+    existing installation in place (same `AppId`).
+  - **macOS**: offered only when the editor is inside an `.app` bundle
+    in a writable location (usually `/Applications`). The DMG is
+    mounted, the new app is staged next to it, and the bundle is swapped
+    after the app quits (with rollback to the backup if the swap
+    fails).
+  - **Debian/Ubuntu**: offered only when `dpkg -S` shows the running
+    binary belongs to the `easymath` package; installs with
+    `pkexec apt-get install -y ./….deb` (falls back to
+    `pkexec dpkg -i`).
+  - **Fedora/RHEL**: same idea with `rpm -qf` and
+    `pkexec dnf install -y ./….rpm` (falls back to `pkexec rpm -U`).
+  - **Arch**: offered only when `pacman -Qo` shows `easy-math-lang-git`
+    owns the binary; installs with
+    `pkexec pacman -U --noconfirm ./….pkg.tar.zst`. Never `-Sy`, never a
+    full system upgrade.
+  - If `pkexec` is missing or no polkit agent is running, no one-click
+    button is shown — you get the exact manual command instead.
+  - **Source checkouts** (`git clone` + `uv sync`) never self-update;
+    use `git pull && uv sync`.
+- **Failure path:** if installing fails, the old version stays runnable,
+  the reason is logged to `~/.config/ezmath/update.log`, and the next
+  start shows the error once with a **Download manually** button.
+
+The CLI equivalent is `easy-math-lang --update` (see
+[Installation](installation.md)) — the same flow on the command line.
+
+---
+
 ## Files and shortcuts
 
 | Action | Menu | Shortcut |

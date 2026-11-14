@@ -257,6 +257,63 @@ The installed layout is the FHS layout above
 
 ---
 
+## The release assets
+
+Tag builds (`vX.Y.Z`) publish a GitHub Release whose files are what the
+built-in updater downloads. The names are **stable and load-bearing** —
+the updater selects assets by exact name and the CI release job fails
+if any of them is missing:
+
+| Asset (exact name) | Platform |
+|---|---|
+| `EasyMathLang-Windows-x64-Setup.exe` | Windows installer (Inno Setup) |
+| `EasyMathLang-macOS-arm64.dmg` | macOS (Apple Silicon) app bundle |
+| `EasyMathLang-Debian-amd64.deb` | Debian/Ubuntu (`easymath` package) |
+| `EasyMathLang-Fedora-amd64.rpm` | Fedora/RHEL/openSUSE (`easymath` package) |
+| `easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst` | Arch (`easy-math-lang-git`) |
+| `SHA256SUMS.txt` | sha256sum-format sums of every file above |
+
+`build-installers.yml` (the `release` job) downloads the installer
+artifacts, generates `SHA256SUMS.txt` with `sha256sum *`, verifies
+every expected asset exists and is covered, and attaches everything
+to the release. The checksum file is **mandatory**: the updater
+refuses to install anything whose SHA-256 is not listed there (it
+never offers a "skip verification" path). Tags containing `-` (e.g.
+`v7.1.0-rc.1`) publish as prereleases and are ignored by installs
+whose installed version is not itself a prerelease.
+
+`installer/PKGBUILD`'s `pkgver=` placeholder is the pacman-safe
+rendering of the declared version (`7.1.0-rc.1` → `7.1.0rc1`, because
+pacman's `pkgver` cannot contain `-`); `pkgver()` overrides it at build
+time, and `tests/test_installer_script.py` understands the mapping.
+
+---
+
+## Releasing
+
+The single supported way to bump the version is
+`scripts/bump_version.py` (see [Contributing](../CONTRIBUTING.md#5-releasing)):
+
+```
+uv run python scripts/bump_version.py <major|minor|patch|X.Y.Z[-rc.N]> \
+    [--dry-run] [--no-changelog] [--commit] [--date YYYY-MM-DD] [--force]
+```
+
+It rewrites `pyproject.toml` (the source of truth), `uv.lock` (via
+`uv lock`, never by hand), `src/compiler/update.py:FALLBACK_VERSION`,
+`installer/PKGBUILD` and the bug-report placeholder — the only
+hard-coded copies — moves `## [Unreleased]` in `CHANGELOG.md` to
+`## [X.Y.Z] - DATE` (inserting a fresh `## [Unreleased]`), keeps the
+`README.md` changelog section and both files' compare links consistent,
+and (`--commit`) makes one `chore(release): vX.Y.Z` commit. It refuses
+a version that is not strictly greater, and a lower/equal target needs
+`--force`. See `CONTRIBUTING.md` for the full flow (bump → PR → tag →
+CI publishes) and `scripts/check_tag_version.py`, which a tag build
+uses to fail when the tag or any synced location disagrees with
+`pyproject.toml`.
+
+---
+
 ## Vendored Typst packages (offline `*draw`)
 
 `*draw` renders through CeTZ, a Typst package. Typst normally downloads
