@@ -17,7 +17,7 @@ without fighting complex software.
 
 The easiest way to use easy-math-lang — no Python needed:
 
-**Windows:**
+**Windows 10 (version 1809 / build 17763) or newer, 64-bit:**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLang-Windows-x64-Setup.exe` from the latest stable release.
@@ -33,7 +33,7 @@ The easiest way to use easy-math-lang — no Python needed:
    then run it (right-click → **Open** on first launch — the app is
    ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
 
-**Linux (x86_64):**
+**Linux (x86_64, glibc 2.39 or newer — the Ubuntu 24.04 baseline):**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint),
@@ -44,6 +44,9 @@ The easiest way to use easy-math-lang — no Python needed:
    `sudo rpm -i EasyMathLang-Fedora-amd64.rpm` or
    `sudo pacman -U easy-math-lang-git-*.pkg.tar.zst`) and launch
    **Easy Math Editor** from your applications menu.
+   The packages are built on Ubuntu 24.04; older distros
+   (Ubuntu ≤ 22.04, Debian ≤ 11, RHEL 8) are not supported — see
+   [Packaging and releases](docs/packaging.md).
 
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).
@@ -99,7 +102,9 @@ code signing / notarization is future work. See
 | What | Version | Why you need it |
 |---|---|---|
 | **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
+| **Windows** | ≥ 10 version 1809 (build 17763), 64-bit — matches the installer's `MinVersion` | GUI (PySide6/Qt) and the installer |
 | **macOS** | ≥ 14 (Sonoma), Apple Silicon — PySide6 6.12+ publishes no macOS 13 wheels | GUI (PySide6/Qt) |
+| **Linux** | x86_64, glibc ≥ 2.34 (the manylinux_2_34 floor of the locked wheels; the prebuilt packages need 2.39) | GUI (PySide6/Qt) |
 | **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
 | **Typst** | ≥ 0.15.0 (installed automatically via the `typst` PyPI package — no separate install needed) | Turns the intermediate `.typ` file into PDF |
 | **pygls** | ≥ 2.1.1 (installed automatically as a project dependency) | Editor support (language server) |
@@ -250,45 +255,28 @@ All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
 [Semantic Versioning](https://semver.org/)). The latest release:
 
-### [7.0.0] - 2026-11-12
+### [7.1.0] - 2026-11-15
 
 #### Added
-- **Python-style diagnostics on the compiler** — every `[Error]`/`[Warning]` diagnostic now prints a Python-traceback-style context block under its classic first line (the first line stays byte-identical for existing consumers):
+- **Built-in update system for the CLI and the editor.** `Help → Check for Updates…` checks GitHub Releases in the background (about once a day, silent on failure; turn off with `View → Check for updates automatically`) and shows a dismissible banner when a newer version exists; the banner opens an update dialog with current vs new version, release notes and the install hint. “Update now” is offered only when this exact install can be replaced in place: the Windows installer (silent Inno install; you verify via the UAC prompt), the macOS `.app` bundle in a writable location (DMG mounted, bundle swapped after the app quits, with rollback), or the Debian/Fedora/Arch package when the running binary belongs to it (`pkexec apt-get install -y` / `dnf install -y` / `pacman -U --noconfirm`, with `dpkg`/`rpm` fallbacks). Everywhere else you get the exact manual command. Downloads are HTTPS-only from GitHub, size-capped, streamed to a private temp dir and SHA-256-verified against `SHA256SUMS.txt` from the same release — a missing sums file or mismatch aborts with an error and deletes the file (no skip path). The app is never replaced while running: the helper hands off to the platform installer after the app exits (on Windows it launches the installer detached and is gone before any file is replaced; relaunch happens via an `[Run]` entry); the next start detects the outcome (pending-update marker in the update state file on Windows; recorded error on macOS/Linux) and either stays silent on success or shows the reason once with a manual-download button. The CLI gains `easy-math-lang --update` (also `ezmath --update`): prints current vs latest with a notes summary, asks `Update now? [y/N]` (`--yes` for scripts), downloads with a progress bar and hands over to the same helper; exits non-zero on failure. `--check-update` (still exit-0 on every failure) now also prints the matching asset and update hint. Tests inject all network/subprocess/platform calls.
+- **`scripts/bump_version.py` — one command bumps the version everywhere.** Rewrites `pyproject.toml` (source of truth), `uv.lock` via `uv lock`, `FALLBACK_VERSION`, the PKGBUILD `pkgver` (pacman-safe rc mapping) and the bug-report placeholder; moves `CHANGELOG.md`’s `[Unreleased]` to a dated release section and keeps the `README.md` mirror and both compare links consistent; `--dry-run` prints the diff, `--commit` makes one `chore(release): vX.Y.Z` commit; a failed write leaves the tree untouched; versions that are not strictly greater are refused without `--force`. `scripts/check_tag_version.py` now also fails a tag build when any synced location disagrees with `pyproject.toml`.
 
-  ```
-  [Error] Line 12: undefined variable <widht>
-    File "bai1.ezmath", line 12, column 8
-      Tong = <widht> + 2
-             ^^^^^^^
-  ```
-
-  The block shows the real `.ezmath` line (never transformed text), with a caret underline when a column is known (columns count characters, not bytes, so Vietnamese text aligns correctly; tabs are expanded; very long lines are truncated around the span with an ellipsis). Without a known column it prints the `File ... line N` header and the source line without a caret. Multi-line constructs (an unclosed `\ … \` math delimiter, an unterminated `*draw(` block) point at the line where they open. Color is only used on a TTY and never when `NO_COLOR` is set, so the editor's captured output stays plain text. When a Typst compile fails with an error that carries a position in the intermediate `.typ`, the same block is rendered for the `.ezmath` line it maps back to (via this build's own sidecar source map only; unmappable failures keep the classic `[ERROR] Typst compilation failed: ...` output untouched). The strict-mode diagnostic counter now only counts markers at the start of a line, so echoed source lines containing `[Error]` never inflate error counts. `calc()`, math-command (`*frac` etc.), inline-math and assignment diagnostics also go through the same printer now — those that know a line in the document show a context block. Documented in `docs/troubleshooting.md` and `docs/cheatsheet.md`.
+#### Changed
+- The `easy-math-lang` CLI accepts `--apply-update <plan.json>` (internal helper mode used by the self-update flow; undocumented and not part of the compiler’s output).
+- Release installs now always use `SHA256SUMS.txt`-verified downloads in the updater, and the release workflow generates and uploads that file with every tag (`sha256sum *`) and fails if any expected asset is missing.
+- `server.py`, `app.py` and the About box read the version from `compiler.update.get_current_version()` instead of their own literals.
+- **Linux CI and packaging split into three independent stages (CI/packaging only, no user-visible change).** `installer/build_linux.sh` now has subcommands — `binary` (PyInstaller → `dist/easy-math-lang/`), `deb` and `rpm` (both bundle-only, never PyInstaller, fail fast without a bundle, share one FHS staging helper) — plus the unchanged default `all`. The `build-linux` CI job is replaced by `build-linux-binary` (test gate, fcitx5-qt + Qt SDK, frozen smoke tests; packs the bundle into one tarball uploaded as `linux-bundle-amd64`, 2-day retention), `build-deb` (dpkg only; same smoke test; asset name unchanged) and `build-rpm` (pinned `fedora:41` container; payload inspection plus a real `dnf install` smoke test, CLI only). `release` still requires every asset-producing job; published asset names and the release flow are unchanged.
+- **`pyside6` is now constrained below 6.13.** `pyproject.toml` requires `pyside6>=6.11.2,<6.13` (Qt 6.13 has not been validated for the fcitx5 input-method plugin); `uv.lock` moved with it.
+- **Windows installer now requires Windows 10 version 1809 (build 17763) or newer.** `installer/setup.iss` sets `MinVersion=10.0.17763` (64-bit only as before); the setup binary refuses to run on older systems.
+- **README and the installation guide now state the OS requirements.** Windows 10 1809+ 64-bit; macOS 14 (Sonoma) or newer on Apple Silicon only; Linux x86_64 with glibc 2.39 or newer (the Ubuntu 24.04 build baseline, same as the .deb/.rpm/Arch packages).
 
 #### Fixed
-- **Geometry solver: one impossible construction no longer takes down the whole diagram.** A failing construction (e.g. `*point(F = intersect(line(A ; B) ; circle(C ; 1) ; 1))` when the line misses the circle) previously aborted the entire `solve()`, so constraints were never applied and later constructed/free points were drawn at placeholder coordinates presented as authoritative. Failed constructions are now reported, the affected points (and dependents) are omitted from the canvas with an explanatory comment, constraints that read a failed construction (e.g. `*distance(F ; X ; 5)`) are skipped, and everything else still solves and renders.
-- **`*image(...)` outside the document root now works in every export format** — out-of-root images are staged next to the intermediate `.typ` (`<stem>-images/`) so Typst can resolve them, in-tree images keep their relative layout, and the staged folder is copied along on relocated `typ`/`html` exports (marked so build cleanup only ever removes what we created).
-- **Sanitized plot file names now match everywhere** — the export sidecar glob and the build-artifact cleanup use the same sanitization as `plot_filename()` (a `my doc.ezmath` now carries `my_doc-<hash>-plot-1.svg` along in `--format typ`), and sanitization is injective (`my doc` vs `my_doc` produce distinct files, with a stable hash suffix).
-- **LSP analysis now applies URL masking and the comparison guard too** — a `<missing>`-shaped token inside a bare URL (`https://a.com/<missing>`) and a `<name>`-token glued both sides like `0<x>1` are no longer reported as undefined variables, matching the compiler exactly.
-- **Geometry annotation swallowing same-line commands** — a trailing `= value` annotation (e.g. `*length(A ; B) = 5 *point(C = 1, 2)`) consumed the remainder of the line, silently dropping the following command; parsing now resumes at the embedded command.
-- **Compiler: arbitrary file write via `*image(...)` sidecar export** — the `<stem>-plot-*.svg` glob and the `*image` sidecar copy when exporting `typ`/`html` to another directory now confine destinations to the export directory (previously a crafted `..`/`[` filename could write outside it).
-- **Compiler: variable expansion exponential-time/memory DoS** — a few doubling `*define`s (`a = <b><b>`) could expand a tiny document to gigabytes; expansion is now memoized per compile and capped at 256 KiB per variable (past the cap the reference is left unexpanded with a warning).
-- **Compiler: inequalities glued to variables** — `0<x>1` (and similar both-sides-glued `<name>` tokens) no longer substitute the variable or trip `undefined variable` errors; only a `<name>` unglued on at least one side is treated as a variable.
-- **Compiler: `<doc>.typ`/`<doc>.smap.json` no longer silently overwritten** — the intermediate artifacts now carry an ownership marker; a pre-existing file not generated by easy-math-lang aborts the build with a loud error instead of being destroyed (and the source map is likewise never clobbered).
-- **Compiler: bare URLs corrupted by symbol passes** — `->`, `...`, `==`, `<name>` inside `https://…` URLs were rewritten (→, …, =) or flagged as undefined variables; URLs are now masked before symbol/undefined-var/subscript expansion and restored (Typst-escaped) after.
-- **Compiler: literal `*bold(hi)` etc. rendered as text** — the bracket escape for generated `#strong[…]`/`#emph[…]`/`#underline[…]` markup treated its brackets as user text, so styling inside `*table` cells and `*doc_title` silently printed as `strong [hi]`/`strong [Hi]`; generated markup spans are now recognized and left intact.
-- **Compiler: comment stripping treated `"a // b"` as a comment** — `//` inside double-quoted strings (bare prose, quoted paths, URLs) truncated the line silently.
-- **Compiler: `*doc_title(...)` is no longer re-rendered through the full text pipeline at codegen** — a title containing `*plot(...)`/`*image(...)` wrote files during a supposedly read-only phase; `*plot`/`*image` in `*doc_title` are now dropped with an error diagnostic instead.
-- **Compiler: `[Calc Error]` results leaked** — `calc((-2)^(1/3))` printed a complex `j` literal into the PDF; complex results are now rejected with a `[Calc Error]`.
-- **Compiler: intermediate diagnostic counter is thread-safe** — two concurrent compiles (preview thread + export) raced on process-global `sys.stderr`/`_ACTIVE_COUNTER`; compiles are now serialized process-wide (recursive builds unaffected — `RLock`).
-- **LSP: diagnostics and symbols on a math-closing line were anchored to tail-relative columns** — e.g. `<undef_var>` after a `\` was reported shifted left; the head and tail are now analyzed with exact source offsets, and the math head of the line (undefined vars/calc) is checked at all (it was silently skipped).
-- **LSP: stray `\` in `*table(`/`*matrix(` rows, and any `*cases(`/`*vec(` block, swallowed the rest of the document into math mode** — block rows no longer toggle math state, `*cases(`/`*vec(` are recognized multiline blocks, and trailing document content validates normally again.
-- **LSP: `*calc(` no longer also reported as "Unknown command", unknown commands inside math pairs warn like the compiler, matrix cells no longer warn on unknown commands the compiler is silent about, and `*image`/`*plot`/`*bold`/`*italic`/`*underline` get the same shape/arity/unclosed checks as the compiler.**
-- **LSP: `calc()` errors in assignments became diagnostics** (e.g. `<x> = calc(1/0)` previously reported nothing), and values stored at calculation-failure sites are no longer presented as real values in hover/completion.
-- **LSP: geometry errors no longer appear twice in Problems (dedup across stderr/canvas), line splitting matches LSP clients (no phantom lines at VT/FF/NEL), and the code handles unicode astral characters consistently in hover.**
-- **Editor: Enter between an empty pair on a line with trailing whitespace deleted the closing bracket** (document corruption on the most common pair path); an active selection spans and caret math across astral characters now uses code-point conversion consistently (gallery/template inserters, find post-filter, Save-As caret), `Escape` in the find bar clears highlights and refocuses, the LSP framing buffer resets on restart (no spurious frame errors), dead `QProcess`/worker objects are reaped, non-`FailedToStart` build errors clear the build state (previously silently blocked every later Ctrl+B), `PDF links parser no longer truncates `stream` inside string literals, `show_empty()` clears the stale source-map path, and pixel-size editor fonts no longer stick at `-1`pt.
-- **Geometry: quoted label/annotation text kept its quotes** on the canvas (`*label(A ; "a;b")` rendered `"a;b"`), tiny-but-legal circle/arc radii no longer rendered as `0.000`, and the grammar checks for angle sweeps are enforced before any mark is drawn (both angle markers now appear or neither does).
-- **Fuzz hardening**: analysis fuzzing across 3000 malformed documents (no crashes), geometry end-to-end fuzzing still at 0 crashes/hangs.
-- Tidies the tree: removed dead locals/imports, duplicate signal declarations and an unused helper, tightened `zip(strict=True)` and closure bindings, and refreshed `docs/troubleshooting.md` for the new solver wording.
+- **Windows in-place upgrades would have registered as a second application.** Releases up to 7.0.0 shipped without an explicit `AppId`, so Inno used `AppName` (“Easy Math Lang”) as the implicit AppId and the uninstall key `Easy Math Lang_is1`; a brief update-branch change then declared a different, brace-wrapped `AppId` literal, which would have made the new installer not see existing installs (two Add/Remove Programs entries, mismatched uninstaller). `AppId` is now exactly `AppName` (no braces), `tests/test_installer_script.py` guards the value and scans the repo for stale braces references, and CI now installs the previous release first and then this build over it, requiring exactly one uninstall entry named “Easy Math Lang” (the manual procedure is documented in `docs/packaging.md` for environments where the previous asset cannot be downloaded).
+- **The Windows self-update helper could not replace the files it ran from.** The helper was `easy-math-lang.exe` inside the install directory — a running process locking the very files the installer must replace (and a candidate for `/CLOSEAPPLICATIONS` to close). The helper now launches the installer detached and exits immediately — nothing from the install directory is alive when files are replaced — the editor is relaunched afterwards by an Inno `[Run]` entry (only with `/UPDATE=1`, via `{param:UPDATE|0}` and a `Check` function; the editor runs with the original user’s, non-admin, credentials), and a failure is detected on the next editor start (pending-update marker in the update state file + version compare + `update-install.log`), shown once with the log path and a manual-download button. `/CLOSEAPPLICATIONS`/`/RESTARTAPPLICATIONS` are no longer passed to the silent install.
+- **Windows installer flattened the shared PyInstaller `_internal/` directory — every installed `.exe` failed to start.** `installer/setup.iss` copied the contents of `_internal\*` into `{app}\bin` directly (introduced in the shared-bundle rework, shipped in v6.0.0 and v7.0.0), so the onedir bootloader never found `bin\_internal\python312.dll` and each installed executable aborted with "Failed to load Python DLL '…\bin\_internal\python312.dll'. LoadLibrary: The specified module could not be found." The bundle now installs to `{app}\bin\_internal` (flags unchanged; the four `.exe` files still go to `{app}\bin`), `tests/test_installer_script.py` guards the layout statically, the Windows CI job silently installs the built installer and verifies `bin\_internal\python312.dll` exists and `easy-math-lang.exe --version` / `ezmath.exe --version` exit 0 before uploading the artifact, and `docs/troubleshooting.md` documents the error with a manual repair workaround (create `_internal\` next to the executables and move everything except the `.exe` files into it, or reinstall with the fixed installer).
+
+#### Security
+- **The elevated install now re-verifies the downloaded installer (TOCTOU narrowing).** The SHA-256 checked at download time is recorded in the update plan, and the helper recomputes it — plus the file size and a symlink check — just before any installer command runs (all platforms, and before the macOS bundle swap/DMG attach). On mismatch the install aborts with a persisted error ("installer changed after verification") and nothing is executed; the temp dir is kept `0700` and the plan file `0600`.
 
 Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
@@ -305,4 +293,4 @@ UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
 files and full license text live in `src/editor/assets/icons/`
 (see `src/editor/assets/icons/LICENSE` for attribution).
 
-[7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
+[7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0

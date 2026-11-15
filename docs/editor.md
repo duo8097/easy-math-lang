@@ -525,7 +525,7 @@ The CI-built plugin is pinned in `scripts/fcitx5_qt_ref.txt` (currently `5.1.16`
 
 When PySide6 moves to a new Qt minor (e.g. Qt 6.13):
 
-1. Ensure aqtinstall hosts the matching SDK (`aqt list-qt linux desktop --spec "6.13"`) — the build-linux job installs exactly `qVersion()` and verifies it;
+1. Ensure aqtinstall hosts the matching SDK (`aqt list-qt linux desktop --spec "6.13"`) — the build-linux-binary job installs exactly `qVersion()` and verifies it;
 2. confirm the aqtinstall archives `qtbase`, `qtwayland`, `icu` still carry the private cmake configs (`Qt6GuiPrivate`, `Qt6WaylandClientPrivate`, `Qt6WaylandGlobalPrivate`);
 3. bump `scripts/fcitx5_qt_ref.txt` if a newer fcitx5-qt is needed; CI rebuilds and the `libfcitx5platforminputcontextplugin.so` basename check + bundle assertion catch layout regressions;
 4. run `uv run pytest tests/test_linux_ime_integration.py -v` and `QT_DEBUG_PLUGINS=1` once to confirm the plugin loads; the version guard (`major.minor`) is deliberate — patch-level Qt differences are fine.

@@ -88,3 +88,23 @@ def test_tag_guard_rejects_stale_location(monkeypatch):
                            "compiler.update.FALLBACK_VERSION is '6.0.0'"])
     assert check_tag_version.main(['refs/tags/v7.0.0']) == 1
     assert check_tag_version.main(['--all']) == 1
+
+
+def test_unreleased_changelog_has_no_duplicate_bullets():
+    """``[Unreleased]`` must not repeat an identical bullet twice.
+
+    A duplicated entry slipped into ``[Unreleased]`` when the update-system
+    landed (the bump_version.py bullet appeared verbatim twice);
+    ``bump_version.py`` moves the section verbatim into the dated release,
+    so the duplication would have shipped in the release notes.
+    """
+    text = (REPO_ROOT / 'CHANGELOG.md').read_text(encoding='utf-8')
+    start = text.index('## [Unreleased]')
+    end = text.index('\n## [', start + 1)
+    bullets = [line for line in text[start:end].splitlines()
+               if line.startswith('- ')]
+    duplicates = sorted({line for line in bullets
+                         if bullets.count(line) > 1})
+    assert not duplicates, (
+        'duplicate [Unreleased] bullets in CHANGELOG.md:\n'
+        + '\n'.join(duplicates))

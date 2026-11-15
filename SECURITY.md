@@ -8,8 +8,8 @@ Older versions do not receive backports — please upgrade.
 
 | Version | Supported |
 |---|---|
-| 4.5.x | ✅ |
-| < 4.5 | ❌ |
+| The latest release | ✅ |
+| Anything older | ❌ |
 
 ## Reporting a vulnerability
 
