@@ -155,7 +155,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "pygls", specifier = ">=2.1.1" },
-    { name = "pyside6", specifier = ">=6.11.2" },
+    { name = "pyside6", specifier = ">=6.11.2,<6.13" },
     { name = "typst", specifier = ">=0.15.0" },
 ]
 

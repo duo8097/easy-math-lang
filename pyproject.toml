@@ -35,7 +35,7 @@ dependencies = [
     "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "pygls>=2.1.1",
-    "pyside6>=6.11.2",
+    "pyside6>=6.11.2,<6.13",
     "typst>=0.15.0",
 ]
 
