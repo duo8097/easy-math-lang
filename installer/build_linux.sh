@@ -215,6 +215,15 @@ License: MIT
 URL: https://github.com/duo8097/easy-math-lang
 BuildArch: x86_64
 Recommends: mesa-libGL, fontconfig
+# This package ships a self-contained prebuilt frozen bundle (deps
+# resolve from its own _internal/), not anything built in this spec's
+# buildroot. The bundle embeds build-host-absolute rpath entries (e.g.
+# the build image's Python runpath) in a few lib-dynload modules; those
+# paths do not exist on end-user machines but are flagged by rpm's
+# brp-check-rpath/ERROR 0002, killing an otherwise fine build. The
+# documented Fedora remedy for prebuilt payloads is to waive this one
+# check for this package.
+%global __brp_check_rpaths %{nil}
 
 %description
 Compiler, language server and desktop editor for the Easy Math
