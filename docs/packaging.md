@@ -46,6 +46,63 @@ CI reads it with `tomllib` (the same source of truth as
 compiles (with a placeholder version instead of a stale one).
 `tests/test_installer_script.py` guards this statically.
 
+`AppId` is declared as exactly **`AppName`** (no braces). Releases up
+to 7.0.0 shipped without an explicit `AppId`, so Inno used `AppName`
+as the implicit AppId and the uninstall key `Easy Math Lang_is1`;
+declaring anything else (e.g. a braces literal) would make new
+installers not see existing installs and leave two Add/Remove Programs
+entries behind. The CI job therefore installs the previous release
+first and then this build over it, and requires exactly one uninstall
+entry named `Easy Math Lang` (else the build fails). When the previous
+release asset cannot be downloaded (forks, or the first installer
+release), the step prints the manual procedure instead of verifying;
+run it by hand before tagging whenever it does — it installs into one
+shared directory and checks `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall`
+for exactly one `DisplayName = "Easy Math Lang"` entry.
+
+### Self-update on Windows (how it avoids replacing a running app)
+
+The helper that drives the Windows self-update is the CLI binary from
+the install directory, so it cannot stay running while the installer
+replaces that same binary and `_internal/`. The flow is therefore:
+
+1. The editor (or `easy-math-lang --update`) downloads the asset and
+   `SHA256SUMS.txt`, and verifies SHA-256 (and, immediately before the
+   installer runs, again — see
+   [Security](../SECURITY.md#updating--verification)).
+2. It spawns the helper (`easy-math-lang(.exe) --apply-update <plan>`)
+   detached, then the editor quits through its normal shutdown path.
+3. The helper waits for the editor's PID to exit, launches the
+   installer **detached** — `/SILENT /SP- /NORESTART /UPDATE=1 /LOG=…`
+   — and exits immediately. Nothing from the install directory is
+   alive while its files are being replaced. `/CLOSEAPPLICATIONS` and
+   `/RESTARTAPPLICATIONS` are intentionally absent: in silent mode
+   they could force-close an unrelated editor instance holding
+   unsaved work.
+4. Success: after the files are replaced, an Inno `[Run]` entry fires
+   (it runs only on `/UPDATE=1`, gated by a `Check` function reading
+   `{param:UPDATE|0}`) and relaunches the editor with the *original*
+   user's credentials — never as admin.
+5. Failure: the installer never reaches `[Run]`; nothing relaunches.
+   On the next start the editor compares the pending version recorded
+   in the update state file with the running one; on mismatch it shows
+   "Last update failed" once with the install-log tail and a manual
+   download button (the temp dir with the installer is cleaned up then
+   — the installer itself keeps it until it exits).
+
+The alternative — copying the helper and its ~200 MB `_internal/` to
+a temp directory — was rejected: it burns disk and time on every
+update, is only provable by running a frozen Windows build (which was
+not available during development), and buys nothing over the hand-off
+above.
+
+> **Honest status:** the whole Windows self-update path was developed
+> and tested on Linux with fakes. The AppId upgrade, the silent
+> installer, the `[Run]` relaunch, the pending-update detection and the
+> failure notice have **not been exercised on a real Windows machine**
+> and need the manual checklist in the PR notes before tagging a
+> release.
+
 The editor shortcut points at `{app}\bin\easy-math-editor.exe`.
 Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
 **per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`
@@ -81,6 +138,7 @@ the PyInstaller flags exist exactly once:
 | `scripts/build_binaries.py` | Freezes the three binaries with PyInstaller (entry points, per-platform flags, `ezmath` alias, shared-bundle assembly) into `dist/easy-math-lang/` (one `_internal/` for the CLI, the LSP and the editor). The entry shims are written to a temp dir, so no `entry_*.py` is left in the repo. |
 | `scripts/package_macos.sh` | macOS only: bundles the helpers into the `.app`, prunes the nested Qt tool apps, signs the bundle inside-out and (with `--stage`) writes the DMG layout to `staging/`. |
 | `scripts/check_tag_version.py` | Release guard: fails the build when a `v*` tag does not match the `pyproject.toml` version. |
+| `installer/build_linux.sh` | Linux driver with subcommands: `binary` (PyInstaller → `dist/easy-math-lang/`), `deb` and `rpm` (package the bundle; they never invoke PyInstaller), `all` (default; as before). |
 
 The local drivers only orchestrate them:
 
@@ -90,6 +148,26 @@ The local drivers only orchestrate them:
 | macOS | `bash scripts/build_macos.sh` |
 | Linux (`.deb` + `.rpm`) | `bash installer/build_linux.sh` |
 | Arch (`.pkg.tar.zst`) | `bash installer/build_arch.sh` (on Arch) |
+
+Linux is three independent stages — `binary`, then `deb`, then `rpm` —
+each re-runnable on its own:
+
+```
+bash installer/build_linux.sh binary        # PyInstaller only
+bash installer/build_linux.sh deb           # needs dist/easy-math-lang/
+bash installer/build_linux.sh rpm           # needs dist/easy-math-lang/
+bash installer/build_linux.sh all           # all three (default)
+```
+
+`deb` and `rpm` reuse the bundle produced by `binary` and never invoke
+PyInstaller; they fail fast with a clear message if
+`dist/easy-math-lang/` (or its executables, or `_internal/`) is missing.
+Tool requirements per subcommand: `binary` needs uv (+ pyinstaller via
+uv); `deb` needs `dpkg-deb`; `rpm` needs `rpmbuild` (both refuse to run
+with a missing bundle). `all` still builds the `.deb` and warns when
+`rpmbuild` is absent; `rpm` alone treats a missing `rpmbuild` as a hard
+error. The FHS staging is one shared helper in the script used by both
+packages, so the `.deb` and `.rpm` cannot drift apart.
 
 All of them leave their output in `dist/` (gitignored). Every push runs
 the same steps in CI and uploads the installer(s) as run artifacts
@@ -183,9 +261,25 @@ needs right-click → **Open**. Static checks live in
 
 ## What gets built (Linux)
 
-Same three binaries, Linux names, built by
-`.github/workflows/build-installers.yml` on `ubuntu-24.04`
-(x86_64 only) via `installer/build_linux.sh`:
+Same three binaries, Linux names, built by `.github/workflows/build-installers.yml`
+in three independent jobs on `ubuntu-24.04` (x86_64 only), mirroring
+the subcommand split in `installer/build_linux.sh`:
+
+| Job | Needs | What it does |
+|---|---|---|
+| `build-linux-binary` | — | Test suite, tag guard, fcitx5-qt + Qt SDK, `build_linux.sh binary`, frozen-binary smoke tests; packs `dist/easy-math-lang/` into one tarball and uploads it as `linux-bundle-amd64` |
+| `build-deb` | `build-linux-binary` | Extracts the bundle, builds `EasyMathLang-Debian-amd64.deb`, installs and smoke-tests it (`dpkg -i`, compile example, offline *draw) |
+| `build-rpm` | `build-linux-binary` | In a Fedora container (`fedora:41`), extracts the bundle, builds `EasyMathLang-Fedora-amd64.rpm`, inspects the payload and smoke-tests it (`dnf install`, compile example, offline *draw — CLI only, no display) |
+
+The binary bundle travels between the jobs as one tarball
+(`linux-bundle-amd64.tar.zst`, numeric owner root:root, modes/symlinks/
+executable bits preserved; `upload-artifact` alone does not preserve
+file modes on directories). The artifact is short-lived (2 days) and
+deliberately does **not** match the release job's `EasyMathLang*`
+download pattern, so it is never published as a release asset. If the
+`.deb` job fails, the `.rpm` job still runs (and vice versa); the
+release job needs all three (plus macOS/Windows/Arch), so a missing
+asset still blocks the release.
 
 | Binary | Mode | Contents |
 |---|---|---|
@@ -193,6 +287,12 @@ Same three binaries, Linux names, built by
 | `ezmath` | symlink | Relative alias to `easy-math-lang` |
 | `easy-math-lsp` | onedir CLI | Language server |
 | `easy-math-editor` | onedir GUI | Desktop editor (PySide6) |
+
+Note on the runtime baseline: the bundle is built on `ubuntu-24.04`,
+so the Linux packages **require a glibc of at least the Ubuntu 24.04
+glibc (2.39)** at install time. Nothing older (Ubuntu ≤ 22.04, Debian
+≤ 11, RHEL 8, older Arch) will run it — use the closest distro build
+from that family instead.
 
 Both packages install the same FHS layout (mirroring
 `installer/PKGBUILD` for Arch): the exes live in `/usr/lib/easy-math-lang/`
@@ -222,13 +322,20 @@ usr/
   plus stable `dist/EasyMathLang-Debian-amd64.deb` (Debian/Ubuntu/Mint)
   and `dist/EasyMathLang-Fedora-amd64.rpm` (Fedora/RHEL/openSUSE) copies
   attached to the stable GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
+  To rebuild only one package locally:
+  `bash installer/build_linux.sh deb` or `bash installer/build_linux.sh rpm`
+  (both need an existing `dist/easy-math-lang/`; they never run
+  PyInstaller). `bash installer/build_linux.sh binary` rebuilds the
+  bundle alone, and `bash installer/build_linux.sh all` redoes everything.
 - The `.deb` is assembled with `dpkg-deb` (required); the `.rpm` needs
   `rpmbuild` and is skipped with a warning when it is missing
-  (CI installs the `rpm` package first).
+  (`rpm` alone hard-fails instead; CI builds the `.deb` on Ubuntu and
+  the `.rpm` in the Fedora container).
 - CI smoke-tests the installed `.deb` (`dpkg -i`, `--version`, compile
-  of `examples/example.ezmath`) and inspects the `.rpm` payload
-  (`rpm -qip` / `rpm -qlp`) before uploading artifacts. Static checks
-  live in `tests/test_linux_packaging.py`.
+  of `examples/example.ezmath`) and both packages (`dnf install` in the
+  Fedora container), plus the offline `*draw` check with a dead proxy.
+  Static checks live in `tests/test_linux_packaging.py` and
+  `tests/test_linux_build_script.py`.
 
 ---
 
@@ -254,6 +361,63 @@ The installed layout is the FHS layout above
   unprivileged user) and uploads the `.pkg.tar.zst` as
   `EasyMathLang-Arch-x86_64`; it is attached to the GitHub Release
   like the other installers.
+
+---
+
+## The release assets
+
+Tag builds (`vX.Y.Z`) publish a GitHub Release whose files are what the
+built-in updater downloads. The names are **stable and load-bearing** —
+the updater selects assets by exact name and the CI release job fails
+if any of them is missing:
+
+| Asset (exact name) | Platform |
+|---|---|
+| `EasyMathLang-Windows-x64-Setup.exe` | Windows installer (Inno Setup) |
+| `EasyMathLang-macOS-arm64.dmg` | macOS (Apple Silicon) app bundle |
+| `EasyMathLang-Debian-amd64.deb` | Debian/Ubuntu (`easymath` package) |
+| `EasyMathLang-Fedora-amd64.rpm` | Fedora/RHEL/openSUSE (`easymath` package) |
+| `easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst` | Arch (`easy-math-lang-git`) |
+| `SHA256SUMS.txt` | sha256sum-format sums of every file above |
+
+`build-installers.yml` (the `release` job) downloads the installer
+artifacts, generates `SHA256SUMS.txt` with `sha256sum *`, verifies
+every expected asset exists and is covered, and attaches everything
+to the release. The checksum file is **mandatory**: the updater
+refuses to install anything whose SHA-256 is not listed there (it
+never offers a "skip verification" path). Tags containing `-` (e.g.
+`v7.1.0-rc.1`) publish as prereleases and are ignored by installs
+whose installed version is not itself a prerelease.
+
+`installer/PKGBUILD`'s `pkgver=` placeholder is the pacman-safe
+rendering of the declared version (`7.1.0-rc.1` → `7.1.0rc1`, because
+pacman's `pkgver` cannot contain `-`); `pkgver()` overrides it at build
+time, and `tests/test_installer_script.py` understands the mapping.
+
+---
+
+## Releasing
+
+The single supported way to bump the version is
+`scripts/bump_version.py` (see [Contributing](../CONTRIBUTING.md#5-releasing)):
+
+```
+uv run python scripts/bump_version.py <major|minor|patch|X.Y.Z[-rc.N]> \
+    [--dry-run] [--no-changelog] [--commit] [--date YYYY-MM-DD] [--force]
+```
+
+It rewrites `pyproject.toml` (the source of truth), `uv.lock` (via
+`uv lock`, never by hand), `src/compiler/update.py:FALLBACK_VERSION`,
+`installer/PKGBUILD` and the bug-report placeholder — the only
+hard-coded copies — moves `## [Unreleased]` in `CHANGELOG.md` to
+`## [X.Y.Z] - DATE` (inserting a fresh `## [Unreleased]`), keeps the
+`README.md` changelog section and both files' compare links consistent,
+and (`--commit`) makes one `chore(release): vX.Y.Z` commit. It refuses
+a version that is not strictly greater, and a lower/equal target needs
+`--force`. See `CONTRIBUTING.md` for the full flow (bump → PR → tag →
+CI publishes) and `scripts/check_tag_version.py`, which a tag build
+uses to fail when the tag or any synced location disagrees with
+`pyproject.toml`.
 
 ---
 
@@ -419,7 +583,7 @@ its own work directory and binary cache.
 
 Windows: `powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1 -Jobs 2`.
 macOS: `bash scripts/build_macos.sh --jobs 2`.
-Linux: `bash installer/build_linux.sh --jobs 2`.
+Linux: `bash installer/build_linux.sh all --jobs 2`.
 Arch: `EASYMATH_BUILD_JOBS=2 bash installer/build_arch.sh`.
 Set jobs to 1 for lower memory use. All local wrappers use the frozen lockfile.
 

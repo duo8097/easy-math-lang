@@ -2066,6 +2066,8 @@ def _print_usage():
     print('  --version       Show version and exit')
     print('  --check-update  Check whether a newer EasyMath release '
           'is available')
+    print('  --update        Download and install the latest release '
+          '(asks for confirmation; --yes skips the prompt for scripts)')
     print('  --format FMT    Export format: pdf, png, svg, html, typ')
     print('  --ppi PPI       PNG resolution 1..1200 (default: Typst default)')
     print('  -o, --output FILE  Output file (same as positional [output])')
@@ -2181,11 +2183,32 @@ def main():
             args = args[:cut]
     # Standalone flags are only honored in flag position (args[0]); a
     # trailing flag after a filename must not hijack the compile job.
+    if not positional_only and args[:1] == ['--apply-update']:
+        # Internal helper mode (undocumented): the detached update
+        # helper applies a plan after the app has exited.
+        if len(args) != 2:
+            _standalone_flag_error('--apply-update')
+        from . import updater
+
+        try:
+            plan = updater.load_plan(args[1])
+        except Exception as exc:
+            print(f'error: cannot read update plan {args[1]}: {exc}',
+                  file=sys.stderr)
+            sys.exit(2)
+        sys.exit(updater.apply_update(plan))
     if not positional_only and args[:1] == ['--check-update']:
         if len(args) > 1:
             _standalone_flag_error('--check-update')
         from .update import run_check_update
         sys.exit(run_check_update())
+    if not positional_only and args[:1] == ['--update']:
+        extra = args[1:]
+        yes = bool(extra) and extra == ['--yes']
+        if extra and extra != ['--yes']:
+            _standalone_flag_error('--update')
+        from . import updater as _updater
+        sys.exit(_updater.run_self_update(yes=yes))
     if not positional_only and args[:1] == ['--version']:
         if len(args) > 1:
             _standalone_flag_error('--version')

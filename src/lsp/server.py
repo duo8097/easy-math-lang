@@ -8,20 +8,15 @@ from pygls.lsp.server import LanguageServer
 
 from . import analysis
 from .document import DocumentStore
+from compiler.update import get_current_version
 
 logger = logging.getLogger('easy-math-lsp')
 
 SERVER_NAME = 'easy-math-lsp'
-# Installed version; the literal is a frozen-build fallback only.
-SERVER_VERSION = '7.0.0'
-try:
-    from importlib.metadata import version as _dist_version
-
-    _found = _dist_version('easy-math-lang')
-    if isinstance(_found, str) and _found.strip():
-        SERVER_VERSION = _found.strip()
-except Exception:
-    pass
+# Installed version; the single source of truth is pyproject.toml
+# (compiler.update.get_current_version() reads it; frozen builds fall
+# back to FALLBACK_VERSION).
+SERVER_VERSION = get_current_version()
 
 SUPPORTED_EXTENSIONS = ('.ezmath', '.eml')
 SUPPORTED_LANGUAGE_IDS = {'easymath', 'easy-math-lang', 'ezmath', 'eml'}

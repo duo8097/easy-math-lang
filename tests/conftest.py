@@ -51,16 +51,31 @@ def _isolated_user_config(tmp_path_factory):
     patches ``editor.config`` when it imports cleanly. Editor tests
     that need Qt still request ``qapp`` (which skips without PySide6).
     """
+    os.environ.setdefault('EZMATH_NO_AUTO_UPDATE', '1')
     try:
         from editor import config as config_module
     except ImportError:
-        yield None
-        return
+        config_module = None
     home = str(tmp_path_factory.mktemp('fake-home'))
-    original_home = config_module._home
-    config_module._home = lambda: home
-    config_module._MIGRATED = True  # never migrate the real legacy store
+    config_dir = os.path.join(home, '.config', 'ezmath')
+    if config_module is not None:
+        original_home = config_module._home
+        config_module._home = lambda: home
+        config_module._MIGRATED = True  # never migrate the real legacy store
+
+    # The compiler's update-state file must never touch the real home
+    # either (it is separate from the editor's config module path).
     try:
-        yield home
-    finally:
+        from compiler import update as _update
+    except ImportError:
+        _update = None
+    if _update is not None:
+        original_default_config_dir = _update.default_config_dir
+        _update.default_config_dir = lambda: config_dir
+
+    yield config_dir if config_module is not None else None
+
+    if config_module is not None:
         config_module._home = original_home
+    if _update is not None:
+        _update.default_config_dir = original_default_config_dir

@@ -5,12 +5,25 @@
 #endif
 
 [Setup]
+AppId=Easy Math Lang
 AppName=Easy Math Lang
 AppVersion={#AppVersion}
 PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLang-Windows-x64-Setup
+; Upgrade in place: every release up to 7.0.0 shipped without an
+; explicit AppId, so Inno used AppName as the implicit AppId and the
+; uninstall key "Easy Math Lang_is1". This AppId deliberately equals
+; that implicit value (no braces) — exactly so installs made with those
+; old installers are recognized and upgraded as the same application.
+; (An earlier update-branch change declared a different AppId, which
+; made the new installer not see existing installs.)
+; PrivilegesRequired=admin means Windows shows the UAC
+; prompt — that is the user's verification (silent updater runs use
+; /SILENT and still elevate the setup process via UAC).
+CloseApplications=yes
+RestartApplications=yes
 ; Installer icon (also shown in Add/Remove Programs via
 ; UninstallDisplayIcon): the multi-size icons/ezmath.ico asset, whose
 ; path is relative to this script (installer\ -> repo root icons\).
@@ -41,6 +54,15 @@ Source: "..\THIRD_PARTY_LICENSES"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"
 Name: "{autodesktop}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"; Tasks: desktopicon
 
+; Launch the editor after an *update* install only. The updater passes
+; /UPDATE=1 for silent self-updates; the Check function below then makes
+; this entry run — after the files are replaced, before Setup exits —
+; and the editor starts with the ORIGINAL user's (non-elevated)
+; credentials. Interactive installs and any other silent run see no
+; entry, so nothing is launched implicitly.
+[Run]
+Filename: "{app}\bin\easy-math-editor.exe"; Parameters: ""; WorkingDir: "{app}\bin"; Flags: nowait runasoriginaluser; Check: IsSilentUpdate
+
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional options:"; Flags: unchecked
 Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang from the terminal)"; GroupDescription: "Additional options:"; Flags: unchecked
@@ -53,6 +75,11 @@ Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Tasks: addtopath; Check: NeedsAddPath('{app}\bin')
 
 [Code]
+function IsSilentUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;
+
 function RemoveBackslash(S: string): string;
 var
   T: string;

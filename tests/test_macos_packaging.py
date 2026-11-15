@@ -68,7 +68,8 @@ def job_section(workflow_text, job_id):
 
 
 def test_workflow_has_all_platform_jobs(workflow_text):
-    for job_id in ("build-macos", "build-linux", "build-windows"):
+    for job_id in ("build-macos", "build-linux-binary", "build-deb",
+                   "build-rpm", "build-windows", "build-arch"):
         section = job_section(workflow_text, job_id)
         assert "upload-artifact" in section, f"{job_id} uploads no artifacts"
     release = job_section(workflow_text, "release")

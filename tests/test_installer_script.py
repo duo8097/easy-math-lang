@@ -167,20 +167,131 @@ def test_pkgbuild_pkgver_matches_pyproject():
     the pyproject.toml version for the source tarball CI packs), but the
     placeholder is what ``makepkg --printsrcinfo`` / AUR helpers show
     before building — it sat at 5.1.0 while the project was 5.2.0.
+
+    pacman's ``pkgver`` cannot contain ``-``, so a prerelease project
+    version (``7.1.0-rc.1``) maps to the pacman-safe ``7.1.0rc1`` (the
+    mapping is ``scripts/bump_version.py:pkgbuild_pkgver`` and shared by
+    the release script and this test).
     """
+    import importlib.util
+
     with open(PYPROJECT, 'rb') as handle:
         version = tomllib.load(handle)['project']['version']
+    spec = importlib.util.spec_from_file_location(
+        'bump_version',
+        os.path.join(os.path.dirname(PKGBUILD), '..', 'scripts',
+                     'bump_version.py'))
+    bump_version = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bump_version)
+    expected = bump_version.pkgbuild_pkgver(version)
     with open(PKGBUILD, encoding='utf-8') as handle:
         pkgbuild = handle.read()
     match = re.search(r'(?m)^pkgver=(\S+)\s*$', pkgbuild)
     assert match, 'PKGBUILD has no pkgver= line'
-    assert match.group(1) == version, (
+    assert match.group(1) == expected, (
         f'PKGBUILD pkgver placeholder ({match.group(1)}) does not match '
-        f'pyproject.toml version ({version}) — bump it together'
+        f'the pacman-safe rendering ({expected}) of pyproject.toml '
+        f'version ({version}) — bump it together'
     )
     # The placeholder is only a fallback: pkgver() must still override it.
     assert re.search(r'(?m)^pkgver\(\)\s*\{', pkgbuild), \
         'PKGBUILD must keep its pkgver() build-time override'
+
+
+def test_setup_app_id_is_the_pre_7_appname_implicit_id(iss_text):
+    """AppId must equal AppName exactly — the pre-7.0.0 implicit value.
+
+    Releases up to 7.0.0 shipped without an explicit AppId, so Inno
+    used AppName ("Easy Math Lang") as the implicit AppId and the
+    uninstall key "Easy Math Lang_is1". Declaring any other AppId makes
+    new installs invisible to old ones: two Add/Remove Programs entries
+    and a mismatched uninstaller. This AppId intentionally carries no
+    braces and equals AppName verbatim.
+    """
+    setup = re.search(r'(?ms)^\[Setup\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert setup, 'no [Setup] section found'
+
+    def _value(key):
+        match = re.search(r'(?im)^' + re.escape(key) +
+                          r'\s*=\s*([^\r\n]+?)\s*$', setup.group(1))
+        return match.group(1) if match else None
+
+    appid = _value('AppId')
+    appname = _value('AppName')
+    assert appid, 'setup.iss must declare a stable AppId'
+    assert appname, 'setup.iss must declare an AppName'
+    assert appid == appname, (
+        f'AppId ({appid}) must equal AppName ({appname}) '
+        f'— that is the implicit AppId pre-7.0.0 installs registered under')
+    assert '{' not in appid and '}' not in appid, \
+        'AppId must carry no braces (the implicit value had none)'
+    # Closing/restarting the app during install must keep working for
+    # the /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS flags (interactive).
+    assert re.search(r'(?im)^CloseApplications\s*=\s*yes\s*$', setup.group(1))
+    assert re.search(r'(?im)^RestartApplications\s*=\s*yes\s*$',
+                     setup.group(1))
+
+
+def test_setup_relaunches_editor_only_on_update_runs(iss_text):
+    """The post-update relaunch must be opt-in and non-elevated.
+
+    The self-update flow passes /UPDATE=1; the [Run] entry must then
+    fire and launch {app}\\bin\\easy-math-editor.exe as the original
+    (pre-UAC) user, never as admin, and must not run for ordinary
+    installs or other silent invocations.
+    """
+    run = re.search(r'(?ms)^\[Run\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert run, 'no [Run] section found — the editor would never relaunch'
+    entry = None
+    for line in run.group(1).splitlines():
+        if 'easy-math-editor.exe' in line:
+            entry = line
+            break
+    assert entry is not None, '[Run] must launch easy-math-editor.exe'
+    assert '{app}\\bin\\easy-math-editor.exe' in entry
+    assert re.search(r'(?i)\bnowait\b', entry)
+    assert re.search(r'(?i)\brunasoriginaluser\b', entry), \
+        'the relaunched editor must run with the original (non-admin) user'
+    assert re.search(r'(?i)\bCheck\s*:\s*IsSilentUpdate\b', entry)
+    code = iss_text[iss_text.index('[Code]'):]
+    match = re.search(r'function IsSilentUpdate:\s*Boolean;\s*begin(.*?)end;',
+                      code, re.S)
+    assert match, 'IsSilentUpdate must gate the [Run] entry'
+    assert re.search(r"\{param:UPDATE\|0\}", match.group(1)), \
+        "IsSilentUpdate must read {param:UPDATE|0}"
+    assert "'1'" in match.group(1)
+
+
+def test_no_braces_app_id_anywhere_in_repo():
+    """Nothing (docs, workflow, updater, tests) may assume a braced AppId."""
+    import pathlib
+
+    repo_root = os.path.dirname(os.path.dirname(ISS))
+    skip_dirs = {'.git', '.venv', 'vendor', 'build', 'dist',
+                 '__pycache__', '.pytest_cache', '.ruff_cache', 'node_modules'}
+    # The test file itself carries the literal as a match target.
+    this_file = os.path.relpath(os.path.abspath(__file__), repo_root)
+    offenders = []
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+        for name in filenames:
+            if name.endswith(('.pyc', '.lock', '.png', '.jpg', '.ico',
+                              '.zip', '.whl')):
+                continue
+            path = os.path.join(dirpath, name)
+            if os.path.normpath(path) == os.path.normpath(
+                    os.path.join(repo_root, this_file)):
+                continue
+            try:
+                with open(path, encoding='utf-8', errors='ignore') as handle:
+                    text = handle.read()
+            except OSError:
+                continue
+            if '{{EasyMathLang}}' in text:
+                offenders.append(os.path.relpath(path, repo_root))
+    assert offenders == [], (
+        f'braces AppId still referenced in: {offenders} '
+        f'(AppId is now exactly the AppName)')
 
 
 def test_setup_ships_third_party_licenses(iss_text):

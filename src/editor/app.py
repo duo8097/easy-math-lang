@@ -9,16 +9,10 @@ from .main_window import MainWindow
 
 
 def _app_version():
-    """Installed EasyMath version; literal is frozen-build fallback only."""
-    try:
-        from importlib.metadata import version as _dist_version
+    """Installed EasyMath version (pyproject.toml via compiler.update)."""
+    from compiler.update import get_current_version
 
-        found = _dist_version('easy-math-lang')
-        if isinstance(found, str) and found.strip():
-            return found.strip()
-    except Exception:
-        pass
-    return '7.0.0'
+    return get_current_version()
 
 
 def _set_application_icon(app):
@@ -99,6 +93,8 @@ def main(argv=None):
         window.open_path(args.path)
     window.show()
     window.maybe_show_welcome()
+    # Next-start failure notice from a previous self-update (if any).
+    window.maybe_show_update_failure()
     return app.exec()
 
 

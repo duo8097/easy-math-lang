@@ -57,6 +57,7 @@ ICONS = {
     'gallery': 'shapes',
     'outline': 'list',
     'problems': 'circle-exclamation-point',
+    'update': 'download',
     'font': 'type',
     'find-prev': 'chevron-up',
     'find-next': 'chevron-down',

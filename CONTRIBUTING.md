@@ -140,7 +140,50 @@ pull request. Nightly installers are built by
 
 ---
 
-## 5. Reporting bugs
+## 5. Releasing
+
+Releases are cut from `main` with one script: `scripts/bump_version.py`.
+It is the only supported way to bump the version — it keeps every copy
+in sync (`pyproject.toml`, `uv.lock` via `uv lock`, the fallback
+constants, the PKGBUILD placeholder, the bug-report template, and the
+changelog files):
+
+```
+uv run python scripts/bump_version.py patch    # or major / minor / 7.1.0-rc.1
+uv run python scripts/bump_version.py patch --dry-run   # preview the diff
+```
+
+The flow:
+
+1. Add your changes to `CHANGELOG.md` under `## [Unreleased]` (and mirror
+   nothing by hand — the script moves the section for you).
+2. Run the bump command. Review the printed diff (`--dry-run` first if
+   you like): it must touch exactly the release files it lists.
+3. `bump_version.py --commit` makes one `chore(release): vX.Y.Z` commit
+   with only the files it touched, or commit by hand.
+4. Open the PR, get it reviewed and merged.
+5. Tag the merge commit and push the tag:
+
+   ```
+   git tag -a vX.Y.Z -m "Easy Math Lang vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+6. `build-installers.yml` publishes the GitHub Release from the tag
+   (tag guard: `scripts/check_tag_version.py` fails the build when the
+   tag and any synced location disagrees with `pyproject.toml`). Tags
+   containing `-` (e.g. `v7.1.0-rc.1`) publish as prereleases.
+
+The bump refuses a version that is not strictly greater than the
+current one (pass `--force` to override, or when the changelog's
+`[Unreleased]` is empty). It never pushes and never creates the tag —
+those two steps are always yours. See `SECURITY.md` and
+`docs/packaging.md` for how the release assets are published and how
+the built-in update check finds them.
+
+---
+
+## 6. Reporting bugs
 
 Open an issue on
 [GitHub Issues](https://github.com/duo8097/easy-math-lang/issues)
@@ -162,7 +205,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## 6. Good first contributions
+## 7. Good first contributions
 
 Never contributed to an open-source project before? These are sized
 for a first PR:
