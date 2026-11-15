@@ -259,8 +259,10 @@ jobs:
           tar --numeric-owner --owner=0 --group=0 --zstd \
             -C dist -cf linux-bundle-amd64.tar.zst easy-math-lang
           ls -lh linux-bundle-amd64.tar.zst
-          tar -tf linux-bundle-amd64.tar.zst | grep -E 'easy-math-(lang|lsp|editor)$' | head -3
-          tar -tf linux-bundle-amd64.tar.zst | grep -m1 -F 'easy-math-lang/_internal'
+          tar -tf linux-bundle-amd64.tar.zst > bundle.txt
+          grep -E 'easy-math-(lang|lsp|editor)$' bundle.txt | head -3
+          grep -m1 -F 'easy-math-lang/_internal' bundle.txt
+          rm bundle.txt
 
       - name: Upload binary bundle artifact
         uses: actions/upload-artifact@v7
@@ -613,18 +615,30 @@ jobs:
             Write-Host "::error file=installer/setup.iss::Silent install of $newSetup failed with exit code $($proc.ExitCode)."
             exit 1
           }
-          # Count uninstall entries named 'Easy Math Lang' across both
-          # registry views (x64-native and WOW6432Node).
-          $views = @('HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
-                     'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')
-          $entries = foreach ($view in $views) {
-            Get-ChildItem $view -ErrorAction SilentlyContinue |
-              ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
-              Where-Object { $_.DisplayName -eq 'Easy Math Lang' }
+          # Count uninstall keys for 'Easy Math Lang' across all four
+          # locations (HKLM / HKCU x native / WOW6432Node). Use reg query
+          # with /k so we match on the KEY NAME (which Inno derives from
+          # the AppId), not on the DisplayName property, which PowerShell
+          # reads unreliably here; and dump what we find otherwise.
+          $views = @('HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+                     'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+                     'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+                     'HKCU\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')
+          $found = @()
+          foreach ($view in $views) {
+            $raw = reg query "$view" /k /f "Easy Math Lang" /s 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              foreach ($line in $raw) {
+                if ($line -match '^HKEY_') { $found += $line.Trim() }
+              }
+            }
           }
-          $count = @($entries).Count
-          Write-Host "Uninstall entries named 'Easy Math Lang': $count"
-          $entries | ForEach-Object { Write-Host "  $($_.PSChildName) -> DisplayVersion $($_.DisplayVersion)" }
+          $unique = $found | Sort-Object -Unique
+          $count = $unique.Count
+          Write-Host "Uninstall keys mentioning 'Easy Math Lang': $count"
+          $unique | ForEach-Object { Write-Host "  $_" }
+          $unins = Join-Path $upgradeDir 'unins000.dat'
+          Write-Host "unins000.dat present: $(Test-Path $unins)"
           if ($count -ne 1) {
             Write-Host "::error file=installer/setup.iss::Expected exactly ONE uninstall entry for 'Easy Math Lang' after the upgrade, found $count. The AppId in installer/setup.iss must stay equal to AppName (the pre-7.0.0 implicit AppId). See tests/test_installer_script.py and docs/packaging.md."
             exit 1
