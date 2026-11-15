@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-11-15
+
 ### Added
 - **Built-in update system for the CLI and the editor.** `Help → Check for Updates…` checks GitHub Releases in the background (about once a day, silent on failure; turn off with `View → Check for updates automatically`) and shows a dismissible banner when a newer version exists; the banner opens an update dialog with current vs new version, release notes and the install hint. “Update now” is offered only when this exact install can be replaced in place: the Windows installer (silent Inno install; you verify via the UAC prompt), the macOS `.app` bundle in a writable location (DMG mounted, bundle swapped after the app quits, with rollback), or the Debian/Fedora/Arch package when the running binary belongs to it (`pkexec apt-get install -y` / `dnf install -y` / `pacman -U --noconfirm`, with `dpkg`/`rpm` fallbacks). Everywhere else you get the exact manual command. Downloads are HTTPS-only from GitHub, size-capped, streamed to a private temp dir and SHA-256-verified against `SHA256SUMS.txt` from the same release — a missing sums file or mismatch aborts with an error and deletes the file (no skip path). The app is never replaced while running: the helper hands off to the platform installer after the app exits (on Windows it launches the installer detached and is gone before any file is replaced; relaunch happens via an `[Run]` entry); the next start detects the outcome (pending-update marker in the update state file on Windows; recorded error on macOS/Linux) and either stays silent on success or shows the reason once with a manual-download button. The CLI gains `easy-math-lang --update` (also `ezmath --update`): prints current vs latest with a notes summary, asks `Update now? [y/N]` (`--yes` for scripts), downloads with a progress bar and hands over to the same helper; exits non-zero on failure. `--check-update` (still exit-0 on every failure) now also prints the matching asset and update hint. Tests inject all network/subprocess/platform calls.
 - **`scripts/bump_version.py` — one command bumps the version everywhere.** Rewrites `pyproject.toml` (source of truth), `uv.lock` via `uv lock`, `FALLBACK_VERSION`, the PKGBUILD `pkgver` (pacman-safe rc mapping) and the bug-report placeholder; moves `CHANGELOG.md`’s `[Unreleased]` to a dated release section and keeps the `README.md` mirror and both compare links consistent; `--dry-run` prints the diff, `--commit` makes one `chore(release): vX.Y.Z` commit; a failed write leaves the tree untouched; versions that are not strictly greater are refused without `--force`. `scripts/check_tag_version.py` now also fails a tag build when any synced location disagrees with `pyproject.toml`.
@@ -273,7 +275,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...HEAD
+[7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
 [6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
 [5.2.0]: https://github.com/duo8097/easy-math-lang/compare/v5.1.0...v5.2.0
