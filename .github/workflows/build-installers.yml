@@ -103,8 +103,8 @@ jobs:
           # Installer payloads are already compressed.
           compression-level: 0
 
-  build-linux:
-    name: Build Linux installers (amd64)
+  build-linux-binary:
+    name: Build Linux binary bundle (amd64)
     strategy:
       fail-fast: false
       matrix:
@@ -134,10 +134,14 @@ jobs:
       - name: Install project + build dependencies
         run: uv sync --frozen
 
-      - name: Install system dependencies (Qt libs, package tooling)
-        run: sudo apt-get update && sudo apt-get install -y rpm libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+      # rpm is NOT needed here (rpm tooling lives in build-rpm); dpkg is
+      # not needed either (deb tooling lives in build-deb).
+      - name: Install system dependencies (Qt libs)
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 zstd
 
       # --- Tag/version guard -------------------------------------------------
+      # A tag build must release exactly what pyproject.toml declares:
+      # fail fast when vX.Y.Z(-suffix) does not match the project version.
       - name: Guard tag matches pyproject version
         run: uv run --frozen python scripts/check_tag_version.py "${{ github.ref }}"
 
@@ -228,12 +232,12 @@ jobs:
           echo "plugin=$PLUGIN" >> "$GITHUB_OUTPUT"
           echo "Built fcitx5 plugin: $PLUGIN"
 
-      # --- Build .deb + .rpm (same flags as Windows/macOS, Linux names) -----
-      - name: Build Linux installers
+      # --- Build the shared binary bundle ------------------------------------
+      - name: Build the Linux binary bundle
         shell: bash
         env:
           EASYMATH_FCITX5_PLUGIN: ${{ steps.fcitx5qt.outputs.plugin }}
-        run: bash installer/build_linux.sh
+        run: bash installer/build_linux.sh binary
 
       - name: Verify the fcitx5 plugin ended up in the bundle
         run: test -f dist/easy-math-lang/_internal/PySide6/Qt/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so
@@ -243,9 +247,72 @@ jobs:
           EASYMATH_RUN_BUILD_TESTS: "1"
         run: uv run --frozen pytest tests/test_packaged_build.py -q
 
-      # --- Smoke test the .deb (not dist/) -----------------------------------
+      # --- Hand-off to build-deb / build-rpm ---------------------------------
+      # upload-artifact does not preserve file modes for a plain directory
+      # upload — a tarball is required so modes, symlinks and the
+      # executable bits survive. The artifact name deliberately does NOT
+      # match the release job's EasyMathLang* pattern so the bundle is
+      # never published as a release asset.
+      - name: Pack the bundle for hand-off
+        run: |
+          set -euo pipefail
+          tar --numeric-owner --owner=0 --group=0 --zstd \
+            -C dist -cf linux-bundle-amd64.tar.zst easy-math-lang
+          ls -lh linux-bundle-amd64.tar.zst
+          tar -tf linux-bundle-amd64.tar.zst | grep -E 'easy-math-(lang|lsp|editor)$' | head -3
+          tar -tf linux-bundle-amd64.tar.zst | grep -m1 -F 'easy-math-lang/_internal'
+
+      - name: Upload binary bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-bundle-amd64
+          path: linux-bundle-amd64.tar.zst
+          if-no-files-found: error
+          # Short-lived hand-off only: the deb/rpm artifacts are the
+          # release payloads, this is just the shared input.
+          retention-days: 2
+          compression-level: 0
+
+  build-deb:
+    name: Build Debian/Ubuntu package (amd64)
+    needs: build-linux-binary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # --- Tag/version guard -------------------------------------------------
+      # stdlib-only; the deb job intentionally does not install uv.
+      - name: Guard tag matches pyproject version
+        run: python3 scripts/check_tag_version.py "${{ github.ref }}"
+
+      - name: Install dpkg tooling
+        run: sudo apt-get update && sudo apt-get install -y dpkg zstd
+
+      - name: Download the binary bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-bundle-amd64
+          path: bundle/
+
+      - name: Extract the bundle and verify it
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar --zstd -xf bundle/linux-bundle-amd64.tar.zst -C dist/
+          test -x dist/easy-math-lang/easy-math-lang
+          test -x dist/easy-math-lang/easy-math-lsp
+          test -x dist/easy-math-lang/easy-math-editor
+          test -d dist/easy-math-lang/_internal
+
+      - name: Build the .deb
+        run: bash installer/build_linux.sh deb
+
+      # --- Smoke test the .deb (not dist/) ----------------------------------
       # Must run after packaging and before upload so a broken package
-      # never ships.
+      # never ships. Same checks as before the split.
       - name: Smoke test deb install
         shell: bash
         run: |
@@ -275,16 +342,7 @@ jobs:
           test -f /tmp/smoke/draw.pdf
           echo "deb smoke OK"
 
-      - name: Inspect rpm payload
-        shell: bash
-        run: |
-          set -euo pipefail
-          rpm -qip dist/EasyMathLang-Fedora-amd64.rpm
-          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -E "usr/bin/easy-math-(lang|lsp|editor)"
-          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/lib/easy-math-lang/_internal/typst-packages/preview/cetz/0.4.2/typst.toml"
-          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/share/licenses/easymath/THIRD_PARTY_LICENSES"
-
-      # --- Artifacts (one per distro family) ---------------------------------
+      # --- Artifact ----------------------------------------------------------
       - name: Upload Debian installer artifact
         uses: actions/upload-artifact@v7
         with:
@@ -295,6 +353,94 @@ jobs:
           # Installer payloads are already compressed.
           compression-level: 0
 
+  build-rpm:
+    name: Build Fedora/RHEL package (x86_64)
+    needs: build-linux-binary
+    runs-on: ubuntu-24.04
+    # Pinned to a concrete Fedora tag on purpose; do not use `latest` —
+    # the same stability rule as the runner image pins elsewhere.
+    container:
+      image: fedora:41
+    timeout-minutes: 20
+
+    steps:
+      - name: Install build tools
+        # rpm-build: rpmbuild + rpm query tooling; tar/zstd: bundle
+        # extraction; python3/git: repo checkout and tag guard;
+        # mesa-libGL/fontconfig/freetype: shared libs the frozen CLI needs.
+        # NOTE: the editor GUI is not smoke-tested in this container (no
+        # display) — CLI only, by design.
+        run: dnf install -y rpm-build tar zstd git python3 bash findutils mesa-libGL fontconfig freetype
+
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # --- Tag/version guard -------------------------------------------------
+      # stdlib-only; the rpm job intentionally does not install uv.
+      - name: Guard tag matches pyproject version
+        run: python3 scripts/check_tag_version.py "${{ github.ref }}"
+
+      - name: Download the binary bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-bundle-amd64
+          path: bundle/
+
+      - name: Extract the bundle and verify it
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar --zstd -xf bundle/linux-bundle-amd64.tar.zst -C dist/
+          test -x dist/easy-math-lang/easy-math-lang
+          test -x dist/easy-math-lang/easy-math-lsp
+          test -x dist/easy-math-lang/easy-math-editor
+          test -d dist/easy-math-lang/_internal
+
+      - name: Build the .rpm
+        run: bash installer/build_linux.sh rpm
+
+      - name: Inspect rpm payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpm -qip dist/EasyMathLang-Fedora-amd64.rpm
+          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -E "usr/bin/easy-math-(lang|lsp|editor)"
+          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/lib/easy-math-lang/_internal/typst-packages/preview/cetz/0.4.2/typst.toml"
+          rpm -qlp dist/EasyMathLang-Fedora-amd64.rpm | grep -F "usr/share/licenses/easymath/THIRD_PARTY_LICENSES"
+
+      # --- Smoke test the .rpm (real install inside the container) ----------
+      # No display in the container: the frozen editor (and its Qt libs)
+      # are NOT smoke-tested here — CLI only.
+      - name: Smoke test rpm install
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf install -y ./dist/EasyMathLang-Fedora-amd64.rpm
+          easy-math-lang --version
+          mkdir -p /tmp/smoke
+          cp examples/example.ezmath /tmp/smoke/
+          (cd /tmp/smoke && easy-math-lang example.ezmath smoke.pdf)
+          test -f /tmp/smoke/smoke.pdf
+          # The vendored Typst packages for offline *draw must be
+          # installed and served without any network access.
+          test -f /usr/lib/easy-math-lang/_internal/typst-packages/preview/cetz/0.4.2/typst.toml
+          test -f /usr/lib/easy-math-lang/_internal/typst-packages/preview/oxifmt/1.0.0/typst.toml
+          test -f /usr/share/licenses/easymath/THIRD_PARTY_LICENSES
+          cat > /tmp/smoke/draw.ezmath <<'EOF'
+          *draw(
+              *point(A = 0, 0)
+              *point(B = 3, 4)
+              *line(A ; B)
+          )
+          EOF
+          (cd /tmp/smoke && \
+            http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 \
+            HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 \
+            easy-math-lang draw.ezmath draw.pdf)
+          test -f /tmp/smoke/draw.pdf
+          echo "rpm smoke OK"
+
+      # --- Artifact ----------------------------------------------------------
       - name: Upload Fedora installer artifact
         uses: actions/upload-artifact@v7
         with:
@@ -561,7 +707,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [build-macos, build-linux, build-windows, build-arch]
+    needs: [build-macos, build-linux-binary, build-deb, build-rpm, build-windows, build-arch]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 15
