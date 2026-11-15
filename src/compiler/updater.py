@@ -476,6 +476,10 @@ def detect_install_method(*, frozen=None, platform_name=None,
     if platform_name == 'linux':
         try:
             real_exe = os.path.realpath(exe)
+            # Only a resolving path is useful: a nonexistent resolution
+            # (e.g. fake paths injected in tests) keeps the original.
+            if not os.path.exists(real_exe):
+                real_exe = exe
         except OSError:
             real_exe = exe
         if which('dpkg'):
@@ -763,9 +767,12 @@ def load_plan(path):
         st = os.stat(path)
     except OSError as exc:
         raise ValueError(f'update plan is unreadable: {exc}')
-    # The plan may carry privileged context (paths, hashes) — refuse to
-    # consume one that other users could have swapped in place.
-    if st.st_mode & 0o022:
+    # The plan may carry privileged context (paths, hashes) — on POSIX,
+    # refuse to consume one that other users could have swapped in
+    # place. On Windows the mode bits carry no group/other write
+    # meaning (chmod 0600 is a no-op there), so the check does not
+    # apply; the plan still lands in a user-private %TEMP%.
+    if os.name == 'posix' and (st.st_mode & 0o022):
         raise ValueError(
             f'update plan is group/world-writable (mode {st.st_mode & 0o777:#o}); '
             f'refusing to use it: {path}')

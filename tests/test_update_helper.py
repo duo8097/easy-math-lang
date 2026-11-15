@@ -836,6 +836,8 @@ def test_installer_reverified_after_the_pid_wait(tmp_path):
     assert calls == []
 
 
+@pytest.mark.skipif(os.name != 'posix',
+                    reason='Windows mode bits carry no group/other write meaning')
 def test_load_plan_refuses_group_or_world_writable(tmp_path):
     plan = _make_plan(tmp_path)
     path = tmp_path / 'plan.json'

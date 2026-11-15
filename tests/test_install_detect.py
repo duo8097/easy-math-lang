@@ -71,6 +71,8 @@ def test_macos_writable_app_bundle(tmp_path):
     assert info.detail == str(bundle)
 
 
+@pytest.mark.skipif(os.name != 'posix',
+                    reason='os.access() mode bits are POSIX-only')
 def test_macos_readonly_bundle_falls_back(tmp_path):
     bundle = tmp_path / 'System' / 'Easy Math Lang.app'
     macos_dir = bundle / 'Contents' / 'MacOS'

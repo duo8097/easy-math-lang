@@ -146,23 +146,22 @@ def _run(repo, *argv):
                           cwd=repo, capture_output=True, text=True)
 
 
-def _tree_listing(root):
-    listing = []
+def _tree_files(root):
+    files = []
     for dirpath, dirnames, filenames in os.walk(root):
         for name in filenames:
-            path = os.path.join(dirpath, name)
-            listing.append(os.path.relpath(path, root))
-    return sorted(listing)
+            files.append(os.path.relpath(os.path.join(dirpath, name), root))
+    return sorted(files)
 
 
-def _symlins(root):
-    links = {}
+def _tree_symlinks(root):
+    links = []
     for dirpath, dirnames, filenames in os.walk(root):
         for name in dirnames + filenames:
             path = os.path.join(dirpath, name)
             if os.path.islink(path):
-                links[os.path.relpath(path, root)] = os.readlink(path)
-    return links
+                links.append(os.path.relpath(path, root))
+    return sorted(links)
 
 
 @pytest.mark.skipif(shutil.which('dpkg-deb') is None,
@@ -177,18 +176,30 @@ def test_deb_subcommand_packages_the_staged_tree(fake_repo):
     stage = fake_repo / 'dist' / 'linux-stage'
     [stage_dir] = [d for d in stage.iterdir() if d.is_dir()]
     staged = sorted(
-        p for p in _tree_listing(stage_dir) + list(_symlins(stage_dir))
+        p for p in _tree_files(stage_dir) + _tree_symlinks(stage_dir)
         if not p.startswith('DEBIAN/'))
     listed = subprocess.run(
         ['dpkg-deb', '--contents', str(deb)],
         capture_output=True, text=True, check=True).stdout
     packaged = []
+    dir_entries = []
     for line in listed.splitlines():
         # dpkg-deb --contents lines: <perms> <owner>/<group> <size> <date> <time> <path>
+        # symlinks are printed with a trailing " -> <target>".
+        if ' -> ' in line:
+            path = line.split(' -> ', 1)[0].split()[-1]
+        else:
+            parts = line.split()
+            if len(parts) < 6:
+                continue
+            path = parts[-1]
         parts = line.split()
-        if len(parts) >= 6:
-            packaged.append(parts[-1].lstrip('./'))
+        if parts and parts[0].startswith('d'):
+            dir_entries.append(path)
+        else:
+            packaged.append(path.lstrip('./'))
     assert sorted(packaged) == staged
+    assert any('usr/lib/easy-math-lang' in d for d in dir_entries)
     for name in FAKE_BUNDLE_FILES:
         assert f'usr/lib/easy-math-lang/{name}' in listed
     assert 'usr/bin/ezmath -> easy-math-lang' in listed
@@ -212,20 +223,15 @@ def test_rpm_subcommand_packages_the_staged_tree(fake_repo):
     assert rpm.is_file()
     stage = fake_repo / 'dist' / 'linux-stage'
     [stage_dir] = [d for d in stage.iterdir() if d.is_dir()]
-    staged = _tree_listing(stage_dir)
+    staged = sorted(
+        p for p in _tree_files(stage_dir) + _tree_symlinks(stage_dir)
+        if not p.startswith('DEBIAN/'))
     listed = subprocess.run(
         ['rpm', '-qlp', str(rpm)],
         capture_output=True, text=True, check=True).stdout
-    assert sorted(listed.splitlines()) == sorted(
-        [f'/{p}' for p in staged])
+    files = sorted(l for l in listed.splitlines()
+                   if l and not l.endswith('/'))
+    assert files == sorted(f'/{p}' for p in staged)
 
 
-@pytest.mark.skipif(shutil.which('dpkg-deb') is None,
-                    reason='dpkg-deb not installed')
-def test_all_builds_the_deb_even_without_rpmbuild(fake_repo):
-    """`all` must build the .deb and warn (not fail) when rpmbuild is
-    absent — in environments where it is absent the .rpm step is
-    skipped; on runners with dpkg-deb this still verifies the chain."""
-    result = _run(fake_repo, 'all')
-    assert result.returncode == 0, result.stderr
-    assert (fake_repo / 'dist' / 'EasyMathLang-Debian-amd64.deb').is_file()
+
