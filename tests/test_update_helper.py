@@ -47,9 +47,14 @@ def log_path(tmp_path):
 def _make_plan(tmp_path, *, method=METHOD_WINDOWS, asset_name='setup.exe',
                relaunch=None, macos=None, state_path=None, log_path=None):
     asset = tmp_path / (asset_name + '.bin')
-    asset.write_bytes(b'installer')
-    temp_dir = tmp_path / 'work'
-    temp_dir.mkdir()
+    payload = b'installer'
+    asset.write_bytes(payload)
+    # mkdtemp yields a 0700 directory, exactly like production.
+    import tempfile
+
+    temp_dir = tempfile.mkdtemp(prefix='easymath-test-')
+    import hashlib
+
     plan = build_update_plan(
         version='7.1.0', method=method, asset_path=str(asset),
         temp_dir=str(temp_dir),
@@ -57,7 +62,9 @@ def _make_plan(tmp_path, *, method=METHOD_WINDOWS, asset_name='setup.exe',
         pid=4242, wait_timeout=30, macos=macos,
         state_path=state_path or str(tmp_path / 'state.json'),
         log_path=log_path or str(tmp_path / 'update.log'),
-        install_log_path=str(tmp_path / 'installer.log'))
+        install_log_path=str(tmp_path / 'installer.log'),
+        asset_sha256=hashlib.sha256(payload).hexdigest(),
+        asset_size=len(payload))
     return plan
 
 
@@ -695,3 +702,173 @@ def test_apply_update_flag_runs_helper(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         _pipeline.main()
     assert exc.value.code == 0
+
+
+# ----------------------------------------------------------------------
+# TOCTOU: re-verification before the elevated install runs
+# ----------------------------------------------------------------------
+
+def test_integrity_check_refuses_tampered_content(tmp_path):
+    from compiler.updater import verify_file_unchanged
+
+    path = tmp_path / 'installer.exe'
+    path.write_bytes(b'original bytes')
+    import hashlib
+
+    digest = hashlib.sha256(b'original bytes').hexdigest()
+    verify_file_unchanged(str(path), digest, len(b'original bytes'))  # no raise
+    path.write_bytes(b'evil bytes')
+    with pytest.raises(DownloadError, match='changed after verification'):
+        verify_file_unchanged(str(path), digest, len(b'original bytes'))
+
+
+def test_integrity_check_refuses_size_change(tmp_path):
+    from compiler.updater import verify_file_unchanged
+
+    path = tmp_path / 'installer.exe'
+    blob = b'A' * 4096
+    path.write_bytes(blob + b'extra')
+    import hashlib
+
+    digest = hashlib.sha256(blob + b'extra').hexdigest()
+    # Size check fires before the digest is even read.
+    with pytest.raises(DownloadError, match='changed after verification'):
+        verify_file_unchanged(str(path), digest, len(blob))
+
+
+def test_integrity_check_refuses_symlink(tmp_path):
+    from compiler.updater import verify_file_unchanged
+
+    target = tmp_path / 'real-installer.exe'
+    target.write_bytes(b'real installer')
+    link = tmp_path / 'linked-installer.exe'
+    link.symlink_to(target)
+    import hashlib
+
+    digest = hashlib.sha256(b'real installer').hexdigest()
+    with pytest.raises(DownloadError, match='symlink'):
+        verify_file_unchanged(str(link), digest, len(b'real installer'))
+
+
+def test_integrity_check_refuses_missing_sha(tmp_path):
+    from compiler.updater import verify_file_unchanged
+
+    with pytest.raises(DownloadError, match='missing the verified SHA-256'):
+        verify_file_unchanged('/tmp/whatever', None)
+
+
+def _tamper(plan):
+    with open(plan['installer'], 'wb') as handle:
+        handle.write(b'swapped after verification')
+
+
+def test_tampered_installer_never_reaches_windows_install(tmp_path):
+    plan = _make_plan(tmp_path, relaunch=['C:\\App\\easy-math-editor.exe'])
+    _tamper(plan)
+    spawned = []
+
+    result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
+                          spawn_fn=lambda argv: spawned.append(argv),
+                          relaunch=lambda argv: None)
+    assert result == 1
+    assert spawned == []  # the installer never ran
+    from compiler.update import last_update_error, get_pending_update
+
+    assert 'changed after verification' in \
+        last_update_error(plan['state_path'])['reason']
+    assert get_pending_update(plan['state_path']) is None
+    assert not os.path.isdir(plan['temp_dir'])
+
+
+def test_tampered_installer_never_reaches_linux_install(tmp_path):
+    plan = _make_plan(tmp_path, method=METHOD_DEBIAN, asset_name='deb')
+    _tamper(plan)
+    calls = []
+
+    result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
+                          run_cmd=lambda argv: calls.append(argv) or 0)
+    assert result == 1
+    assert calls == []  # pkexec never invoked
+    assert 'changed after verification' in \
+        _update_error(plan['state_path'])['reason']
+    assert not os.path.isdir(plan['temp_dir'])
+
+
+def _update_error(state_path):
+    from compiler.update import last_update_error
+
+    return last_update_error(state_path)
+
+
+def test_tampered_installer_never_reaches_macos_swap(tmp_path):
+    plan = _make_plan(tmp_path, method=METHOD_MACOS, asset_name='dmg',
+                      macos={'target_app': str(tmp_path / 'app.app'),
+                             'new_app': str(tmp_path / 'new.app'),
+                             'backup': str(tmp_path / 'app.app.update-backup')})
+    _tamper(plan)
+    renames = []
+
+    result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
+                          _rename=lambda s, d: renames.append((s, d)))
+    assert result == 1
+    assert renames == []  # the bundle swap never ran
+    assert 'changed after verification' in _update_error(plan['state_path'])['reason']
+    assert not os.path.isdir(plan['temp_dir'])
+
+
+def test_installer_reverified_after_the_pid_wait(tmp_path):
+    """The check happens AFTER waiting (the file may be swapped during
+    the 120s wait), not before it."""
+    plan = _make_plan(tmp_path, method=METHOD_DEBIAN, asset_name='deb')
+    swapped = {'done': False}
+
+    def slow_wait(pid, timeout):
+        with open(plan['installer'], 'wb') as handle:
+            handle.write(b'swapped DURING the wait')
+        swapped['done'] = True
+        return True
+
+    calls = []
+    result = apply_update(plan, wait_pid_exit_fn=slow_wait,
+                          run_cmd=lambda argv: calls.append(argv) or 0)
+    assert swapped['done']
+    assert result == 1
+    assert calls == []
+
+
+def test_load_plan_refuses_group_or_world_writable(tmp_path):
+    plan = _make_plan(tmp_path)
+    path = tmp_path / 'plan.json'
+    write_plan(plan, str(path))
+    os.chmod(path, 0o666)
+    with pytest.raises(ValueError, match='writable'):
+        load_plan(str(path))
+
+
+def test_load_plan_refuses_plan_without_sha256(tmp_path):
+    plan = _make_plan(tmp_path)
+    plan.pop('sha256', None)
+    path = tmp_path / 'plan.json'
+    write_plan(plan, str(path))
+    with pytest.raises(ValueError, match='sha256'):
+        load_plan(str(path))
+
+
+def test_helper_temp_dir_is_private(tmp_path):
+    plan = _make_plan(tmp_path)
+    if os.name == 'posix':
+        assert (os.stat(plan['temp_dir']).st_mode & 0o777) == 0o700
+
+
+def test_prepare_macos_update_reverifies_dmg(tmp_path):
+    import hashlib
+    import os as _os
+
+    dmg = tmp_path / 'x.dmg'
+    dmg.write_bytes(b'dmg bytes')
+    with pytest.raises(DownloadError, match='changed after verification'):
+        prepare_macos_update(str(dmg), target_app='/tmp/target.app',
+                             run_cmd=lambda argv: pytest.fail(
+                                 'hdiutil must not run'),
+                             expected_sha256=hashlib.sha256(b'other').hexdigest(),
+                             expected_size=len(b'dmg bytes'))

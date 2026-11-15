@@ -570,6 +570,68 @@ def manual_commands_for(method, asset_name=None):
 
 
 # ----------------------------------------------------------------------
+# Re-verification before elevated install (TOCTOU narrowing)
+# ----------------------------------------------------------------------
+
+def verify_file_unchanged(path, expected_sha256, expected_size=None):
+    """Raise :class:`DownloadError` unless *path* is exactly what was
+    verified at download time.
+
+    Recomputes the SHA-256 and checks the size (and that the path is a
+    regular file, not a symlink), because the downloaded installer sits
+    in a user-writable temp dir between verification and the elevated
+    install. Callers pass the values recorded in the update plan — which
+    came from :class:`DownloadResult` — never a freshly computed digest
+    of the (potentially tampered with) file.
+    """
+    if not expected_sha256 or not isinstance(expected_sha256, str):
+        raise DownloadError(
+            'the update plan is missing the verified SHA-256 for the '
+            'installer — refusing to install anything that cannot be '
+            're-verified')
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        raise DownloadError(f'installer not found at {path}: {exc}')
+    import stat as _stat
+
+    if _stat.S_ISLNK(st.st_mode):
+        raise DownloadError(
+            f'installer is a symlink, refusing to install it: {path}')
+    if not _stat.S_ISREG(st.st_mode):
+        raise DownloadError(
+            f'installer is not a regular file, refusing to install it: '
+            f'{path}')
+    if expected_size is not None:
+        try:
+            expected_size = int(expected_size)
+        except (TypeError, ValueError):
+            raise DownloadError(
+                f'update plan carries an invalid size for the installer: '
+                f'{expected_size!r}')
+        if st.st_size != expected_size:
+            raise DownloadError(
+                f'installer changed after verification: {path} is '
+                f'{st.st_size} bytes, expected {expected_size}')
+    actual = sha256_of_file(path)
+    if actual.lower() != expected_sha256.lower():
+        raise DownloadError(
+            f'installer changed after verification: SHA-256 of {path} '
+            f'is {actual}, expected {expected_sha256}')
+
+
+def verify_installer_unchanged(plan):
+    """Integrity gate for the helper: returns an error string or None."""
+    try:
+        verify_file_unchanged(plan.get('installer'),
+                              plan.get('sha256'),
+                              plan.get('asset_size'))
+    except DownloadError as exc:
+        return str(exc)
+    return None
+
+
+# ----------------------------------------------------------------------
 # Per-platform install commands (B4) — argv lists only, never shell
 # ----------------------------------------------------------------------
 
@@ -653,7 +715,8 @@ def default_install_log_path():
 def build_update_plan(*, version, method, asset_path, temp_dir,
                       relaunch_argv, pid=None, wait_timeout=HELPER_WAIT_SECONDS,
                       macos=None, state_path=None, log_path=None,
-                      install_log_path=None):
+                      install_log_path=None, asset_sha256=None,
+                      asset_size=None):
     """Assemble the JSON-able plan consumed by ``--apply-update``."""
     plan = {
         'version': version,
@@ -667,6 +730,10 @@ def build_update_plan(*, version, method, asset_path, temp_dir,
         'wait_timeout': int(wait_timeout),
         'install_log_path': install_log_path
         or default_install_log_path(),
+        # Carried from the download's DownloadResult: the helper
+        # re-verifies the installer against these just before it runs.
+        'sha256': asset_sha256,
+        'asset_size': asset_size,
     }
     if macos is not None:
         plan['macos'] = dict(macos)
@@ -692,12 +759,22 @@ def write_plan(plan, path):
 
 
 def load_plan(path):
+    try:
+        st = os.stat(path)
+    except OSError as exc:
+        raise ValueError(f'update plan is unreadable: {exc}')
+    # The plan may carry privileged context (paths, hashes) — refuse to
+    # consume one that other users could have swapped in place.
+    if st.st_mode & 0o022:
+        raise ValueError(
+            f'update plan is group/world-writable (mode {st.st_mode & 0o777:#o}); '
+            f'refusing to use it: {path}')
     with open(path, 'r', encoding='utf-8') as handle:
         plan = json.load(handle)
     if not isinstance(plan, dict):
         raise ValueError('update plan must be a JSON object')
     for key in ('version', 'method', 'installer', 'pid', 'log_path',
-                'temp_dir', 'relaunch_argv'):
+                'temp_dir', 'relaunch_argv', 'sha256'):
         if key not in plan:
             raise ValueError(f'update plan is missing {key!r}')
     return plan
@@ -807,14 +884,20 @@ def _windows_pid_gone(pid):
 # ----------------------------------------------------------------------
 
 def prepare_macos_update(dmg_path, *, target_app=None, run_cmd=None,
-                         temp_dir=None, version=None, **plan_kwargs):
+                         temp_dir=None, version=None,
+                         expected_sha256=None, expected_size=None,
+                         **plan_kwargs):
     """Mount the DMG, copy the new .app next to the target, detach.
 
     Runs BEFORE the app quits; on any failure nothing is left behind
     and the error is raised so the caller can show it without quitting.
-    The actual bundle swap happens in the helper after the app exits.
-    Returns the ``macos`` dict for the update plan.
+    The actual bundle swap happens in the helper after the app exits
+    (which re-verifies the DMG once more). Returns the ``macos`` dict
+    for the update plan.
     """
+    if expected_sha256 is not None:
+        # The DMG may have been swapped between download and staging.
+        verify_file_unchanged(dmg_path, expected_sha256, expected_size)
     run_cmd = run_cmd or _helper_run_cmd
     executable = plan_kwargs.get('executable') or sys.executable
     if target_app is None:
@@ -930,6 +1013,11 @@ def apply_update_windows(plan, log, wait_fn, spawn_fn=None, relaunch=None):
                      f'the application (pid {plan.get("pid")}) did not exit '
                      f'within {plan.get("wait_timeout")}s — update aborted; '
                      f'nothing was changed')
+        _cleanup_temp(plan, log)
+        return 1
+    integrity = verify_installer_unchanged(plan)
+    if integrity is not None:
+        _fail_update(plan, log, integrity)
         _cleanup_temp(plan, log)
         return 1
     log('application exited; launching the installer (detached)')
@@ -1230,6 +1318,13 @@ def apply_update(plan, *, wait_pid_exit_fn=None, run_cmd=None, relaunch=None,
         _cleanup_temp(plan, log)
         return 1
     log('application exited; installing update')
+    # Verify immediately before the install, not earlier: the wait above
+    # gives an attacker time to swap the file, so re-check here.
+    integrity = verify_installer_unchanged(plan)
+    if integrity is not None:
+        _fail_update(plan, log, integrity)
+        _cleanup_temp(plan, log)
+        return 1
 
     if plan.get('method') == METHOD_MACOS:
         ok, detail = _macos_swap(plan, log, rename=_rename, run_cmd=run_cmd)
@@ -1454,7 +1549,9 @@ def stage_update_plan(info, method_info, result_dl, *, relaunch_argv,
     if method_info.method == METHOD_MACOS:
         prepare = prepare_macos_fn or prepare_macos_update
         macos = prepare(result_dl.path, executable=sys.executable,
-                        version=info.version)
+                        version=info.version,
+                        expected_sha256=result_dl.sha256,
+                        expected_size=result_dl.size)
     from .update import default_state_path
 
     try:
@@ -1466,7 +1563,8 @@ def stage_update_plan(info, method_info, result_dl, *, relaunch_argv,
         asset_path=result_dl.path, temp_dir=result_dl.temp_dir,
         relaunch_argv=relaunch_argv, macos=macos,
         pid=pid if pid is not None else os.getpid(),
-        state_path=state_path)
+        state_path=state_path,
+        asset_sha256=result_dl.sha256, asset_size=result_dl.size)
     plan_path = default_plan_path(result_dl.temp_dir)
     write_plan(plan, plan_path)
     return plan_path

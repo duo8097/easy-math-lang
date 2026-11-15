@@ -316,8 +316,10 @@ def test_update_prerelease_not_offered_to_release_installs(tmp_path, capsys):
 def test_update_macos_stages_bundle(tmp_path, capsys):
     prepared = []
 
-    def fake_prepare(path, *, executable=None, version=None):
-        prepared.append((path, executable, version))
+    def fake_prepare(path, *, executable=None, version=None,
+                     expected_sha256=None, expected_size=None):
+        prepared.append((path, executable, version,
+                         expected_sha256, expected_size))
         return {'target_app': '/Applications/Easy Math Lang.app',
                 'new_app': '/tmp/staged.app',
                 'backup': '/Applications/Easy Math Lang.app.update-backup'}
@@ -345,6 +347,10 @@ def test_update_macos_stages_bundle(tmp_path, capsys):
         spawn_fn=spawns.append)
     assert code == 0
     assert prepared and prepared[0][2] == '7.1.0'
+    # The expected hash/size from the download flow are forwarded for
+    # the DMG re-verification.
+    assert prepared[0][3] == 'ab' * 32
+    assert prepared[0][4] == 100
     with open(spawns[0], encoding='utf-8') as handle:
         plan = json.load(handle)
     assert plan['macos']['target_app'] == '/Applications/Easy Math Lang.app'

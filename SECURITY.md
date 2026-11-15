@@ -45,9 +45,17 @@ This section states plainly what is and is not covered:
   redirects to any other host are refused. HTTPS only.
 - **How files are verified:** the downloaded asset's SHA-256 is compared
   to `SHA256SUMS.txt` from the same release before it is run or moved
-  into place. A missing sums file, a missing line for the asset, or a
-  mismatch aborts the update and deletes the download. There is no
-  "skip verification" path.
+  into place. The recorded SHA-256 is then re-checked **immediately
+  before the installer executes** (on every platform, and before the
+  macOS bundle swap/DMG attach) — the file sitting in a user-writable
+  temp dir between the two checks is re-measured, and a mismatch, a
+  size change or a symlink aborts the install with nothing executed.
+  This narrows the time-of-check/time-of-use gap between verification
+  and the elevated run, but does not eliminate it: a determined
+  local attacker who can already read and replace your temp files can
+  race the re-check. A missing sums file, a missing line for the
+  asset, or a mismatch aborts the update and deletes the download.
+  There is no "skip verification" path.
 - **The checksum protects integrity, not authenticity.** It proves your
   download matches what the release published — it does **not** prove
   the release itself is trustworthy (anyone who could publish a release
