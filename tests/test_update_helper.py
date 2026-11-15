@@ -75,8 +75,14 @@ def _read_log(path):
 def test_windows_setup_command_exact_argv():
     argv = windows_setup_command('/tmp/My Dir/Setup.exe', '/tmp/log dir/i.log')
     assert argv[0] == '/tmp/My Dir/Setup.exe'
-    assert argv[1:] == ['/SILENT', '/SP-', '/NORESTART', '/CLOSEAPPLICATIONS',
-                        '/RESTARTAPPLICATIONS', '/LOG=/tmp/log dir/i.log']
+    assert argv[1:] == ['/SILENT', '/SP-', '/NORESTART', '/UPDATE=1',
+                        '/LOG=/tmp/log dir/i.log']
+    # Nothing from the install directory is running at install time, so
+    # these flags are intentionally absent (silent force-close could
+    # kill an unrelated editor instance with unsaved work).
+    assert '/CLOSEAPPLICATIONS' not in argv
+    assert '/RESTARTAPPLICATIONS' not in argv
+    assert '/VERYSILENT' not in argv
 
 
 def test_debian_commands_exact_argv():
@@ -189,40 +195,151 @@ def _run_of(mapping):
     return run_cmd
 
 
-def test_windows_helper_success(tmp_path):
+def test_windows_helper_hands_off_and_exits(tmp_path):
     plan = _make_plan(tmp_path, relaunch=['C:\\App\\easy-math-editor.exe'])
-    seen = []
+    spawned = []
+    relaunched = []
 
-    def relaunch(argv):
-        seen.append(argv)
+    def fake_spawn(argv):
+        spawned.append(list(argv))
 
     result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
-                          run_cmd=lambda argv: 0, relaunch=relaunch)
+                          run_cmd=lambda argv: pytest.fail(
+                              'the installer must not run inline'),
+                          spawn_fn=fake_spawn,
+                          relaunch=lambda argv: relaunched.append(argv))
     assert result == 0
-    assert seen == [['C:\\App\\easy-math-editor.exe']]
-    assert not os.path.isdir(plan['temp_dir'])
+    # The installer was launched detached, with /UPDATE=1 and a /LOG.
+    assert len(spawned) == 1
+    assert spawned[0][0] == plan['installer']
+    assert '/UPDATE=1' in spawned[0]
+    assert any(a.startswith('/LOG=') for a in spawned[0])
+    # Relaunch happens via the Inno [Run] entry, not the helper.
+    assert relaunched == []
+    # The downloaded installer + plan are left in place for the
+    # detached installer; the pending marker is recorded instead.
+    assert os.path.isdir(plan['temp_dir'])
+    from compiler.update import get_pending_update
+
+    pending = get_pending_update(plan['state_path'])
+    assert pending is not None
+    assert pending['version'] == '7.1.0'
+    assert pending['install_log_path'] == plan['install_log_path']
+    assert pending['temp_dir'] == plan['temp_dir']
 
 
-def test_windows_helper_failure_keeps_old_and_reports(tmp_path):
+def test_windows_helper_waits_for_pid_before_spawning(tmp_path):
+    plan = _make_plan(tmp_path)
+    spawned = []
+
+    result = apply_update(plan, wait_pid_exit_fn=lambda p, t: False,
+                          spawn_fn=lambda argv: spawned.append(argv))
+    assert result == 1
+    assert spawned == []  # never launched
+    from compiler.update import get_pending_update, last_update_error
+
+    assert get_pending_update(plan['state_path']) is None
+    assert 'did not exit' in last_update_error(plan['state_path'])['reason']
+    assert not os.path.isdir(plan['temp_dir'])  # cleaned up
+
+
+def test_windows_helper_spawn_failure_keeps_old_and_relaunches(tmp_path):
     plan = _make_plan(tmp_path, relaunch=['C:\\App\\easy-math-editor.exe'])
 
-    def run_cmd(argv):
-        return 5
+    def boom(argv):
+        raise OSError('cannot start process')
 
-    seen = []
+    relaunched = []
     result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
-                          run_cmd=run_cmd,
-                          relaunch=lambda argv: seen.append(argv))
+                          spawn_fn=boom,
+                          relaunch=lambda argv: relaunched.append(argv))
     assert result == 1
-    assert seen == [['C:\\App\\easy-math-editor.exe']]  # old app relaunched
-    from compiler.update import last_update_error
+    assert relaunched == [['C:\\App\\easy-math-editor.exe']]
+    assert not os.path.isdir(plan['temp_dir'])  # nothing is running; clean up
+    from compiler.update import get_pending_update, last_update_error
 
-    err = last_update_error(plan['state_path'])
+    # The installer never started, so no pending marker; the failure is
+    # recorded for the next start instead.
+    assert get_pending_update(plan['state_path']) is None
+    assert 'could not launch' in last_update_error(plan['state_path'])['reason']
+
+
+# ----------------------------------------------------------------------
+# resolve_pending_update (the outcome detection on the next start)
+# ----------------------------------------------------------------------
+
+def test_resolve_pending_update_no_marker(tmp_path):
+    from compiler.updater import resolve_pending_update
+
+    assert resolve_pending_update(str(tmp_path / 'state.json')) is None
+
+
+def test_resolve_pending_update_success(tmp_path):
+    from compiler.update import (record_pending_update, get_pending_update,
+                                 last_update_error)
+    from compiler.updater import resolve_pending_update
+
+    temp_dir = tmp_path / 'easymath-update-x'
+    temp_dir.mkdir()
+    state_path = str(tmp_path / 'state.json')
+    record_pending_update('7.1.0', str(tmp_path / 'update-install.log'),
+                          str(temp_dir), state_path)
+    result = resolve_pending_update(state_path, current_version='7.1.0')
+    assert result == {'ok': True, 'version': '7.1.0'}
+    assert get_pending_update(state_path) is None
+    assert last_update_error(state_path) is None  # success records nothing
+    assert not temp_dir.exists()  # installer temp dir removed
+
+
+def test_resolve_pending_update_success_with_newer_current(tmp_path):
+    from compiler.update import record_pending_update
+    from compiler.updater import resolve_pending_update
+
+    state_path = str(tmp_path / 'state.json')
+    record_pending_update('7.1.0', '', '', state_path)
+    assert resolve_pending_update(state_path, current_version='7.2.0')['ok'] \
+        is True
+
+
+def test_resolve_pending_update_failure_records_error(tmp_path):
+    from compiler.update import (record_pending_update,
+                                 get_pending_update,
+                                 last_update_error)
+    from compiler.updater import resolve_pending_update
+
+    log_path = tmp_path / 'update-install.log'
+    log_path.write_text(
+        'Inno Setup Log (x64)\n'
+        'Attempted to use feature: ;\n'
+        'Error 5: Access is denied\n', encoding='utf-8')
+    temp_dir = tmp_path / 'easymath-update-y'
+    temp_dir.mkdir()
+    state_path = str(tmp_path / 'state.json')
+    record_pending_update('7.1.0', str(log_path), str(temp_dir), state_path)
+    result = resolve_pending_update(state_path, current_version='7.0.0')
+    assert result['ok'] is False
+    assert result['version'] == '7.1.0'
+    assert 'Access is denied' in result['reason']
+    assert result['log_path'] == str(log_path)
+    err = last_update_error(state_path)
     assert err is not None
-    assert 'exited with 5' in err['reason']
-    assert err['log_path'] == plan['log_path']
-    log = _read_log(plan['log_path'])
-    assert 'installer exited with 5' in log
+    assert 'Access is denied' in err['reason']
+    assert err['log_path'] == str(log_path)
+    assert get_pending_update(state_path) is None
+    assert not temp_dir.exists()
+
+
+def test_resolve_pending_update_failure_without_log(tmp_path):
+    from compiler.update import record_pending_update, last_update_error
+    from compiler.updater import resolve_pending_update
+
+    state_path = str(tmp_path / 'state.json')
+    missing_log = str(tmp_path / 'no-such.log')
+    record_pending_update('7.1.0', missing_log, '', state_path)
+    result = resolve_pending_update(state_path, current_version='7.0.0')
+    assert result['ok'] is False
+    assert missing_log in result['reason']
+    assert 'did not complete' in last_update_error(state_path)['reason']
 
 
 def test_debian_helper_uses_apt_then_succeeds(tmp_path):
@@ -309,14 +426,22 @@ def test_arch_helper_failure_reports(tmp_path):
 
 
 def test_helper_success_clears_previous_error(tmp_path):
+    """The inline (macOS) flow clears a persisted error on success."""
     from compiler.update import record_update_error, last_update_error
 
-    plan = _make_plan(tmp_path)
+    plan = _make_plan(tmp_path, method=METHOD_MACOS,
+                      macos={'target_app': str(tmp_path / 'app.app'),
+                             'new_app': str(tmp_path / 'new.app'),
+                             'backup': str(tmp_path / 'app.app.update-backup')})
     record_update_error('7.0.0', 'old failure', '/tmp/old.log',
                         plan['state_path'])
+    new_app = plan['macos']['new_app']
+    _make_bundle_at(new_app, 'new-bin')
+    _make_bundle_at(plan['macos']['target_app'], 'old-bin')
     result = apply_update(plan, wait_pid_exit_fn=lambda p, t: True,
                           run_cmd=lambda argv: 0,
-                          relaunch=lambda argv: None)
+                          relaunch=lambda argv: None,
+                          _rename=os.rename)
     assert result == 0
     assert last_update_error(plan['state_path']) is None
 

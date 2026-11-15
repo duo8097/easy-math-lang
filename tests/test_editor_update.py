@@ -276,6 +276,50 @@ def test_failure_notice_silent_when_clean(window, monkeypatch):
     assert getattr(window, '_update_failed_dialog', None) is None
 
 
+def test_pending_update_failure_shows_notice_once(window, monkeypatch):
+    """A handed-off Windows update whose install failed surfaces here."""
+    import compiler.update as _update
+
+    monkeypatch.setattr(_update, 'get_current_version',
+                        lambda: '7.0.0')  # the install never landed
+    state_path = _update.default_state_path()
+    _update.record_pending_update('7.1.0', '/tmp/no-such-install.log',
+                                  '', state_path)
+    try:
+        window.maybe_show_update_failure()
+        dialog = getattr(window, '_update_failed_dialog', None)
+        assert dialog is not None
+        assert '7.1.0' in dialog.message.text()
+        assert _update.get_pending_update(state_path) is None
+        # The notice is consumed by being shown (exactly once semantics).
+        assert _update.last_update_error(state_path) is None
+        dialog.close()
+    finally:
+        _update.clear_pending_update(state_path)
+        _update.clear_update_error(state_path)
+
+
+def test_pending_update_success_is_silent(window, monkeypatch):
+    import compiler.update as _update
+
+    monkeypatch.setattr(_update, 'get_current_version',
+                        lambda: '7.1.0')  # the install landed
+    called = []
+    monkeypatch.setattr(window, 'statusBar',
+                        lambda: type('SB', (), {
+                            'showMessage': lambda self, *a: called.append(a)})())
+    state_path = _update.default_state_path()
+    _update.record_pending_update('7.1.0', '', '', state_path)
+    try:
+        window.maybe_show_update_failure()
+        assert getattr(window, '_update_failed_dialog', None) is None
+        assert _update.get_pending_update(state_path) is None
+        assert called  # a brief "Updated to X" status-bar message
+    finally:
+        _update.clear_pending_update(state_path)
+        _update.clear_update_error(state_path)
+
+
 # --------------------------------------------------------------------------
 # Menu wiring
 # --------------------------------------------------------------------------

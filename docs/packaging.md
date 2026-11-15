@@ -60,6 +60,49 @@ run it by hand before tagging whenever it does — it installs into one
 shared directory and checks `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall`
 for exactly one `DisplayName = "Easy Math Lang"` entry.
 
+### Self-update on Windows (how it avoids replacing a running app)
+
+The helper that drives the Windows self-update is the CLI binary from
+the install directory, so it cannot stay running while the installer
+replaces that same binary and `_internal/`. The flow is therefore:
+
+1. The editor (or `easy-math-lang --update`) downloads the asset and
+   `SHA256SUMS.txt`, and verifies SHA-256 (and, immediately before the
+   installer runs, again — see
+   [Security](../SECURITY.md#updating--verification)).
+2. It spawns the helper (`easy-math-lang(.exe) --apply-update <plan>`)
+   detached, then the editor quits through its normal shutdown path.
+3. The helper waits for the editor's PID to exit, launches the
+   installer **detached** — `/SILENT /SP- /NORESTART /UPDATE=1 /LOG=…`
+   — and exits immediately. Nothing from the install directory is
+   alive while its files are being replaced. `/CLOSEAPPLICATIONS` and
+   `/RESTARTAPPLICATIONS` are intentionally absent: in silent mode
+   they could force-close an unrelated editor instance holding
+   unsaved work.
+4. Success: after the files are replaced, an Inno `[Run]` entry fires
+   (it runs only on `/UPDATE=1`, gated by a `Check` function reading
+   `{param:UPDATE|0}`) and relaunches the editor with the *original*
+   user's credentials — never as admin.
+5. Failure: the installer never reaches `[Run]`; nothing relaunches.
+   On the next start the editor compares the pending version recorded
+   in the update state file with the running one; on mismatch it shows
+   "Last update failed" once with the install-log tail and a manual
+   download button (the temp dir with the installer is cleaned up then
+   — the installer itself keeps it until it exits).
+
+The alternative — copying the helper and its ~200 MB `_internal/` to
+a temp directory — was rejected: it burns disk and time on every
+update, is only provable by running a frozen Windows build (which was
+not available during development), and buys nothing over the hand-off
+above.
+
+> **Honest status:** the whole Windows self-update path was developed
+> and tested on Linux with fakes. The AppId upgrade, the silent
+> installer, the `[Run]` relaunch, the pending-update detection and the
+> failure notice have **not been exercised on a real Windows machine**
+> and need the manual checklist in the PR notes before tagging a
+> release.
+
 The editor shortcut points at `{app}\bin\easy-math-editor.exe`.
 Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
 **per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`

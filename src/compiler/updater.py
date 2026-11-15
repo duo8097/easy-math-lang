@@ -35,8 +35,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import update as _update
 from .update import (CHECK_TIMEOUT, ReleaseAsset, ReleaseInfo, USER_AGENT,
-                     clear_update_error, record_update_error)
+                     clear_update_error, compare_versions,
+                     normalize_version, record_pending_update,
+                     record_update_error)
 
 ALLOWED_DOWNLOAD_HOSTS = frozenset({
     'github.com',
@@ -575,19 +578,25 @@ INSTALL_TIMEOUT = 900
 
 
 def windows_setup_command(asset_path, log_path):
-    """Inno Setup silent flags for the Windows installer.
+    """Inno Setup silent flags for the Windows self-update installer.
 
     PrivilegesRequired=admin in setup.iss, so Windows shows the UAC
-    prompt — that is the user's verification. The flags must stay valid
-    for this setup.iss (they are all standard Inno Setup 6 flags).
+    prompt — that is the user's verification. Nothing from the install
+    directory is running when this executes (the update helper spawns
+    this detached and exits at once), so /CLOSEAPPLICATIONS and
+    /RESTARTAPPLICATIONS are intentionally NOT passed — in silent mode
+    they could force-close an unrelated editor instance holding unsaved
+    work. ``/UPDATE=1`` is what makes the installer relaunch the editor
+    after a successful update (Inno ``[Run]`` + ``{param:UPDATE|0}``
+    Check function; the editor starts with the original user's
+    non-elevated credentials).
     """
     return [
         asset_path,
         '/SILENT',
         '/SP-',
         '/NORESTART',
-        '/CLOSEAPPLICATIONS',
-        '/RESTARTAPPLICATIONS',
+        '/UPDATE=1',
         f'/LOG={log_path}',
     ]
 
@@ -881,6 +890,145 @@ def prepare_macos_update(dmg_path, *, target_app=None, run_cmd=None,
 
 
 # ----------------------------------------------------------------------
+# Windows: hand the install off, then get out of the way
+# ----------------------------------------------------------------------
+
+def _spawn_detached(argv):
+    if os.name == 'nt':
+        flags = getattr(subprocess, 'DETACHED_PROCESS', 0) \
+            | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        return subprocess.Popen(argv, close_fds=True, creationflags=flags)
+    return subprocess.Popen(argv, close_fds=True, start_new_session=True)
+
+
+def apply_update_windows(plan, log, wait_fn, spawn_fn=None, relaunch=None):
+    """Windows branch: spawn the installer detached, then exit at once.
+
+    The helper is ``easy-math-lang.exe`` inside the install directory;
+    if it stayed alive during the install it would lock the very files
+    the installer must replace (and might itself be targeted by the
+    installer). Instead:
+
+      1. wait for the app's PID to exit (the window is already on its
+         way down),
+      2. launch the installer detached (``/UPDATE=1`` — it relaunches
+         the editor via an Inno ``[Run]`` entry after a *successful*
+         install),
+      3. write a pending-update marker into the update state file and
+         exit — the result (success or failure) is detected on the
+         next application start by :func:`resolve_pending_update`
+         (installed version vs expected + ``update-install.log``).
+
+    Nothing from the install directory is alive while its files are
+    being replaced. The temp dir with the downloaded installer is left
+    alone (the installer may still need it); it is removed when the
+    next start resolves the pending marker.
+    """
+    if not wait_fn(plan.get('pid'),
+                   plan.get('wait_timeout', HELPER_WAIT_SECONDS)):
+        _fail_update(plan, log,
+                     f'the application (pid {plan.get("pid")}) did not exit '
+                     f'within {plan.get("wait_timeout")}s — update aborted; '
+                     f'nothing was changed')
+        _cleanup_temp(plan, log)
+        return 1
+    log('application exited; launching the installer (detached)')
+    argv = windows_setup_command(
+        plan.get('installer'),
+        plan.get('install_log_path') or default_install_log_path())
+    spawn = spawn_fn or _spawn_detached
+    try:
+        spawn(argv)
+    except Exception as exc:
+        # The installer never started — the old version is untouched and
+        # can be relaunched safely.
+        _fail_update(plan, log, f'could not launch the installer: {exc}')
+        _relaunch(plan, log, relaunch)
+        _cleanup_temp(plan, log)
+        return 1
+    record_pending_update(plan.get('version'),
+                          plan.get('install_log_path')
+                          or default_install_log_path(),
+                          plan.get('temp_dir'),
+                          plan.get('state_path') or None)
+    log(f'installer launched: {argv}')
+    log('helper exiting; install proceeds with nothing from the '
+        'install directory running')
+    return 0
+
+
+def resolve_pending_update(state_path=None, *, current_version=None,
+                           _rmtree=None):
+    """Detect the outcome of a Windows self-update on the next start.
+
+    Compares the running version with the pending version: equal or
+    newer means the update succeeded (no notice); older means it failed
+    (the old install may or may not have been replaced — detect what is
+    actually running). Removes the marker, records a failure for the
+    "Last update failed" notice on mismatch. Returns ``None`` when no
+    update is pending, ``{'ok': True, 'version': ...}`` on success, or
+    ``{'ok': False, 'version', 'reason', 'log_path'}`` on failure.
+    """
+    from .update import get_pending_update, clear_pending_update
+
+    marker = get_pending_update(state_path)
+    if not isinstance(marker, dict):
+        return None
+    expected = normalize_version(str(marker.get('version') or ''))
+    current = current_version or _update.get_current_version()
+    # The installer is finished by the time we get here in both the
+    # success and the failure case, so its temp dir can go.
+    temp_dir = marker.get('temp_dir')
+    rmtree = _rmtree or (lambda path: shutil.rmtree(path, ignore_errors=True))
+    if temp_dir:
+        try:
+            rmtree(temp_dir)
+        except Exception:
+            pass
+    clear_pending_update(state_path)
+
+    try:
+        ok = compare_versions(current, expected) >= 0
+    except Exception:
+        ok = current == expected
+    if ok:
+        return {'ok': True, 'version': expected}
+
+    install_log = marker.get('install_log_path') or ''
+    reason = _pending_failure_reason(install_log, expected)
+    record_update_error(expected, reason, install_log or default_log_path(),
+                        state_path)
+    return {'ok': False, 'version': expected, 'reason': reason,
+            'log_path': install_log}
+
+
+def _pending_failure_reason(install_log, expected):
+    """Best-effort reason from the Inno /LOG file (last error-ish line)."""
+    fallback = f'update to {expected} failed — the installer did not ' \
+               f'complete (see {install_log})'
+    if not install_log or not os.path.isfile(install_log):
+        return fallback
+    try:
+        with open(install_log, 'rb') as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - 8192))
+            tail = handle.read().decode('utf-8', errors='replace')
+    except OSError:
+        return fallback
+    lines = [line.strip() for line in tail.splitlines() if line.strip()]
+    if not lines:
+        return fallback
+    error_lines = [line for line in lines
+                   if 'error' in line.lower() or 'failed' in line.lower()
+                   or 'abort' in line.lower() or 'cannot' in line.lower()]
+    detail = (error_lines[-1] if error_lines else lines[-1])
+    if len(detail) > 200:
+        detail = detail[:200] + '…'
+    return f'update to {expected} failed — {detail}'
+
+
+# ----------------------------------------------------------------------
 # The helper itself
 # ----------------------------------------------------------------------
 
@@ -1021,13 +1169,6 @@ def _run_installer(plan, log, run_cmd=None):
     method = plan.get('method')
     installer = plan.get('installer')
     run_cmd = run_cmd or _helper_run_cmd
-    if method == METHOD_WINDOWS:
-        argv = windows_setup_command(installer, plan.get('install_log_path')
-                                     or (plan.get('log_path', '') + '.setup.log'))
-        log(f'running Windows installer: {argv}')
-        rc = run_cmd(argv)
-        log(f'installer exited with {rc}')
-        return (rc == 0), (f'installer exited with {rc}' if rc != 0 else 'ok')
     if method == METHOD_DEBIAN:
         for argv in (debian_install_command(installer),
                      debian_fallback_command(installer)):
@@ -1062,13 +1203,25 @@ def _run_installer(plan, log, run_cmd=None):
 
 
 def apply_update(plan, *, wait_pid_exit_fn=None, run_cmd=None, relaunch=None,
-                 _rename=os.rename):
-    """The helper's entry point. Returns the process exit code."""
+                 _rename=os.rename, spawn_fn=None):
+    """The helper's entry point. Returns the process exit code.
+
+    macOS/Linux: wait for the app's PID to exit, run the installer
+    inline, log and relaunch (unchanged behavior).
+
+    Windows: spawn the installer detached and exit at once — the result
+    is detected on the next start via the pending-update marker (see
+    :func:`apply_update_windows` / :func:`resolve_pending_update`).
+    """
     log = _helper_log(plan.get('log_path') or default_log_path())
     log(f'update helper started for v{plan.get("version")} '
         f'(pid {plan.get("pid")}, method {plan.get("method")})')
 
     wait = wait_pid_exit_fn or wait_pid_exit
+    if plan.get('method') == METHOD_WINDOWS:
+        return apply_update_windows(plan, log, wait, spawn_fn=spawn_fn,
+                                    relaunch=relaunch)
+
     if not wait(plan.get('pid'), plan.get('wait_timeout', HELPER_WAIT_SECONDS)):
         _fail_update(plan, log,
                      f'the application (pid {plan.get("pid")}) did not exit '

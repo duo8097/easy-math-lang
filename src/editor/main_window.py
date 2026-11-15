@@ -2303,6 +2303,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def maybe_show_update_failure(self):
         """Show the "last update failed" notice once (next start)."""
+        # A Windows self-update handed off to the installer detached
+        # detects its outcome here: the running version vs the pending
+        # version. Success stays silent; failure is recorded for the
+        # notice below (which shows exactly once).
+        try:
+            from compiler import updater as _updater
+
+            resolved = _updater.resolve_pending_update()
+        except Exception:
+            resolved = None
+        if isinstance(resolved, dict) and resolved.get('ok'):
+            try:
+                self.statusBar().showMessage(
+                    i18n.tr('update.installed_done',
+                            version=resolved.get('version', '')), 8000)
+            except Exception:
+                pass
         try:
             from compiler import update as _update
 

@@ -694,5 +694,6 @@
   "about.check_updates": "Kiểm tra cập nhật",
   "update.up_to_date": "Bạn đang dùng bản mới nhất.",
   "update.skip_done": "Đã bỏ qua bản cập nhật {version}.",
-  "update.not_now": "Để sau"
+  "update.not_now": "Để sau",
+  "update.installed_done": "Đã cập nhật lên {version}."
 }

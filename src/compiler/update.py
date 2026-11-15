@@ -423,6 +423,7 @@ def default_state():
         'skipped_version': None,
         'auto_check': True,
         'last_update_error': None,
+        'pending_update': None,
     }
 
 
@@ -447,6 +448,8 @@ def load_state(path=None):
         merged['latest'] = None
     if not isinstance(merged['last_update_error'], (dict, type(None))):
         merged['last_update_error'] = None
+    if not isinstance(merged['pending_update'], (dict, type(None))):
+        merged['pending_update'] = None
     return merged
 
 
@@ -613,4 +616,38 @@ def clear_update_error(state_path=None):
     state = load_state(path)
     if state.get('last_update_error') is not None:
         state['last_update_error'] = None
+        save_state(state, path)
+
+
+def record_pending_update(version, install_log_path, temp_dir,
+                          state_path=None):
+    """Mark an update as handed off (not yet known to have succeeded).
+
+    Written by the Windows helper after the installer is launched
+    detached: the result (success or failure) is detected on the next
+    application start by :func:`get_pending_update` consumers (the
+    editor), which compares the running version against *version*.
+    """
+    import time
+
+    path = state_path or default_state_path()
+    state = load_state(path)
+    state['pending_update'] = {
+        'version': normalize_version(str(version or '')),
+        'install_log_path': str(install_log_path or ''),
+        'temp_dir': str(temp_dir or ''),
+        'started': time.time(),
+    }
+    save_state(state, path)
+
+
+def get_pending_update(state_path=None):
+    return load_state(state_path).get('pending_update')
+
+
+def clear_pending_update(state_path=None):
+    path = state_path or default_state_path()
+    state = load_state(path)
+    if state.get('pending_update') is not None:
+        state['pending_update'] = None
         save_state(state, path)

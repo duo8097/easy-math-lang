@@ -54,6 +54,15 @@ Source: "..\THIRD_PARTY_LICENSES"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"
 Name: "{autodesktop}\Easy Math Editor"; Filename: "{app}\bin\easy-math-editor.exe"; Tasks: desktopicon
 
+; Launch the editor after an *update* install only. The updater passes
+; /UPDATE=1 for silent self-updates; the Check function below then makes
+; this entry run — after the files are replaced, before Setup exits —
+; and the editor starts with the ORIGINAL user's (non-elevated)
+; credentials. Interactive installs and any other silent run see no
+; entry, so nothing is launched implicitly.
+[Run]
+Filename: "{app}\bin\easy-math-editor.exe"; Parameters: ""; WorkingDir: "{app}\bin"; Flags: nowait runasoriginaluser; Check: IsSilentUpdate
+
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional options:"; Flags: unchecked
 Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang from the terminal)"; GroupDescription: "Additional options:"; Flags: unchecked
@@ -66,6 +75,11 @@ Name: "addtopath"; Description: "Add compiler/LSP to PATH (to use easy-math-lang
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Tasks: addtopath; Check: NeedsAddPath('{app}\bin')
 
 [Code]
+function IsSilentUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;
+
 function RemoveBackslash(S: string): string;
 var
   T: string;

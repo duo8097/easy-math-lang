@@ -694,5 +694,6 @@
   "about.check_updates": "Check for updates",
   "update.up_to_date": "You are up to date.",
   "update.skip_done": "Update {version} skipped.",
-  "update.not_now": "Not now"
+  "update.not_now": "Not now",
+  "update.installed_done": "Updated to {version}."
 }
