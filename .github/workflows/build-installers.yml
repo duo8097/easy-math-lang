@@ -413,6 +413,85 @@ jobs:
           }
           Write-Host "Installer smoke test OK: bin\_internal\python312.dll present; easy-math-lang.exe and ezmath.exe --version exit 0."
 
+      # --- Upgrade-in-place smoke test -----------------------------------------
+      # Releases up to 7.0.0 had NO explicit AppId, so Inno used AppName
+      # ("Easy Math Lang") as the implicit AppId. The freshly built setup
+      # must RECOGNIZE that existing install and upgrade it in place:
+      # install the previous release first, then this build over it, and
+      # require exactly ONE uninstall entry under HKLM Uninstall.
+      # If the previous release asset cannot be downloaded (e.g. forks,
+      # or the very first installer release), the step says so and prints
+      # the manual procedure instead of pretending to have verified it.
+      - name: Upgrade in place from the previous release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = 'duo8097/easy-math-lang'
+          $asset = 'EasyMathLang-Windows-x64-Setup.exe'
+          $prevDir = Join-Path $env:RUNNER_TEMP 'easymath-prev-release'
+          $upgradeDir = Join-Path $env:RUNNER_TEMP 'easymath-upgrade'
+          New-Item -ItemType Directory -Path $prevDir, $upgradeDir -Force | Out-Null
+          $prevSetup = $null
+          Write-Host 'Looking up the previous release...'
+          $tag = (gh release view --repo $repo --json tagName --jq .tagName 2>&1)
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Previous release: $tag — downloading $asset"
+            gh release download $tag --repo $repo --pattern $asset --dir $prevDir --clobber
+            if ($LASTEXITCODE -eq 0) { $prevSetup = Join-Path $prevDir $asset }
+          }
+          if ($null -eq $prevSetup -or -not (Test-Path $prevSetup)) {
+            Write-Host "::warning::MANUAL CHECK REQUIRED — could not download the previous release asset; the in-place upgrade was NOT verified in CI."
+            Write-Host 'Perform this upgrade check by hand before tagging a release:'
+            Write-Host '  1. On a Windows machine, install the latest release from'
+            Write-Host '     https://github.com/duo8097/easy-math-lang/releases'
+            Write-Host "  2. Install this build (installer\Output\EasyMathLang-Windows-x64-Setup.exe) over it."
+            Write-Host "  3. In regedit, open HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+            Write-Host "     and check the 'Easy Math Lang' entries — there must be exactly ONE."
+            Write-Host '  4. Launch the editor; it must report the new version.'
+            exit 0
+          }
+          Write-Host "Installing previous release $tag into $upgradeDir ..."
+          $proc = Start-Process -FilePath $prevSetup -Wait -PassThru -NoNewWindow `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$upgradeDir"
+          if ($proc.ExitCode -ne 0) {
+            Write-Host "::error file=installer/setup.iss::Previous release silent install failed with exit code $($proc.ExitCode)."
+            exit 1
+          }
+          $newSetup = Join-Path $PWD 'installer\Output\EasyMathLang-Windows-x64-Setup.exe'
+          Write-Host "Installing THIS build over it ..."
+          $proc = Start-Process -FilePath $newSetup -Wait -PassThru -NoNewWindow `
+            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$upgradeDir"
+          if ($proc.ExitCode -ne 0) {
+            Write-Host "::error file=installer/setup.iss::Silent install of $newSetup failed with exit code $($proc.ExitCode)."
+            exit 1
+          }
+          # Count uninstall entries named 'Easy Math Lang' across both
+          # registry views (x64-native and WOW6432Node).
+          $views = @('HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+                     'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')
+          $entries = foreach ($view in $views) {
+            Get-ChildItem $view -ErrorAction SilentlyContinue |
+              ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
+              Where-Object { $_.DisplayName -eq 'Easy Math Lang' }
+          }
+          $count = @($entries).Count
+          Write-Host "Uninstall entries named 'Easy Math Lang': $count"
+          $entries | ForEach-Object { Write-Host "  $($_.PSChildName) -> DisplayVersion $($_.DisplayVersion)" }
+          if ($count -ne 1) {
+            Write-Host "::error file=installer/setup.iss::Expected exactly ONE uninstall entry for 'Easy Math Lang' after the upgrade, found $count. The AppId in installer/setup.iss must stay equal to AppName (the pre-7.0.0 implicit AppId). See tests/test_installer_script.py and docs/packaging.md."
+            exit 1
+          }
+          $cli = Join-Path $upgradeDir 'bin\easy-math-lang.exe'
+          $ver = & $cli --version
+          Write-Host "easy-math-lang --version -> $ver"
+          if ("$ver" -notmatch [regex]::Escape($env:APP_VERSION)) {
+            Write-Host "::error::After the in-place upgrade, easy-math-lang.exe reports '$ver' but the build was APP_VERSION=$env:APP_VERSION — the old install was not actually replaced."
+            exit 1
+          }
+          Write-Host "Upgrade in place OK: exactly one uninstall entry; binary reports $env:APP_VERSION."
+
       # --- Artifact ----------------------------------------------------------
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7

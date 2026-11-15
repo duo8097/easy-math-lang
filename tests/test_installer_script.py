@@ -198,26 +198,70 @@ def test_pkgbuild_pkgver_matches_pyproject():
         'PKGBUILD must keep its pkgver() build-time override'
 
 
-def test_setup_has_stable_app_id_for_in_place_upgrade(iss_text):
-    """Same AppId across releases = the silent updater upgrades in place.
+def test_setup_app_id_is_the_pre_7_appname_implicit_id(iss_text):
+    """AppId must equal AppName exactly — the pre-7.0.0 implicit value.
 
-    The updater invokes the Setup.exe with /SILENT from a detached
-    helper; without a stable AppId, Inno would register the app as a
-    second installation instead of updating the existing one.
+    Releases up to 7.0.0 shipped without an explicit AppId, so Inno
+    used AppName ("Easy Math Lang") as the implicit AppId and the
+    uninstall key "Easy Math Lang_is1". Declaring any other AppId makes
+    new installs invisible to old ones: two Add/Remove Programs entries
+    and a mismatched uninstaller. This AppId intentionally carries no
+    braces and equals AppName verbatim.
     """
     setup = re.search(r'(?ms)^\[Setup\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
     assert setup, 'no [Setup] section found'
-    match = re.search(r'(?im)^AppId\s*=\s*(\S+)\s*$', setup.group(1))
-    assert match, 'setup.iss must declare a stable AppId'
-    # Literal constant (not a per-build GUID) so upgrades find the
-    # previous install.
-    assert match.group(1) == '{{EasyMathLang}}', (
-        f'AppId must stay stable across releases (got: {match.group(1)})')
+
+    def _value(key):
+        match = re.search(r'(?im)^' + re.escape(key) +
+                          r'\s*=\s*([^\r\n]+?)\s*$', setup.group(1))
+        return match.group(1) if match else None
+
+    appid = _value('AppId')
+    appname = _value('AppName')
+    assert appid, 'setup.iss must declare a stable AppId'
+    assert appname, 'setup.iss must declare an AppName'
+    assert appid == appname, (
+        f'AppId ({appid}) must equal AppName ({appname}) '
+        f'— that is the implicit AppId pre-7.0.0 installs registered under')
+    assert '{' not in appid and '}' not in appid, \
+        'AppId must carry no braces (the implicit value had none)'
     # Closing/restarting the app during install must keep working for
-    # the /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS silent flags.
+    # the /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS flags (interactive).
     assert re.search(r'(?im)^CloseApplications\s*=\s*yes\s*$', setup.group(1))
     assert re.search(r'(?im)^RestartApplications\s*=\s*yes\s*$',
                      setup.group(1))
+
+
+def test_no_braces_app_id_anywhere_in_repo():
+    """Nothing (docs, workflow, updater, tests) may assume a braced AppId."""
+    import pathlib
+
+    repo_root = os.path.dirname(os.path.dirname(ISS))
+    skip_dirs = {'.git', '.venv', 'vendor', 'build', 'dist',
+                 '__pycache__', '.pytest_cache', '.ruff_cache', 'node_modules'}
+    # The test file itself carries the literal as a match target.
+    this_file = os.path.relpath(os.path.abspath(__file__), repo_root)
+    offenders = []
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+        for name in filenames:
+            if name.endswith(('.pyc', '.lock', '.png', '.jpg', '.ico',
+                              '.zip', '.whl')):
+                continue
+            path = os.path.join(dirpath, name)
+            if os.path.normpath(path) == os.path.normpath(
+                    os.path.join(repo_root, this_file)):
+                continue
+            try:
+                with open(path, encoding='utf-8', errors='ignore') as handle:
+                    text = handle.read()
+            except OSError:
+                continue
+            if '{{EasyMathLang}}' in text:
+                offenders.append(os.path.relpath(path, repo_root))
+    assert offenders == [], (
+        f'braces AppId still referenced in: {offenders} '
+        f'(AppId is now exactly the AppName)')
 
 
 def test_setup_ships_third_party_licenses(iss_text):

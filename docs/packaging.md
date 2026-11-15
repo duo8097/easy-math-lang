@@ -46,6 +46,20 @@ CI reads it with `tomllib` (the same source of truth as
 compiles (with a placeholder version instead of a stale one).
 `tests/test_installer_script.py` guards this statically.
 
+`AppId` is declared as exactly **`AppName`** (no braces). Releases up
+to 7.0.0 shipped without an explicit `AppId`, so Inno used `AppName`
+as the implicit AppId and the uninstall key `Easy Math Lang_is1`;
+declaring anything else (e.g. a braces literal) would make new
+installers not see existing installs and leave two Add/Remove Programs
+entries behind. The CI job therefore installs the previous release
+first and then this build over it, and requires exactly one uninstall
+entry named `Easy Math Lang` (else the build fails). When the previous
+release asset cannot be downloaded (forks, or the first installer
+release), the step prints the manual procedure instead of verifying;
+run it by hand before tagging whenever it does — it installs into one
+shared directory and checks `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall`
+for exactly one `DisplayName = "Easy Math Lang"` entry.
+
 The editor shortcut points at `{app}\bin\easy-math-editor.exe`.
 Adding `{app}\bin` to `PATH` is an **optional** setup task that targets the
 **per-user** `PATH` (`HKCU\Environment`, broadcast via `WM_SETTINGCHANGE`

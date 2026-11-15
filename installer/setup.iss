@@ -5,16 +5,21 @@
 #endif
 
 [Setup]
-AppId={{EasyMathLang}}
+AppId=Easy Math Lang
 AppName=Easy Math Lang
 AppVersion={#AppVersion}
 PrivilegesRequired=admin
 DefaultDirName={autopf}\EasyMathLang
 DefaultGroupName=Easy Math Lang
 OutputBaseFilename=EasyMathLang-Windows-x64-Setup
-; Upgrade in place: same AppId + same AppName as every previous release,
-; so reinstalling updates the existing install instead of creating a
-; second one. PrivilegesRequired=admin means Windows shows the UAC
+; Upgrade in place: every release up to 7.0.0 shipped without an
+; explicit AppId, so Inno used AppName as the implicit AppId and the
+; uninstall key "Easy Math Lang_is1". This AppId deliberately equals
+; that implicit value (no braces) — exactly so installs made with those
+; old installers are recognized and upgraded as the same application.
+; (An earlier update-branch change declared a different AppId, which
+; made the new installer not see existing installs.)
+; PrivilegesRequired=admin means Windows shows the UAC
 ; prompt — that is the user's verification (silent updater runs use
 ; /SILENT and still elevate the setup process via UAC).
 CloseApplications=yes
