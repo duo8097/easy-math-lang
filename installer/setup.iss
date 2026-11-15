@@ -31,6 +31,9 @@ SetupIconFile=..\icons\ezmath.ico
 UninstallDisplayIcon=..\icons\ezmath.ico
 Compression=lzma2/fast
 SolidCompression=yes
+; Windows 10 version 1809 (build 17763) is the minimum supported
+; system; 64-bit only via ArchitecturesInstallIn64BitMode below.
+MinVersion=10.0.17763
 ArchitecturesInstallIn64BitMode=x64compatible
 ; Broadcast WM_SETTINGCHANGE at the end of install/uninstall so running
 ; programs pick up the optional user-PATH change from [Registry] below.
