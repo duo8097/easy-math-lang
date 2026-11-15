@@ -224,6 +224,13 @@ Recommends: mesa-libGL, fontconfig
 # documented Fedora remedy for prebuilt payloads is to waive this one
 # check for this package.
 %global __brp_check_rpaths %{nil}
+# The bundle also carries private libraries with renamed/hashed sonames
+# (e.g. libscipy_openblas64_-f48b354e.so) that no repository provides;
+# without this filter dnf tries to satisfy their auto-generated
+# Requires and the install fails with "nothing provides ...". The app
+# only needs the system EGL/desktop GL stack, expressed below as
+# Recommends (soft, like the .deb's libgl1/fontconfig).
+%global __requires_exclude_from ^/usr/lib/easy-math-lang/.*$
 
 %description
 Compiler, language server and desktop editor for the Easy Math
