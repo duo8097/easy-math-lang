@@ -138,6 +138,7 @@ the PyInstaller flags exist exactly once:
 | `scripts/build_binaries.py` | Freezes the three binaries with PyInstaller (entry points, per-platform flags, `ezmath` alias, shared-bundle assembly) into `dist/easy-math-lang/` (one `_internal/` for the CLI, the LSP and the editor). The entry shims are written to a temp dir, so no `entry_*.py` is left in the repo. |
 | `scripts/package_macos.sh` | macOS only: bundles the helpers into the `.app`, prunes the nested Qt tool apps, signs the bundle inside-out and (with `--stage`) writes the DMG layout to `staging/`. |
 | `scripts/check_tag_version.py` | Release guard: fails the build when a `v*` tag does not match the `pyproject.toml` version. |
+| `installer/build_linux.sh` | Linux driver with subcommands: `binary` (PyInstaller → `dist/easy-math-lang/`), `deb` and `rpm` (package the bundle; they never invoke PyInstaller), `all` (default; as before). |
 
 The local drivers only orchestrate them:
 
@@ -147,6 +148,26 @@ The local drivers only orchestrate them:
 | macOS | `bash scripts/build_macos.sh` |
 | Linux (`.deb` + `.rpm`) | `bash installer/build_linux.sh` |
 | Arch (`.pkg.tar.zst`) | `bash installer/build_arch.sh` (on Arch) |
+
+Linux is three independent stages — `binary`, then `deb`, then `rpm` —
+each re-runnable on its own:
+
+```
+bash installer/build_linux.sh binary        # PyInstaller only
+bash installer/build_linux.sh deb           # needs dist/easy-math-lang/
+bash installer/build_linux.sh rpm           # needs dist/easy-math-lang/
+bash installer/build_linux.sh all           # all three (default)
+```
+
+`deb` and `rpm` reuse the bundle produced by `binary` and never invoke
+PyInstaller; they fail fast with a clear message if
+`dist/easy-math-lang/` (or its executables, or `_internal/`) is missing.
+Tool requirements per subcommand: `binary` needs uv (+ pyinstaller via
+uv); `deb` needs `dpkg-deb`; `rpm` needs `rpmbuild` (both refuse to run
+with a missing bundle). `all` still builds the `.deb` and warns when
+`rpmbuild` is absent; `rpm` alone treats a missing `rpmbuild` as a hard
+error. The FHS staging is one shared helper in the script used by both
+packages, so the `.deb` and `.rpm` cannot drift apart.
 
 All of them leave their output in `dist/` (gitignored). Every push runs
 the same steps in CI and uploads the installer(s) as run artifacts
@@ -240,9 +261,25 @@ needs right-click → **Open**. Static checks live in
 
 ## What gets built (Linux)
 
-Same three binaries, Linux names, built by
-`.github/workflows/build-installers.yml` on `ubuntu-24.04`
-(x86_64 only) via `installer/build_linux.sh`:
+Same three binaries, Linux names, built by `.github/workflows/build-installers.yml`
+in three independent jobs on `ubuntu-24.04` (x86_64 only), mirroring
+the subcommand split in `installer/build_linux.sh`:
+
+| Job | Needs | What it does |
+|---|---|---|
+| `build-linux-binary` | — | Test suite, tag guard, fcitx5-qt + Qt SDK, `build_linux.sh binary`, frozen-binary smoke tests; packs `dist/easy-math-lang/` into one tarball and uploads it as `linux-bundle-amd64` |
+| `build-deb` | `build-linux-binary` | Extracts the bundle, builds `EasyMathLang-Debian-amd64.deb`, installs and smoke-tests it (`dpkg -i`, compile example, offline *draw) |
+| `build-rpm` | `build-linux-binary` | In a Fedora container (`fedora:41`), extracts the bundle, builds `EasyMathLang-Fedora-amd64.rpm`, inspects the payload and smoke-tests it (`dnf install`, compile example, offline *draw — CLI only, no display) |
+
+The binary bundle travels between the jobs as one tarball
+(`linux-bundle-amd64.tar.zst`, numeric owner root:root, modes/symlinks/
+executable bits preserved; `upload-artifact` alone does not preserve
+file modes on directories). The artifact is short-lived (2 days) and
+deliberately does **not** match the release job's `EasyMathLang*`
+download pattern, so it is never published as a release asset. If the
+`.deb` job fails, the `.rpm` job still runs (and vice versa); the
+release job needs all three (plus macOS/Windows/Arch), so a missing
+asset still blocks the release.
 
 | Binary | Mode | Contents |
 |---|---|---|
@@ -250,6 +287,12 @@ Same three binaries, Linux names, built by
 | `ezmath` | symlink | Relative alias to `easy-math-lang` |
 | `easy-math-lsp` | onedir CLI | Language server |
 | `easy-math-editor` | onedir GUI | Desktop editor (PySide6) |
+
+Note on the runtime baseline: the bundle is built on `ubuntu-24.04`,
+so the Linux packages **require a glibc of at least the Ubuntu 24.04
+glibc (2.39)** at install time. Nothing older (Ubuntu ≤ 22.04, Debian
+≤ 11, RHEL 8, older Arch) will run it — use the closest distro build
+from that family instead.
 
 Both packages install the same FHS layout (mirroring
 `installer/PKGBUILD` for Arch): the exes live in `/usr/lib/easy-math-lang/`
@@ -279,13 +322,20 @@ usr/
   plus stable `dist/EasyMathLang-Debian-amd64.deb` (Debian/Ubuntu/Mint)
   and `dist/EasyMathLang-Fedora-amd64.rpm` (Fedora/RHEL/openSUSE) copies
   attached to the stable GitHub Release. Version comes from `pyproject.toml` — never hard-coded.
+  To rebuild only one package locally:
+  `bash installer/build_linux.sh deb` or `bash installer/build_linux.sh rpm`
+  (both need an existing `dist/easy-math-lang/`; they never run
+  PyInstaller). `bash installer/build_linux.sh binary` rebuilds the
+  bundle alone, and `bash installer/build_linux.sh all` redoes everything.
 - The `.deb` is assembled with `dpkg-deb` (required); the `.rpm` needs
   `rpmbuild` and is skipped with a warning when it is missing
-  (CI installs the `rpm` package first).
+  (`rpm` alone hard-fails instead; CI builds the `.deb` on Ubuntu and
+  the `.rpm` in the Fedora container).
 - CI smoke-tests the installed `.deb` (`dpkg -i`, `--version`, compile
-  of `examples/example.ezmath`) and inspects the `.rpm` payload
-  (`rpm -qip` / `rpm -qlp`) before uploading artifacts. Static checks
-  live in `tests/test_linux_packaging.py`.
+  of `examples/example.ezmath`) and both packages (`dnf install` in the
+  Fedora container), plus the offline `*draw` check with a dead proxy.
+  Static checks live in `tests/test_linux_packaging.py` and
+  `tests/test_linux_build_script.py`.
 
 ---
 
@@ -533,7 +583,7 @@ its own work directory and binary cache.
 
 Windows: `powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1 -Jobs 2`.
 macOS: `bash scripts/build_macos.sh --jobs 2`.
-Linux: `bash installer/build_linux.sh --jobs 2`.
+Linux: `bash installer/build_linux.sh all --jobs 2`.
 Arch: `EASYMATH_BUILD_JOBS=2 bash installer/build_arch.sh`.
 Set jobs to 1 for lower memory use. All local wrappers use the frozen lockfile.
 
