@@ -104,7 +104,7 @@ code signing / notarization is future work. See
 | **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
 | **Windows** | ≥ 10 version 1809 (build 17763), 64-bit — matches the installer's `MinVersion` | GUI (PySide6/Qt) and the installer |
 | **macOS** | ≥ 14 (Sonoma), Apple Silicon — PySide6 6.12+ publishes no macOS 13 wheels | GUI (PySide6/Qt) |
-| **Linux** | x86_64 with glibc ≥ 2.39 (Ubuntu 24.04 baseline, same as the packages) | GUI (PySide6/Qt) |
+| **Linux** | x86_64, glibc ≥ 2.34 (the manylinux_2_34 floor of the locked wheels; the prebuilt packages need 2.39) | GUI (PySide6/Qt) |
 | **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
 | **Typst** | ≥ 0.15.0 (installed automatically via the `typst` PyPI package — no separate install needed) | Turns the intermediate `.typ` file into PDF |
 | **pygls** | ≥ 2.1.1 (installed automatically as a project dependency) | Editor support (language server) |
