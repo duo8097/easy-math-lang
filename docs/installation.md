@@ -5,7 +5,8 @@ even if you have never set up a programming tool before.
 
 > **On Windows?** The fastest way is the ready-made installer —
 > see [Option A](#option-a--windows-installer-easiest) below.
-> No Python needed.
+> No Python needed (Windows 10 version 1809 / build 17763 or newer,
+> 64-bit).
 >
 > **On macOS?** Download the `.dmg` from the latest stable
 > release on the
@@ -18,7 +19,8 @@ even if you have never set up a programming tool before.
 > (Fedora/RHEL/openSUSE) from the latest stable release on the
 > [Releases page](https://github.com/duo8097/easy-math-lang/releases) —
 > see [Option A3](#option-a3--linux-packages-easiest) below.
-> No Python needed (x86_64).
+> No Python needed (x86_64, glibc 2.39 or newer — the packages are built
+> on Ubuntu 24.04 and will not run on older distros).
 >
 > **Nightly builds** (fresh off `main`) are under Actions as run
 > Artifacts (expire after 14 days) — see each option below.
@@ -26,6 +28,9 @@ even if you have never set up a programming tool before.
 ---
 
 ## Option A — Windows installer (easiest)
+
+Requires **Windows 10 version 1809 (build 17763) or newer, 64-bit**
+(the installer refuses to run on older systems).
 
 1. Download `EasyMathLang-Windows-x64-Setup.exe` from the latest stable release on the
    [GitHub Releases page](https://github.com/duo8097/easy-math-lang/releases)
@@ -90,7 +95,9 @@ automatically, even when nothing was added to `PATH`.
 
 ## Option A3 — Linux packages (easiest)
 
-x86_64 only.
+x86_64 only. glibc **2.39 or newer** is required (the packages are
+built on Ubuntu 24.04); Ubuntu ≤ 22.04, Debian ≤ 11 or RHEL 8 will
+not run them.
 
 1. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint and
    derivatives) or `EasyMathLang-Fedora-amd64.rpm` (Fedora, RHEL,
@@ -118,7 +125,8 @@ finds its helper programs automatically.
 
 ## Option A4 — Arch package
 
-x86_64 only.
+x86_64 only, glibc 2.39 or newer (Arch is a rolling release and
+satisfies this by default).
 
 1. Download `easy-math-lang-git-<version>-<rel>-x86_64.pkg.tar.zst` from
    the latest stable release on the

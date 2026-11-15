@@ -17,7 +17,7 @@ without fighting complex software.
 
 The easiest way to use easy-math-lang — no Python needed:
 
-**Windows:**
+**Windows 10 (version 1809 / build 17763) or newer, 64-bit:**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLang-Windows-x64-Setup.exe` from the latest stable release.
@@ -33,7 +33,7 @@ The easiest way to use easy-math-lang — no Python needed:
    then run it (right-click → **Open** on first launch — the app is
    ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
 
-**Linux (x86_64):**
+**Linux (x86_64, glibc 2.39 or newer — the Ubuntu 24.04 baseline):**
 
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download `EasyMathLang-Debian-amd64.deb` (Debian, Ubuntu, Mint),
@@ -44,6 +44,9 @@ The easiest way to use easy-math-lang — no Python needed:
    `sudo rpm -i EasyMathLang-Fedora-amd64.rpm` or
    `sudo pacman -U easy-math-lang-git-*.pkg.tar.zst`) and launch
    **Easy Math Editor** from your applications menu.
+   The packages are built on Ubuntu 24.04; older distros
+   (Ubuntu ≤ 22.04, Debian ≤ 11, RHEL 8) are not supported — see
+   [Packaging and releases](docs/packaging.md).
 
 > Need step-by-step help or want to run from source?
 > See the [Installation guide](docs/installation.md).
@@ -99,7 +102,9 @@ code signing / notarization is future work. See
 | What | Version | Why you need it |
 |---|---|---|
 | **Python** | ≥ 3.12 (see `requires-python` in `pyproject.toml`) | Runs the compiler |
+| **Windows** | ≥ 10 version 1809 (build 17763), 64-bit — matches the installer's `MinVersion` | GUI (PySide6/Qt) and the installer |
 | **macOS** | ≥ 14 (Sonoma), Apple Silicon — PySide6 6.12+ publishes no macOS 13 wheels | GUI (PySide6/Qt) |
+| **Linux** | x86_64 with glibc ≥ 2.39 (Ubuntu 24.04 baseline, same as the packages) | GUI (PySide6/Qt) |
 | **NumPy** | ≥ 2.5.3 (installed automatically as a project dependency) | Geometry constraint solver |
 | **Typst** | ≥ 0.15.0 (installed automatically via the `typst` PyPI package — no separate install needed) | Turns the intermediate `.typ` file into PDF |
 | **pygls** | ≥ 2.1.1 (installed automatically as a project dependency) | Editor support (language server) |
