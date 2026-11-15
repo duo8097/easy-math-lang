@@ -232,6 +232,36 @@ def test_setup_app_id_is_the_pre_7_appname_implicit_id(iss_text):
                      setup.group(1))
 
 
+def test_setup_relaunches_editor_only_on_update_runs(iss_text):
+    """The post-update relaunch must be opt-in and non-elevated.
+
+    The self-update flow passes /UPDATE=1; the [Run] entry must then
+    fire and launch {app}\\bin\\easy-math-editor.exe as the original
+    (pre-UAC) user, never as admin, and must not run for ordinary
+    installs or other silent invocations.
+    """
+    run = re.search(r'(?ms)^\[Run\]\s*\n(.*?)(?=^\[|\Z)', iss_text)
+    assert run, 'no [Run] section found — the editor would never relaunch'
+    entry = None
+    for line in run.group(1).splitlines():
+        if 'easy-math-editor.exe' in line:
+            entry = line
+            break
+    assert entry is not None, '[Run] must launch easy-math-editor.exe'
+    assert '{app}\\bin\\easy-math-editor.exe' in entry
+    assert re.search(r'(?i)\bnowait\b', entry)
+    assert re.search(r'(?i)\brunasoriginaluser\b', entry), \
+        'the relaunched editor must run with the original (non-admin) user'
+    assert re.search(r'(?i)\bCheck\s*:\s*IsSilentUpdate\b', entry)
+    code = iss_text[iss_text.index('[Code]'):]
+    match = re.search(r'function IsSilentUpdate:\s*Boolean;\s*begin(.*?)end;',
+                      code, re.S)
+    assert match, 'IsSilentUpdate must gate the [Run] entry'
+    assert re.search(r"\{param:UPDATE\|0\}", match.group(1)), \
+        "IsSilentUpdate must read {param:UPDATE|0}"
+    assert "'1'" in match.group(1)
+
+
 def test_no_braces_app_id_anywhere_in_repo():
     """Nothing (docs, workflow, updater, tests) may assume a braced AppId."""
     import pathlib
