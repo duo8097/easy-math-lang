@@ -147,12 +147,21 @@ def _run(repo, *argv):
 
 
 def _tree_files(root):
-    """All regular files and symlinks below *root* (relative posix paths)."""
+    """All files and symlinks below *root* (relative posix paths)."""
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
         for name in filenames:
             files.append(os.path.relpath(os.path.join(dirpath, name), root))
     return sorted(set(files))
+
+
+def _tree_dirs(root):
+    """All directories below *root* (relative posix paths)."""
+    dirs = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        for name in dirnames:
+            dirs.append(os.path.relpath(os.path.join(dirpath, name), root))
+    return sorted(set(dirs))
 
 
 @pytest.mark.skipif(shutil.which('dpkg-deb') is None,
@@ -219,10 +228,19 @@ def test_rpm_subcommand_packages_the_staged_tree(fake_repo):
         if not p.startswith('DEBIAN/')]
     listed = subprocess.run(
         ['rpm', '-qlp', str(rpm)],
-        capture_output=True, text=True, check=True).stdout
-    files = sorted(l for l in listed.splitlines()
-                   if l and not l.endswith('/'))
-    assert files == sorted(f'/{p}' for p in staged)
+        capture_output=True, text=True, check=True).stdout.splitlines()
+    # rpm lists directories too (without trailing slashes); the payload
+    # is the staged tree 1:1, so every listed entry must be either a
+    # staged file or a staged directory, and every staged file must be
+    # listed.
+    expected_files = {f'/{p}' for p in staged}
+    allowed = expected_files | {f'/{d}' for d in _tree_dirs(stage_dir)}
+    listed_set = set(listed)
+    missing = expected_files - listed_set
+    foreign = listed_set - allowed
+    assert not missing, f'package is missing staged files: {sorted(missing)}'
+    assert not foreign, f'package lists files not in the stage: ' \
+        f'{sorted(foreign)}'
 
 
 
