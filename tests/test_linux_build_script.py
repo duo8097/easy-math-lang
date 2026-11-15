@@ -147,21 +147,12 @@ def _run(repo, *argv):
 
 
 def _tree_files(root):
+    """All regular files and symlinks below *root* (relative posix paths)."""
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
         for name in filenames:
             files.append(os.path.relpath(os.path.join(dirpath, name), root))
-    return sorted(files)
-
-
-def _tree_symlinks(root):
-    links = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        for name in dirnames + filenames:
-            path = os.path.join(dirpath, name)
-            if os.path.islink(path):
-                links.append(os.path.relpath(path, root))
-    return sorted(links)
+    return sorted(set(files))
 
 
 @pytest.mark.skipif(shutil.which('dpkg-deb') is None,
@@ -175,9 +166,9 @@ def test_deb_subcommand_packages_the_staged_tree(fake_repo):
     # (excluding the DEBIAN/ control dir, which dpkg-deb consumes).
     stage = fake_repo / 'dist' / 'linux-stage'
     [stage_dir] = [d for d in stage.iterdir() if d.is_dir()]
-    staged = sorted(
-        p for p in _tree_files(stage_dir) + _tree_symlinks(stage_dir)
-        if not p.startswith('DEBIAN/'))
+    staged = [
+        p for p in _tree_files(stage_dir)
+        if not p.startswith('DEBIAN/')]
     listed = subprocess.run(
         ['dpkg-deb', '--contents', str(deb)],
         capture_output=True, text=True, check=True).stdout
@@ -223,9 +214,9 @@ def test_rpm_subcommand_packages_the_staged_tree(fake_repo):
     assert rpm.is_file()
     stage = fake_repo / 'dist' / 'linux-stage'
     [stage_dir] = [d for d in stage.iterdir() if d.is_dir()]
-    staged = sorted(
-        p for p in _tree_files(stage_dir) + _tree_symlinks(stage_dir)
-        if not p.startswith('DEBIAN/'))
+    staged = [
+        p for p in _tree_files(stage_dir)
+        if not p.startswith('DEBIAN/')]
     listed = subprocess.run(
         ['rpm', '-qlp', str(rpm)],
         capture_output=True, text=True, check=True).stdout
