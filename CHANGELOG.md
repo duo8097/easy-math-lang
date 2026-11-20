@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [7.1.1] - 2026-11-20
+
 ## [7.1.0] - 2026-11-15
 
 ### Added
@@ -275,7 +277,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...HEAD
+[7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
 [7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
 [6.0.0]: https://github.com/duo8097/easy-math-lang/compare/v5.2.0...v6.0.0
