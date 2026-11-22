@@ -4,6 +4,20 @@ Something not working? This page lists the messages easy-math-lang
 prints, what causes them, and how to fix them — plus answers to the
 most common questions.
 
+<!-- toc -->
+- [First: how to read a message](#first-how-to-read-a-message)
+- [Installation and setup](#installation-and-setup)
+  - [Windows: `Failed to load Python DLL '…\_internal\python312.dll'`](#windows)
+- [Compiler messages, one by one](#compiler-messages-one-by-one)
+  - [Nothing special — the output looks wrong](#nothing-special--the-output-looks-wrong)
+- [Questions about the output](#questions-about-the-output)
+- [The desktop editor](#the-desktop-editor)
+- [The language server (in VS Code, Neovim, …)](#the-language-server-in-vs-code-neovim)
+- [Updates](#updates)
+- [Still stuck?](#still-stuck)
+- [See also](#see-also)
+<!-- /toc -->
+
 New to the terminology? The [Glossary](glossary.md) explains every word
 in plain language.
 

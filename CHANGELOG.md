@@ -12,6 +12,13 @@ for those.
 
 ## [Unreleased]
 
+### Added
+- **Auto-generated tables of contents for the long docs.** `scripts/gen_toc.py`
+  builds a nested `##`/`###` table of contents between `<!-- toc -->`
+  markers (GitHub-compatible anchors, duplicate headings get `-1`, `-2`
+  suffixes). After editing headings, run `python scripts/gen_toc.py`; CI
+  fails with `gen_toc.py --check` when a table of contents is out of date.
+
 ## [7.1.1] - 2026-11-20
 
 ## [7.1.0] - 2026-11-15

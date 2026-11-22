@@ -3,6 +3,22 @@
 One page with everything you type most often. Each section links to the
 full guide if you need details.
 
+<!-- toc -->
+- [Run the compiler](#run-the-compiler)
+- [Skeleton of a document](#skeleton-of-a-document)
+- [Values](#values)
+- [Separators — one rule](#separators--one-rule)
+- [Everyday math](#everyday-math)
+- [Aliases — same command, other names](#aliases--same-command-other-names)
+- [Text and structure](#text-and-structure)
+- [Symbols](#symbols)
+- [Draw geometry](#draw-geometry)
+  - [Construction points](#construction-points)
+- [Plot a function](#plot-a-function)
+- [If something goes wrong](#if-something-goes-wrong)
+- [See also](#see-also)
+<!-- /toc -->
+
 ---
 
 ## Run the compiler

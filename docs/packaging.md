@@ -4,6 +4,25 @@ End users should start with the [Installation guide](installation.md).
 This page documents how the Windows/macOS installers and their binaries
 are built, how the editor finds them at runtime, and how to test all of it.
 
+<!-- toc -->
+- [What gets built (Windows)](#what-gets-built-windows)
+  - [Self-update on Windows (how it avoids replacing a running app)](#self-update-on-windows-how-it-avoids-replacing-a-running-app)
+- [The build scripts](#the-build-scripts)
+  - [Binary size](#binary-size)
+- [What gets built (macOS)](#what-gets-built-macos)
+- [What gets built (Linux)](#what-gets-built-linux)
+- [What gets built (Arch)](#what-gets-built-arch)
+- [The release assets](#the-release-assets)
+- [Releasing](#releasing)
+- [Vendored Typst packages (offline `*draw`)](#vendored-typst-packages-offline)
+  - [How it is wired](#how-it-is-wired)
+  - [Updating the vendored packages](#updating-the-vendored-packages)
+  - [Licensing](#licensing)
+- [How the editor finds its helpers at runtime](#how-the-editor-finds-its-helpers-at-runtime)
+- [Testing](#testing)
+- [Build performance](#build-performance)
+<!-- /toc -->
+
 ---
 
 ## What gets built (Windows)
@@ -604,3 +623,8 @@ Inno Setup uses `lzma2/fast`, trading some compression ratio for build speed.
 Artifact upload uses compression level 0 because installers are already
 compressed. Compare job step durations in Actions to measure the improvement;
 runner load and cold dependency caches affect total time.
+
+Tables of contents: this is one of the long docs with an auto-generated
+table of contents between `<!-- toc -->` markers. After editing headings,
+run `python scripts/gen_toc.py` — CI fails with `gen_toc.py --check` when
+a table of contents is out of date.
