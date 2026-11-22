@@ -45,7 +45,7 @@ That's it — one text file, one command, one PDF.
 1. Go to the [**Releases page**](https://github.com/duo8097/easy-math-lang/releases).
 2. Download the installer for your system:
    - **Windows 10+ (64-bit):** `EasyMathLang-Windows-x64-Setup.exe`
-   - **macOS 14+ Apple Silicon:** `EasyMathLang-macOS-arm64.dmg` (drag to Applications; right-click → Open on first launch — the app is ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
+   - **macOS 14+ Apple Silicon (experimental until confirmed on real hardware):** `EasyMathLang-macOS-arm64.dmg` (drag to Applications; right-click → Open on first launch — the app is ad-hoc signed, not notarized; see the [Installation guide](docs/installation.md)).
    - **Linux:** `EasyMathLang-Debian-amd64.deb`, `EasyMathLang-Fedora-amd64.rpm`, or `easy-math-lang-git-*.pkg.tar.zst` (Arch)
 3. Install it and launch **Easy Math Editor** from your Start Menu / Applications.
 
