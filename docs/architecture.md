@@ -16,6 +16,7 @@ your way around before touching code. End users should start with the
 - [Tests (`tests/`)](#tests-tests)
 - [CI and releases (`.github/workflows/`)](#ci-and-releases-githubworkflows)
 - [Where to change what](#where-to-change-what)
+  - [The five packages in plain words](#the-five-packages-in-plain-words)
 - [See also](#see-also)
 <!-- /toc -->
 
@@ -247,6 +248,10 @@ Run everything with `uv run pytest tests/ -v`.
 
 ## Where to change what
 
+The code splits into five packages under `src/`. Each one has its own
+`README.md` with a file-by-file map and a plain-language data-flow
+diagram. Start here:
+
 | I want to… | Start here |
 |---|---|
 | Add/change a math command (`*foo`) | `compiler/math_commands.py` (add a spec to `math_call_specs` or a dedicated `replace_*_calls`), register the name in `diagnostics.KNOWN_COMMANDS`, then add tests + docs (`rule.txt`, `docs/algebra.md`, `lsp/builtins.py`) |
@@ -258,6 +263,16 @@ Run everything with `uv run pytest tests/ -v`.
 | Improve completion/hover | `lsp/builtins.py` text; behavior in `lsp/analysis.py` |
 | Add an editor feature | `editor/main_window.py` (wire it in `_create_menus`), keep new logic in its own Qt-light module |
 | Change the language itself | The human-readable spec is `rule.txt` (also consumed by `lsp/builtins.py` for its help text) |
+
+### The five packages in plain words
+
+| Package | What it does |
+|---------|--------------|
+| `compiler/` | Reads your `.ezmath` text and turns it into Typst, then PDF/PNG/SVG/HTML. One parser — the language server and editor preview both use it. |
+| `geometry/` | Solves `*draw(...)` constraints (points, distances, angles) and emits Typst/CeTZ drawing code. |
+| `lsp/` | Language server: gives any editor error checking, autocompletion, hover, and outline for `.ezmath` files. Reuses the compiler. |
+| `editor/` | Desktop app (PySide6): text editor, build button, live preview, Export As…, settings. |
+| `typst_bundle/` | Vendored Typst packages (CeTZ) so `*draw` works offline with no download. |
 
 ---
 
