@@ -70,7 +70,7 @@ def test_headings_inside_fenced_code_blocks_are_skipped(gen_toc):
 
 
 def test_slug_strips_inline_code_links_and_html(gen_toc):
-    assert gen_toc.slug('Run `uv sync` now') == 'run--now'
+    assert gen_toc.slug('Run `uv sync` now') == 'run-uv-sync-now'
     assert gen_toc.slug('See [Installation](installation.md)') == 'see-installation'
     assert gen_toc.slug('<b>Bold</b> heading') == 'bold-heading'
 
@@ -99,7 +99,7 @@ def test_toc_skips_h1_nests_subsections(gen_toc):
     assert '- [Alpha](#alpha)' in block
     assert '  - [Alpha One](#alpha-one)' in block
     assert '  - [Alpha Two](#alpha-two)' in block
-    assert '- [Beta (with `code`)](#beta-with)' in block
+    assert '- [Beta (with `code`)](#beta-with-code)' in block
     assert '  - [Beta One](#beta-one)' in block
     # The document H1 must not appear in the TOC.
     assert not re.search(r'\[Title\]', block)

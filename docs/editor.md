@@ -12,7 +12,7 @@ Launch it from the project folder:
   - [Glossary (consistent Vietnamese terms)](#glossary-consistent-vietnamese-terms)
   - [Auditing translations](#auditing-translations)
 - [Getting help from the editor](#getting-help-from-the-editor)
-- [The `*draw` geometry gallery](#the--geometry-gallery)
+- [The `*draw` geometry gallery](#the-draw-geometry-gallery)
 - [Live preview](#live-preview)
 - [Exporting (PDF, images, HTML, Typst)](#exporting-pdf-images-html-typst)
 - [Under the hood: helper programs](#under-the-hood-helper-programs)

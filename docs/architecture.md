@@ -6,15 +6,15 @@ your way around before touching code. End users should start with the
 
 <!-- toc -->
 - [The big picture](#the-big-picture)
-- [The compiler (`src/compiler/`)](#the-compiler)
+- [The compiler (`src/compiler/`)](#the-compiler-srccompiler)
   - [Entry points](#entry-points)
   - [What one compile does](#what-one-compile-does)
   - [Module map](#module-map)
-- [Geometry (`src/geometry/`)](#geometry)
-- [Language server (`src/lsp/`)](#language-server)
-- [Desktop editor (`src/editor/`)](#desktop-editor)
-- [Tests (`tests/`)](#tests)
-- [CI and releases (`.github/workflows/`)](#ci-and-releases)
+- [Geometry (`src/geometry/`)](#geometry-srcgeometry)
+- [Language server (`src/lsp/`)](#language-server-srclsp)
+- [Desktop editor (`src/editor/`)](#desktop-editor-srceditor)
+- [Tests (`tests/`)](#tests-tests)
+- [CI and releases (`.github/workflows/`)](#ci-and-releases-githubworkflows)
 - [Where to change what](#where-to-change-what)
 - [See also](#see-also)
 <!-- /toc -->

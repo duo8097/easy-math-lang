@@ -14,7 +14,7 @@ are built, how the editor finds them at runtime, and how to test all of it.
 - [What gets built (Arch)](#what-gets-built-arch)
 - [The release assets](#the-release-assets)
 - [Releasing](#releasing)
-- [Vendored Typst packages (offline `*draw`)](#vendored-typst-packages-offline)
+- [Vendored Typst packages (offline `*draw`)](#vendored-typst-packages-offline-draw)
   - [How it is wired](#how-it-is-wired)
   - [Updating the vendored packages](#updating-the-vendored-packages)
   - [Licensing](#licensing)

@@ -37,7 +37,7 @@ CLOSE_MARKER = '<!-- /toc -->'
 _HEADING_RE = re.compile(r'^(#{2,3})\s+(.+)$')
 _CLOSING_HASHES_RE = re.compile(r'\s+#+\s*$')
 _FENCE_RE = re.compile(r'^(`{3}|~{3})')
-_INLINE_CODE_RE = re.compile(r'`[^`]*`')
+_INLINE_CODE_RE = re.compile(r'`([^`]*)`')
 _LINK_RE = re.compile(r'\[([^\]]*)\]\([^)]*\)')
 _HTML_TAG_RE = re.compile(r'<[^>]+>')
 #: GitHub keeps letters (incl. non-ASCII), digits, spaces and hyphens;
@@ -46,8 +46,9 @@ _PUNCT_RE = re.compile(r'[^\w\s-]', re.UNICODE)
 
 
 def _clean_text(text: str) -> str:
-    """Heading display text: inline code spans, links and HTML stripped."""
-    text = _INLINE_CODE_RE.sub('', text)
+    """Heading display text: inline code backticks stripped but their
+    contents kept (GitHub retains rendered code text in heading IDs)."""
+    text = _INLINE_CODE_RE.sub(r'\1', text)
     text = _LINK_RE.sub(r'\1', text)
     text = _HTML_TAG_RE.sub('', text)
     return text.strip()
