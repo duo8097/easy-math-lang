@@ -115,6 +115,14 @@ If your change affects users, update in the same PR:
 | Internal restructuring | `docs/architecture.md` |
 | Anything user-visible | `CHANGELOG.md` (Unreleased section) |
 
+- If your change edits headings in a long doc
+  (`docs/algebra.md`, `docs/architecture.md`, `docs/cheatsheet.md`,
+  `docs/editor.md`, `docs/geometry.md`, `docs/installation.md`,
+  `docs/packaging.md`, `docs/troubleshooting.md`), regenerate its table
+  of contents: after editing headings, run `python scripts/gen_toc.py`.
+  CI runs `gen_toc.py --check` and fails when a table of contents is
+  out of date.
+
 Bug reports and feature requests use the templates in
 `.github/ISSUE_TEMPLATE/` — they ask for exactly what maintainers need.
 

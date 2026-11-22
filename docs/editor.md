@@ -3,6 +3,38 @@
 The project ships with a small desktop editor for `.ezmath` files.
 Launch it from the project folder:
 
+<!-- toc -->
+- [First steps](#first-steps)
+- [Language (English / Vietnamese)](#language-english--vietnamese)
+  - [Adding a language](#adding-a-language)
+- [Icons](#icons)
+  - [Icon to button/action mapping](#icon-to-buttonaction-mapping)
+  - [Glossary (consistent Vietnamese terms)](#glossary-consistent-vietnamese-terms)
+  - [Auditing translations](#auditing-translations)
+- [Getting help from the editor](#getting-help-from-the-editor)
+- [The `*draw` geometry gallery](#the-draw-geometry-gallery)
+- [Live preview](#live-preview)
+- [Exporting (PDF, images, HTML, Typst)](#exporting-pdf-images-html-typst)
+- [Under the hood: helper programs](#under-the-hood-helper-programs)
+- [Making text comfortable to read](#making-text-comfortable-to-read)
+- [Finding your way around](#finding-your-way-around)
+- [Layout](#layout)
+- [Settings file](#settings-file)
+- [Keeping the editor up to date](#keeping-the-editor-up-to-date)
+- [Files and shortcuts](#files-and-shortcuts)
+- [Linux: input methods (Vietnamese etc.)](#linux-input-methods-vietnamese-etc)
+  - [What PySide6 ships](#what-pyside6-ships)
+  - [What the editor does automatically (Linux only)](#what-the-editor-does-automatically-linux-only)
+  - [Which package provides the fcitx5 plugin?](#which-package-provides-the-fcitx5-plugin)
+  - [Version mismatch (from source)](#version-mismatch-from-source)
+  - [Opt-out](#opt-out)
+  - [Debugging](#debugging)
+  - [XWayland vs Wayland](#xwayland-vs-wayland)
+  - [Maintainers: bumping the pinned fcitx5-qt ref / a new PySide6 Qt](#maintainers-bumping-the-pinned-fcitx5-qt-ref--a-new-pyside6-qt)
+  - [glibc floor of the Linux installers](#glibc-floor-of-the-linux-installers)
+- [See also](#see-also)
+<!-- /toc -->
+
 ```
 uv run easy-math-editor [options] [optional-file.ezmath]
 ```

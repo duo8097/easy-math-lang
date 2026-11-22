@@ -3,6 +3,44 @@
 easy-math-lang can draw geometric figures — triangles, circles, angles, and more —
 directly in your PDF.
 
+<!-- toc -->
+- [How it works](#how-it-works)
+- [A simple example](#a-simple-example)
+- [Points](#points)
+  - [With exact coordinates](#with-exact-coordinates)
+  - [Without coordinates (auto-positioned)](#without-coordinates-auto-positioned)
+  - [What auto-placement decides (and what it doesn't)](#what-auto-placement-decides-and-what-it-doesnt)
+- [Construction points](#construction-points)
+  - [Picking an intersection](#picking-an-intersection)
+  - [When things go wrong](#when-things-go-wrong)
+- [Lines](#lines)
+  - [Line segment (from A to B)](#line-segment-from-a-to-b)
+  - [Infinite line](#infinite-line)
+  - [Ray (starts at A, goes through B)](#ray-starts-at-a-goes-through-b)
+- [Triangles](#triangles)
+- [Circles](#circles)
+- [Arcs](#arcs)
+- [Angles](#angles)
+  - [Right angle (90° marker)](#right-angle-90-marker)
+- [Rules and constraints](#rules-and-constraints)
+  - [Distance between two points](#distance-between-two-points)
+  - [Perpendicular lines (90° angle)](#perpendicular-lines-90-angle)
+  - [Parallel lines](#parallel-lines)
+  - [Point lies on a line](#point-lies-on-a-line)
+  - [Point lies on a circle](#point-lies-on-a-circle)
+  - [Two sides have the same length](#two-sides-have-the-same-length)
+  - [Two angles are equal](#two-angles-are-equal)
+  - [Midpoint](#midpoint)
+  - [Intersection of two lines](#intersection-of-two-lines)
+- [Labels and measurements](#labels-and-measurements)
+- [Examples](#examples)
+  - [Example 1 — Right triangle](#example-1--right-triangle)
+  - [Example 2 — Isosceles triangle](#example-2--isosceles-triangle)
+  - [Example 3 — Circle with a tangent line](#example-3--circle-with-a-tangent-line)
+- [Tips](#tips)
+- [See also](#see-also)
+<!-- /toc -->
+
 You don't need to know the exact coordinates of every point. Just describe the
 **relationships** between points (e.g. "these two sides are equal", "this angle is 90°"),
 and the program figures out where to place everything automatically.

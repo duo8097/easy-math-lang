@@ -3,6 +3,25 @@
 This guide will walk you through everything you need to install,
 even if you have never set up a programming tool before.
 
+<!-- toc -->
+- [Option A — Windows installer (easiest)](#option-a--windows-installer-easiest)
+- [Option A2 — macOS disk image (easiest)](#option-a2--macos-disk-image-easiest)
+- [Option A3 — Linux packages (easiest)](#option-a3--linux-packages-easiest)
+- [Option A4 — Arch package](#option-a4--arch-package)
+- [Option B — Run from source (all platforms)](#option-b--run-from-source-all-platforms)
+- [What you need to install](#what-you-need-to-install)
+- [Step 1 — Install Python](#step-1--install-python)
+  - [Windows](#windows)
+  - [macOS](#macos)
+  - [Linux](#linux)
+- [Step 2 — Install uv](#step-2--install-uv)
+- [Step 3 — Download easy-math-lang](#step-3--download-easy-math-lang)
+- [Step 4 — Install the project dependencies](#step-4--install-the-project-dependencies)
+- [You're ready!](#youre-ready)
+- [Updating later](#updating-later)
+- [Something went wrong?](#something-went-wrong)
+<!-- /toc -->
+
 > **On Windows?** The fastest way is the ready-made installer —
 > see [Option A](#option-a--windows-installer-easiest) below.
 > No Python needed (Windows 10 version 1809 / build 17763 or newer,
