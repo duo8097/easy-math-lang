@@ -123,6 +123,8 @@ class _DiagCounter:
         self._at_line_start = True
 
     def write(self, s):
+        """Write *s* to the wrapped stream, counting any ``[error]`` /
+        ``[warning]`` markers that appear at the start of a line."""
         try:
             self._count_markers(s)
         except Exception:
@@ -155,10 +157,12 @@ class _DiagCounter:
         self._at_line_start = at_start
 
     def writelines(self, lines):
+        """Write each line in *lines* through :meth:`write`."""
         for line in lines:
             self.write(line)
 
     def flush(self):
+        """Flush the wrapped stream, returning ``None`` on failure."""
         try:
             return self._wrapped.flush()
         except Exception:
