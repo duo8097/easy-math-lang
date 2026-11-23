@@ -12,6 +12,7 @@ class RecentFiles:
         self._key = key
 
     def add(self, path):
+        """Remember *path*, most recent first, capped at *max_items*."""
         if not path:
             return
         items = [p for p in self.list() if p != path]
@@ -19,6 +20,7 @@ class RecentFiles:
         self._settings.setValue(self._key, items[:self._max_items])
 
     def list(self):
+        """Return the stored paths, most recent first (empty list if none)."""
         value = self._settings.value(self._key, [])
         if isinstance(value, str):
             return [value]
@@ -30,4 +32,5 @@ class RecentFiles:
             return []
 
     def clear(self):
+        """Forget all stored recent-file entries."""
         self._settings.remove(self._key)

@@ -26,6 +26,14 @@ class _DerivedPoint:
 
 
 class GeometrySolver:
+    """Holds points, constraints and constructions, then solves them.
+
+    A plain object (no Qt): free points, fixed points, derived
+    (constructed) points, constraints, and the drawn diagram commands.
+    The solver runs a small gradient-based solver over the constraints
+    and produces coordinates for the drawing.
+    """
+
     def __init__(self):
         self.points = {}        # name -> np.array([x, y])
         self.fixed = set()
@@ -43,6 +51,13 @@ class GeometrySolver:
         return name not in self.fixed and name not in self.derived
 
     def add_point(self, name, x=None, y=None):
+        """Add a free point or a fixed point with given coordinates.
+
+        Without coordinates, a deterministic placeholder position is
+        chosen (same every run, via a hash of the name). Both
+        coordinates must be given together; duplicates with different
+        coordinates are rejected.
+        """
         # Local import: keeps `import geometry` free of NumPy until the
         # solver actually runs (editor/LSP startup stays light). Kept at
         # function top (not inside a branch) so every path below sees it.
@@ -93,6 +108,7 @@ class GeometrySolver:
             self.points[name] = np.array([r * math.cos(ang), r * math.sin(ang)])
 
     def add_constraint(self, label, fn, deps=()):
+        """Add one solver constraint (label, function, point deps)."""
         self.constraints.append((label, fn, tuple(deps)))
 
     def add_derived_point(self, name, deps, compute, label=None):
@@ -129,6 +145,7 @@ class GeometrySolver:
         stack = []
 
         def visit(name):
+            """Depth-first traversal with cycle detection."""
             st = state.get(name)
             if st is False:
                 return
@@ -240,6 +257,13 @@ class GeometrySolver:
                             )
 
     def solve(self):
+        """Find coordinates for all free points (Gauss–Newton style).
+
+        Iterates over constraints until the residual cost drops below
+        tolerance, or raises :class:`GeometryError` when the solver
+        diverges (non-finite cost or coordinates). Failed constructions
+        are reported via :attr:`solve_errors` instead of raising.
+        """
         # Local import: keeps `import geometry` free of NumPy until the
         # solver actually runs (editor/LSP startup stays light).
         import numpy as np
@@ -280,10 +304,13 @@ class GeometrySolver:
             return failed
 
         def eval_constraints(pts):
-            # Constructed points track their inputs: recompute them
-            # before every cost evaluation so gradients flow *through*
-            # them to the free points they depend on. pts is always
-            # self.points (constraints index it by name at call time).
+            """Evaluate all constraints' residuals for a point state.
+
+            Recomputes constructed points first, then sums the finite
+            residuals of the constraints that read non-failed deps.
+            Returns ``(total, failed)`` where *failed* maps failed
+            constructed points to error messages.
+            """
             failed = eval_derived(pts)
             total = 0.0
             for _label, fn, deps in self.constraints:

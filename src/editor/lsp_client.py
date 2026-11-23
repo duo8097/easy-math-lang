@@ -43,9 +43,11 @@ class LspClient(QtCore.QObject):
     # ------------------------------------------------------------------
     @property
     def state(self):
+        """Current server lifecycle state (``stopped``/``starting``/``connected``/``stopping``)."""
         return self._state
 
     def is_connected(self):
+        """True while the server is running and initialized."""
         return self._state == 'connected'
 
     def start(self):
@@ -187,6 +189,7 @@ class LspClient(QtCore.QObject):
         return request_id
 
     def send_notification(self, method, params):
+        """Fire-and-forget notification (no response expected)."""
         if not self._send({'jsonrpc': '2.0', 'method': method, 'params': params}):
             self.process_error.emit(
                 f'LSP notification {method!r} not sent (server not running)')
@@ -200,6 +203,12 @@ class LspClient(QtCore.QObject):
             self.protocol_error.emit(f'Malformed LSP frame: {error}')
 
     def dispatch_message(self, message):
+        """Route one decoded JSON-RPC message to the right handler.
+
+        Responses (id, no method) are matched to pending requests;
+        notifications (method, no id) are dispatched by method name;
+        server->client requests get a MethodNotFound answer.
+        """
         if not isinstance(message, dict):
             self.protocol_error.emit(
                 f'Malformed LSP message (not an object): {message!r:.120}')
@@ -232,6 +241,8 @@ class LspClient(QtCore.QObject):
     # Convenience wrappers (all fire-and-forget except initialize)
     # ------------------------------------------------------------------
     def initialize(self, root_uri=None, callback=None):
+        """Start the server handshake (``initialize`` then ``initialized``)."""
+
         def _done(result, error):
             if error is None:
                 self.send_notification('initialized', {})
@@ -247,32 +258,38 @@ class LspClient(QtCore.QObject):
         }, _done)
 
     def did_open(self, uri, language_id, version, text):
+        """Tell the server the document was opened (fire-and-forget)."""
         self.send_notification('textDocument/didOpen', {'textDocument': {
             'uri': uri, 'languageId': language_id,
             'version': version, 'text': text}})
 
     def did_change(self, uri, version, text):
+        """Tell the server the document content changed (fire-and-forget)."""
         self.send_notification('textDocument/didChange', {
             'textDocument': {'uri': uri, 'version': version},
             'contentChanges': [{'text': text}]})
 
     def did_close(self, uri):
+        """Tell the server the document was closed (fire-and-forget)."""
         self.send_notification('textDocument/didClose',
                                {'textDocument': {'uri': uri}})
 
     def request_completion(self, uri, line, character, callback):
+        """Ask the server for completions at a position (async callback)."""
         return self.send_request('textDocument/completion', {
             'textDocument': {'uri': uri},
             'position': {'line': line, 'character': character},
         }, callback, timeout_ms=5000)
 
     def request_hover(self, uri, line, character, callback):
+        """Ask the server for hover help at a position (async callback)."""
         return self.send_request('textDocument/hover', {
             'textDocument': {'uri': uri},
             'position': {'line': line, 'character': character},
         }, callback, timeout_ms=5000)
 
     def request_symbols(self, uri, callback):
+        """Ask the server for document symbols (async callback)."""
         return self.send_request('textDocument/documentSymbol', {
             'textDocument': {'uri': uri},
         }, callback, timeout_ms=5000)

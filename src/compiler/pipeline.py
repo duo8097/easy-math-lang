@@ -123,6 +123,8 @@ class _DiagCounter:
         self._at_line_start = True
 
     def write(self, s):
+        """Write *s* to the wrapped stream, counting any ``[error]`` /
+        ``[warning]`` markers that appear at the start of a line."""
         try:
             self._count_markers(s)
         except Exception:
@@ -155,10 +157,12 @@ class _DiagCounter:
         self._at_line_start = at_start
 
     def writelines(self, lines):
+        """Write each line in *lines* through :meth:`write`."""
         for line in lines:
             self.write(line)
 
     def flush(self):
+        """Flush the wrapped stream, returning ``None`` on failure."""
         try:
             return self._wrapped.flush()
         except Exception:
@@ -194,6 +198,12 @@ def _with_diag_count(fn):
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        """Swap sys.stderr for a counting wrapper, run *fn*, restore it.
+
+        Counts ``[error]``/``[warning]`` diagnostics emitted during the
+        compile and, when ``strict=True`` and errors were counted,
+        returns ``False`` so the caller knows the compile failed.
+        """
         global _ACTIVE_COUNTER
         with _COMPILE_LOCK:
             old = sys.stderr
@@ -2166,6 +2176,14 @@ def _cleanup_build_artifacts(input_file, output_file=None, export_format=None):
 
 
 def main():
+    """Command-line entry point: ``easy-math-lang <input.ezmath> [output.pdf]``.
+
+    Parses flags (``--format``, ``--ppi``, ``-o``/``--output``,
+    ``--strict``, ``--save-build-artifacts``, ``--check-update``,
+    ``--update``, ``--version``, ``--list-formats``) and compiles the
+    input file, printing the result and exiting 0 on success or 1 on
+    failure.
+    """
     args = sys.argv[1:]
     # `--` escape hatch: everything after the first `--` is a file
     # operand, so files with flag-like names (e.g. `--version`) stay

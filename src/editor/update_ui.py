@@ -57,15 +57,18 @@ class UpdateNoticeBanner(QtWidgets.QFrame):
         self.retranslate_ui()
 
     def set_info(self, current, latest):
+        """Store the current/latest version pair and refresh the banner."""
         self._current = current
         self._latest = latest
         self.retranslate_ui()
 
     def _dismiss(self):
+        """Hide the update banner and stop tracking it."""
         self.hide()
         self.dismissed.emit()
 
     def retranslate_ui(self):
+        """Refresh the update banner texts in the current language."""
         self.text_label.setText(
             i18n.tr('update.banner_text', latest=self._latest,
                     current=self._current))
@@ -236,6 +239,7 @@ class UpdateDialog(QtWidgets.QDialog):
         self.retranslate_ui()
 
     def set_busy(self, status_text):
+        """Show a busy/working state with an indeterminate progress bar."""
         self._state = 'busy'
         self.status_label.setText(status_text)
         self.progress.setRange(0, 0)  # indeterminate until the first chunk
@@ -249,6 +253,7 @@ class UpdateDialog(QtWidgets.QDialog):
         self.cancel_button.setEnabled(True)
 
     def set_progress(self, downloaded, total):
+        """Update the download progress bar (percent of *total* bytes)."""
         if total:
             self.progress.setRange(0, 100)
             self.progress.setValue(min(100, int(downloaded * 100 / total)))
@@ -256,11 +261,13 @@ class UpdateDialog(QtWidgets.QDialog):
             self.progress.setRange(0, 0)
 
     def set_verifying(self):
+        """Switch the dialog into the 'verifying download' state."""
         self.status_label.setText(i18n.tr('update.verifying'))
         self.progress.setRange(0, 0)
         self.cancel_button.setEnabled(False)
 
     def set_installing(self):
+        """Switch the dialog into the 'installing' state."""
         self.status_label.setText(i18n.tr('update.installing'))
         self.progress.setRange(0, 0)
         self.cancel_button.setEnabled(False)
@@ -277,6 +284,7 @@ class UpdateDialog(QtWidgets.QDialog):
         self.later_button.setEnabled(True)
 
     def set_error(self, reason, hint=None):
+        """Switch the dialog into the error state and show *reason*."""
         self._state = 'error'
         self.status_label.setText(i18n.tr('update.failed'))
         self.progress.setRange(0, 100)
@@ -300,6 +308,7 @@ class UpdateDialog(QtWidgets.QDialog):
         self.accept()
 
     def retranslate_ui(self):
+        """Refresh the update dialog texts in the current language."""
         self.setWindowTitle(i18n.tr('update.dialog_title'))
         self.current_label.setText(i18n.tr('update.current_version'))
         self.new_label.setText(i18n.tr('update.new_version'))
@@ -375,6 +384,7 @@ class UpdateCheckWorker(QtCore.QObject):
 
     @QtCore.Slot(bool)
     def check(self, interactive):
+        """Run the background update check; emit *done* with the result."""
         from compiler import update as _update
         from compiler import updater as _updater
 
@@ -422,10 +432,12 @@ class UpdateDownloadWorker(QtCore.QObject):
 
     @QtCore.Slot()
     def cancel(self):
+        """Set the cancel flag for the background download worker."""
         self._cancel = True
 
     @QtCore.Slot()
     def run(self):
+        """Download, verify and install the pending update (background)."""
         from compiler import updater as _updater
 
         def _progress(done, total):

@@ -15,6 +15,25 @@ diagnostics/symbols: the compiler is line-oriented, so line numbers map
 1:1 and character offsets are found by scanning the source line.  Checks
 run on the source text (pre-substitution) so reported ranges are exact;
 substitution is applied to a copy only to decide resolvability.
+
+Table of contents for this ~1200-line file — line numbers are
+approximate (they drift; the names do not):
+
+    ~line  section
+    -----  -------
+      59   _mask_ranges / _mask_calc_spans / _mask_matrix_spans /
+           _mask_known_call_spans / _mask_p_segments — offset-preserving
+           "blank out" helpers so LSP checks never see raw math
+      143  Diag / Definition / Analysis — the small data classes
+      183   _quiet / _quiet_calc — context managers around compiler stderr
+      264   _record_new / _snapshot / _find_call_anchor / _analyze_draw —
+           *draw(...) block handling
+      327   _validate_table_calls / _validate_table_block /
+           _validate_plot_image_styling — table & plot checks
+      468   analyze_text / _analyze_math_body / _analyze_text_inner —
+           THE line loop that turns text into diagnostics
+     1082   _in_p_span — is this character inside an inline math span?
+     1098   complete / hover / document_symbols — the LSP request handlers
 """
 
 import contextlib
@@ -140,6 +159,7 @@ def _mask_known_call_spans(code):
     return _mask_ranges(code, spans)
 
 
+# --- Diagnostics + definitions: data the LSP reports and finds ---
 class Diag:
     """A diagnostic with 0-based line/character positions."""
 
@@ -170,12 +190,16 @@ class Definition:
 
 
 class Analysis:
+    """Collects diagnostics, definitions and variable values for one file."""
+
     def __init__(self):
+        """Start with no diagnostics, no definitions, no variable values."""
         self.diagnostics = []
         self.definitions = []
         self.values = {}  # name -> (kind, value, def_line)
 
 
+# --- Context managers around compiler stderr output ---
 @contextlib.contextmanager
 def _quiet():
     """Suppress compiler stderr chatter; diagnostics are derived by us."""
@@ -291,6 +315,7 @@ def _find_call_anchor(code, name):
     return m.start() if m is not None else 0
 
 
+# --- Draw block handling (*draw(...) -> geometry checks) ---
 def _analyze_draw(block_text, lines, start_line, end_line, analysis):
     """Geometry diagnostics for one draw block (compiler output reused)."""
     with _quiet() as cap:
@@ -321,6 +346,7 @@ def _analyze_draw(block_text, lines, start_line, end_line, analysis):
             )
 
 
+# --- Table shape checks (*table / *matrix cells must be rectangular) ---
 def _table_shape_message(inner, kind):
     """Return a warning string when a table/matrix grid is ragged/empty."""
     try:
@@ -462,6 +488,7 @@ def _validate_table_block(block_type, block_content, lines,
         )
 
 
+# --- Main analysis: text -> diagnostics (the line loop) ---
 def analyze_text(text):
     """Analyze a document; never raises on malformed input."""
     analysis = Analysis()
@@ -1076,6 +1103,7 @@ def _analyze_text_inner(text, analysis):
     return analysis
 
 
+# --- Inline math membership check ---
 def _in_p_span(line_text, character):
     """True when the cursor offset lies inside a balanced *p(...) span."""
     pat = re.compile(r'\*p\(')
@@ -1092,6 +1120,7 @@ def _in_p_span(line_text, character):
         pos = close
 
 
+# --- LSP request handlers: complete / hover / document symbols ---
 def complete(text, line, character):
     """Completion candidates at a cursor position (client filters by prefix)."""
     analysis = analyze_text(text)

@@ -100,9 +100,11 @@ class _Node:
     label = '...'
 
     def deps(self):
+        """Names of the points/constructions this node depends on."""
         return set()
 
     def eval(self, pts):
+        """Evaluate this node for the given point positions (raises on error)."""
         raise NotImplementedError
 
 
@@ -114,9 +116,11 @@ class _PointRef(_Node):
         self.label = name
 
     def deps(self):
+        """The single point name this reference depends on."""
         return {self.name}
 
     def eval(self, pts):
+        """Return the point's coordinates as a numeric array."""
         if self.name not in pts:
             raise GeometryError(f"undefined point '{self.name}'")
         import numpy as np
@@ -132,6 +136,7 @@ class _Num(_Node):
         self.label = text
 
     def eval(self, pts):
+        """A numeric literal evaluates to its own value."""
         return self.value
 
 
@@ -144,9 +149,11 @@ class _Line(_Node):
         self.label = f'line({p.label} ; {q.label})'
 
     def deps(self):
+        """Points this line depends on (its two endpoints)."""
         return self.p.deps() | self.q.deps()
 
     def eval(self, pts):
+        """Return (A, B) endpoint coordinates, or raise on a degenerate line."""
         import numpy as np
         from .vectors import _norm
 
@@ -173,9 +180,11 @@ class _Circle(_Node):
         self.label = f'circle({center.label} ; {radius.label})'
 
     def deps(self):
+        """Points this circle depends on (center + radius source)."""
         return self.center.deps() | self.radius.deps()
 
     def eval(self, pts):
+        """Return (center, radius) coordinates, or raise on invalid radius."""
         import numpy as np
         from .vectors import _norm
 
@@ -207,12 +216,14 @@ class _Call(_Node):
         self.label = f'{name}({", ".join(a.label for a in args)})'
 
     def deps(self):
+        """Collect every point name this call depends on."""
         out = set()
         for a in self.args:
             out |= a.deps()
         return out
 
     def eval(self, pts):
+        """Evaluate the named constructor with the given points."""
         fn = _EVALUATORS[self.name]
         return fn(self.args, pts)
 
@@ -622,6 +633,11 @@ def parse_construction(text):
     deps = node.deps()
 
     def compute(pts):
+        """Evaluate the construction for the given point positions.
+
+        Raises :class:`GeometryError` on non-finite or canvas-overflow
+        results; returns the point coordinates as an array.
+        """
         import numpy as np
 
         val = node.eval(pts)

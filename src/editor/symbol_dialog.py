@@ -319,6 +319,7 @@ class SymbolDialog(QtWidgets.QDialog):
         return self._symbol
 
     def values(self) -> dict:
+        """Return the dialog's current field values as a plain dict."""
         return {k: e.text() for k, e in self._edits.items()}
 
     def _on_accept(self):

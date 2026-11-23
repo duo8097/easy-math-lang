@@ -14,9 +14,11 @@ class _LineNumberArea(QtWidgets.QWidget):
         self._editor = editor
 
     def sizeHint(self):
+        """Width of the line-number area: fits the current line count."""
         return QtCore.QSize(self._editor.line_number_area_width(), 0)
 
     def paintEvent(self, event):
+        """Paint the line numbers and highlight for one paint cycle."""
         self._editor.line_number_area_paint_event(event)
 
 
@@ -112,6 +114,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
 
     @property
     def theme(self):
+        """Name of the currently selected color theme (:mod:`editor.theme`)."""
         return self._theme
 
     def retranslate_ui(self):
@@ -122,6 +125,12 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     # Cursor position (0-based line, UTF-16 column — same units as LSP)
     # ------------------------------------------------------------------
     def cursor_line_col(self):
+        """Return the cursor position as (line, column), both 0-based.
+
+        The line number comes from ``blockNumber()`` (already 0-based);
+        the column is a UTF-16 offset within the line, the same units
+        the LSP uses, so editor/lsp positions stay comparable.
+        """
         cursor = self.textCursor()
         return cursor.blockNumber(), cursor.positionInBlock()
 
@@ -130,6 +139,21 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         self.cursorMoved.emit(line, col)
 
     def keyPressEvent(self, event):  # noqa: C901
+        """Handle a key press, applying bracket auto-pair rules.
+
+        Steps:
+
+        1. Never touch IME composition text (Telex/VNI, fcitx5/ibus, CJK).
+        2. If auto-close is on and no Ctrl/Cmd/Alt modifier is held, run
+           the typed character through the pair helpers (backslash
+           overtype, openers insert pairs, closers overtype).
+        3. Backspace deletes a whole empty pair in one stroke.
+        4. Enter expands an empty pair (``()`` -> newline inside).
+        5. Call the Qt default handler for everything else.
+
+        Afterwards, auto-show completion when trigger characters were
+        typed (like Ctrl+Space, but automatic).
+        """
         # IME composition must never be touched (Telex/VNI, fcitx5/ibus, CJK IMEs).
         # Programmatic edits never arrive here, so this is a pure key-event path.
         modifiers = event.modifiers()
@@ -504,6 +528,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
         self.centerCursor()
 
     def word_under_cursor(self):
+        """Return the word the cursor is currently on as a string."""
         cursor = self.textCursor()
         cursor.select(QtGui.QTextCursor.WordUnderCursor)
         return cursor.selectedText()
@@ -512,6 +537,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     # Line numbers + current line
     # ------------------------------------------------------------------
     def line_number_area_width(self):
+        """Width of the line-number gutter: fits the longest line count."""
         digits = len(str(max(1, self.blockCount())))
         return 8 + self.fontMetrics().horizontalAdvance('9') * digits
 
@@ -528,6 +554,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
             self._update_line_number_width(0)
 
     def resizeEvent(self, event):
+        """Resize the line-number gutter area to the new editor size."""
         super().resizeEvent(event)
         rect = self.contentsRect()
         self._line_numbers.setGeometry(
@@ -535,6 +562,7 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
                          self.line_number_area_width(), rect.height()))
 
     def line_number_area_paint_event(self, event):
+        """Paint the line-number gutter: background + one number per block."""
         from .theme import editor_colors
         colors = self._theme_colors or editor_colors('light')
         painter = QtGui.QPainter(self._line_numbers)
@@ -576,11 +604,13 @@ class EditorWidget(QtWidgets.QPlainTextEdit):
     # Hover detection (resting mouse triggers a tooltip request)
     # ------------------------------------------------------------------
     def mouseMoveEvent(self, event):
+        """Track the mouse position and (re)start the hover tooltip timer."""
         super().mouseMoveEvent(event)
         self._hover_pos = event.globalPosition().toPoint()
         self._hover_timer.start()
 
     def leaveEvent(self, event):
+        """Stop the hover timer and hide the tooltip when the mouse leaves."""
         super().leaveEvent(event)
         self._hover_timer.stop()
         self._hover_pos = None

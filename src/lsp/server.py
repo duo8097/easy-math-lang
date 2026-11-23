@@ -36,6 +36,7 @@ _SYMBOL_KINDS = {
 
 
 def is_supported(uri, language_id=None):
+    """True when *uri* (or *language_id*) may be a supported .ezmath file."""
     if not isinstance(uri, str):
         return False
     low = uri.lower().split('?')[0].split('#')[0]
@@ -101,6 +102,12 @@ def _lsp_range(lines, line, start_cp, end_cp):
 
 
 def to_lsp_diagnostic(diag, lines):
+    """Convert a raw diagnostic to a wire-protocol :class:`Diagnostic`.
+
+    Maps the internal ``error``/``warning`` severity strings to the
+    LSP enum; positions are converted from 0-based code points to
+    UTF-16 code units.
+    """
     severity = (
         lsp.DiagnosticSeverity.Error
         if diag.severity == 'error'
@@ -115,6 +122,7 @@ def to_lsp_diagnostic(diag, lines):
 
 
 def analyze_and_publish(ls, store, uri):
+    """Analyze the stored document for *uri* and publish diagnostics."""
     try:
         text, ver = store.snapshot(uri)
         if text is None:
@@ -164,6 +172,7 @@ def analyze_and_publish(ls, store, uri):
 
 
 def create_server():
+    """Create the Easy Math Language server instance (for tests/stdio)."""
     server = LanguageServer(
         SERVER_NAME,
         SERVER_VERSION,
@@ -181,6 +190,7 @@ def create_server():
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
     def did_open(ls, params: lsp.DidOpenTextDocumentParams):
+        """Handle open: store the document, then analyze if supported."""
         doc = params.text_document
         if not isinstance(doc.uri, str) or not isinstance(doc.text, str):
             logger.warning('didOpen with invalid uri/text; ignoring')
@@ -200,6 +210,7 @@ def create_server():
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls, params: lsp.DidChangeTextDocumentParams):
+        """Handle change: update the stored text, then republish diagnostics."""
         uri = params.text_document.uri
         if uri not in store:
             # Unknown URI (e.g. after restart): publish empty to avoid
@@ -236,6 +247,7 @@ def create_server():
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CLOSE)
     def did_close(ls, params: lsp.DidCloseTextDocumentParams):
+        """Handle close: forget the document and clear its diagnostics."""
         uri = params.text_document.uri
         store.close(uri)
         _support_cache.pop(uri, None)
@@ -251,6 +263,7 @@ def create_server():
         lsp.CompletionOptions(trigger_characters=['<', '*']),
     )
     def completion(ls, params: lsp.CompletionParams):
+        """Handle completion requests for variables and commands."""
         try:
             uri = params.text_document.uri
             text = store.get(uri)
@@ -279,6 +292,7 @@ def create_server():
 
     @server.feature(lsp.TEXT_DOCUMENT_HOVER)
     def hover(ls, params: lsp.HoverParams):
+        """Handle hover requests: return help text for a position."""
         try:
             uri = params.text_document.uri
             text = store.get(uri)
@@ -309,6 +323,7 @@ def create_server():
 
     @server.feature(lsp.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
     def document_symbol(ls, params: lsp.DocumentSymbolParams):
+        """Handle outline requests: return symbols for the document."""
         try:
             uri = params.text_document.uri
             text = store.get(uri)
@@ -334,6 +349,7 @@ def create_server():
 
 
 def main():
+    """Run the language server over stdio (LSP process entry point)."""
     logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
     create_server().start_io()
 

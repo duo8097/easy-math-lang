@@ -10,24 +10,29 @@ from PySide6 import QtGui
 
 
 def comment_pattern():
+    """Regex matching a ``//`` comment to end of line."""
     return re.compile(r'//[^\n]*')
 
 
 def variable_pattern():
+    """Regex matching ``<variable>`` placeholders (must start with a letter)."""
     # Must start with a letter/underscore so ASCII arrows like <-> are
     # left for the operator rule.
     return re.compile(r'<\s*[A-Za-z_][^<>]*>')
 
 
 def command_pattern():
+    """Regex matching ``*command`` spellings (``*frac``, ``*draw`` …)."""
     return re.compile(r'\*[A-Za-z][A-Za-z0-9_-]*')
 
 
 def number_pattern():
+    """Regex matching integers (and multi-number ranges), floats, dots."""
     return re.compile(r'\b\d+(?:\s+\d+)*(?:\.\d+)?\b')
 
 
 def math_pattern():
+    r"""Regex matching one single-line math span (``\ … \``), escapes aware."""
     # Single-line \ ... \ pairs; \\ never opens/closes (lookarounds).
     return re.compile(r'(?<!\\)\\(?:[^\\]|\\{2})*?(?<!\\)\\')
 
@@ -61,8 +66,11 @@ def math_spans(text):
 
 
 def operator_pattern():
-    # Alternatives are tried left to right: longer sequences first so
-    # '<==' is not split into '<=' + '=', matching compiler/symbols.py.
+    """Regex matching math operators and ASCII symbol shortcuts.
+
+    Alternatives are tried left to right: longer sequences first so
+    ``<==`` is not split into ``<=`` + ``=``, matching compiler/symbols.py.
+    """
     return re.compile(
         r'\|->|<->|<=>|<==|==>|=>|===|==|!==|!=|<=|>=|<<|>>|&&|\|\|'
         r'\+-|-\+|~=~|~=|~~|\.\.\.|::|\*\*|\|-|-\|'
@@ -117,6 +125,7 @@ class EmlHighlighter(QtGui.QSyntaxHighlighter):
 
     @property
     def theme(self):
+        """Currently selected syntax-highlighter color theme."""
         return self._theme
 
     @staticmethod
@@ -130,6 +139,11 @@ class EmlHighlighter(QtGui.QSyntaxHighlighter):
         return fmt
 
     def highlightBlock(self, text):
+        """Apply the highlighting rules to one text block.
+
+        Comments (``//`` to end of line) win over everything else;
+        multiline math blocks are tracked via block state.
+        """
         # Comment range wins over everything (compiler strips comments first).
         comment_start = text.find('//')
         # Multiline math: state 1 means this block started inside \ ... \.

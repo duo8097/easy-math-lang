@@ -70,6 +70,13 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    """Launch the Easy Math Editor desktop application.
+
+    Sets up Linux input-method support (fcitx5 for Vietnamese), creates
+    the QApplication, builds the main window, optionally opens *path*,
+    shows the welcome panel on first run, and starts the Qt event loop.
+    Returns the application exit code.
+    """
     # Set up fcitx5 IME support for Linux (if applicable). This must
     # stay before QApplication creation and must not touch key
     # handling: Vietnamese typing via fcitx5 (fcitx5-lotus) depends on

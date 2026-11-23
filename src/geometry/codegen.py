@@ -149,6 +149,13 @@ def _clip_line_to_box(px, py, dx, dy, xmin, ymin, xmax, ymax):
 
 
 def generate_typst(solver, errors=None):
+    """Turn solver state into a CeTZ (typst) drawing source string.
+
+    Emits the ``#cetz.canvas`` block, embedding solver errors as
+    comments and falling back to point dots when coordinates are not
+    finite. Returns the Typst source string; never raises on bad
+    solver data.
+    """
     lines = []
     lines.append(cetz_import_line())
     lines.append('#align(center)[#cetz.canvas({')

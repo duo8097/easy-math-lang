@@ -251,6 +251,7 @@ class DrawCard(QtWidgets.QFrame):
         layout.addStretch(1)
 
     def retranslate_ui(self):
+        """Refresh the draw card texts in the current language."""
         entry = self.entry
         self._title_label.setText(title_text(entry))
         self._desc_label.setText(description_text(entry))
@@ -361,6 +362,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
 
     @property
     def cards(self) -> dict[str, DrawCard]:
+        """Read-only view of the cards currently built (id -> DrawCard)."""
         return dict(self._cards)
 
     def visible_ids(self) -> list[str]:
@@ -369,6 +371,7 @@ class DrawGalleryDialog(QtWidgets.QDialog):
                 if entry.id in self._cards]
 
     def card_for(self, entry_id: str) -> DrawCard | None:
+        """Return the card for *entry_id*, or None when not built yet."""
         return self._cards.get(entry_id)
 
     def _selected_group(self):

@@ -406,6 +406,13 @@ def _clean_inner_math(ctx, s, _depth=0, line_no=None):
 
 
 def math_call_specs(ctx):
+    """List of ``(name, min_args, renderer)`` for every math command.
+
+    Each renderer receives the already-cleaned argument strings and
+    returns Typst math markup. Commands not in this list are handled by
+    dedicated ``replace_*_calls`` functions (det, set, align, vec,
+    int, diff, cases, matrix, table).
+    """
     return [
         ('frac', 2,
          lambda args: f"$frac({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
@@ -1136,6 +1143,13 @@ def replace_vec_calls(text, ctx, line_no=None, _depth=0):
 
 
 def group_power_base(ctx, s):
+    """Prepare the base of a power expression for Typst.
+
+    Wraps compound bases (``x + 1``, ``a / b``) in parentheses so
+    ``*pow(x + 1, 2)`` renders as ``(x + 1)^2`` rather than
+    ``x + 1^2``. Word-internal hyphens (``foo-bar``) are not treated as
+    operators. Returns the possibly-wrapped base string.
+    """
     s = clean_inner_math(ctx, s)
     # Wrap compound bases in parens. A word-internal hyphen (foo-bar)
     # is not an operator; require spacing or non-word context for '-',

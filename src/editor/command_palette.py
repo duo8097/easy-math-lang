@@ -108,6 +108,7 @@ class CommandPalette(QtWidgets.QDialog):
         self.commandChosen.emit(cmd_id)
 
     def open_with(self, initial_text=''):
+        """Open the palette with *initial_text* already in the input."""
         self._input.setText(initial_text)
         self._input.setFocus()
         self.open()

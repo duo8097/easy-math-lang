@@ -36,6 +36,29 @@ uv run easy-math-editor                          # desktop editor (optional)
 
 ---
 
+## Your first change
+
+You do not need to understand the whole project to help. A one-line
+documentation improvement is a good first pull request (PR). A PR is a
+request for the project maintainers to review and merge your change.
+
+1. On GitHub, open this repository and click **Fork**. This makes your own
+   copy, so you can experiment safely.
+2. Download your fork with `git clone`, then enter its folder with `cd`, as
+   shown in the setup section above.
+3. Create a branch with a short name, such as
+   `git switch -c docs/clearer-install-step`. A branch is a separate line of
+   work; it keeps your change apart from `main`.
+4. Edit one sentence in a documentation file. For example, correct a typo in
+   `docs/glossary.md`. Save the file, then run `uv run pytest tests/ -v` to
+   check that the project still works.
+5. Run `git add <file>`, `git commit -m "Docs: clarify install step"`, and
+   `git push`. On your fork's GitHub page, click **Compare & pull request**,
+   write a short description of what you changed, and click **Create pull
+   request**. Maintainers can then review it and ask questions there.
+
+---
+
 ## 2. Understand the ground rules
 
 - **One parser.** The compiler (`src/compiler/`) is the single source

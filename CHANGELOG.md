@@ -14,6 +14,8 @@ for those.
 
 ### Added
 - **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
+- **Beginner documentation tools and guides.** Added a checked examples map,
+  a Markdown link checker, and a first-change walkthrough for new contributors.
 - **Auto-generated tables of contents for the long docs.** `scripts/gen_toc.py`
   builds a nested `##`/`###` table of contents between `<!-- toc -->`
   markers (GitHub-compatible anchors, duplicate headings get `-1`, `-2`

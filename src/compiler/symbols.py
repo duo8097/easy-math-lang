@@ -119,6 +119,13 @@ WORD_REPLACEMENTS = [
 
 
 def replace_symbol_shortcuts(text):
+    """Replace symbol shortcuts in plain text.
+
+    Punctuation shortcuts (``==`` → `=`, ``->`` → `→`, ``*alpha`` → `α`,
+    …) are swapped for their Unicode glyphs. Only runs outside math
+    blocks are touched (callers split on ``$...$`` first). Returns the
+    replaced text.
+    """
     for old, new in SYMBOL_REPLACEMENTS:
         text = text.replace(old, new)
     for old, new in WORD_REPLACEMENTS:
