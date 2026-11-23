@@ -62,7 +62,7 @@ def escape_brackets_outside_math(content):
     markup_open = re.compile(r'#[A-Za-z_][A-Za-z0-9_-]*\[')
 
     def escape_run(run):
-        """Escape Typst special characters inside one non-math run.
+        r"""Escape Typst special characters inside one non-math run.
 
         Brackets become ``\[``/``\]`` except inside generated markup
         spans (``#ident[...]`` with balanced brackets), which are left
@@ -101,7 +101,7 @@ def escape_brackets_outside_math(content):
 
 
 def escape_typst_outside_math(content, escape_dollar=False):
-    """Escape Typst special characters outside ``$...$`` math spans.
+    r"""Escape Typst special characters outside ``$...$`` math spans.
 
     Backslash, asterisk, underscore, angle brackets, hash, at-sign,
     backtick, slash, and line-leading block markers (headings, lists,

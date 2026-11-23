@@ -32,7 +32,7 @@ def number_pattern():
 
 
 def math_pattern():
-    """Regex matching one single-line math span (``\ … \``), escapes aware."""
+    r"""Regex matching one single-line math span (``\ … \``), escapes aware."""
     # Single-line \ ... \ pairs; \\ never opens/closes (lookarounds).
     return re.compile(r'(?<!\\)\\(?:[^\\]|\\{2})*?(?<!\\)\\')
 
