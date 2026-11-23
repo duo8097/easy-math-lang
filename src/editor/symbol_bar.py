@@ -83,9 +83,11 @@ class SymbolBar(QtWidgets.QWidget):
 
     @property
     def categoryCombo(self):
+        """The combo box listing symbol categories for the bar."""
         return self._category
 
     def visible_symbols(self) -> list:
+        """Return the symbols in the currently selected category."""
         current = self._category.currentText()
         # Category text is translated; map it back to the registry name.
         if current == i18n.tr('symbolbar.all'):

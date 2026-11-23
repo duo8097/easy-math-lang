@@ -37,6 +37,13 @@ def _normalize_friendly_statement(statement):
 
 
 def process_assignment_or_define(ctx, statement, line_no=None):
+    """Process one assignment or define statement.
+
+    Accepts ``<x> = 5``, ``let x = 5``, ``var x = 5``, ``define(x = 5)``,
+    ``*define(x = 5)``, and the special multiplication-symbol define.
+    Stores the value in the compile context so later lines can use
+    ``<x>``. Reports an error if the value can't be parsed.
+    """
     statement = _normalize_friendly_statement(statement.strip())
     if not statement:
         return

@@ -431,6 +431,7 @@ class PreviewPanel(QtWidgets.QWidget):
         self._message.setText(i18n.tr('preview.empty_msg'))
 
     def show_loading(self):
+        """Show the 'rendering…' message while a background compile runs."""
         self.status_label.setText(i18n.tr('preview.updating'))
         # Keep the old page visible while recompiling; only swap the
         # message layer when nothing was shown before.
@@ -492,6 +493,7 @@ class PreviewPanel(QtWidgets.QWidget):
 
     @property
     def pdf_path(self):
+        """File path of the PDF currently shown in the viewer (or None)."""
         return self._pdf_path
 
     @property
@@ -613,9 +615,11 @@ class PreviewPanel(QtWidgets.QWidget):
 
     @property
     def auto_enabled(self):
+        """True when live-preview auto-compile is switched on."""
         return self.auto_check.isChecked()
 
     def set_auto_enabled(self, enabled):
+        """Set whether the preview auto-recompiles on save/change."""
         self.auto_check.setChecked(bool(enabled))
 
     def retranslate_ui(self):

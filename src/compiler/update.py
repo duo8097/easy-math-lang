@@ -252,6 +252,8 @@ STATE_FILE_NAME = 'update-state.json'
 
 @dataclasses.dataclass
 class ReleaseAsset:
+    """One downloadable release file (name, download URL, size)."""
+
     name: str
     download_url: str
     size: int = 0
@@ -259,6 +261,8 @@ class ReleaseAsset:
 
 @dataclasses.dataclass
 class ReleaseInfo:
+    """A GitHub release: version, notes, download metadata."""
+
     version: str
     html_url: str
     notes: str
@@ -267,6 +271,7 @@ class ReleaseInfo:
     assets: list  # list[ReleaseAsset]
 
     def to_dict(self):
+        """Serialize to a JSON-friendly dict (cached state format)."""
         return {
             'version': self.version,
             'html_url': self.html_url,
@@ -278,6 +283,7 @@ class ReleaseInfo:
 
     @classmethod
     def from_dict(cls, data):
+        """Rebuild from a cached dict (inverse of :meth:`to_dict`)."""
         if not isinstance(data, dict):
             raise UpdateCheckError('invalid cached release info.')
         assets = []
@@ -412,10 +418,12 @@ def default_config_dir():
 
 
 def default_state_path():
+    """Path of the persisted auto-check / update state file."""
     return os.path.join(default_config_dir(), STATE_FILE_NAME)
 
 
 def default_state():
+    """Default (empty) values for the update state file."""
     return {
         'last_check': 0.0,
         'etag': None,
@@ -487,6 +495,7 @@ def is_prerelease_version(version):
 
 
 def release_info_from_state(state):
+    """Turn a cached ``latest`` state entry into a :class:`ReleaseInfo`."""
     latest = state.get('latest')
     if not isinstance(latest, dict):
         return None
@@ -498,6 +507,8 @@ def release_info_from_state(state):
 
 @dataclasses.dataclass
 class UpdateCheckResult:
+    """Outcome of one update check: status, versions, error, flags."""
+
     status: str          # 'newer' | 'current' | 'ahead'
     current: str
     latest: ReleaseInfo | None
@@ -584,10 +595,12 @@ def skip_version(version, state_path=None):
 
 
 def get_auto_check(state_path=None):
+    """Return whether automatic update checks are enabled."""
     return bool(load_state(state_path).get('auto_check', True))
 
 
 def set_auto_check(enabled, state_path=None):
+    """Enable/disable automatic update checks (persisted)."""
     path = state_path or default_state_path()
     state = load_state(path)
     state['auto_check'] = bool(enabled)
@@ -608,10 +621,12 @@ def record_update_error(version, reason, log_path, state_path=None):
 
 
 def last_update_error(state_path=None):
+    """Return the last recorded self-update error (or None)."""
     return load_state(state_path).get('last_update_error')
 
 
 def clear_update_error(state_path=None):
+    """Forget the last recorded self-update error."""
     path = state_path or default_state_path()
     state = load_state(path)
     if state.get('last_update_error') is not None:
@@ -642,10 +657,12 @@ def record_pending_update(version, install_log_path, temp_dir,
 
 
 def get_pending_update(state_path=None):
+    """Return the pending (handed-off) update state, or None."""
     return load_state(state_path).get('pending_update')
 
 
 def clear_pending_update(state_path=None):
+    """Clear the pending (handed-off) update state."""
     path = state_path or default_state_path()
     state = load_state(path)
     if state.get('pending_update') is not None:

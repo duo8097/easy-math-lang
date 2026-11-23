@@ -663,6 +663,7 @@ class TextInsert:
 
     @property
     def cursor(self) -> int:
+        """Position the caret should land after the insert is applied."""
         return self.start + self.cursor_offset
 
 

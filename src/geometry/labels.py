@@ -33,6 +33,7 @@ def _label_anchors(solver):
     edge_dirs = {name: [] for name in pts}
 
     def away(frm, to):
+        """Unit direction from *frm* toward *to* (None if not usable)."""
         if frm not in edge_dirs or to not in pts:
             return None
         d = pts[to] - pts[frm]
@@ -54,6 +55,7 @@ def _label_anchors(solver):
         return d / n
 
     def add_arm(vertex, end1, end2):
+        """Add the two edge directions leaving *vertex* (for label placement)."""
         for end in (end1, end2):
             v = away(vertex, end)
             if v is not None:

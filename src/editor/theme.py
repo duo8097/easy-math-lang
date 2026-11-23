@@ -20,6 +20,7 @@ def normalize(name):
 
 
 def available_themes():
+    """The theme names the editor can be switched between."""
     return (LIGHT, DARK)
 
 
@@ -32,6 +33,7 @@ def load_theme_name(settings):
 
 
 def save_theme_name(settings, name):
+    """Persist the chosen theme name via *settings* (QSettings-like)."""
     settings.setValue(THEME_KEY, normalize(name))
 
 
@@ -80,10 +82,12 @@ SYNTAX_COLORS = {
 
 
 def editor_colors(name):
+    """Editor background/foreground/selection colors for *name*."""
     return EDITOR_COLORS[normalize(name)]
 
 
 def syntax_colors(name):
+    """Syntax highlighting colors (math/comment/number/…) for *name*."""
     return SYNTAX_COLORS[normalize(name)]
 
 
@@ -230,6 +234,7 @@ class TitleBarThemer(QtCore.QObject):
         self._dark = bool(dark)
 
     def set_dark(self, dark):
+        """Switch the dark title-bar treatment on/off."""
         self._dark = bool(dark)
         app = QtWidgets.QApplication.instance()
         if app is not None:
@@ -238,6 +243,7 @@ class TitleBarThemer(QtCore.QObject):
                     set_title_bar_dark(w, self._dark)
 
     def eventFilter(self, obj, event):
+        """Apply the dark title bar whenever a window gets shown."""
         if (event.type() == QtCore.QEvent.Show
                 and isinstance(obj, QtWidgets.QWidget)
                 and obj.isWindow()):

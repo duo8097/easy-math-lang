@@ -170,7 +170,10 @@ class Definition:
 
 
 class Analysis:
+    """Collects diagnostics, definitions and variable values for one file."""
+
     def __init__(self):
+        """Start with no diagnostics, no definitions, no variable values."""
         self.diagnostics = []
         self.definitions = []
         self.values = {}  # name -> (kind, value, def_line)

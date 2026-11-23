@@ -22,6 +22,15 @@ safe_operators = {
 
 
 def evaluate_calc(ctx, expression, line_no=None, _depth=0):
+    """Evaluate a ``calc(...)`` expression safely (no ``eval``).
+
+    Substitutes variables and defines, resolves nested ``calc(...)``
+    inside-out, then walks the Python AST allowing only numbers,
+    ``+ - * / % ^``, ``pi``/``e``, and safe one-argument functions
+    (``sin``, ``cos``, ``sqrt``, …). Division by zero and overly deep
+    nesting are reported as ``[Calc Error: …]`` and never crash.
+    Returns the numeric result, or an error string on failure.
+    """
     if _depth > 20:
         report('Error', line_no or None,
                f'calc(): nested too deep in: {expression!r}')
@@ -49,6 +58,7 @@ def evaluate_calc(ctx, expression, line_no=None, _depth=0):
         consts = scalar_consts()
 
         def eval_node(node):
+            """Recursively evaluate one AST node to a number."""
             if isinstance(node, ast.Expression):
                 return eval_node(node.body)
             if isinstance(node, ast.Constant) and type(node.value) in (int, float):

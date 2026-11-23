@@ -68,6 +68,7 @@ class SourcePosition:
 
     @staticmethod
     def from_one_based(line_1: int, col_1: int) -> 'SourcePosition':
+        """Convert 1-based (line, column) to 0-based :class:`SourcePosition`."""
         return SourcePosition(int(line_1) - 1, int(col_1) - 1)
 
 
@@ -80,12 +81,14 @@ class SourceSpan:
     end: SourcePosition
 
     def contains(self, line: int, column: int) -> bool:
+        """True when (line, column) falls inside this span (inclusive)."""
         s = (int(self.start.line), int(self.start.column))
         e = (int(self.end.line), int(self.end.column))
         p = (int(line), int(column))
         return s <= p <= e
 
     def to_dict(self) -> dict:
+        """Serialize to a JSON-friendly dict."""
         return {
             'source_file': self.source_file,
             'start': {'line': int(self.start.line), 'column': int(self.start.column)},
@@ -94,6 +97,7 @@ class SourceSpan:
 
     @staticmethod
     def from_dict(d: dict) -> 'SourceSpan':
+        """Rebuild a :class:`SourceSpan` from a dict (inverse of :meth:`to_dict`)."""
         s = d.get('start', {}) or {}
         e = d.get('end', {}) or {}
         return SourceSpan(
@@ -112,12 +116,14 @@ class MapEntry:
     src: SourceSpan
 
     def contains_typ(self, line: int, column: int) -> bool:
+        """True when a generated-Typ position falls inside this entry's Typ range."""
         s = (int(self.typ_start.line), int(self.typ_start.column))
         e = (int(self.typ_end.line), int(self.typ_end.column))
         p = (int(line), int(column))
         return s <= p <= e
 
     def to_dict(self) -> dict:
+        """Serialize to a JSON-friendly dict."""
         return {
             'typ_start': {'line': int(self.typ_start.line), 'column': int(self.typ_start.column)},
             'typ_end': {'line': int(self.typ_end.line), 'column': int(self.typ_end.column)},
@@ -126,6 +132,7 @@ class MapEntry:
 
     @staticmethod
     def from_dict(d: dict) -> 'MapEntry':
+        """Rebuild a :class:`MapEntry` from a dict (inverse of :meth:`to_dict`)."""
         ts = d.get('typ_start', {}) or {}
         te = d.get('typ_end', {}) or {}
         return MapEntry(
@@ -155,6 +162,10 @@ class TypstSourceMap:
 
     def add(self, typ_start: SourcePosition, typ_end: SourcePosition,
             src: SourceSpan) -> None:
+        """Record one generated-Typ range -> one ``.eml`` span.
+
+        Empty ranges (end <= start) are skipped defensively.
+        """
         # Skip empty ranges (defensive; keeps resolve semantics clean).
         s = (int(typ_start.line), int(typ_start.column))
         e = (int(typ_end.line), int(typ_end.column))
@@ -177,6 +188,7 @@ class TypstSourceMap:
         return None
 
     def to_dict(self) -> dict:
+        """Serialize to a JSON-friendly dict (versioned sidecar format)."""
         return {
             'version': self.VERSION,
             'source_file': self.source_file,
@@ -186,6 +198,7 @@ class TypstSourceMap:
 
     @staticmethod
     def from_dict(d: dict) -> 'TypstSourceMap':
+        """Rebuild a :class:`TypstSourceMap` from a dict (inverse of :meth:`to_dict`)."""
         m = TypstSourceMap(
             source_file=str(d.get('source_file', '')),
             typ_file=str(d.get('typ_file', '')),
@@ -198,6 +211,7 @@ class TypstSourceMap:
         return m
 
     def save(self, path: str) -> None:
+        """Write the map as JSON to *path*, creating parent dirs if needed."""
         directory = os.path.dirname(os.path.abspath(path))
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -206,6 +220,7 @@ class TypstSourceMap:
 
     @staticmethod
     def load(path: str) -> 'TypstSourceMap':
+        """Load a :class:`TypstSourceMap` from a JSON sidecar file."""
         with open(path, 'r', encoding='utf-8') as fh:
             return TypstSourceMap.from_dict(json.load(fh))
 

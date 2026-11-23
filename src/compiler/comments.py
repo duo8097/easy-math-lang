@@ -126,6 +126,12 @@ def _find_comment_start(line_prot, protected):
 
 
 def strip_comments(text):
+    """Remove ``//`` comments from an .ezmath document, protecting URLs,
+    math pairs (``\\ ... \\``), quoted strings, and balanced
+    ``*command(...)`` spans so a ``//`` inside a URL or math is never
+    treated as a comment start. Tracks multiline math across source
+    lines. Returns the cleaned text.
+    """
     from .statements import _normalize_friendly_statement
 
     cleaned_lines = []

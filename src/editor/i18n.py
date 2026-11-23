@@ -115,9 +115,11 @@ class Translator:
         return text
 
     def has(self, key):
+        """True when *key* exists in this locale's catalog or English."""
         return key in self._catalog or key in self._english
 
     def keys(self):
+        """Set of all known keys (union of this locale and English)."""
         return set(self._catalog) | set(self._english)
 
     def label(self, english_label):
@@ -145,6 +147,7 @@ _current = Translator(DEFAULT_LOCALE)
 
 
 def current_translator():
+    """Return the process-wide :class:`Translator` instance."""
     return _current
 
 
@@ -156,6 +159,7 @@ def set_locale(locale):
 
 
 def get_locale():
+    """Return the currently active locale name (``'en'`` or ``'vi'``)."""
     return _current.locale
 
 

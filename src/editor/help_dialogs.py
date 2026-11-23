@@ -80,6 +80,11 @@ def examples():
 
 
 def example_source(key):
+    """Return the source text of the help-dialog example with *key*.
+
+    Returns an empty string for unknown keys (the caller then shows a
+    generic message).
+    """
     for entry_id, _name_key, source in EXAMPLES:
         if entry_id == key:
             return source
@@ -137,6 +142,7 @@ class WelcomePanel(QtWidgets.QFrame):
         self.retranslate_ui()
 
     def retranslate_ui(self):
+        """Refresh the welcome panel texts in the current language."""
         self.title.setText(i18n.tr('welcome.title'))
         self.steps[0].setText(i18n.tr('welcome.step1'))
         self.steps[1].setText(i18n.tr('welcome.step2'))
