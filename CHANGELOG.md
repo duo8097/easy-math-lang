@@ -13,6 +13,7 @@ for those.
 ## [Unreleased]
 
 ### Added
+- **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
 - **Auto-generated tables of contents for the long docs.** `scripts/gen_toc.py`
   builds a nested `##`/`###` table of contents between `<!-- toc -->`
   markers (GitHub-compatible anchors, duplicate headings get `-1`, `-2`

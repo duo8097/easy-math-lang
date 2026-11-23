@@ -8,6 +8,8 @@ expert to help.
 This page covers setup and workflow. For how the code is organized,
 see [Architecture](docs/architecture.md).
 
+AI coding agents: see [AGENTS.md](AGENTS.md).
+
 ---
 
 ## 1. Set up your machine
