@@ -223,6 +223,9 @@ All notable changes to easy-math-lang are documented in
 
 ### [7.1.1] - 2026-11-20
 
+#### Changed
+- Dependency update: numpy 2.5.4 → 2.5.5; no user-visible change.
+
 Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
 [GitHub releases page](https://github.com/duo8097/easy-math-lang/releases).
