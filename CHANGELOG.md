@@ -13,6 +13,7 @@ for those.
 ## [Unreleased]
 
 ### Added
+- **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
 - **Beginner documentation tools and guides.** Added a checked examples map,
   a Markdown link checker, and a first-change walkthrough for new contributors.
 - **Auto-generated tables of contents for the long docs.** `scripts/gen_toc.py`
@@ -22,6 +23,9 @@ for those.
   fails with `gen_toc.py --check` when a table of contents is out of date.
 
 ## [7.1.1] - 2026-11-20
+
+### Changed
+- Dependency update: numpy 2.5.4 → 2.5.5; no user-visible change.
 
 ## [7.1.0] - 2026-11-15
 
