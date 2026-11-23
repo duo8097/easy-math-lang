@@ -27,15 +27,15 @@ Main packages: [compiler](src/compiler/) (language and CLI), [geometry](src/geom
 Before every commit, run the CI-style test command above and:
 
 ```sh
+python scripts/check_links.py
 python scripts/gen_toc.py --check
 ```
 
 After changing headings in a `docs/*.md` file with a generated table of
 contents, run `python scripts/gen_toc.py`, then run the check again.
 
-`scripts/check_links.py` is not on this branch's base (`main`). Do not add a
-command for a script that is absent; add its check here only when that script
-is merged into `main`.
+Broken relative links in `README.md`, `CONTRIBUTING.md`, `docs/*.md`, and
+`src/*/README.md` fail CI via `tests/test_links.py`.
 
 ## Repository rules
 
