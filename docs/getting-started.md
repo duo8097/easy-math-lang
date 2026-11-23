@@ -22,7 +22,7 @@ system from the [**Releases page**](https://github.com/duo8097/easy-math-lang/re
 Install it, then launch **Easy Math Editor** from your Start Menu or
 Applications.
 
-> Need step-by-step install help? See the [Installation guide](docs/installation.md).
+> Need step-by-step install help? See the [Installation guide](installation.md).
 
 ---
 
@@ -141,7 +141,7 @@ goes and draws it in your PDF.
 
 > You describe **relationships** (points, distances, angles) and the
 > program figures out the exact coordinates. Full guide:
-> [Drawing geometry](docs/geometry.md).
+> [Drawing geometry](geometry.md).
 
 ---
 
@@ -158,7 +158,7 @@ typo (you meant `<width>`). The message shows the line number and the
 exact spot, so you can fix it and compile again.
 
 Every message points at a spot in your `.ezmath` file. Full list of
-messages and fixes: [Troubleshooting and FAQ](docs/troubleshooting.md).
+messages and fixes: [Troubleshooting and FAQ](troubleshooting.md).
 
 ---
 
@@ -174,7 +174,7 @@ In 5 minutes you:
 
 **What next?**
 
-- [Cheat sheet](docs/cheatsheet.md) — everything you type most often, on one page
-- [Writing math](docs/algebra.md) — every command explained, with examples
-- [Desktop editor](docs/editor.md) — the graphical editor with shortcuts and panels
-- [Glossary](docs/glossary.md) — every term explained in plain language
+- [Cheat sheet](cheatsheet.md) — everything you type most often, on one page
+- [Writing math](algebra.md) — every command explained, with examples
+- [Desktop editor](editor.md) — the graphical editor with shortcuts and panels
+- [Glossary](glossary.md) — every term explained in plain language
