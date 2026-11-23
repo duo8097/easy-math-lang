@@ -62,8 +62,14 @@ def escape_brackets_outside_math(content):
     markup_open = re.compile(r'#[A-Za-z_][A-Za-z0-9_-]*\[')
 
     def escape_run(run):
-        out = []
+        r"""Escape Typst special characters inside one non-math run.
+
+        Brackets become ``\[``/``\]`` except inside generated markup
+        spans (``#ident[...]`` with balanced brackets), which are left
+        intact so styling markup survives. Returns the escaped run.
+        """
         pos = 0
+        out = []
         while pos < len(run):
             m = markup_open.search(run, pos)
             if m is None:
@@ -95,6 +101,14 @@ def escape_brackets_outside_math(content):
 
 
 def escape_typst_outside_math(content, escape_dollar=False):
+    r"""Escape Typst special characters outside ``$...$`` math spans.
+
+    Backslash, asterisk, underscore, angle brackets, hash, at-sign,
+    backtick, slash, and line-leading block markers (headings, lists,
+    enumerations) are escaped so user text stays literal in Typst.
+    When *escape_dollar* is true, leftover bare ``$`` characters are
+    also escaped as ``\$``. Returns the escaped string.
+    """
     tokens = re.split(r'(\$.*?\$)', content)
     for i, token in enumerate(tokens):
         if not (token.startswith('$') and token.endswith('$') and len(token) >= 2):
@@ -150,6 +164,12 @@ def merge_math(t):
 
 
 def index_replacer(match):
+    """Turn a subscript match ``A_1`` into Typst math: ``$A_1$``.
+
+    Single-letter base only, to avoid corrupting snake_case words like
+    ``my_file``. Multi-character indexes are quoted:
+    ``A_ij`` → ``$A_("ij")$``.
+    """
     base = match.group(1)
     index = match.group(2)
     if len(index) == 1:

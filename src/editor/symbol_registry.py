@@ -114,6 +114,7 @@ class Symbol:
 
     @property
     def tooltip(self) -> str:
+        """Plain-text tooltip: syntax + description, plus a hint line."""
         base = self.syntax if not self.description else f'{self.syntax} — {self.description}'
         hint = 'Opens dialog' if self.requires_dialog else 'Inserts directly'
         return f'{base}\n{self.category} • {hint}'
@@ -643,12 +644,14 @@ def list_categories() -> list[str]:
 
 
 def symbols_in_category(category: str) -> list[Symbol]:
+    """Return every symbol in *category* (``'All'`` returns all)."""
     if category in ('All', '', None):
         return list(SYMBOLS)
     return [s for s in SYMBOLS if s.category == category]
 
 
 def get_symbol(name: str) -> Symbol:
+    """Look up a symbol by its registry name, raising KeyError if unknown."""
     try:
         return _BY_NAME[name]
     except KeyError:

@@ -145,13 +145,16 @@ class FindBar(QtWidgets.QWidget):
 
     @property
     def match_case(self):
+        """True when the search should be case-sensitive."""
         return self._match_case_button.isChecked()
 
     @property
     def whole_word(self):
+        """True when the search should match whole words only."""
         return self._whole_word_button.isChecked()
 
     def retranslate_ui(self):
+        """Refresh translated texts/tooltips for the find bar."""
         self._input.setPlaceholderText(i18n.tr('find.placeholder'))
         self._prev_button.setToolTip(i18n.tr('find.prev_tip'))
         self._prev_button.setAccessibleName(i18n.tr('find.prev_tip'))
@@ -171,6 +174,7 @@ class FindBar(QtWidgets.QWidget):
         self._whole_word_button.setAccessibleName(i18n.tr('find.whole_word'))
 
     def show_bar(self, initial_text=''):
+        """Show the find bar, optionally pre-filled with *initial_text*."""
         if initial_text and initial_text != self._input.text():
             self._input.setText(initial_text)
         self.setVisible(True)
@@ -178,10 +182,12 @@ class FindBar(QtWidgets.QWidget):
         self._input.selectAll()
 
     def hide_bar(self):
+        """Hide the find bar and close it (emits ``closed``)."""
         self.setVisible(False)
         self.closed.emit()
 
     def keyPressEvent(self, event):
+        """Close the find bar when the user presses Escape."""
         if event.key() == QtCore.Qt.Key_Escape:
             self.hide_bar()
             event.accept()

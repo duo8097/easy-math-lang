@@ -30,14 +30,17 @@ class FriendlyError:
 
     @property
     def title_key(self):
+        """i18n key for the friendly error title (``<key>.title``)."""
         return f'{self.key}.title'
 
     @property
     def help_key(self):
+        """i18n key for the friendly error help line (``<key>.help``)."""
         return f'{self.key}.help'
 
     @property
     def hint_key(self):
+        """i18n key for the optional "Did you mean …?" hint line."""
         return f'{self.key}.hint'
 
 

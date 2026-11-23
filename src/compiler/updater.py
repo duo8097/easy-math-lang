@@ -18,6 +18,27 @@ matching asset from a GitHub release, and downloads it safely:
 Every network, subprocess, platform and filesystem-location call is
 injectable, so the test-suite never touches the real network, real
 installers, real pkexec or the real system.
+
+Table of contents for this ~1600-line file — the ``# ---`` section
+banners mark the main groups (line numbers are approximate; names are
+stable):
+
+    ~line  section
+    -----  -------
+      94   DownloadError / DownloadCancelled / URL allowlist
+     124   _AllowlistRedirectHandler — refuse redirects off-host
+     192   sha256_of_file / fetch_sha256sums / parse_sha256sums
+     263   download_asset — download + SHA-256 verify (+progress/cancel)
+     462   Install-method detection
+     531   release_asset_for / sha256sums_asset / update_hint
+     607   verify helpers / per-platform install commands
+     754   build_update_plan / write_plan / load_plan — JSON plan
+     930   prepare_macos_update / _macos_swap
+    1031   apply_update_windows / resolve_pending_update
+    1339   apply_update — run the whole self-update flow
+    1400   _notes_summary / _text_progress — CLI display helpers
+    1433   run_self_update / --update flow
+    1590   stage_update_plan / release asset selection helpers
 """
 
 from __future__ import annotations
@@ -105,6 +126,7 @@ class _AllowlistRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Refuse redirects to any host outside the allowlist."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Redirect handling that only allows allowlisted hosts."""
         try:
             parsed = urllib.parse.urlparse(newurl)
         except Exception:
@@ -169,6 +191,7 @@ def parse_sha256sums(text):
 
 
 def sha256_of_file(path):
+    """Return the hex SHA-256 digest of the file at *path*."""
     digest = hashlib.sha256()
     with open(path, 'rb') as handle:
         for chunk in iter(lambda: handle.read(CHUNK_SIZE), b''):
@@ -205,6 +228,8 @@ def fetch_sha256sums(sums_url, *, urlopen=None, timeout=CHECK_TIMEOUT):
 
 @dataclasses.dataclass
 class DownloadResult:
+    """One downloaded release file that passed SHA-256 verification."""
+
     path: str               # final (verified) path inside the temp dir
     sha256: str
     size: int
@@ -394,6 +419,8 @@ def download_asset(url, dest_name=None, *, expected_size=None,
 
 @dataclasses.dataclass
 class InstallInfo:
+    """How a release should be installed on this machine."""
+
     method: str            # one of the METHOD_* constants
     one_click: bool        # a verified one-click path is provable here
     detail: str = ''       # e.g. which package manager owns the binary
@@ -523,6 +550,7 @@ def release_asset_for(method, assets):
 
 
 def sha256sums_asset(assets):
+    """Find the SHA256SUMS.txt asset in a release's asset list (or None)."""
     for asset in assets or []:
         if asset.name == SHA256SUMS_NAME:
             return asset
@@ -668,22 +696,27 @@ def windows_setup_command(asset_path, log_path):
 
 
 def debian_install_command(asset_path):
+    """Install the downloaded Debian package via pkexec + apt-get."""
     return ['pkexec', 'apt-get', 'install', '-y', asset_path]
 
 
 def debian_fallback_command(asset_path):
+    """Install the downloaded Debian package via pkexec + dpkg -i."""
     return ['pkexec', 'dpkg', '-i', asset_path]
 
 
 def fedora_install_command(asset_path):
+    """Install the downloaded Fedora package via pkexec + dnf install."""
     return ['pkexec', 'dnf', 'install', '-y', asset_path]
 
 
 def fedora_fallback_command(asset_path):
+    """Install the downloaded Fedora package via pkexec + rpm -U."""
     return ['pkexec', 'rpm', '-U', asset_path]
 
 
 def arch_install_command(asset_path):
+    """Install the downloaded Arch package via pkexec + pacman -U."""
     return ['pkexec', 'pacman', '-U', '--noconfirm', asset_path]
 
 
@@ -701,16 +734,19 @@ def arch_install_command(asset_path):
 
 
 def default_log_path():
+    """Path of the update-helper log file in the config dir."""
     from .update import default_config_dir
 
     return os.path.join(default_config_dir(), 'update.log')
 
 
 def default_plan_path(temp_dir):
+    """Path of the JSON update plan file inside the temp dir."""
     return os.path.join(temp_dir, 'update-plan.json')
 
 
 def default_install_log_path():
+    """Path of the update-helper installer log in the config dir."""
     from .update import default_config_dir
 
     return os.path.join(default_config_dir(), 'update-install.log')
@@ -754,6 +790,7 @@ def _default_state_path_safe():
 
 
 def write_plan(plan, path):
+    """Write the JSON update plan to *path*, then lock it down (0600)."""
     with open(path, 'w', encoding='utf-8') as handle:
         json.dump(plan, handle, indent=1, sort_keys=True)
     try:
@@ -763,6 +800,7 @@ def write_plan(plan, path):
 
 
 def load_plan(path):
+    """Read and validate an update plan JSON file (raises ValueError)."""
     try:
         st = os.stat(path)
     except OSError as exc:
@@ -1128,7 +1166,9 @@ def _pending_failure_reason(install_log, expected):
 # ----------------------------------------------------------------------
 
 def _helper_log(path):
+    """Return a small log function writing timestamped lines to *path*."""
     def log(message):
+        """Append one timestamped line to the helper log file."""
         try:
             with open(path, 'a', encoding='utf-8') as handle:
                 handle.write(f'[{_now_iso()}] {message}\n')
@@ -1359,6 +1399,7 @@ DOWNLOAD_BAR_WIDTH = 28
 
 
 def _notes_summary(notes, limit=NOTES_SUMMARY_LIMIT):
+    """First *limit* characters of the release notes (line-aware)."""
     text = (notes or '').strip()
     if not text:
         return ''
@@ -1372,7 +1413,9 @@ def _notes_summary(notes, limit=NOTES_SUMMARY_LIMIT):
 
 
 def _text_progress(stream):
+    """Progress printer: renders a text download bar on *stream*."""
     def progress(done, total):
+        """Write one progress line (bar + percentages) to *stream*."""
         if total and total > 0:
             pct = done / total
             filled = int(DOWNLOAD_BAR_WIDTH * pct)

@@ -51,6 +51,7 @@ class OutlinePanel(QtWidgets.QWidget):
                 item.setIcon(_icon(icon_name, SIZE_PANEL))
 
     def clear(self):
+        """Remove all symbols from the outline view."""
         self.set_symbols([])
 
     def _on_item_clicked(self, item):

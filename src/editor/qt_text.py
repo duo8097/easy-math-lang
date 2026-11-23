@@ -205,5 +205,6 @@ def install_text_context_menu(widget):
 
 
 def QtGui_QKeySequence(name):
+    """Look up a ``QtGui.QKeySequence`` enum value by name (Qt wrapper attr)."""
     from PySide6 import QtGui
     return getattr(QtGui.QKeySequence, name)

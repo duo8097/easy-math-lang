@@ -95,6 +95,12 @@ class _PreviewWorker(QtCore.QObject):
 
     @QtCore.Slot(int, str, str, str)
     def render(self, version, text, workdir, source_path):
+        """Compile *text* to PDF in the background (worker thread).
+
+        Emits ``finished`` with the result dict. Never touches Qt
+        widgets; failures are caught and returned as ``ok: False`` so
+        the editor stays alive.
+        """
         from .preview import compile_source_to_pdf
         try:
             # Live preview embeds invisible eml-src link annotations so
@@ -112,6 +118,14 @@ class _PreviewWorker(QtCore.QObject):
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    """The editor's main window: menus, docks, file handling, LSP wiring.
+
+    Builds the UI (editor area, Problems/Outline/Preview docks,
+    menus, symbol bar), wires file operations (new/open/save), build
+    (Ctrl+B runs easy-math-lang out-of-process), Export As…, live
+    preview (debounced background compile), theme/font/settings, and
+    the LSP client connection to easy-math-lsp.
+    """
     _preview_request = QtCore.Signal(int, str, str, str)
     _update_request = QtCore.Signal(bool)
 
@@ -1680,6 +1694,8 @@ class MainWindow(QtWidgets.QMainWindow):
         ref = weakref.ref(meth.__self__)
 
         def slot(*_ignored):
+            """Weak-referenced callback: call *func* on the target object
+            only if it still exists (prevents Qt signal/slot leak)."""
             obj = ref()
             if obj is not None:
                 return func(obj, *bound)
@@ -2796,6 +2812,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._switch_document(path, text)
 
     def closeEvent(self, event):
+        """Handle window close: prompt to save, stop preview/build,
+        shut down the LSP client, then accept or ignore the close."""
         if self._closing:
             # Second pass: shutdown completed (or was forced).
             self._shutdown_preview()

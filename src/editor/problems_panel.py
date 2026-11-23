@@ -102,9 +102,11 @@ class ProblemsPanel(QtWidgets.QWidget):
             i18n.tr('problems.count_badge', count=count))
 
     def clear(self):
+        """Remove all diagnostics from the panel."""
         self.set_diagnostics([])
 
     def count(self):
+        """Return how many diagnostics are currently shown."""
         return len(self._diagnostics)
 
     def _on_item_clicked(self, item):

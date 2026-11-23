@@ -2,7 +2,7 @@
 
 
 class GeometryError(Exception):
-    pass
+    """Raised when geometry solving fails (invalid or unsolvable setup)."""
 
 
 class GeometryWarning(Warning):

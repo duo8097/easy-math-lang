@@ -56,10 +56,12 @@ _CALL_RE = re.compile(r'\*(table|matrix|mat)\s*\(')
 
 
 def is_table_call(name):
+    """True when *name* is the ``*table`` command."""
     return name == 'table'
 
 
 def is_matrix_call(name):
+    """True when *name`` is ``*matrix`` or ``*mat``."""
     return name in MATRIX_NAMES
 
 

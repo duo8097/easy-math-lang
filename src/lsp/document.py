@@ -11,6 +11,7 @@ class DocumentStore:
         self._lock = threading.Lock()
 
     def open(self, uri, text, version=None):
+        """Open a document; returns False for bad types."""
         if not isinstance(uri, str):
             return False
         if not isinstance(text, str):
@@ -20,6 +21,7 @@ class DocumentStore:
         return True
 
     def update(self, uri, text, version=None):
+        """Apply a didChange text update; ignore unknown docs/versions."""
         # didChange implies an open document; ignore changes for unknown
         # URIs instead of creating phantom servable documents.
         if not isinstance(uri, str):
@@ -43,15 +45,18 @@ class DocumentStore:
         return True
 
     def close(self, uri):
+        """Close (forget) a document."""
         with self._lock:
             self._docs.pop(uri, None)
 
     def get(self, uri):
+        """Return the document text, or None when the URI is unknown."""
         with self._lock:
             doc = self._docs.get(uri)
             return doc['text'] if doc is not None else None
 
     def version(self, uri):
+        """Return the document version, or None when the URI is unknown."""
         with self._lock:
             doc = self._docs.get(uri)
             return doc['version'] if doc is not None else None

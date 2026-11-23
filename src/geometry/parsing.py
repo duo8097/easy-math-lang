@@ -221,6 +221,12 @@ def _parse_commands(block_text, errors=None):
 
 
 def parse_draw_block(block_text):
+    """Turn a ``*draw(...)`` block's text into a solver + generated errors.
+
+    Feeds each command into a fresh :class:`GeometrySolver`, collects
+    any :class:`GeometryError` as text, runs validate + solve, and
+    returns ``(solver, errors)`` for the code generator.
+    """
     solver = GeometrySolver()
     errors = []  # collect non-fatal geometry errors as strings
 

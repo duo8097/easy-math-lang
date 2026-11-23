@@ -141,6 +141,7 @@ def evaluate_on_grid(ctx, raw_expr, x_values):
     consts = _numpy_consts()
 
     def eval_node(node):
+        """Recursively evaluate one AST node to a number (or array)."""
         if isinstance(node, ast.Expression):
             return eval_node(node.body)
         if isinstance(node, ast.Constant):
