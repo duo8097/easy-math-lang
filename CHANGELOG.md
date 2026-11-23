@@ -24,6 +24,9 @@ for those.
 
 ## [7.1.1] - 2026-11-20
 
+### Changed
+- Dependency update: numpy 2.5.4 → 2.5.5; no user-visible change.
+
 ## [7.1.0] - 2026-11-15
 
 ### Added
