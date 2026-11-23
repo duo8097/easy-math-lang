@@ -18,6 +18,27 @@ matching asset from a GitHub release, and downloads it safely:
 Every network, subprocess, platform and filesystem-location call is
 injectable, so the test-suite never touches the real network, real
 installers, real pkexec or the real system.
+
+Table of contents for this ~1600-line file — the ``# ---`` section
+banners mark the main groups (line numbers are approximate; names are
+stable):
+
+    ~line  section
+    -----  -------
+      94   DownloadError / DownloadCancelled / URL allowlist
+     124   _AllowlistRedirectHandler — refuse redirects off-host
+     192   sha256_of_file / fetch_sha256sums / parse_sha256sums
+     263   download_asset — download + SHA-256 verify (+progress/cancel)
+     462   Install-method detection
+     531   release_asset_for / sha256sums_asset / update_hint
+     607   verify helpers / per-platform install commands
+     754   build_update_plan / write_plan / load_plan — JSON plan
+     930   prepare_macos_update / _macos_swap
+    1031   apply_update_windows / resolve_pending_update
+    1339   apply_update — run the whole self-update flow
+    1400   _notes_summary / _text_progress — CLI display helpers
+    1433   run_self_update / --update flow
+    1590   stage_update_plan / release asset selection helpers
 """
 
 from __future__ import annotations
