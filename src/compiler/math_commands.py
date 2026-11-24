@@ -36,6 +36,7 @@ document it in rule.txt + docs/algebra.md.
 import re
 
 from .calc import apply_calc_in_string
+from .command_registry import DEFAULT_REGISTRY, render_spec
 from .diagnostics import report
 from .symbols import replace_symbol_shortcuts
 from .variables import replace_defines, replace_vars
@@ -125,23 +126,14 @@ def split_top_level_args(args):
     return parts
 
 
-# Friendly aliases: alias -> canonical math command. Users may write
-# *fraction(...) instead of *frac(...), etc. Bare (star-less) calls
-# like frac(2 ; 3) are also accepted (see normalize_friendly_calls).
-MATH_ALIASES = {
-    'fraction': 'frac',
-    'power': 'pow',
-    'squareroot': 'sqrt',
-    'square-root': 'sqrt',
-    'cuberoot': 'cbrt',
-    'cube-root': 'cbrt',
-    'cbrt': 'cbrt',
-    'absolute': 'abs',
-    'summation': 'sum',
-    'product': 'prod',
-    'limit': 'lim',
-    'integral': 'int',
-}
+# Friendly aliases: alias -> canonical math command. Derived from the
+# default command registry (commands.toml) so adding an alias only
+# touches the mod file. Bare (star-less) calls like frac(2 ; 3) are also
+# accepted (see normalize_friendly_calls).
+MATH_ALIASES = {}
+for _spec in DEFAULT_REGISTRY.commands.values():
+    for _alias in _spec.aliases:
+        MATH_ALIASES[_alias] = _spec.name
 
 _CANONICAL_MATH_NAMES = (
     'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
@@ -153,21 +145,25 @@ _CANONICAL_MATH_NAMES = (
 )
 
 
-def normalize_friendly_calls(text):
+def normalize_friendly_calls(text, registry=None):
     """Rewrite friendly math spellings to canonical ``*name(...)`` form.
 
-    Only starred aliases (``*fraction(`` -> ``*frac(`` etc., see
-    MATH_ALIASES). Bare ``frac(`` without ``*`` is deliberately NOT
-    rewritten here: doing so before outer commands (e.g. ``*lim``)
-    are expanded causes nested ``$...$`` double-wrapping
-    (``*lim(x -> 0 ; sin(x)/x)`` regressed to
-    ``$lim_(...) ($sin(x)$ / x)$``). Beginners keep the ``*`` prefix;
-    friendliness comes from commas, aliases, ``let`` and blocks.
-    Idempotent and safe to call repeatedly.
+    Only starred aliases (``*fraction(`` -> ``*frac(`` etc., see the
+    registry's alias map). Bare ``frac(`` without ``*`` is deliberately
+    NOT rewritten here. Idempotent and safe to call repeatedly.
     """
+    if registry is None:
+        try:
+            from .command_registry import DEFAULT_REGISTRY
+            registry = DEFAULT_REGISTRY
+        except Exception:  # pragma: no cover - defensive
+            registry = None
+    alias_map = getattr(registry, 'aliases', None)
+    if alias_map is None:
+        alias_map = MATH_ALIASES
     # Starred aliases: *fraction( -> *frac(. Hyphenated aliases need
     # re.escape (e.g. square-root). Skip identity (cbrt -> cbrt).
-    for alias, canon in MATH_ALIASES.items():
+    for alias, canon in alias_map.items():
         if alias == canon:
             continue
         text = re.sub(
@@ -184,16 +180,29 @@ def escape_number_commas(s):
     A bare comma inside Typst math function args is an argument
     separator, so emitting ``$frac(100,000, 7)$`` fails with
     "unexpected argument" (no PDF). Verified: ``$frac(100\\,000, 7)$``
-    compiles. Only a comma directly between two digits is escaped,
-    so genuine ``", "`` separators (which the formatters below always
-    emit with a trailing space) survive untouched.
+    compiles. Only a comma where there are at least 2 digits on either
+    side is escaped — single-digit separators (e.g. ``frac(2,3)``) are
+    left intact because the formatters always emit them with a trailing
+    space.
 
     Quoted spans are opaque text, not math: their content is left
     byte-for-byte alone (a quoted ``100,000`` must stay as typed).
     """
     parts = re.split(r'("[^"]*")', s)
     for i in range(0, len(parts), 2):
-        parts[i] = re.sub(r'(?<=\d),(?=\d)', r'\\,', parts[i])
+        # Only escape commas with 2+ digits on at least one side;
+        # single-digit separators like frac(2,3) are function args
+        # and survive because formatters add trailing spaces.
+        def _escape_comma(m):
+            before = m.group(1)
+            after = m.group(2)
+            digits_before = len(re.findall(r'\d', before))
+            digits_after = len(re.findall(r'\d', after))
+            if digits_before >= 2 or digits_after >= 2:
+                return m.group(0).replace(',', r'\,')
+            return m.group(0)
+
+        parts[i] = re.sub(r'(\d*),(\d*)', _escape_comma, parts[i])
     return ''.join(parts)
 
 
@@ -351,7 +360,7 @@ def clean_inner_math(ctx, s, _depth=0, line_no=None):
 
 def _clean_inner_math(ctx, s, _depth=0, line_no=None):
     from .text_commands import normalize_text_aliases, replace_styling_calls
-    s = normalize_friendly_calls(s.strip())
+    s = normalize_friendly_calls(s.strip(), ctx.registry if hasattr(ctx, 'registry') else None)
     s = normalize_text_aliases(s)
     s = replace_styling_calls(
         s, ctx, line_no,
@@ -370,7 +379,7 @@ def _clean_inner_math(ctx, s, _depth=0, line_no=None):
     # not every literal '$': a literal dollar in args is preserved for
     # the final unwrap below.
     s = replace_symbol_shortcuts(s)
-    s = normalize_friendly_calls(s)
+    s = normalize_friendly_calls(s, ctx.registry if hasattr(ctx, 'registry') else None)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt, line_no=line_no)
     s = replace_int_calls(s, ctx, _depth, line_no=line_no)
@@ -413,52 +422,20 @@ def math_call_specs(ctx):
     dedicated ``replace_*_calls`` functions (det, set, align, vec,
     int, diff, cases, matrix, table).
     """
-    return [
-        ('frac', 2,
-         lambda args: f"$frac({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
-        ('abs', 1,
-         lambda args: f"$abs({clean_inner_math(ctx, args[0])})$"),
-        ('sin', 1, lambda args: f"$sin({clean_inner_math(ctx, args[0])})$"),
-        ('cos', 1, lambda args: f"$cos({clean_inner_math(ctx, args[0])})$"),
-        ('tan', 1, lambda args: f"$tan({clean_inner_math(ctx, args[0])})$"),
-        ('sqrt', 1, lambda args: f"$sqrt({clean_inner_math(ctx, args[0])})$"),
-        ('cbrt', 1, lambda args: f"$root(3, {{{clean_inner_math(ctx, args[0])}}})$"),
-        ('log', 1, lambda args: f"$log({clean_inner_math(ctx, args[0])})$"),
-        ('ln',  1, lambda args: f"$ln({clean_inner_math(ctx, args[0])})$"),
-        ('pow', 2,
-         lambda args: _format_pow(ctx, args)),
-        ('root', 2,
-         lambda args: f"$root({clean_inner_math(ctx, args[0])}, {{{clean_inner_math(ctx, args[1])}}})$"),
-        ('sum', 3,
-         lambda args: (
-             f"$display(sum_({clean_inner_math(ctx, args[0])})^({clean_inner_math(ctx, args[1])}) "
-             f"({clean_inner_math(ctx, args[2])}))$"
-         )),
-        ('prod', 3,
-         lambda args: (
-             f"$display(product_({clean_inner_math(ctx, args[0])})^({clean_inner_math(ctx, args[1])}) "
-             f"({clean_inner_math(ctx, args[2])}))$"
-         )),
-        ('lim', 2,
-         lambda args: f"$lim_({clean_inner_math(ctx, args[0])}) ({clean_inner_math(ctx, args[1])})$"),
-        ('binom', 2,
-         lambda args: f"$binom({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
-        ('cot', 1, lambda args: f"$cot({clean_inner_math(ctx, args[0])})$"),
-        ('sec', 1, lambda args: f"$sec({clean_inner_math(ctx, args[0])})$"),
-        ('csc', 1, lambda args: f"$csc({clean_inner_math(ctx, args[0])})$"),
-        ('arcsin', 1, lambda args: f"$arcsin({clean_inner_math(ctx, args[0])})$"),
-        ('arccos', 1, lambda args: f"$arccos({clean_inner_math(ctx, args[0])})$"),
-        ('arctan', 1, lambda args: f"$arctan({clean_inner_math(ctx, args[0])})$"),
-        ('sinh', 1, lambda args: f"$sinh({clean_inner_math(ctx, args[0])})$"),
-        ('cosh', 1, lambda args: f"$cosh({clean_inner_math(ctx, args[0])})$"),
-        ('tanh', 1, lambda args: f"$tanh({clean_inner_math(ctx, args[0])})$"),
-        ('coth', 1, lambda args: f"$coth({clean_inner_math(ctx, args[0])})$"),
-        ('hat', 1, lambda args: f"$hat({clean_inner_math(ctx, args[0])})$"),
-        ('bar', 1, lambda args: f"$bar({clean_inner_math(ctx, args[0])})$"),
-        ('overline', 1, lambda args: f"$overline({clean_inner_math(ctx, args[0])})$"),
-        ('tilde', 1, lambda args: f"$tilde({clean_inner_math(ctx, args[0])})$"),
-        ('dot', 1, lambda args: f"$dot({clean_inner_math(ctx, args[0])})$"),
-    ]
+    specs = []
+    reg = getattr(ctx, 'registry', None)
+    if reg is None:
+        reg = DEFAULT_REGISTRY
+    for cmd_spec in reg.template_specs():
+        spec = cmd_spec
+
+        def formatter(args, spec=spec):
+            return render_spec(spec, ctx, args)
+
+        specs.append((spec.name, spec.args, formatter))
+    # pow keeps its Python formatting helper.
+    specs.append(('pow', 2, lambda args: _format_pow(ctx, args)))
+    return specs
 
 
 def _format_int(ctx, name, args):
@@ -555,7 +532,7 @@ def replace_int_calls(text, ctx, _depth=0, line_no=None):
         return text
     # *integral( is normalized to *int( by normalize_friendly_calls, but
     # run it here too so direct calls without the outer pass still work.
-    text = normalize_friendly_calls(text)
+    text = normalize_friendly_calls(text, ctx.registry if hasattr(ctx, 'registry') else None)
     for name in ('int', 'oint'):
         text = _replace_single_int(text, ctx, name, _depth,
                                     line_no=line_no)

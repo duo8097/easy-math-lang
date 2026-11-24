@@ -148,6 +148,7 @@ Like a word with two spellings? These all produce the same output:
 | `*p(sin(x))` | print `sin(x)` literally |
 | `*doc_title(My Lesson)` | centered title + PDF metadata |
 | `*doc_font(DejaVu Sans ; 14pt)` | body font |
+| `*use("my-commands.toml")` | load math commands from a mod file |
 
 ---
 

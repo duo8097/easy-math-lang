@@ -1,0 +1,314 @@
+# Default math command table for easy-math-lang.
+#
+# Each [[commands]] entry describes one math command. Entries are either:
+#   - kind = "template" (the default when "typst" is present): the command
+#     is rendered by substituting the already-cleaned arguments {0}, {1}, ...
+#     into the "typst" template.
+#   - kind = "builtin": the command keeps its hand-written Python logic in
+#     math_commands.py (int, diff, cases, ...). Such an entry only carries
+#     name/args/aliases/usage/doc so the rest of the toolchain (KNOWN_COMMANDS,
+#     aliases, LSP docs) can be derived from this file.
+#
+# Template brace escaping: a literal "{" or "}" in the output must be written
+# as "{{" or "}}" (Python-style). Placeholders are only "{N}" where N is a
+# 0-based argument index and N < args. Anything else inside braces is an error.
+#
+# User mod files use the same format but may NOT declare kind = "builtin" or
+# a "handler" key: those are reserved for the compiler's own table.
+
+[[commands]]
+name = "frac"
+args = 2
+aliases = ["fraction"]
+typst = "$frac({0}, {1})$"
+usage = "*frac(numerator ; denominator)"
+doc = "Fraction. Comma also works: *frac(2, 3)."
+
+[[commands]]
+name = "abs"
+args = 1
+aliases = ["absolute"]
+typst = "$abs({0})$"
+usage = "*abs(expression)"
+doc = "Absolute value."
+
+[[commands]]
+name = "sin"
+args = 1
+typst = "$sin({0})$"
+usage = "*sin(x)"
+doc = "Sine."
+
+[[commands]]
+name = "cos"
+args = 1
+typst = "$cos({0})$"
+usage = "*cos(x)"
+doc = "Cosine."
+
+[[commands]]
+name = "tan"
+args = 1
+typst = "$tan({0})$"
+usage = "*tan(x)"
+doc = "Tangent."
+
+[[commands]]
+name = "sqrt"
+args = 1
+aliases = ["squareroot", "square-root"]
+typst = "$sqrt({0})$"
+usage = "*sqrt(x)"
+doc = "Square root."
+
+[[commands]]
+name = "cbrt"
+args = 1
+aliases = ["cuberoot", "cube-root"]
+typst = "$root(3, {{{0}}})$"
+usage = "*cbrt(x)"
+doc = "Cube root (same as *root(3 ; x))."
+
+[[commands]]
+name = "log"
+args = 1
+typst = "$log({0})$"
+usage = "*log(x)"
+doc = "Logarithm."
+
+[[commands]]
+name = "ln"
+args = 1
+typst = "$ln({0})$"
+usage = "*ln(x)"
+doc = "Natural logarithm."
+
+[[commands]]
+name = "pow"
+args = 2
+aliases = ["power"]
+kind = "builtin"
+usage = "*pow(base ; exponent)"
+doc = "Power. Comma also works: *pow(x, 2)."
+
+[[commands]]
+name = "root"
+args = 2
+typst = "$root({0}, {{{1}}})$"
+usage = "*root(index ; radicand)"
+doc = "Root."
+
+[[commands]]
+name = "sum"
+args = 3
+aliases = ["summation"]
+typst = "$display(sum_({0})^({1}) ({2}))$"
+usage = "*sum(lower ; upper ; expression)"
+doc = "Summation."
+
+[[commands]]
+name = "prod"
+args = 3
+aliases = ["product"]
+typst = "$display(product_({0})^({1}) ({2}))$"
+usage = "*prod(lower ; upper ; expression)"
+doc = "Product."
+
+[[commands]]
+name = "lim"
+args = 2
+aliases = ["limit"]
+typst = "$lim_({0}) ({1})$"
+usage = "*lim(variable -> value ; expression)"
+doc = "Limit."
+
+[[commands]]
+name = "binom"
+args = 2
+typst = "$binom({0}, {1})$"
+usage = "*binom(n ; k)"
+doc = "Binomial coefficient."
+
+[[commands]]
+name = "cot"
+args = 1
+typst = "$cot({0})$"
+usage = "*cot(x)"
+doc = "Cotangent."
+
+[[commands]]
+name = "sec"
+args = 1
+typst = "$sec({0})$"
+usage = "*sec(x)"
+doc = "Secant."
+
+[[commands]]
+name = "csc"
+args = 1
+typst = "$csc({0})$"
+usage = "*csc(x)"
+doc = "Cosecant."
+
+[[commands]]
+name = "arcsin"
+args = 1
+typst = "$arcsin({0})$"
+usage = "*arcsin(x)"
+doc = "Arcsine."
+
+[[commands]]
+name = "arccos"
+args = 1
+typst = "$arccos({0})$"
+usage = "*arccos(x)"
+doc = "Arccosine."
+
+[[commands]]
+name = "arctan"
+args = 1
+typst = "$arctan({0})$"
+usage = "*arctan(x)"
+doc = "Arctangent."
+
+[[commands]]
+name = "sinh"
+args = 1
+typst = "$sinh({0})$"
+usage = "*sinh(x)"
+doc = "Hyperbolic sine."
+
+[[commands]]
+name = "cosh"
+args = 1
+typst = "$cosh({0})$"
+usage = "*cosh(x)"
+doc = "Hyperbolic cosine."
+
+[[commands]]
+name = "tanh"
+args = 1
+typst = "$tanh({0})$"
+usage = "*tanh(x)"
+doc = "Hyperbolic tangent."
+
+[[commands]]
+name = "coth"
+args = 1
+typst = "$coth({0})$"
+usage = "*coth(x)"
+doc = "Hyperbolic cotangent."
+
+[[commands]]
+name = "hat"
+args = 1
+typst = "$hat({0})$"
+usage = "*hat(x)"
+doc = "Hat accent."
+
+[[commands]]
+name = "bar"
+args = 1
+typst = "$bar({0})$"
+usage = "*bar(x)"
+doc = "Bar accent."
+
+[[commands]]
+name = "overline"
+args = 1
+typst = "$overline({0})$"
+usage = "*overline(AB)"
+doc = "Overline (e.g. segment AB)."
+
+[[commands]]
+name = "tilde"
+args = 1
+typst = "$tilde({0})$"
+usage = "*tilde(x)"
+doc = "Tilde accent."
+
+[[commands]]
+name = "dot"
+args = 1
+typst = "$dot({0})$"
+usage = "*dot(x)"
+doc = "Dot accent."
+
+# Complex math commands (Python logic lives in math_commands.py).
+[[commands]]
+name = "int"
+args = 1
+aliases = ["integral"]
+kind = "builtin"
+usage = "*int(lower ; upper ; expression [; variable])"
+doc = "Definite (*int(0 ; 1 ; x^2 ; x)) or indefinite (*int(x^2)) integral."
+
+[[commands]]
+name = "oint"
+args = 1
+kind = "builtin"
+usage = "*oint(lower ; upper ; expression [; variable])"
+doc = "Contour integral (Typst integral.cont). Same args as *int."
+
+[[commands]]
+name = "diff"
+args = 2
+kind = "builtin"
+usage = "*diff(f ; x [; n])"
+doc = "Derivative df/dx as a fraction; *diff(f ; x ; n) for the n-th."
+
+[[commands]]
+name = "pdiff"
+args = 2
+kind = "builtin"
+usage = "*pdiff(f ; x [; n])"
+doc = "Partial derivative (Typst partial). Same args as *diff."
+
+[[commands]]
+name = "cases"
+args = 1
+kind = "builtin"
+usage = "*cases(row1 | row2)"
+doc = "Piecewise / equation system (Typst cases). Rows split on |; multiline *cases( block works too."
+
+[[commands]]
+name = "det"
+args = 1
+kind = "builtin"
+usage = "*det(1 ; 2 | 3 ; 4)"
+doc = "Determinant with vertical bars (Typst mat with | delimiters). Same rows/cells as *matrix, or *det(*matrix(...))."
+
+[[commands]]
+name = "set"
+args = 1
+kind = "builtin"
+usage = "*set(x ; x > 0)"
+doc = "Set-builder {x | condition} (two ;-args); one or 3+ args list {a, b, c}. Commas always list: *set(a, b)."
+
+[[commands]]
+name = "align"
+args = 1
+kind = "builtin"
+usage = "*align(x = 1 | y = 2)"
+doc = "Equations aligned at = (Typst &). Rows split on |; multiline *align( block works too."
+
+[[commands]]
+name = "vec"
+args = 2
+kind = "builtin"
+usage = "*vec(x1 ; x2 ; ...)"
+doc = "Math-mode column vector (Typst vec). At least 2 components split on ; (or ,). Works inside \\ ... \\ math and *matrix cells."
+
+[[commands]]
+name = "matrix"
+args = 1
+kind = "builtin"
+usage = "*matrix(1 ; 2 | 3 ; 4)"
+doc = "Matrix (Typst mat). Rows split on |, cells on ;."
+
+[[commands]]
+name = "mat"
+args = 1
+kind = "builtin"
+usage = "*mat(1 ; 2 | 3 ; 4)"
+doc = "Matrix (alias of *matrix)."

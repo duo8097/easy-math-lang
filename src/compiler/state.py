@@ -8,6 +8,15 @@ class CompileContext:
         self.variables = {}
         self.defines = {}
         self.mult_sym = '*'
+        try:
+            from .command_registry import DEFAULT_REGISTRY
+            self.registry = DEFAULT_REGISTRY
+        except Exception:  # pragma: no cover - defensive
+            self.registry = None
+        self._mod_template_depth = 0
+        self._mod_expansion_count = 0
+        self._mod_expanded_chars = 0
+        self._mod_expansion_aborted = False
         # Absolute .eml path for SourceSpans (set per compile_ezmath run).
         self.source_file = ''
         # Original .ezmath source, one entry per line (no newlines), and

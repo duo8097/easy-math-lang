@@ -39,6 +39,7 @@ approximate (they drift; the names do not):
 import contextlib
 import difflib
 import io
+import os
 import re
 
 from compiler.calc import apply_calc_in_string, evaluate_calc
@@ -489,7 +490,31 @@ def _validate_table_block(block_type, block_content, lines,
 
 
 # --- Main analysis: text -> diagnostics (the line loop) ---
-def analyze_text(text):
+def _uri_to_path(uri):
+    if not isinstance(uri, str):
+        return None
+    if uri.startswith('file://'):
+        from urllib.parse import unquote, urlparse
+        parsed = urlparse(uri)
+        path = unquote(parsed.path or '')
+        if os.name == 'nt' and path.startswith('/') and len(path) > 2 and path[2] == ':':
+            path = path[1:]
+        return path or None
+    return None
+
+
+def _known_commands(analysis=None):
+    known = set(KNOWN_COMMANDS)
+    reg = getattr(analysis, 'registry', None) if analysis is not None else None
+    if reg is not None:
+        try:
+            known |= reg.all_command_names()
+        except Exception:
+            pass
+    return known
+
+
+def analyze_text(text, base_dir=None, uri=None):
     """Analyze a document; never raises on malformed input."""
     analysis = Analysis()
     try:
@@ -498,7 +523,11 @@ def analyze_text(text):
                 Diag(0, 0, 0, 'error', 'Invalid document text')
             )
             return analysis
-        return _analyze_text_inner(text, analysis)
+        if base_dir is None and isinstance(uri, str):
+            base_dir = _uri_to_path(uri)
+            if base_dir is not None:
+                base_dir = os.path.dirname(base_dir)
+        return _analyze_text_inner(text, analysis, base_dir=base_dir)
     except Exception as e:
         try:
             analysis.diagnostics.append(
@@ -552,7 +581,8 @@ def _analyze_math_body(ctx, head, idx, analysis):
         cmd = m.group(1)
         if cmd == 'calc':
             continue
-        if cmd in KNOWN_COMMANDS:
+        _known = _known_commands(analysis)
+        if cmd in _known:
             continue
         if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
             analysis.diagnostics.append(Diag(
@@ -581,7 +611,7 @@ def _analyze_math_body(ctx, head, idx, analysis):
             ))
 
 
-def _analyze_text_inner(text, analysis):
+def _analyze_text_inner(text, analysis, base_dir=None):
     # LSP clients split lines on \r\n, \r and \n only; str.splitlines()
     # would invent phantom lines for VT/FF/FS-US/NEL and mistranslate
     # every diagnostic that follows them. Normalize first.
@@ -592,6 +622,24 @@ def _analyze_text_inner(text, analysis):
     # strip_comments preserves line count, but be defensive.
     while len(lines) < len(raw_lines):
         lines.append('')
+
+    # Per-document mod loading (never mutate defaults).
+    try:
+        from compiler.command_registry import load_document_registry
+        registry, mod_diags = load_document_registry(text, base_dir)
+        analysis.registry = registry
+        ctx.registry = registry
+        for ln, sev, msg in mod_diags:
+            idx = ln - 1
+            if idx < 0 or idx >= len(lines):
+                idx = 0
+            analysis.diagnostics.append(Diag(
+                idx, 0, len(lines[idx]) if idx < len(lines) else 0,
+                'error' if sev.lower().startswith('err') else 'warning',
+                msg))
+    except Exception as e:
+        analysis.diagnostics.append(Diag(0, 0, 0, 'error',
+                                         f'mod loading failed: {e}'))
 
     in_f_block = False
     block_type = None
@@ -952,7 +1000,8 @@ def _analyze_text_inner(text, analysis):
                     # Unclosed *calc( is reported by the CALC_OPEN check;
                     # the compiler strips the leading * and never warns.
                     continue
-                if cmd in KNOWN_COMMANDS:
+                _known = _known_commands(analysis)
+                if cmd in _known:
                     continue
                 if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                     analysis.diagnostics.append(Diag(
@@ -983,7 +1032,8 @@ def _analyze_text_inner(text, analysis):
                             f"inside math — leaving as-is",
                         ))
                         continue
-                    if cmd == 'calc' or cmd in KNOWN_COMMANDS:
+                    _known = _known_commands(analysis)
+                    if cmd == 'calc' or cmd in _known:
                         continue
                     if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                         analysis.diagnostics.append(Diag(
@@ -1006,7 +1056,8 @@ def _analyze_text_inner(text, analysis):
             _bare_scan = _bare_scan.replace('$', ' ')
             for m in BARE_COMMAND_RE.finditer(_bare_scan):
                 cmd = m.group(1)
-                if cmd in KNOWN_COMMANDS or cmd in _SYMBOL_WORDS or cmd == 'calc':
+                _known = _known_commands(analysis)
+                if cmd in _known or cmd in _SYMBOL_WORDS or cmd == 'calc':
                     continue
                 if cmd in KNOWN_GEOMETRY_COMMANDS or cmd.replace('_', '-') in KNOWN_GEOMETRY_COMMANDS:
                     analysis.diagnostics.append(Diag(
@@ -1121,9 +1172,9 @@ def _in_p_span(line_text, character):
 
 
 # --- LSP request handlers: complete / hover / document symbols ---
-def complete(text, line, character):
+def complete(text, line, character, base_dir=None, uri=None):
     """Completion candidates at a cursor position (client filters by prefix)."""
-    analysis = analyze_text(text)
+    analysis = analyze_text(text, base_dir=base_dir, uri=uri)
     lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
     cur = lines[line] if 0 <= line < len(lines) else ''
     # Inside *p(...) raw spans the compiler ignores variables; suppress
@@ -1145,8 +1196,20 @@ def complete(text, line, character):
                 'kind': 'variable' if kind == 'variable' else 'constant',
                 'detail': f'= {value}' if value else kind,
             })
-    for name in sorted(builtins.MATH_DOCS):
-        sig, _desc = builtins.MATH_DOCS[name]
+    math_docs = dict(builtins.MATH_DOCS)
+    reg = getattr(analysis, 'registry', None)
+    if reg is not None:
+        for spec in reg.commands.values():
+            if spec.name not in math_docs:
+                math_docs[spec.name] = (spec.usage, spec.doc)
+            for alias in spec.aliases:
+                if alias not in math_docs:
+                    alias_usage = spec.usage.replace(
+                        '*' + spec.name, '*' + alias, 1)
+                    math_docs[alias] = (
+                        alias_usage, f'{spec.doc} (alias of *{spec.name})')
+    for name in sorted(math_docs):
+        sig, _desc = math_docs[name]
         items.append({'label': name, 'kind': 'function', 'detail': sig})
     for name in sorted(builtins.KEYWORD_DOCS):
         sig, _desc = builtins.KEYWORD_DOCS[name]
@@ -1167,9 +1230,9 @@ def complete(text, line, character):
     return items
 
 
-def hover(text, line, character):
+def hover(text, line, character, base_dir=None, uri=None):
     """Hover info for the identifier under the cursor, or None."""
-    analysis = analyze_text(text)
+    analysis = analyze_text(text, base_dir=base_dir, uri=uri)
     lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
     if not (0 <= line < len(lines)):
         return None
@@ -1197,6 +1260,32 @@ def hover(text, line, character):
         # The *draw block's own symbol: fall through to KEYWORD_DOCS so
         # hovering *draw( shows the command's signature + description
         # (more useful than "Variable, defined at line N").
+    reg = getattr(analysis, 'registry', None)
+    spec = None
+    if reg is not None:
+        if name in reg.commands:
+            spec = reg.commands[name]
+        elif name in reg.aliases:
+            spec = reg.commands.get(reg.aliases[name])
+    if spec is not None:
+        if name == spec.name:
+            sig = spec.usage
+        else:
+            sig = spec.usage.replace('*' + spec.name, '*' + name, 1)
+        desc = spec.doc
+        try:
+            from compiler.command_registry import is_user_mod_spec as _is_user
+            user = _is_user(spec)
+        except Exception:
+            user = False
+        extra = ''
+        if user:
+            if name in builtins.MATH_DOCS:
+                extra = '\n\nOverrides the built-in definition.'
+            else:
+                extra = f'\n\nDefined in {spec.source}.'
+        return {'value': f'**{name}**\n\nFunction\n\n{sig}\n\n{desc}{extra}',
+                'start': token.start(), 'end': token.end()}
     if name in builtins.MATH_DOCS:
         sig, desc = builtins.MATH_DOCS[name]
         return {'value': f'**{name}**\n\nFunction\n\n{sig}\n\n{desc}',

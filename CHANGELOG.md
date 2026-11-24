@@ -12,6 +12,13 @@ for those.
 
 ## [Unreleased]
 
+## [8.0.0] - 2026-11-24
+
+### Added
+- **Easy Math Lang 8.0.0.** Production release integrating user mod files (`*use`), single source of truth for math commands (`commands.toml`), and LSP/editor awareness.
+
+## [8.0.0-rc.1] - 2026-11-24
+
 ### Added
 - **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
 - **Beginner documentation tools and guides.** Added a checked examples map,
@@ -21,6 +28,14 @@ for those.
   markers (GitHub-compatible anchors, duplicate headings get `-1`, `-2`
   suffixes). After editing headings, run `python scripts/gen_toc.py`; CI
   fails with `gen_toc.py --check` when a table of contents is out of date.
+
+### Changed
+- LSP hover/completion text for math commands and aliases is now derived from
+  `commands.toml`, so alias descriptions include the canonical command's
+  documentation.
+- `*use("file.toml")` loads per-document math commands; the language server
+  and editor reflect them in completion, hover and diagnostics, and reload
+  when the mod file changes on disk.
 
 ## [7.1.1] - 2026-11-20
 
@@ -290,7 +305,9 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0...HEAD
+[8.0.0]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...v8.0.0
+[8.0.0-rc.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...v8.0.0-rc.1
 [7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
 [7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0

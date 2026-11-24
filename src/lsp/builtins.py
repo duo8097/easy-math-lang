@@ -5,77 +5,43 @@ compiler's own tables (see _CROSS_CHECK below); only the short
 descriptions are LSP-layer additions.
 """
 
+from compiler.command_registry import DEFAULT_REGISTRY as _DEFAULT_REGISTRY
 from compiler.diagnostics import KNOWN_COMMANDS
 from compiler.symbols import WORD_REPLACEMENTS
 from geometry.commands import KNOWN_GEOMETRY_COMMANDS
 
-# name -> (signature, short description), from rule.txt.
-# Friendly aliases point at the same docs (completion shows both).
-MATH_DOCS = {
-    'frac': ('*frac(numerator ; denominator)', 'Fraction. Comma also works: *frac(2, 3).'),
-    'fraction': ('*fraction(numerator ; denominator)', 'Fraction (alias of *frac).'),
-    'abs': ('*abs(expression)', 'Absolute value.'),
-    'absolute': ('*absolute(expression)', 'Absolute value (alias of *abs).'),
-    'sin': ('*sin(x)', 'Sine.'),
-    'cos': ('*cos(x)', 'Cosine.'),
-    'tan': ('*tan(x)', 'Tangent.'),
-    'sqrt': ('*sqrt(x)', 'Square root.'),
-    'squareroot': ('*squareroot(x)', 'Square root (alias of *sqrt).'),
-    'square-root': ('*square-root(x)', 'Square root (alias of *sqrt).'),
-    'cbrt': ('*cbrt(x)', 'Cube root (same as *root(3 ; x)).'),
-    'cuberoot': ('*cuberoot(x)', 'Cube root (alias of *cbrt).'),
-    'cube-root': ('*cube-root(x)', 'Cube root (alias of *cbrt).'),
-    'log': ('*log(x)', 'Logarithm.'),
-    'ln': ('*ln(x)', 'Natural logarithm.'),
-    'pow': ('*pow(base ; exponent)', 'Power. Comma also works: *pow(x, 2).'),
-    'power': ('*power(base ; exponent)', 'Power (alias of *pow).'),
-    'root': ('*root(index ; radicand)', 'Root.'),
-    'sum': ('*sum(lower ; upper ; expression)', 'Summation.'),
-    'summation': ('*summation(lower ; upper ; expression)', 'Summation (alias of *sum).'),
-    'prod': ('*prod(lower ; upper ; expression)', 'Product.'),
-    'product': ('*product(lower ; upper ; expression)', 'Product (alias of *prod).'),
-    'lim': ('*lim(variable -> value ; expression)', 'Limit.'),
-    'limit': ('*limit(variable -> value ; expression)', 'Limit (alias of *lim).'),
-    'int': ('*int(lower ; upper ; expression [; variable])', 'Definite (*int(0 ; 1 ; x^2 ; x)) or indefinite (*int(x^2)) integral.'),
-    'integral': ('*integral(lower ; upper ; expression [; variable])', 'Integral (alias of *int).'),
-    'oint': ('*oint(lower ; upper ; expression [; variable])', 'Contour integral (Typst integral.cont). Same args as *int.'),
-    'cases': ('*cases(row1 | row2)', 'Piecewise / equation system (Typst cases). Rows split on |; multiline *cases( block works too.'),
-    'vec': ('*vec(x1 ; x2 ; ...)', 'Math-mode column vector (Typst vec). At least 2 components split on ; (or ,). Works inside \\ ... \\ math and *matrix cells.'),
-    'binom': ('*binom(n ; k)', 'Binomial coefficient.'),
-    'cot': ('*cot(x)', 'Cotangent.'),
-    'sec': ('*sec(x)', 'Secant.'),
-    'csc': ('*csc(x)', 'Cosecant.'),
-    'arcsin': ('*arcsin(x)', 'Arcsine.'),
-    'arccos': ('*arccos(x)', 'Arccosine.'),
-    'arctan': ('*arctan(x)', 'Arctangent.'),
-    'sinh': ('*sinh(x)', 'Hyperbolic sine.'),
-    'cosh': ('*cosh(x)', 'Hyperbolic cosine.'),
-    'tanh': ('*tanh(x)', 'Hyperbolic tangent.'),
-    'coth': ('*coth(x)', 'Hyperbolic cotangent.'),
-    'hat': ('*hat(x)', 'Hat accent.'),
-    'bar': ('*bar(x)', 'Bar accent.'),
-    'overline': ('*overline(AB)', 'Overline (e.g. segment AB).'),
-    'tilde': ('*tilde(x)', 'Tilde accent.'),
-    'dot': ('*dot(x)', 'Dot accent.'),
-    'diff': ('*diff(f ; x [; n])', 'Derivative df/dx as a fraction; *diff(f ; x ; n) for the n-th.'),
-    'pdiff': ('*pdiff(f ; x [; n])', 'Partial derivative (Typst partial). Same args as *diff.'),
-    'det': ('*det(1 ; 2 | 3 ; 4)', 'Determinant with vertical bars (Typst mat with | delimiters). Same rows/cells as *matrix, or *det(*matrix(...)).'),
-    'set': ('*set(x ; x > 0)', 'Set-builder {x | condition} (two ;-args); one or 3+ args list {a, b, c}. Commas always list: *set(a, b).'),
-    'align': ('*align(x = 1 | y = 2)', 'Equations aligned at = (Typst &). Rows split on |; multiline *align( block works too.'),
+# name -> (signature, short description).
+#
+# Math commands and their aliases are derived from the default command
+# registry (src/compiler/commands.toml) so the LSP never drifts from the
+# compiler. Non-math names (style, table, plot, image, page break) stay
+# here because they are not part of the math registry.
+
+_EXTRA_MATH_DOCS = {
     'table': ('*table(cell ; cell | cell ; cell)', 'Table. Rows split on |, cells on ; (comma works when no ;).'),
-    'matrix': ('*matrix(1 ; 2 | 3 ; 4)', 'Matrix (Typst mat). Rows split on |, cells on ;.'),
-    'mat': ('*mat(1 ; 2 | 3 ; 4)', 'Matrix (alias of *matrix).'),
     'plot': ('*plot(expression ; xmin ; xmax)', 'Plot y=f(x) as SVG (numerical, 1000 samples).'),
+    'image': ('*image(path [; width])', 'Image from a file (width like 50% or 6cm). Relative paths resolve from the document folder.'),
+    'newpage': ('*newpage', 'Page break (Typst pagebreak). Alias: *pagebreak. Bare or *newpage().'),
+    'pagebreak': ('*pagebreak', 'Page break (alias of *newpage).'),
     'bold': ('*bold(text)', 'Bold text. Short alias: *b(...). Nesting, variables and calc() work inside.'),
     'b': ('*b(text)', 'Bold text (alias of *bold).'),
     'italic': ('*italic(text)', 'Italic text. Short alias: *i(...).'),
     'i': ('*i(text)', 'Italic text (alias of *italic).'),
     'underline': ('*underline(text)', 'Underlined text. Short alias: *u(...).'),
     'u': ('*u(text)', 'Underlined text (alias of *underline).'),
-    'newpage': ('*newpage', 'Page break (Typst pagebreak). Alias: *pagebreak. Bare or *newpage().'),
-    'pagebreak': ('*pagebreak', 'Page break (alias of *newpage).'),
-    'image': ('*image(path [; width])', 'Image from a file (width like 50% or 6cm). Relative paths resolve from the document folder.'),
 }
+
+MATH_DOCS = {}
+for _spec in _DEFAULT_REGISTRY.commands.values():
+    MATH_DOCS[_spec.name] = (_spec.usage, _spec.doc)
+    for _alias in _spec.aliases:
+        _alias_usage = _spec.usage.replace(
+            '*' + _spec.name, '*' + _alias, 1)
+        MATH_DOCS[_alias] = (
+            _alias_usage,
+            f'{_spec.doc} (alias of *{_spec.name})',
+        )
+MATH_DOCS.update(_EXTRA_MATH_DOCS)
 
 KEYWORD_DOCS = {
     'define': ('*define(name = value)', 'Define a reusable value. Also: *define x = 5, let x = 5.'),
@@ -89,6 +55,7 @@ KEYWORD_DOCS = {
     # which has no 'draw'), so *draw is documented here to give it
     # hover/completion without polluting the solver-command tables.
     'draw': ('*draw(...)', 'Draw a geometry figure. The block holds the geometry commands (*point, *line, *triangle, ...) and the constraint solver places the points.'),
+    'use': ('*use("file.toml")', 'Load math commands from a mod file (relative to the document folder).'),
 }
 
 GEOMETRY_DOCS = {
@@ -129,18 +96,13 @@ GEOMETRY_CONSTRUCTION_DOCS = {
     'orthocenter': ('orthocenter(A ; B ; C)', 'Intersection of the triangle\'s altitudes.'),
 }
 
-# Sanity: every builtin we advertise must exist in the compiler tables, and
-# every compiler math command must be advertised (no silent divergence).
-_CROSS_CHECK = (
-    set(MATH_DOCS) <= KNOWN_COMMANDS
-    and {'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'cbrt', 'log', 'ln',
-         'pow', 'root', 'sum', 'prod', 'lim'} <= set(MATH_DOCS)
-    and set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS)
-)
+# Sanity: geometry docs must match the geometry command table. Math docs
+# are now derived from the command registry, so they cannot diverge.
+_CROSS_CHECK = (set(GEOMETRY_DOCS) == set(KNOWN_GEOMETRY_COMMANDS))
 if not _CROSS_CHECK:  # pragma: no cover - startup safety, not a crash
     import logging as _logging
     _logging.getLogger('easy-math-lsp').warning(
-        'lsp builtins diverged from compiler command tables; '
+        'lsp builtins diverged from geometry command tables; '
         'continuing with best-effort tables'
     )
 

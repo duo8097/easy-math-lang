@@ -221,10 +221,10 @@ All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
 [Semantic Versioning](https://semver.org/)). The latest release:
 
-### [7.1.1] - 2026-11-20
+### [8.0.0] - 2026-11-24
 
-#### Changed
-- Dependency update: numpy 2.5.4 → 2.5.5; no user-visible change.
+#### Added
+- **Easy Math Lang 8.0.0.** Production release integrating user mod files (`*use`), single source of truth for math commands (`commands.toml`), and LSP/editor awareness.
 
 Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
@@ -241,4 +241,4 @@ UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
 files and full license text live in `src/editor/assets/icons/`
 (see `src/editor/assets/icons/LICENSE` for attribution).
 
-[7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
+[8.0.0]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...v8.0.0

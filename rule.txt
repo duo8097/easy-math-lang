@@ -381,6 +381,28 @@ Rules:
 )
 
 
+Sets
+----
+
+*set(x ; x > 0)
+
+Set-builder {x | condition} when two ";"-arguments are given; one or
+3+ arguments list {a, b, c}. Commas always list: *set(a, b).
+
+Example:
+
+*set(x ; x > 0)
+
+Output (Typst):
+
+$ {x | x > 0} $
+
+Rules:
+  - 2 arguments separated by ";" mean set-builder.
+  - Any other count (or comma separation) is a listing.
+  - Conditions containing ";" can be quoted: *set(x ; "a;b").
+
+
 Column vectors
 --------------
 
@@ -1362,7 +1384,17 @@ mean points: *doc_font(DejaVu Sans ; 14)). Aliases: *doc-font,
 Typst default at 12pt. Note: the build ignores system fonts, so use
 a family bundled with Typst.
 
+Mod files (user commands):
+
+*use("my-commands.toml") loads math commands from a TOML mod file. The
+path is relative to the .ezmath file's folder (absolute paths allowed).
+The line itself emits nothing. A mod may add template commands or
+override built-in template commands (with a warning); overriding a
+command implemented in Python (int, diff, cases, det, set, align, vec,
+matrix, pow, ...) is an error. See docs/mods.md.
+
 Equality:
+
 
 a == b  ->  a = b (single equals; === and !== still map to
 their own symbols first).

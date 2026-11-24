@@ -197,8 +197,10 @@ cmd_rpm() {
     exit 1
   fi
   require_bundle
-  local ver stage topdir rpm
+  local ver stage topdir rpm rpm_ver
   ver="$(read_version)"
+  # RPM spec Version cannot contain hyphens; convert prereleases (e.g. 8.0.0-rc.1 -> 8.0.0.rc.1).
+  rpm_ver="${ver//-/.}"
   echo "Building EasyMathLang Fedora/RHEL package for version $ver"
   stage="dist/linux-stage/easymath_${ver}_amd64"
   stage_fhs "$stage"
@@ -208,7 +210,7 @@ cmd_rpm() {
   mkdir -p "$topdir"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
   cat > "$topdir/SPECS/easymath.spec" <<EOF
 Name: easymath
-Version: ${ver}
+Version: ${rpm_ver}
 Release: 1
 Summary: Plain-text math documents to PDF, images, HTML and Typst
 License: MIT

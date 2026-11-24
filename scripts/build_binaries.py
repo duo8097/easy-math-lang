@@ -314,6 +314,16 @@ def _build(name: str, import_line: str, full_pyside6: bool,
                 f"there first.")
         sep = ";" if os.name == "nt" else ":"
         cmd += ["--add-data", f"{icon_png}{sep}editor/assets"]
+        # Default math command table (commands.toml): shipped as package
+        # data so the frozen compiler can load its command registry.
+        commands_toml = ROOT / "src" / "compiler" / "commands.toml"
+        if commands_toml.is_file():
+            sep = ";" if os.name == "nt" else ":"
+            cmd += ["--add-data", f"{commands_toml}{sep}compiler"]
+        else:
+            raise SystemExit(
+                f"::error::{commands_toml} is missing — the frozen "
+                f"compiler cannot load its command table.")
         # Vendored Typst packages: one copy under the shared _internal/,
         # reused by the CLI and the LSP (sys._MEIPASS/typst-packages).
         if VENDOR_TYPST_PACKAGES.is_dir():

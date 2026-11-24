@@ -72,6 +72,7 @@ from .comments import strip_comments
 from .diagnostics import warn_unknown_commands, report, report_with_context, source_col_for, _call_pattern, last_unescaped_bs_col
 from .escaping import escape_typst_outside_math, index_replacer, mask_urls, merge_math, restore_urls
 from .inline_math import find_unescaped, process_math_inner
+from .command_registry import DEFAULT_REGISTRY
 from .math_commands import (
     clean_inner_math,
     math_call_specs,
@@ -896,7 +897,7 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
         )
 
     # 6. Math constructs (friendly aliases + bare calls first).
-    text = normalize_friendly_calls(text)
+    text = normalize_friendly_calls(text, ctx.registry)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         text = replace_math_call(text, fn_name, fn_min, fn_fmt, line_no=line_no)
     text = replace_int_calls(text, ctx, line_no=line_no)
@@ -908,7 +909,7 @@ def _render_text_line(ctx, raw, line_no, _table_depth=0, _side_effects=True):
     text = replace_vec_calls(text, ctx, line_no)
 
     # 7. Warn about unknown *command(...)
-    warn_unknown_commands(text, line_no)
+    warn_unknown_commands(text, line_no, ctx.registry)
 
     # 8. *pi, *infinity
     text = re.sub(r'\*pi\b', '$pi$', text)
@@ -1499,7 +1500,46 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
         except Exception:
             output_spans.append(None)
 
+    # Document-level *use("file.toml") mod loading (pre-pass so line order
+    # does not matter). The *use lines themselves emit no output.
+    _use_lines = {}
+    for _i, _raw in enumerate(lines, start=1):
+        _m = re.match(r'^\*use\s*\((.*)\)\s*$', _raw.strip())
+        if not _m:
+            continue
+        _inner = _m.group(1).strip()
+        if (len(_inner) >= 2 and _inner[0] in '\"\''
+                and _inner[-1] == _inner[0]):
+            _path = _inner[1:-1]
+        else:
+            _path = _inner
+        _use_lines[_i] = _path
+
+    _loaded_mods = []
+    for _line_no, _rel in _use_lines.items():
+        if os.path.isabs(_rel):
+            _full = _rel
+        else:
+            _full = os.path.join(os.path.dirname(ctx.source_file), _rel)
+        if not os.path.isfile(_full):
+            report('Error', _line_no,
+                   f'cannot find mod file {_rel!r}')
+            continue
+        from .command_registry import load_mod_file
+        _specs = load_mod_file(_full, allow_builtin=False,
+                               line_no=_line_no)
+        _loaded_mods.append((_rel, _specs))
+
+    if _loaded_mods:
+        from .command_registry import merge_registries
+        ctx.registry = merge_registries(
+            getattr(ctx, 'registry', None) or DEFAULT_REGISTRY,
+            _loaded_mods,
+        )
+
     for line_no, line in enumerate(lines, start=1):
+        if line_no in _use_lines:
+            continue
         stripped_fence = line.strip()
         if stripped_fence.startswith('```'):
             in_fence = not in_fence
