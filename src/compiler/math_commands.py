@@ -180,16 +180,29 @@ def escape_number_commas(s):
     A bare comma inside Typst math function args is an argument
     separator, so emitting ``$frac(100,000, 7)$`` fails with
     "unexpected argument" (no PDF). Verified: ``$frac(100\\,000, 7)$``
-    compiles. Only a comma directly between two digits is escaped,
-    so genuine ``", "`` separators (which the formatters below always
-    emit with a trailing space) survive untouched.
+    compiles. Only a comma where there are at least 2 digits on either
+    side is escaped — single-digit separators (e.g. ``frac(2,3)``) are
+    left intact because the formatters always emit them with a trailing
+    space.
 
     Quoted spans are opaque text, not math: their content is left
     byte-for-byte alone (a quoted ``100,000`` must stay as typed).
     """
     parts = re.split(r'("[^"]*")', s)
     for i in range(0, len(parts), 2):
-        parts[i] = re.sub(r'(?<=\d),(?=\d)', r'\\,', parts[i])
+        # Only escape commas with 2+ digits on at least one side;
+        # single-digit separators like frac(2,3) are function args
+        # and survive because formatters add trailing spaces.
+        def _escape_comma(m):
+            before = m.group(1)
+            after = m.group(2)
+            digits_before = len(re.findall(r'\d', before))
+            digits_after = len(re.findall(r'\d', after))
+            if digits_before >= 2 or digits_after >= 2:
+                return m.group(0).replace(',', r'\,')
+            return m.group(0)
+
+        parts[i] = re.sub(r'(\d*),(\d*)', _escape_comma, parts[i])
     return ''.join(parts)
 
 
