@@ -145,21 +145,25 @@ _CANONICAL_MATH_NAMES = (
 )
 
 
-def normalize_friendly_calls(text):
+def normalize_friendly_calls(text, registry=None):
     """Rewrite friendly math spellings to canonical ``*name(...)`` form.
 
-    Only starred aliases (``*fraction(`` -> ``*frac(`` etc., see
-    MATH_ALIASES). Bare ``frac(`` without ``*`` is deliberately NOT
-    rewritten here: doing so before outer commands (e.g. ``*lim``)
-    are expanded causes nested ``$...$`` double-wrapping
-    (``*lim(x -> 0 ; sin(x)/x)`` regressed to
-    ``$lim_(...) ($sin(x)$ / x)$``). Beginners keep the ``*`` prefix;
-    friendliness comes from commas, aliases, ``let`` and blocks.
-    Idempotent and safe to call repeatedly.
+    Only starred aliases (``*fraction(`` -> ``*frac(`` etc., see the
+    registry's alias map). Bare ``frac(`` without ``*`` is deliberately
+    NOT rewritten here. Idempotent and safe to call repeatedly.
     """
+    if registry is None:
+        try:
+            from .command_registry import DEFAULT_REGISTRY
+            registry = DEFAULT_REGISTRY
+        except Exception:  # pragma: no cover - defensive
+            registry = None
+    alias_map = getattr(registry, 'aliases', None)
+    if alias_map is None:
+        alias_map = MATH_ALIASES
     # Starred aliases: *fraction( -> *frac(. Hyphenated aliases need
     # re.escape (e.g. square-root). Skip identity (cbrt -> cbrt).
-    for alias, canon in MATH_ALIASES.items():
+    for alias, canon in alias_map.items():
         if alias == canon:
             continue
         text = re.sub(
@@ -343,7 +347,7 @@ def clean_inner_math(ctx, s, _depth=0, line_no=None):
 
 def _clean_inner_math(ctx, s, _depth=0, line_no=None):
     from .text_commands import normalize_text_aliases, replace_styling_calls
-    s = normalize_friendly_calls(s.strip())
+    s = normalize_friendly_calls(s.strip(), ctx.registry if hasattr(ctx, 'registry') else None)
     s = normalize_text_aliases(s)
     s = replace_styling_calls(
         s, ctx, line_no,
@@ -362,7 +366,7 @@ def _clean_inner_math(ctx, s, _depth=0, line_no=None):
     # not every literal '$': a literal dollar in args is preserved for
     # the final unwrap below.
     s = replace_symbol_shortcuts(s)
-    s = normalize_friendly_calls(s)
+    s = normalize_friendly_calls(s, ctx.registry if hasattr(ctx, 'registry') else None)
     for fn_name, fn_min, fn_fmt in math_call_specs(ctx):
         s = replace_math_call(s, fn_name, fn_min, fn_fmt, line_no=line_no)
     s = replace_int_calls(s, ctx, _depth, line_no=line_no)
@@ -406,7 +410,10 @@ def math_call_specs(ctx):
     int, diff, cases, matrix, table).
     """
     specs = []
-    for cmd_spec in DEFAULT_REGISTRY.template_specs():
+    reg = getattr(ctx, 'registry', None)
+    if reg is None:
+        reg = DEFAULT_REGISTRY
+    for cmd_spec in reg.template_specs():
         spec = cmd_spec
 
         def formatter(args, spec=spec):
@@ -512,7 +519,7 @@ def replace_int_calls(text, ctx, _depth=0, line_no=None):
         return text
     # *integral( is normalized to *int( by normalize_friendly_calls, but
     # run it here too so direct calls without the outer pass still work.
-    text = normalize_friendly_calls(text)
+    text = normalize_friendly_calls(text, ctx.registry if hasattr(ctx, 'registry') else None)
     for name in ('int', 'oint'):
         text = _replace_single_int(text, ctx, name, _depth,
                                     line_no=line_no)

@@ -37,7 +37,7 @@ from .symbols import WORD_REPLACEMENTS
 _SYMBOL_WORDS = frozenset(old for old, _new in WORD_REPLACEMENTS)
 
 KNOWN_COMMANDS = {
-    'define', 'p',
+    'define', 'p', 'use',
     'doc_title', 'doc-title', 'doctitle', 'title',
     'doc_font', 'doc-font', 'docfont',
     'frac', 'fraction', 'abs', 'absolute', 'sin', 'cos', 'tan',
@@ -426,9 +426,11 @@ BARE_COMMAND_RE = re.compile(
 )
 
 
-def _warn_bare_command(cmd, line_no, occurrence=0):
+def _warn_bare_command(cmd, line_no, occurrence=0, known=None):
     """Emit the diagnostic for one bare *cmd (no parens)."""
-    if cmd in KNOWN_COMMANDS or cmd in _SYMBOL_WORDS or cmd == 'calc':
+    if known is None:
+        known = KNOWN_COMMANDS
+    if cmd in known or cmd in _SYMBOL_WORDS or cmd == 'calc':
         # Known command used without parens, a symbol keyword (*alpha,
         # *pi, *quad, ...), or bare calc: all render literally today,
         # so they stay silent.
@@ -460,14 +462,23 @@ def _warn_bare_command(cmd, line_no, occurrence=0):
     )
 
 
-def warn_unknown_commands(text, line_no):
+def warn_unknown_commands(text, line_no, registry=None):
     """Warn if *name(...) appears where name is not in KNOWN_COMMANDS."""
+    if registry is None:
+        try:
+            from .command_registry import DEFAULT_REGISTRY
+            registry = DEFAULT_REGISTRY
+        except Exception:  # pragma: no cover - defensive
+            registry = None
+    known = set(KNOWN_COMMANDS)
+    if registry is not None:
+        known |= registry.all_command_names()
     call_seen = {}
     for m in re.finditer(r'\*([^\W\d_][\w\-]*)\s*\(', text):
         cmd = m.group(1)
         occurrence = call_seen.get(cmd, 0)
         call_seen[cmd] = occurrence + 1
-        if cmd in KNOWN_COMMANDS:
+        if cmd in known:
             continue
         if cmd == 'draw':
             # Top-level *draw(...) is valid (pipeline handles single-line
@@ -509,7 +520,7 @@ def warn_unknown_commands(text, line_no):
             cmd = m.group(1)
             occurrence = bare_seen.get(cmd, 0)
             bare_seen[cmd] = occurrence + 1
-            _warn_bare_command(cmd, line_no, occurrence)
+            _warn_bare_command(cmd, line_no, occurrence, known)
 
 
 # Derive the math subset of KNOWN_COMMANDS from the default registry so

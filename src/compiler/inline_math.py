@@ -143,7 +143,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
             'Warning', line_no,
             '*newpage/*pagebreak is text mode '
             'and cannot be used inside math \\ ... \\ — leaving as-is')
-    inner = normalize_friendly_calls(inner)
+    inner = normalize_friendly_calls(inner, ctx.registry)
     from .text_commands import normalize_text_aliases, replace_styling_calls
     inner = normalize_text_aliases(inner)
     # Text styling compiles inside math too (Typst accepts
@@ -165,7 +165,7 @@ def process_math_inner(ctx, inner_raw, line_no=None):
     if line_no is not None:
         # Unknown *cmd(...) inside math never reaches the text-pass
         # warning (it is hidden behind a math placeholder by then).
-        warn_unknown_commands(inner, line_no)
+        warn_unknown_commands(inner, line_no, ctx.registry)
     inner = re.sub(r'\*pi\b', '$pi$', inner)
     inner = re.sub(r'\*infinity\b', '$infinity$', inner)
     # Strip the temporary $ wrappers from *pi so the outer wrap stays clean:

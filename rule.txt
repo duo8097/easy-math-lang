@@ -1384,7 +1384,17 @@ mean points: *doc_font(DejaVu Sans ; 14)). Aliases: *doc-font,
 Typst default at 12pt. Note: the build ignores system fonts, so use
 a family bundled with Typst.
 
+Mod files (user commands):
+
+*use("my-commands.toml") loads math commands from a TOML mod file. The
+path is relative to the .ezmath file's folder (absolute paths allowed).
+The line itself emits nothing. A mod may add template commands or
+override built-in template commands (with a warning); overriding a
+command implemented in Python (int, diff, cases, det, set, align, vec,
+matrix, pow, ...) is an error. See docs/mods.md.
+
 Equality:
+
 
 a == b  ->  a = b (single equals; === and !== still map to
 their own symbols first).

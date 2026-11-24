@@ -161,7 +161,8 @@ def render_template(template, values):
     return ''.join(out)
 
 
-def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
+def load_mod_text(text, *, allow_builtin=False, source_name='<mod>',
+                  line_no=None):
     """Parse *text* as a mod file and return a list of CommandSpec.
 
     Diagnostics are reported through the diagnostics system. Returns an
@@ -171,15 +172,17 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         lineno = getattr(exc, 'lineno', None)
-        report('Error', lineno,
-               f'invalid mod file {source_name}: {exc}')
+        detail = f'invalid mod file {source_name}: {exc}'
+        if lineno is not None:
+            detail += f' (line {lineno})'
+        report('Error', line_no, detail)
         return []
     except Exception as exc:  # pragma: no cover - defensive
-        report('Error', None, f'invalid mod file {source_name}: {exc}')
+        report('Error', line_no, f'invalid mod file {source_name}: {exc}')
         return []
 
     if not isinstance(data, dict):
-        report('Error', None, f'invalid mod file {source_name}: top level must be a table')
+        report('Error', line_no, f'invalid mod file {source_name}: top level must be a table')
         return []
 
     entries = data.get('commands', None)
@@ -188,11 +191,11 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         if 'command' in data:
             entries = data['command']
         else:
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: missing "commands" array')
             return []
     if not isinstance(entries, list):
-        report('Error', None,
+        report('Error', line_no,
                f'invalid mod file {source_name}: "commands" must be an array of tables')
         return []
 
@@ -203,7 +206,7 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
     def _one(entry, index):
         nonlocal specs
         if not isinstance(entry, dict):
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: entry {index} is not a table')
             return
         # Unknown / forbidden keys.
@@ -211,26 +214,26 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         if unknown:
             forbidden = set(entry) & _FORBIDDEN_KEYS
             if forbidden:
-                report('Error', None,
+                report('Error', line_no,
                        f'invalid mod file {source_name}: forbidden key '
                        f'{sorted(forbidden)!r} (handler/builtin kinds are not '
                        f'allowed in user mods)')
                 return
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: unknown key(s) '
                    f'{sorted(unknown)!r}')
             return
 
         name = entry.get('name')
         if not isinstance(name, str) or not name.strip():
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: entry {index} missing "name"')
             return
         name = name.strip()
 
         args = entry.get('args')
         if not isinstance(args, int) or isinstance(args, bool) or args < 1:
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "args" (must be a positive integer)')
             return
@@ -239,7 +242,7 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         if aliases is None:
             aliases = []
         if not isinstance(aliases, list) or any(not isinstance(a, str) for a in aliases):
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "aliases" (must be an array of strings)')
             return
@@ -247,38 +250,38 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
 
         kind = entry.get('kind', _TEMPLATE_KIND)
         if not isinstance(kind, str) or kind not in _ALLOWED_KINDS:
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'unknown kind {kind!r}')
             return
 
         typst = entry.get('typst', None)
         if typst is not None and not isinstance(typst, str):
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "typst" (must be a string)')
             return
 
         if kind == _BUILTIN_KIND:
             if typst is not None:
-                report('Error', None,
+                report('Error', line_no,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'cannot declare both kind="builtin" and "typst"')
                 return
             if not allow_builtin:
-                report('Error', None,
+                report('Error', line_no,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'uses kind="builtin", which is not allowed in user mods')
                 return
         else:
             if typst is None:
-                report('Error', None,
+                report('Error', line_no,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'missing "typst" template')
                 return
             ok, msg = _validate_template(typst, args, None)
             if not ok:
-                report('Error', None,
+                report('Error', line_no,
                        f'invalid mod file {source_name}: command {name!r}: {msg}')
                 return
 
@@ -290,13 +293,13 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
             doc = ''
 
         if name in seen_names:
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: duplicate command name '
                    f'{name!r}')
             return
         collides = any(a in seen_names or a in seen_aliases for a in aliases)
         if collides:
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: duplicate alias in '
                    f'command {name!r}')
             return
@@ -312,22 +315,23 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         try:
             _one(entry, index)
         except Exception as exc:  # never crash the build
-            report('Error', None,
+            report('Error', line_no,
                    f'invalid mod file {source_name}: entry {index}: {exc}')
 
     return specs
 
 
-def load_mod_file(path, *, allow_builtin=False):
+def load_mod_file(path, *, allow_builtin=False, line_no=None):
     """Load a mod file from *path*; report and return [] on any error."""
     try:
         with open(path, 'rb') as fh:
             raw = fh.read()
         text = raw.decode('utf-8')
     except OSError as exc:
-        report('Error', None, f'cannot read mod file {path}: {exc}')
+        report('Error', line_no, f'cannot read mod file {path}: {exc}')
         return []
-    return load_mod_text(text, allow_builtin=allow_builtin, source_name=path)
+    return load_mod_text(text, allow_builtin=allow_builtin,
+                         source_name=path, line_no=line_no)
 
 
 def _default_toml_path():
@@ -345,6 +349,119 @@ def _default_toml_path():
 _DEFAULT_TOML = _default_toml_path()
 
 
+def _base_kind(commands, aliases, name):
+    if name in commands:
+        return commands[name].kind
+    if name in aliases:
+        canon = aliases[name]
+        if canon in commands:
+            return commands[canon].kind
+    return None
+
+
+def merge_registries(base, mods):
+    """Layer user mods on top of *base*; return a NEW registry.
+
+    *mods* is a list of ``(label, specs)`` pairs in load order. Warnings
+    and errors are reported through the diagnostics system. The inputs are
+    never mutated.
+    """
+    commands = {n: s for n, s in base.commands.items()}
+    aliases = dict(base.aliases)
+    origin = {}
+    for name in commands:
+        origin[name] = 'built-in'
+    for alias in aliases:
+        origin[alias] = 'built-in'
+
+    for mod_label, specs in mods:
+        for spec in specs:
+            skip = False
+            # Command-name collision.
+            if spec.name in commands or spec.name in aliases:
+                kind = _base_kind(commands, aliases, spec.name)
+                if kind == _BUILTIN_KIND:
+                    report('Error', None,
+                           f"command '{spec.name}' is implemented in Python "
+                           f"and cannot be overridden")
+                    skip = True
+                else:
+                    if spec.name in aliases:
+                        canon = aliases[spec.name]
+                        if origin.get(spec.name) == 'built-in':
+                            report('Warning', None,
+                                   f"command '{spec.name}' overrides "
+                                   f"built-in alias '{spec.name}' "
+                                   f"(of *{canon})")
+                        else:
+                            report('Warning', None,
+                                   f"command '{spec.name}' in {mod_label} "
+                                   f"overrides {origin.get(spec.name)}")
+                    else:
+                        if origin.get(spec.name) == 'built-in':
+                            report('Warning', None,
+                                   f"command '{spec.name}' overrides the "
+                                   f"built-in definition")
+                        else:
+                            report('Warning', None,
+                                   f"command '{spec.name}' in {mod_label} "
+                                   f"overrides {origin.get(spec.name)}")
+
+            # Alias collisions.
+            if not skip:
+                for alias in spec.aliases:
+                    if alias in commands or alias in aliases:
+                        kind = _base_kind(commands, aliases, alias)
+                        if kind == _BUILTIN_KIND:
+                            report('Error', None,
+                                   f"command '{spec.name}' is implemented "
+                                   f"in Python and cannot be overridden")
+                            skip = True
+                            break
+                        if alias in aliases:
+                            canon = aliases[alias]
+                            if origin.get(alias) == 'built-in':
+                                report('Warning', None,
+                                       f"overrides built-in alias "
+                                       f"'{alias}' (of *{canon})")
+                            else:
+                                report('Warning', None,
+                                       f"alias '{alias}' in {mod_label} "
+                                       f"overrides {origin.get(alias)}")
+                        else:
+                            if origin.get(alias) == 'built-in':
+                                report('Warning', None,
+                                       f"command '{alias}' overrides the "
+                                       f"built-in definition")
+                            else:
+                                report('Warning', None,
+                                       f"command '{alias}' in {mod_label} "
+                                       f"overrides {origin.get(alias)}")
+
+            if skip:
+                continue
+
+            # Replace an existing command: drop its stale aliases.
+            if spec.name in commands:
+                old_spec = commands[spec.name]
+                for a in old_spec.aliases:
+                    if aliases.get(a) == spec.name and a not in spec.aliases:
+                        del aliases[a]
+                        origin.pop(a, None)
+
+            commands[spec.name] = spec
+            origin[spec.name] = mod_label
+            for alias in spec.aliases:
+                aliases[alias] = spec.name
+                origin[alias] = mod_label
+
+    reg = Registry.__new__(Registry)
+    reg.source_label = 'layered'
+    reg.commands = commands
+    reg.aliases = aliases
+    return reg
+
+
 def load_default_registry():
     specs = load_mod_file(_DEFAULT_TOML, allow_builtin=True)
     return Registry(specs, source_label='default')
@@ -360,7 +477,22 @@ def render_spec(spec, ctx, args):
     if not spec.is_template:
         return None
     cleaned = [_mc.clean_inner_math(ctx, a) for a in args[:spec.args]]
-    # pad (should not happen: replace_math_call slices)
     while len(cleaned) < spec.args:
         cleaned.append('')
-    return render_template(spec.typst, cleaned)
+    rendered = render_template(spec.typst, cleaned)
+    try:
+        rendered = _mc.normalize_friendly_calls(
+            rendered, getattr(ctx, 'registry', None))
+        for fn_name, fn_min, fn_fmt in _mc.math_call_specs(ctx):
+            rendered = _mc.replace_math_call(
+                rendered, fn_name, fn_min, fn_fmt, line_no=None)
+        rendered = _mc.replace_int_calls(rendered, ctx, line_no=None)
+        rendered = _mc.replace_diff_calls(rendered, ctx, line_no=None)
+        rendered = _mc.replace_cases_call(rendered, ctx, line_no=None)
+        rendered = _mc.replace_det_calls(rendered, ctx, line_no=None)
+        rendered = _mc.replace_set_calls(rendered, ctx, line_no=None)
+        rendered = _mc.replace_align_calls(rendered, ctx, line_no=None)
+        rendered = _mc.replace_vec_calls(rendered, ctx, line_no=None)
+    except Exception:  # pragma: no cover - defensive
+        pass
+    return rendered

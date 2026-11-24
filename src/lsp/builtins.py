@@ -55,6 +55,7 @@ KEYWORD_DOCS = {
     # which has no 'draw'), so *draw is documented here to give it
     # hover/completion without polluting the solver-command tables.
     'draw': ('*draw(...)', 'Draw a geometry figure. The block holds the geometry commands (*point, *line, *triangle, ...) and the constraint solver places the points.'),
+    'use': ('*use("file.toml")', 'Load math commands from a mod file (relative to the document folder).'),
 }
 
 GEOMETRY_DOCS = {
