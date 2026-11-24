@@ -36,6 +36,7 @@ document it in rule.txt + docs/algebra.md.
 import re
 
 from .calc import apply_calc_in_string
+from .command_registry import DEFAULT_REGISTRY, render_spec
 from .diagnostics import report
 from .symbols import replace_symbol_shortcuts
 from .variables import replace_defines, replace_vars
@@ -125,23 +126,14 @@ def split_top_level_args(args):
     return parts
 
 
-# Friendly aliases: alias -> canonical math command. Users may write
-# *fraction(...) instead of *frac(...), etc. Bare (star-less) calls
-# like frac(2 ; 3) are also accepted (see normalize_friendly_calls).
-MATH_ALIASES = {
-    'fraction': 'frac',
-    'power': 'pow',
-    'squareroot': 'sqrt',
-    'square-root': 'sqrt',
-    'cuberoot': 'cbrt',
-    'cube-root': 'cbrt',
-    'cbrt': 'cbrt',
-    'absolute': 'abs',
-    'summation': 'sum',
-    'product': 'prod',
-    'limit': 'lim',
-    'integral': 'int',
-}
+# Friendly aliases: alias -> canonical math command. Derived from the
+# default command registry (commands.toml) so adding an alias only
+# touches the mod file. Bare (star-less) calls like frac(2 ; 3) are also
+# accepted (see normalize_friendly_calls).
+MATH_ALIASES = {}
+for _spec in DEFAULT_REGISTRY.commands.values():
+    for _alias in _spec.aliases:
+        MATH_ALIASES[_alias] = _spec.name
 
 _CANONICAL_MATH_NAMES = (
     'frac', 'abs', 'sin', 'cos', 'tan', 'sqrt', 'log', 'ln',
@@ -413,52 +405,17 @@ def math_call_specs(ctx):
     dedicated ``replace_*_calls`` functions (det, set, align, vec,
     int, diff, cases, matrix, table).
     """
-    return [
-        ('frac', 2,
-         lambda args: f"$frac({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
-        ('abs', 1,
-         lambda args: f"$abs({clean_inner_math(ctx, args[0])})$"),
-        ('sin', 1, lambda args: f"$sin({clean_inner_math(ctx, args[0])})$"),
-        ('cos', 1, lambda args: f"$cos({clean_inner_math(ctx, args[0])})$"),
-        ('tan', 1, lambda args: f"$tan({clean_inner_math(ctx, args[0])})$"),
-        ('sqrt', 1, lambda args: f"$sqrt({clean_inner_math(ctx, args[0])})$"),
-        ('cbrt', 1, lambda args: f"$root(3, {{{clean_inner_math(ctx, args[0])}}})$"),
-        ('log', 1, lambda args: f"$log({clean_inner_math(ctx, args[0])})$"),
-        ('ln',  1, lambda args: f"$ln({clean_inner_math(ctx, args[0])})$"),
-        ('pow', 2,
-         lambda args: _format_pow(ctx, args)),
-        ('root', 2,
-         lambda args: f"$root({clean_inner_math(ctx, args[0])}, {{{clean_inner_math(ctx, args[1])}}})$"),
-        ('sum', 3,
-         lambda args: (
-             f"$display(sum_({clean_inner_math(ctx, args[0])})^({clean_inner_math(ctx, args[1])}) "
-             f"({clean_inner_math(ctx, args[2])}))$"
-         )),
-        ('prod', 3,
-         lambda args: (
-             f"$display(product_({clean_inner_math(ctx, args[0])})^({clean_inner_math(ctx, args[1])}) "
-             f"({clean_inner_math(ctx, args[2])}))$"
-         )),
-        ('lim', 2,
-         lambda args: f"$lim_({clean_inner_math(ctx, args[0])}) ({clean_inner_math(ctx, args[1])})$"),
-        ('binom', 2,
-         lambda args: f"$binom({clean_inner_math(ctx, args[0])}, {clean_inner_math(ctx, args[1])})$"),
-        ('cot', 1, lambda args: f"$cot({clean_inner_math(ctx, args[0])})$"),
-        ('sec', 1, lambda args: f"$sec({clean_inner_math(ctx, args[0])})$"),
-        ('csc', 1, lambda args: f"$csc({clean_inner_math(ctx, args[0])})$"),
-        ('arcsin', 1, lambda args: f"$arcsin({clean_inner_math(ctx, args[0])})$"),
-        ('arccos', 1, lambda args: f"$arccos({clean_inner_math(ctx, args[0])})$"),
-        ('arctan', 1, lambda args: f"$arctan({clean_inner_math(ctx, args[0])})$"),
-        ('sinh', 1, lambda args: f"$sinh({clean_inner_math(ctx, args[0])})$"),
-        ('cosh', 1, lambda args: f"$cosh({clean_inner_math(ctx, args[0])})$"),
-        ('tanh', 1, lambda args: f"$tanh({clean_inner_math(ctx, args[0])})$"),
-        ('coth', 1, lambda args: f"$coth({clean_inner_math(ctx, args[0])})$"),
-        ('hat', 1, lambda args: f"$hat({clean_inner_math(ctx, args[0])})$"),
-        ('bar', 1, lambda args: f"$bar({clean_inner_math(ctx, args[0])})$"),
-        ('overline', 1, lambda args: f"$overline({clean_inner_math(ctx, args[0])})$"),
-        ('tilde', 1, lambda args: f"$tilde({clean_inner_math(ctx, args[0])})$"),
-        ('dot', 1, lambda args: f"$dot({clean_inner_math(ctx, args[0])})$"),
-    ]
+    specs = []
+    for cmd_spec in DEFAULT_REGISTRY.template_specs():
+        spec = cmd_spec
+
+        def formatter(args, spec=spec):
+            return render_spec(spec, ctx, args)
+
+        specs.append((spec.name, spec.args, formatter))
+    # pow keeps its Python formatting helper.
+    specs.append(('pow', 2, lambda args: _format_pow(ctx, args)))
+    return specs
 
 
 def _format_int(ctx, name, args):

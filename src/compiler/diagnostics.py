@@ -510,3 +510,15 @@ def warn_unknown_commands(text, line_no):
             occurrence = bare_seen.get(cmd, 0)
             bare_seen[cmd] = occurrence + 1
             _warn_bare_command(cmd, line_no, occurrence)
+
+
+# Derive the math subset of KNOWN_COMMANDS from the default registry so
+# adding a math command in commands.toml keeps this table in sync.
+try:
+    from .command_registry import DEFAULT_REGISTRY as _DEFAULT_REGISTRY
+    for _spec in _DEFAULT_REGISTRY.commands.values():
+        KNOWN_COMMANDS.add(_spec.name)
+        for _alias in _spec.aliases:
+            KNOWN_COMMANDS.add(_alias)
+except Exception:  # pragma: no cover - defensive import guard
+    pass
