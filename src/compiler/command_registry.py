@@ -15,6 +15,7 @@ override *template* commands.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tomllib
 
@@ -33,6 +34,11 @@ _ALLOWED_KINDS = frozenset({_TEMPLATE_KIND, _BUILTIN_KIND})
 
 # Keys that are forbidden in every mod file (including the default one).
 _FORBIDDEN_KEYS = frozenset({'handler'})
+
+# Per-compile budget for user-mod template expansion.
+MAX_MOD_TEMPLATE_DEPTH = 10
+MAX_MOD_TEMPLATE_EXPANSIONS = 10000
+MAX_MOD_TEMPLATE_OUTPUT_CHARS = 1_000_000
 
 
 class CommandSpec:
@@ -120,6 +126,25 @@ def _validate_template(template, args, line_hint):
         else:
             i += 1
     return True, ''
+
+
+def _default_toml_abs():
+    return os.path.abspath(_default_toml_path())
+
+
+def is_user_mod_spec(spec):
+    try:
+        return os.path.abspath(spec.source) != _default_toml_abs()
+    except Exception:
+        return True
+
+
+def _abort_mod_expansion(ctx):
+    if not getattr(ctx, '_mod_expansion_aborted', False):
+        ctx._mod_expansion_aborted = True
+        from .diagnostics import report
+        report('Error', None,
+               'mod template expansion budget exceeded')
 
 
 def render_template(template, values):
@@ -285,6 +310,25 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>',
                        f'invalid mod file {source_name}: command {name!r}: {msg}')
                 return
 
+        # User mods are data, not code: reject Typst code injection.
+        if (not allow_builtin and kind == _TEMPLATE_KIND
+                and isinstance(typst, str)):
+            if '#' in typst:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must not contain "#" (Typst code)')
+                return
+            if not (typst.startswith('$') and typst.endswith('$')):
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must start and end with "$"')
+                return
+            if typst.count('$') != 2:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must not contain an inner "$"')
+                return
+
         usage = entry.get('usage', '')
         doc = entry.get('doc', '')
         if not isinstance(usage, str):
@@ -317,6 +361,22 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>',
         except Exception as exc:  # never crash the build
             report('Error', line_no,
                    f'invalid mod file {source_name}: entry {index}: {exc}')
+
+    # Cycle detection over this file's user templates.
+    if not allow_builtin:
+        graph = _user_call_graph(specs)
+        cyclic, node_scc = _cyclic_nodes(graph)
+        if cyclic:
+            filtered = []
+            for sp in specs:
+                if sp.name in cyclic:
+                    scc = node_scc.get(sp.name, [sp.name])
+                    report('Error', line_no,
+                           f"command '{sp.name}' participates in a "
+                           f"template cycle ({', '.join(sorted(scc))})")
+                else:
+                    filtered.append(sp)
+            specs[:] = filtered
 
     return specs
 
@@ -359,6 +419,79 @@ def _base_kind(commands, aliases, name):
     return None
 
 
+def _user_call_graph(specs):
+    names = set()
+    alias_to_canon = {}
+    for s in specs:
+        if not s.is_template:
+            continue
+        names.add(s.name)
+        for a in s.aliases:
+            alias_to_canon[a] = s.name
+    graph = {s.name: set() for s in specs if s.is_template}
+    for s in specs:
+        if not s.is_template:
+            continue
+        for m in re.finditer(r'\*([^\W\d_][\w\-]*)\s*\(', s.typst or ''):
+            called = m.group(1)
+            target = alias_to_canon.get(called, called)
+            if target in graph:
+                graph[s.name].add(target)
+    return graph
+
+
+def _tarjan_scc(graph):
+    index_counter = [0]
+    stack = []
+    lowlink = {}
+    index = {}
+    on_stack = {}
+    result = []
+
+    def strongconnect(v):
+        index[v] = index_counter[0]
+        lowlink[v] = index_counter[0]
+        index_counter[0] += 1
+        stack.append(v)
+        on_stack[v] = True
+        for w in sorted(graph.get(v, ())):
+            if w not in index:
+                strongconnect(w)
+                lowlink[v] = min(lowlink[v], lowlink[w])
+            elif on_stack.get(w):
+                lowlink[v] = min(lowlink[v], index[w])
+        if lowlink[v] == index[v]:
+            comp = []
+            while True:
+                w = stack.pop()
+                on_stack[w] = False
+                comp.append(w)
+                if w == v:
+                    break
+            result.append(comp)
+
+    for v in list(graph):
+        if v not in index:
+            strongconnect(v)
+    return result
+
+
+def _cyclic_nodes(graph):
+    cyclic = set()
+    node_scc = {}
+    for comp in _tarjan_scc(graph):
+        if len(comp) > 1:
+            cyclic.update(comp)
+            for n in comp:
+                node_scc[n] = comp
+        elif len(comp) == 1:
+            n = comp[0]
+            if n in graph.get(n, ()):
+                cyclic.add(n)
+                node_scc[n] = comp
+    return cyclic, node_scc
+
+
 def merge_registries(base, mods):
     """Layer user mods on top of *base*; return a NEW registry.
 
@@ -374,8 +507,19 @@ def merge_registries(base, mods):
     for alias in aliases:
         origin[alias] = 'built-in'
 
+    all_user_specs = [s for _, specs in mods for s in specs if s.is_template]
+    _graph = _user_call_graph(all_user_specs)
+    _cyclic, _node_scc = _cyclic_nodes(_graph)
+
     for mod_label, specs in mods:
         for spec in specs:
+            if spec.is_template and spec.name in _cyclic:
+                scc = _node_scc.get(spec.name, [spec.name])
+                report('Error', None,
+                       f"command '{spec.name}' participates in a "
+                       f"template cycle ({', '.join(sorted(scc))})")
+                continue
+
             skip = False
             # Command-name collision.
             if spec.name in commands or spec.name in aliases:
@@ -414,8 +558,8 @@ def merge_registries(base, mods):
                         kind = _base_kind(commands, aliases, alias)
                         if kind == _BUILTIN_KIND:
                             report('Error', None,
-                                   f"command '{spec.name}' is implemented "
-                                   f"in Python and cannot be overridden")
+                                   f"'{alias}' is implemented in Python "
+                                   f"and cannot be overridden")
                             skip = True
                             break
                         if alias in aliases:
@@ -471,28 +615,69 @@ def load_default_registry():
 DEFAULT_REGISTRY = load_default_registry()
 
 
+def _reconstruct_call(spec, args):
+    return f"*{spec.name}({'; '.join(str(a) for a in args)})"
+
+
 def render_spec(spec, ctx, args):
     """Render a template spec given cleaned args (raw args -> cleaned)."""
     from . import math_commands as _mc
     if not spec.is_template:
         return None
-    cleaned = [_mc.clean_inner_math(ctx, a) for a in args[:spec.args]]
-    while len(cleaned) < spec.args:
-        cleaned.append('')
-    rendered = render_template(spec.typst, cleaned)
+
+    user = is_user_mod_spec(spec)
+
+    if not user:
+        cleaned = [_mc.clean_inner_math(ctx, a) for a in args[:spec.args]]
+        while len(cleaned) < spec.args:
+            cleaned.append('')
+        return render_template(spec.typst, cleaned)
+
+    if getattr(ctx, '_mod_expansion_aborted', False):
+        return _reconstruct_call(spec, args)
+
+    depth = getattr(ctx, '_mod_template_depth', 0)
+    if depth >= MAX_MOD_TEMPLATE_DEPTH:
+        _abort_mod_expansion(ctx)
+        return _reconstruct_call(spec, args)
+
+    ctx._mod_template_depth = depth + 1
+    count = getattr(ctx, '_mod_expansion_count', 0) + 1
+    ctx._mod_expansion_count = count
+    if count > MAX_MOD_TEMPLATE_EXPANSIONS:
+        _abort_mod_expansion(ctx)
+        ctx._mod_template_depth = depth
+        return _reconstruct_call(spec, args)
+
     try:
-        rendered = _mc.normalize_friendly_calls(
-            rendered, getattr(ctx, 'registry', None))
-        for fn_name, fn_min, fn_fmt in _mc.math_call_specs(ctx):
-            rendered = _mc.replace_math_call(
-                rendered, fn_name, fn_min, fn_fmt, line_no=None)
-        rendered = _mc.replace_int_calls(rendered, ctx, line_no=None)
-        rendered = _mc.replace_diff_calls(rendered, ctx, line_no=None)
-        rendered = _mc.replace_cases_call(rendered, ctx, line_no=None)
-        rendered = _mc.replace_det_calls(rendered, ctx, line_no=None)
-        rendered = _mc.replace_set_calls(rendered, ctx, line_no=None)
-        rendered = _mc.replace_align_calls(rendered, ctx, line_no=None)
-        rendered = _mc.replace_vec_calls(rendered, ctx, line_no=None)
-    except Exception:  # pragma: no cover - defensive
-        pass
-    return rendered
+        cleaned = [_mc.clean_inner_math(ctx, a) for a in args[:spec.args]]
+        while len(cleaned) < spec.args:
+            cleaned.append('')
+        rendered = render_template(spec.typst, cleaned)
+
+        chars = getattr(ctx, '_mod_expanded_chars', 0) + len(rendered)
+        if chars > MAX_MOD_TEMPLATE_OUTPUT_CHARS:
+            ctx._mod_expanded_chars = chars
+            _abort_mod_expansion(ctx)
+            return _reconstruct_call(spec, args)
+        ctx._mod_expanded_chars = chars
+
+        try:
+            rendered = _mc.normalize_friendly_calls(
+                rendered, getattr(ctx, 'registry', None))
+            for fn_name, fn_min, fn_fmt in _mc.math_call_specs(ctx):
+                rendered = _mc.replace_math_call(
+                    rendered, fn_name, fn_min, fn_fmt, line_no=None)
+            rendered = _mc.replace_int_calls(rendered, ctx, line_no=None)
+            rendered = _mc.replace_diff_calls(rendered, ctx, line_no=None)
+            rendered = _mc.replace_cases_call(rendered, ctx, line_no=None)
+            rendered = _mc.replace_det_calls(rendered, ctx, line_no=None)
+            rendered = _mc.replace_set_calls(rendered, ctx, line_no=None)
+            rendered = _mc.replace_align_calls(rendered, ctx, line_no=None)
+            rendered = _mc.replace_vec_calls(rendered, ctx, line_no=None)
+        except Exception:  # pragma: no cover - defensive
+            pass
+        return rendered
+    finally:
+        ctx._mod_template_depth = depth
+

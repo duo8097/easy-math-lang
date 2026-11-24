@@ -23,6 +23,13 @@ usage = "*avg(a ; b)"
 doc = "Average of two values."
 ```
 
+Templates are Typst markup, not Python. A template must be a single math
+expression: it must start and end with `$` and contain no `#` and no inner
+`$`. The compiler rejects anything else in a user mod. Mods cannot run
+Python; they can only shape output. Only load mods you trust — a mod can
+still consume compile time within the expansion budget and change the
+generated document.
+
 Each entry has `name`, `args` (minimum argument count), `usage` and
 `doc`. An optional `aliases` array lists extra spellings. The `typst`
 template uses `{0}`, `{1}`, ... for the already-cleaned arguments; a

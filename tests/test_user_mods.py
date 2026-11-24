@@ -286,7 +286,7 @@ def test_default_command_inside_mod_template(tmp_path, monkeypatch, capsys):
 [[commands]]
 name = "doublefrac"
 args = 2
-typst = "$frac({0}, {1})$ plus *sqrt({0})"
+typst = "$frac({0}, {1}) + *sqrt({0})$"
 usage = "*doublefrac(a ; b)"
 doc = "df"
 '''
@@ -295,5 +295,217 @@ doc = "df"
         '*use("m.toml")\n*doublefrac(1 ; 2)\n',
         {"m.toml": mod},
     )
-    assert "$frac(1, 2)$" in typ
-    assert "$sqrt(1)$" in typ
+    assert "$frac(1, 2)" in typ
+    assert "$sqrt(1)" in typ
+import time
+
+DOS_MOD = ""
+for _i in range(24):
+    if _i == 23:
+        _t = "$x$"
+    else:
+        _t = "$*cmd%d({0}) + *cmd%d({0})$" % (_i + 1, _i + 1)
+    DOS_MOD += '''[[commands]]
+name = "cmd%d"
+args = 1
+typst = "%s"
+usage = "*cmd%d(x)"
+doc = "c"
+
+''' % (_i, _t, _i)
+
+DOS_MOD_5 = ""
+for _i in range(5):
+    if _i == 4:
+        _t = "${0}$"
+    else:
+        _t = "$*d%d({0})$" % (_i + 1)
+    DOS_MOD_5 += '''[[commands]]
+name = "d%d"
+args = 1
+typst = "%s"
+usage = "*d%d(x)"
+doc = "d"
+
+''' % (_i, _t, _i)
+
+INJECTION_TEMPLATES = [
+    '$#read("secret.txt") {0}$',
+    '$#include "f" {0}$',
+    '$#image("f") {0}$',
+    '$x$ #include "f" $y$',
+    '$x$ inner $y$',
+    'frac({0}, {1})',
+]
+
+
+def test_dos_chain_stops_fast(tmp_path, monkeypatch, capsys):
+    t0 = time.monotonic()
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*cmd0(1)\n',
+        {"m.toml": DOS_MOD},
+    )
+    elapsed = time.monotonic() - t0
+    assert elapsed < 1.0, elapsed
+    assert "budget" in err.lower() or "expansion" in err.lower()
+
+
+def test_dos_five_level_chain_expands(tmp_path, monkeypatch, capsys):
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*d0(1)\n',
+        {"m.toml": DOS_MOD_5},
+    )
+    assert "$1$" in typ
+    assert "budget" not in err.lower()
+
+
+def test_injection_templates_rejected(tmp_path, monkeypatch, capsys):
+    for template in INJECTION_TEMPLATES:
+        mod = f"""
+[[commands]]
+name = "evil"
+args = 1
+typst = '{template}'
+usage = "*evil(x)"
+doc = "evil"
+"""
+        typ, err = _compile(
+            tmp_path, monkeypatch, capsys,
+            '*use("m.toml")\n',
+            {"m.toml": mod},
+        )
+        assert "invalid mod file" in err, template
+
+
+def test_default_templates_pass_injection_rules():
+    import os, sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    from compiler import command_registry as cr
+    bad = []
+    for spec in cr.DEFAULT_REGISTRY.commands.values():
+        if spec.kind != "template":
+            continue
+        t = spec.typst
+        fails = []
+        if "#" in t:
+            fails.append("#")
+        if not (t.startswith("$") and t.endswith("$")):
+            fails.append("outer")
+        if t.count("$") != 2:
+            fails.append("inner-dollar")
+        if fails:
+            bad.append((spec.name, fails))
+    assert bad == []
+
+
+def test_self_cycle(tmp_path, monkeypatch, capsys):
+    mod = '''
+[[commands]]
+name = "foo"
+args = 1
+typst = "$*foo({0})$"
+usage = "*foo(x)"
+doc = "foo"
+'''
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*foo(1)\n',
+        {"m.toml": mod},
+    )
+    assert "cycle" in err.lower()
+    assert "$$$$" not in typ
+
+
+def test_two_cycle(tmp_path, monkeypatch, capsys):
+    mod = '''
+[[commands]]
+name = "a"
+args = 1
+typst = "$*b({0})$"
+usage = "*a(x)"
+doc = "a"
+
+[[commands]]
+name = "b"
+args = 1
+typst = "$*a({0})$"
+usage = "*b(x)"
+doc = "b"
+'''
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*a(1)\n',
+        {"m.toml": mod},
+    )
+    assert "cycle" in err.lower()
+
+
+def test_three_cycle(tmp_path, monkeypatch, capsys):
+    mod = '''
+[[commands]]
+name = "a"
+args = 1
+typst = "$*b({0})$"
+usage = "*a(x)"
+doc = "a"
+
+[[commands]]
+name = "b"
+args = 1
+typst = "$*c({0})$"
+usage = "*b(x)"
+doc = "b"
+
+[[commands]]
+name = "c"
+args = 1
+typst = "$*a({0})$"
+usage = "*c(x)"
+doc = "c"
+'''
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*a(1)\n',
+        {"m.toml": mod},
+    )
+    assert "cycle" in err.lower()
+
+
+def test_zed_fraction_alias_override(tmp_path, monkeypatch, capsys):
+    mod = '''
+[[commands]]
+name = "zed"
+args = 1
+aliases = ["fraction"]
+typst = "$Z({0})$"
+usage = "*zed(x)"
+doc = "zed"
+'''
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*fraction(7)\n',
+        {"m.toml": mod},
+    )
+    assert "$Z(7)$" in typ
+    assert "overrides built-in alias" in err
+
+
+def test_alias_targeting_power_is_error(tmp_path, monkeypatch, capsys):
+    mod = '''
+[[commands]]
+name = "zed"
+args = 1
+aliases = ["power"]
+typst = "$Z({0})$"
+usage = "*zed(x)"
+doc = "zed"
+'''
+    typ, err = _compile(
+        tmp_path, monkeypatch, capsys,
+        '*use("m.toml")\n*power(2 ; 3)\n',
+        {"m.toml": mod},
+    )
+    assert "implemented in Python" in err
+    assert "$2^(3)$" in typ
