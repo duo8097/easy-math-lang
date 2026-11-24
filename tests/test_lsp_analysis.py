@@ -362,3 +362,127 @@ def test_url_backslash_does_not_toggle_math():
 def test_comparison_math_head_is_not_flagged():
     result = analysis.analyze_text("\\\n0<x>1 \\\n")
     assert result.diagnostics == []
+
+
+# --- mod file awareness (Phase 4) ---
+
+import os
+import tempfile
+import time
+
+
+def _moddir():
+    d = tempfile.mkdtemp()
+    mod = os.path.join(d, 'm.toml')
+    with open(mod, 'w', encoding='utf-8') as h:
+        h.write('''
+[[commands]]
+name = "avg"
+args = 2
+typst = "$frac({0} + {1}, 2)$"
+usage = "*avg(a ; b)"
+doc = "Average of two values."
+''')
+    return d, mod
+
+
+def test_lsp_mod_command_completion():
+    d, mod = _moddir()
+    text = '*use("m.toml")\n*avg(1 ; 2)\n'
+    items = analysis.complete(text, 1, 5, base_dir=d)
+    labels = [it['label'] for it in items]
+    assert 'avg' in labels
+
+
+def test_lsp_mod_command_hover():
+    d, mod = _moddir()
+    text = '*use("m.toml")\n*avg(1 ; 2)\n'
+    h = analysis.hover(text, 1, 2, base_dir=d)
+    assert h is not None
+    assert 'avg' in h['value'].lower() or 'Average' in h['value']
+
+
+def test_lsp_mod_command_not_unknown():
+    d, mod = _moddir()
+    text = '*use("m.toml")\n*avg(1 ; 2)\n'
+    res = analysis.analyze_text(text, base_dir=d)
+    unknown = [diag for diag in res.diagnostics
+               if 'unknown command' in diag.message.lower()]
+    assert unknown == []
+
+
+def test_lsp_mod_missing_file_diagnostic():
+    d = tempfile.mkdtemp()
+    text = '*use("nope.toml")\n'
+    res = analysis.analyze_text(text, base_dir=d)
+    assert any('cannot find mod file' in diag.message for diag in res.diagnostics)
+
+
+def test_lsp_mod_unsaved_relative_warning():
+    text = '*use("m.toml")\n'
+    res = analysis.analyze_text(text, base_dir=None)
+    assert any('cannot be resolved' in diag.message
+               or 'unsaved' in diag.message for diag in res.diagnostics)
+
+
+def test_lsp_mod_cache_invalidation():
+    d = tempfile.mkdtemp()
+    mod = os.path.join(d, 'm.toml')
+    with open(mod, 'w', encoding='utf-8') as h:
+        h.write('''
+[[commands]]
+name = "avg"
+args = 2
+typst = "$frac({0} + {1}, 2)$"
+usage = "*avg(a ; b)"
+doc = "v1"
+''')
+    text = '*use("m.toml")\n*avg(1 ; 2)\n'
+    r1 = analysis.complete(text, 1, 5, base_dir=d)
+    labels1 = [it['label'] for it in r1]
+    assert 'avg' in labels1
+
+    # change mod file
+    time.sleep(0.05)
+    with open(mod, 'w', encoding='utf-8') as h:
+        h.write('''
+[[commands]]
+name = "beta"
+args = 1
+typst = "$x$"
+usage = "*beta(x)"
+doc = "v2"
+''')
+    r2 = analysis.complete(text, 1, 5, base_dir=d)
+    labels2 = [it['label'] for it in r2]
+    assert 'beta' in labels2
+    assert 'avg' not in labels2
+
+
+def test_lsp_two_documents_isolated():
+    d1 = tempfile.mkdtemp()
+    d2 = tempfile.mkdtemp()
+    with open(os.path.join(d1, 'm.toml'), 'w', encoding='utf-8') as h:
+        h.write('''
+[[commands]]
+name = "onlyd1"
+args = 1
+typst = "$x$"
+usage = "*onlyd1(x)"
+doc = "d1"
+''')
+    with open(os.path.join(d2, 'm.toml'), 'w', encoding='utf-8') as h:
+        h.write('''
+[[commands]]
+name = "onlyd2"
+args = 1
+typst = "$x$"
+usage = "*onlyd2(x)"
+doc = "d2"
+''')
+    text1 = '*use("m.toml")\n*onlyd1(1)\n'
+    text2 = '*use("m.toml")\n*onlyd2(1)\n'
+    l1 = [it['label'] for it in analysis.complete(text1, 1, 5, base_dir=d1)]
+    l2 = [it['label'] for it in analysis.complete(text2, 1, 5, base_dir=d2)]
+    assert 'onlyd1' in l1 and 'onlyd2' not in l1
+    assert 'onlyd2' in l2 and 'onlyd1' not in l2

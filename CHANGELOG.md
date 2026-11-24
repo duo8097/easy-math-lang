@@ -26,6 +26,9 @@ for those.
 - LSP hover/completion text for math commands and aliases is now derived from
   `commands.toml`, so alias descriptions include the canonical command's
   documentation.
+- `*use("file.toml")` loads per-document math commands; the language server
+  and editor reflect them in completion, hover and diagnostics, and reload
+  when the mod file changes on disk.
 
 ## [7.1.1] - 2026-11-20
 

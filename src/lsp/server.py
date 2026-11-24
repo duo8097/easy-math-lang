@@ -1,6 +1,7 @@
 """pygls JSON-RPC wiring (stdio). Stdout is protocol-only; log to stderr."""
 
 import logging
+import os
 import sys
 
 from lsprotocol import types as lsp
@@ -134,9 +135,11 @@ def analyze_and_publish(ls, store, uri):
             else:
                 lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
                 try:
+                    _base = analysis._uri_to_path(uri)
+                    _base_dir = os.path.dirname(_base) if _base else None
                     diags = [
                         to_lsp_diagnostic(d, lines)
-                        for d in analysis.analyze_text(text).diagnostics
+                        for d in analysis.analyze_text(text, base_dir=_base_dir).diagnostics
                     ]
                 except Exception:
                     logger.exception('analyze_text failed for %s', uri)
@@ -277,13 +280,16 @@ def create_server():
                 return lsp.CompletionList(is_incomplete=False, items=[])
             lines = _split_lines(text)
             character = _to_code_point_offset(_line_at(lines, line), character_raw)
+            _base = analysis._uri_to_path(uri)
+            _base_dir = os.path.dirname(_base) if _base else None
             items = [
                 lsp.CompletionItem(
                     label=item['label'],
                     kind=_COMPLETION_KINDS.get(item['kind']),
                     detail=item.get('detail'),
                 )
-                for item in analysis.complete(text, line, character)
+                for item in analysis.complete(text, line, character,
+                                             base_dir=_base_dir)
             ]
             return lsp.CompletionList(is_incomplete=False, items=items)
         except Exception:
@@ -308,7 +314,9 @@ def create_server():
             if line < 0 or (lines and line >= len(lines)):
                 return None
             character = _to_code_point_offset(_line_at(lines, line), character_raw)
-            found = analysis.hover(text, line, character)
+            _base = analysis._uri_to_path(uri)
+            _base_dir = os.path.dirname(_base) if _base else None
+            found = analysis.hover(text, line, character, base_dir=_base_dir)
             if found is None:
                 return None
             return lsp.Hover(

@@ -56,3 +56,11 @@ Invalid TOML, missing `args`, a template referencing `{3}` with only
 2 arguments, unknown keys, or duplicate names in one file produce
 diagnostics and never crash the build. A missing or unreadable mod
 file is an error at the `*use` line.
+
+## Editor and language server
+
+The language server loads mod files per document and includes their
+commands in completion and hover. Mod diagnostics appear on the
+`*use` line. Editing a mod file on disk updates completions without
+reopening the document. The editor recompiles the preview on save;
+there is no file watcher for mod files.
