@@ -102,10 +102,10 @@ def _validate_template(template, args, line_hint):
             if end == -1:
                 return False, 'unclosed "{" in typst template'
             inner = template[i + 1:end]
-            if not inner.isdigit():
+            if not (inner.isascii() and inner.isdigit()):
                 return False, (
-                    'invalid placeholder "{" + inner + "}" in typst template; '
-                    'only {N} is allowed')
+                    f'invalid placeholder "{{{inner}}}" in typst template; '
+                    f'only {{N}} is allowed')
             idx = int(inner)
             if idx >= args:
                 return False, (
@@ -142,7 +142,7 @@ def render_template(template, values):
             if end == -1:
                 raise ValueError('unclosed "{" in typst template')
             inner = template[i + 1:end]
-            if not inner.isdigit():
+            if not (inner.isascii() and inner.isdigit()):
                 raise ValueError('invalid placeholder in typst template')
             idx = int(inner)
             if idx >= len(values):
@@ -199,33 +199,33 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
     specs = []
     seen_names = set()
     seen_aliases = set()
-    for index, entry in enumerate(entries):
+
+    def _one(entry, index):
+        nonlocal specs
         if not isinstance(entry, dict):
             report('Error', None,
                    f'invalid mod file {source_name}: entry {index} is not a table')
-            continue
+            return
         # Unknown / forbidden keys.
         unknown = set(entry) - _ALLOWED_KEYS
         if unknown:
-            # Forbidden keys are a subset of unknown from the allowed set's
-            # point of view; report a clearer message for them.
             forbidden = set(entry) & _FORBIDDEN_KEYS
             if forbidden:
                 report('Error', None,
                        f'invalid mod file {source_name}: forbidden key '
                        f'{sorted(forbidden)!r} (handler/builtin kinds are not '
                        f'allowed in user mods)')
-                continue
+                return
             report('Error', None,
                    f'invalid mod file {source_name}: unknown key(s) '
                    f'{sorted(unknown)!r}')
-            continue
+            return
 
         name = entry.get('name')
         if not isinstance(name, str) or not name.strip():
             report('Error', None,
                    f'invalid mod file {source_name}: entry {index} missing "name"')
-            continue
+            return
         name = name.strip()
 
         args = entry.get('args')
@@ -233,7 +233,7 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
             report('Error', None,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "args" (must be a positive integer)')
-            continue
+            return
 
         aliases = entry.get('aliases', [])
         if aliases is None:
@@ -242,7 +242,7 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
             report('Error', None,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "aliases" (must be an array of strings)')
-            continue
+            return
         aliases = [a.strip() for a in aliases]
 
         kind = entry.get('kind', _TEMPLATE_KIND)
@@ -250,41 +250,37 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
             report('Error', None,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'unknown kind {kind!r}')
-            continue
+            return
 
         typst = entry.get('typst', None)
         if typst is not None and not isinstance(typst, str):
             report('Error', None,
                    f'invalid mod file {source_name}: command {name!r} has '
                    f'invalid "typst" (must be a string)')
-            continue
+            return
 
-        # Determine effective kind.
         if kind == _BUILTIN_KIND:
             if typst is not None:
                 report('Error', None,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'cannot declare both kind="builtin" and "typst"')
-                continue
+                return
             if not allow_builtin:
                 report('Error', None,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'uses kind="builtin", which is not allowed in user mods')
-                continue
+                return
         else:
-            # template kind
             if typst is None:
                 report('Error', None,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'missing "typst" template')
-                continue
-            if not allow_builtin and kind == _BUILTIN_KIND:
-                pass
+                return
             ok, msg = _validate_template(typst, args, None)
             if not ok:
                 report('Error', None,
                        f'invalid mod file {source_name}: command {name!r}: {msg}')
-                continue
+                return
 
         usage = entry.get('usage', '')
         doc = entry.get('doc', '')
@@ -293,33 +289,31 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>'):
         if not isinstance(doc, str):
             doc = ''
 
-        # Duplicate names / aliases within one file.
         if name in seen_names:
             report('Error', None,
                    f'invalid mod file {source_name}: duplicate command name '
                    f'{name!r}')
-            continue
-        dup_alias = [a for a in aliases if a in seen_aliases or a in seen_names]
-        # also collision with a canonical name in this file
-        collides = False
-        for a in aliases:
-            if a in seen_names or a in seen_aliases:
-                collides = True
-                break
+            return
+        collides = any(a in seen_names or a in seen_aliases for a in aliases)
         if collides:
             report('Error', None,
                    f'invalid mod file {source_name}: duplicate alias in '
                    f'command {name!r}')
-            continue
+            return
 
-        # User mods may not override builtin kinds or aliases? Overriding is
-        # handled by the caller (registry merge); here we just build specs.
         seen_names.add(name)
         seen_aliases.update(aliases)
         specs.append(CommandSpec(
             name=name, args=args, aliases=aliases, typst=typst,
             usage=usage, doc=doc, kind=kind, source=source_name,
         ))
+
+    for index, entry in enumerate(entries):
+        try:
+            _one(entry, index)
+        except Exception as exc:  # never crash the build
+            report('Error', None,
+                   f'invalid mod file {source_name}: entry {index}: {exc}')
 
     return specs
 

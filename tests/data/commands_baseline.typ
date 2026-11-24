@@ -80,4 +80,14 @@ $frac(1, 2)^(2)$ \
 $frac(100\,000, 2)$ \
 #v(0.65em)
 $frac(3, 3)$ \
+#v(0.65em)
+$frac(x^(2), 3)$ \
+#v(0.65em)
+$sqrt(a^(2) + b^(2))$ \
+#v(0.65em)
+$display(sum_(i=1)^(n) (i^(2)))$ \
+#v(0.65em)
+$abs(-3^(2))$ \
+#v(0.65em)
+$x^(2)^(3)^(4)$ \
 // easy-math-lang build artifact — do not edit; regenerated on every compile

@@ -39,3 +39,8 @@
 *pow(*frac(1 ; 2) ; 2)
 *frac(100,000 ; 2)
 *frac(calc(1 + 2) ; 3)
+*frac(*pow(x ; 2) ; 3)
+*sqrt(*pow(a;2) + *pow(b;2))
+*sum(i=1 ; n ; *pow(i ; 2))
+*abs(*pow(-3 ; 2))
+*pow(*pow(*pow(x;2);3);4)

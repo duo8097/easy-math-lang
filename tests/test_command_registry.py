@@ -37,6 +37,37 @@ def test_template_rejects_bad_placeholder():
     assert specs == []
 
 
+def test_template_rejects_unicode_and_malformed_placeholders():
+    for template in ('$x({²})$', '$x({٣})$', '$x({ 0 })$', '$x({-1})$',
+                     '$x({})$'):
+        specs = cr.load_mod_text(
+            f'''
+            [[commands]]
+            name = "boom"
+            args = 1
+            typst = "{template}"
+            usage = "*boom(a)"
+            doc = "boom"
+            ''',
+            allow_builtin=False, source_name='t.toml')
+        assert specs == [], template
+
+
+def test_invalid_placeholder_message_names_offending_text(capsys):
+    cr.load_mod_text(
+        '''
+        [[commands]]
+        name = "boom"
+        args = 2
+        typst = "$x({3})$"
+        usage = "*boom(a ; b)"
+        doc = "boom"
+        ''',
+        allow_builtin=False, source_name='t.toml')
+    err = capsys.readouterr().err
+    assert "{3}" in err
+
+
 def test_template_rejects_unknown_keys():
     specs = cr.load_mod_text(
         '''
