@@ -221,10 +221,25 @@ All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
 [Semantic Versioning](https://semver.org/)). The latest release:
 
-### [7.1.1] - 2026-11-20
+### [8.0.0-rc.1] - 2026-11-24
+
+#### Added
+- **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
+- **Beginner documentation tools and guides.** Added a checked examples map,
+  a Markdown link checker, and a first-change walkthrough for new contributors.
+- **Auto-generated tables of contents for the long docs.** `scripts/gen_toc.py`
+  builds a nested `##`/`###` table of contents between `<!-- toc -->`
+  markers (GitHub-compatible anchors, duplicate headings get `-1`, `-2`
+  suffixes). After editing headings, run `python scripts/gen_toc.py`; CI
+  fails with `gen_toc.py --check` when a table of contents is out of date.
 
 #### Changed
-- Dependency update: numpy 2.5.4 → 2.5.5; no user-visible change.
+- LSP hover/completion text for math commands and aliases is now derived from
+  `commands.toml`, so alias descriptions include the canonical command's
+  documentation.
+- `*use("file.toml")` loads per-document math commands; the language server
+  and editor reflect them in completion, hover and diagnostics, and reload
+  when the mod file changes on disk.
 
 Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
@@ -241,4 +256,4 @@ UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
 files and full license text live in `src/editor/assets/icons/`
 (see `src/editor/assets/icons/LICENSE` for attribution).
 
-[7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
+[8.0.0-rc.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...v8.0.0-rc.1

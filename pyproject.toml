@@ -1,6 +1,6 @@
 [project]
 name = "easy-math-lang"
-version = "7.1.1"
+version = "8.0.0-rc.1"
 description = "target to help new people easier to write math with code, maybe include more symbol for science"
 readme = "README.md"
 license = "MIT"

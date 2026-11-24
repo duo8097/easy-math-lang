@@ -12,6 +12,8 @@ for those.
 
 ## [Unreleased]
 
+## [8.0.0-rc.1] - 2026-11-24
+
 ### Added
 - **Agent guide.** `AGENTS.md` records verified setup, testing, and repository rules for coding agents.
 - **Beginner documentation tools and guides.** Added a checked examples map,
@@ -298,7 +300,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...HEAD
+[8.0.0-rc.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...v8.0.0-rc.1
 [7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
 [7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0
 [7.0.0]: https://github.com/duo8097/easy-math-lang/compare/v6.0.0...v7.0.0
