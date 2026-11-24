@@ -22,6 +22,11 @@ for those.
   suffixes). After editing headings, run `python scripts/gen_toc.py`; CI
   fails with `gen_toc.py --check` when a table of contents is out of date.
 
+### Changed
+- LSP hover/completion text for math commands and aliases is now derived from
+  `commands.toml`, so alias descriptions include the canonical command's
+  documentation.
+
 ## [7.1.1] - 2026-11-20
 
 ### Changed

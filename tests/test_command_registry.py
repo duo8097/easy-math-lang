@@ -135,3 +135,30 @@ def test_duplicate_name_rejected():
 def test_invalid_toml_does_not_crash():
     specs = cr.load_mod_text('not = [toml', source_name='t.toml')
     assert specs == []
+
+
+def test_every_registry_command_has_usage_and_doc():
+    for spec in cr.DEFAULT_REGISTRY.commands.values():
+        assert spec.usage.strip(), spec.name
+        assert spec.doc.strip(), spec.name
+
+
+def test_every_registry_command_in_rule_txt():
+    rule = os.path.join(os.path.dirname(__file__), "..", "rule.txt")
+    text = open(rule, encoding="utf-8").read()
+    missing = [name for name in cr.DEFAULT_REGISTRY.commands
+                if f"*{name}" not in text]
+    assert not missing, missing
+
+
+def test_every_registry_command_mentioned_in_docs():
+    docs_dir = os.path.join(os.path.dirname(__file__), "..", "docs")
+    blob = ""
+    for root, _dirs, files in os.walk(docs_dir):
+        for fn in files:
+            if fn.endswith(".md"):
+                with open(os.path.join(root, fn), encoding="utf-8") as h:
+                    blob += h.read() + "\n"
+    missing = [name for name in cr.DEFAULT_REGISTRY.commands
+                if name not in blob]
+    assert not missing, missing
