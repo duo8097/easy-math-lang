@@ -601,6 +601,15 @@ def merge_registries(base, mods):
                                 report('Warning', None,
                                        f"command '{alias}' in {mod_label} "
                                        f"overrides {origin.get(alias)}")
+                            # An alias may shadow an existing command name:
+                            # drop the shadowed command so the alias wins.
+                            if alias in commands:
+                                del commands[alias]
+                                origin.pop(alias, None)
+                                for a in list(aliases):
+                                    if aliases.get(a) == alias:
+                                        del aliases[a]
+                                        origin.pop(a, None)
 
             if skip:
                 continue
@@ -626,12 +635,88 @@ def merge_registries(base, mods):
     return reg
 
 
+def load_document_registry(text, base_dir=None):
+    """Load mods for a document; return (registry, diagnostics).
+
+    *diagnostics* is a list of ``(line_no, severity, message)`` tuples with
+    1-based line numbers, matching the compiler's report output. Never
+    raises.
+    """
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    use_lines = {}
+    for i, raw in enumerate(lines, start=1):
+        m = re.match(r'^\*use\s*\((.*)\)\s*$', raw.strip())
+        if not m:
+            continue
+        inner = m.group(1).strip()
+        if (len(inner) >= 2 and inner[0] in '"\'' and inner[-1] == inner[0]):
+            path = inner[1:-1]
+        else:
+            path = inner
+        use_lines[i] = path
+
+    diagnostics = []
+    if not use_lines:
+        return DEFAULT_REGISTRY, diagnostics
+
+    loaded = []
+    import io, contextlib
+    from . import diagnostics as _diag
+    buf = io.StringIO()
+    ctx_obj = type('C', (), {
+        'source_lines': lines, 'source_name': base_dir or '',
+        'source_file': base_dir or '',
+    })()
+    with contextlib.redirect_stderr(buf):
+        _diag.bind_source(ctx_obj)
+        for ln, rel in use_lines.items():
+            if os.path.isabs(rel):
+                full = rel
+            elif base_dir is not None:
+                full = os.path.join(base_dir, rel)
+            else:
+                _diag.report('Warning', ln,
+                             'relative *use paths cannot be resolved for an '
+                             'unsaved document')
+                continue
+            if not os.path.isfile(full):
+                _diag.report('Error', ln, f"cannot find mod file {rel!r}")
+                continue
+            specs = load_mod_file(full, allow_builtin=False, line_no=ln)
+            loaded.append((rel, specs))
+        if loaded:
+            try:
+                reg = merge_registries(DEFAULT_REGISTRY, loaded)
+            except Exception as e:
+                _diag.report('Error', None, f'mod loading failed: {e}')
+                reg = DEFAULT_REGISTRY
+        else:
+            reg = DEFAULT_REGISTRY
+        _diag.unbind_source()
+
+    for raw in buf.getvalue().splitlines():
+        m = re.match(r'^\[(Error|Warning)\](?:\s+Line\s+(\d+):)?\s*(.*)$',
+                     raw)
+        if not m:
+            continue
+        sev = 'error' if m.group(1) == 'Error' else 'warning'
+        ln = int(m.group(2)) if m.group(2) else next(iter(use_lines))
+        msg = m.group(3).strip()
+        if msg:
+            diagnostics.append((ln, sev, msg))
+
+    registry = reg if 'reg' in locals() else DEFAULT_REGISTRY
+    if not hasattr(registry, 'all_command_names'):
+        registry = DEFAULT_REGISTRY
+    return registry, diagnostics
+
+
+# Module-level default registry, built once.
 def load_default_registry():
     specs = load_mod_file(_DEFAULT_TOML, allow_builtin=True)
     return Registry(specs, source_label='default')
 
 
-# Module-level default registry, built once.
 DEFAULT_REGISTRY = load_default_registry()
 
 
