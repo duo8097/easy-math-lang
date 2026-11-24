@@ -1,5 +1,6 @@
 """Tests for the TOML command registry (Phase 1)."""
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -147,7 +148,7 @@ def test_every_registry_command_in_rule_txt():
     rule = os.path.join(os.path.dirname(__file__), "..", "rule.txt")
     text = open(rule, encoding="utf-8").read()
     missing = [name for name in cr.DEFAULT_REGISTRY.commands
-                if f"*{name}" not in text]
+                if not re.search(rf'\*{re.escape(name)}(?![\w-])', text)]
     assert not missing, missing
 
 
@@ -160,5 +161,32 @@ def test_every_registry_command_mentioned_in_docs():
                 with open(os.path.join(root, fn), encoding="utf-8") as h:
                     blob += h.read() + "\n"
     missing = [name for name in cr.DEFAULT_REGISTRY.commands
-                if name not in blob]
+                if not re.search(rf'\*{re.escape(name)}(?![\w-])', blob)]
     assert not missing, missing
+
+
+def test_rule_txt_guard_is_not_vacuous():
+    rule = os.path.join(os.path.dirname(__file__), "..", "rule.txt")
+    text = open(rule, encoding="utf-8").read()
+    # Remove every starred occurrence of one command from a copy and ensure
+    # the guard would report it.
+    sample = next(iter(cr.DEFAULT_REGISTRY.commands))
+    tampered = re.sub(rf'\*{re.escape(sample)}(?![\w-])', '', text)
+    missing = [name for name in cr.DEFAULT_REGISTRY.commands
+                if not re.search(rf'\*{re.escape(name)}(?![\w-])', tampered)]
+    assert sample in missing
+
+
+def test_docs_guard_is_not_vacuous():
+    docs_dir = os.path.join(os.path.dirname(__file__), "..", "docs")
+    blob = ""
+    for root, _dirs, files in os.walk(docs_dir):
+        for fn in files:
+            if fn.endswith(".md"):
+                with open(os.path.join(root, fn), encoding="utf-8") as h:
+                    blob += h.read() + "\n"
+    sample = next(iter(cr.DEFAULT_REGISTRY.commands))
+    tampered = re.sub(rf'\*{re.escape(sample)}(?![\w-])', '', blob)
+    missing = [name for name in cr.DEFAULT_REGISTRY.commands
+                if not re.search(rf'\*{re.escape(name)}(?![\w-])', tampered)]
+    assert sample in missing

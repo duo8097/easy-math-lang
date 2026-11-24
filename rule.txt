@@ -381,6 +381,28 @@ Rules:
 )
 
 
+Sets
+----
+
+*set(x ; x > 0)
+
+Set-builder {x | condition} when two ";"-arguments are given; one or
+3+ arguments list {a, b, c}. Commas always list: *set(a, b).
+
+Example:
+
+*set(x ; x > 0)
+
+Output (Typst):
+
+$ {x | x > 0} $
+
+Rules:
+  - 2 arguments separated by ";" mean set-builder.
+  - Any other count (or comma separation) is a listing.
+  - Conditions containing ";" can be quoted: *set(x ; "a;b").
+
+
 Column vectors
 --------------
 

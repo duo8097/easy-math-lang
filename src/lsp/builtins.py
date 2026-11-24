@@ -5,6 +5,7 @@ compiler's own tables (see _CROSS_CHECK below); only the short
 descriptions are LSP-layer additions.
 """
 
+from compiler.command_registry import DEFAULT_REGISTRY as _DEFAULT_REGISTRY
 from compiler.diagnostics import KNOWN_COMMANDS
 from compiler.symbols import WORD_REPLACEMENTS
 from geometry.commands import KNOWN_GEOMETRY_COMMANDS
@@ -15,7 +16,6 @@ from geometry.commands import KNOWN_GEOMETRY_COMMANDS
 # registry (src/compiler/commands.toml) so the LSP never drifts from the
 # compiler. Non-math names (style, table, plot, image, page break) stay
 # here because they are not part of the math registry.
-from compiler.command_registry import DEFAULT_REGISTRY as _DEFAULT_REGISTRY
 
 _EXTRA_MATH_DOCS = {
     'table': ('*table(cell ; cell | cell ; cell)', 'Table. Rows split on |, cells on ; (comma works when no ;).'),
