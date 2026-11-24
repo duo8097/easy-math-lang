@@ -34,7 +34,7 @@ pkgver() {
   if v=$(git describe --long --tags 2>/dev/null); then
     echo "${v#v}" | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
   else
-    sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml
+    sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml | tr '-' '.'
   fi
 }
 
