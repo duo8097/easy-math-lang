@@ -243,6 +243,11 @@ def test_bump_explicit_prerelease_stays_syncable(temp_repo):
     assert _run(temp_repo, '7.1.0-rc.1') == 0
     assert bump_version.find_version_mismatches(temp_repo) == []
 
+    # Also verify with uv PEP 440 normalized rc format in uv.lock
+    lock = temp_repo / 'uv.lock'
+    lock.write_text(lock.read_text().replace('version = "7.1.0-rc.1"', 'version = "7.1.0rc1"'))
+    assert bump_version.find_version_mismatches(temp_repo) == []
+
 
 def test_bump_explicit(temp_repo):
     assert _run(temp_repo, '7.3.0') == 0

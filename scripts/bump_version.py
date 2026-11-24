@@ -333,7 +333,7 @@ def find_version_mismatches(root):
     _check('.github/ISSUE_TEMPLATE/bug_report.yml',
            r'(?m)^\s*placeholder: "([^"]*)"$', 'bug_report.yml placeholder')
 
-    # uv.lock: the easy-math-lang package entry must match.
+    # uv.lock: the easy-math-lang package entry must match PEP 440 version.
     lock_path = root / 'uv.lock'
     try:
         lock_text = lock_path.read_text(encoding='utf-8')
@@ -344,7 +344,9 @@ def find_version_mismatches(root):
         match = re.search(
             r'(?m)^name = "easy-math-lang"\nversion = "([^"]+)"$', lock_text)
         found = match.group(1) if match else None
-        if found != version:
+        # uv normalizes prereleases in uv.lock according to PEP 440 (e.g. 8.0.0-rc.1 -> 8.0.0rc1)
+        expected_lock = pkgbuild_pkgver(version)
+        if found != version and found != expected_lock:
             mismatches.append(('uv.lock', 'uv.lock easy-math-lang entry',
                                found if found is not None else 'missing'))
 
