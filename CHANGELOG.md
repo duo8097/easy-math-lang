@@ -12,6 +12,11 @@ for those.
 
 ## [Unreleased]
 
+## [8.0.0] - 2026-11-24
+
+### Added
+- **Easy Math Lang 8.0.0.** Production release integrating user mod files (`*use`), single source of truth for math commands (`commands.toml`), and LSP/editor awareness.
+
 ## [8.0.0-rc.1] - 2026-11-24
 
 ### Added
@@ -300,7 +305,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0...HEAD
+[8.0.0]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...v8.0.0
 [8.0.0-rc.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...v8.0.0-rc.1
 [7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
 [7.1.0]: https://github.com/duo8097/easy-math-lang/compare/v7.0.0...v7.1.0
