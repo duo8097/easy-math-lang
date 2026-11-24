@@ -509,3 +509,51 @@ doc = "zed"
     )
     assert "implemented in Python" in err
     assert "$2^(3)$" in typ
+
+STRUCTURE_BREAKING = [
+    '$x \\$',
+    '$x // $',
+    '$x /* $',
+    '$x "y$',
+    '$@nolabel$',
+]
+
+def test_structure_breaking_templates_rejected(tmp_path, monkeypatch, capsys):
+    for template in STRUCTURE_BREAKING:
+        mod = f"""
+[[commands]]
+name = "evil"
+args = 1
+typst = '{template}'
+usage = "*evil(x)"
+doc = "evil"
+"""
+        typ, err = _compile(
+            tmp_path, monkeypatch, capsys,
+            '*use("m.toml")\n',
+            {"m.toml": mod},
+        )
+        assert "invalid mod file" in err, template
+
+
+def test_accepted_templates_compile_with_typst():
+    typst = pytest.importorskip("typst")
+    import os, tempfile
+    corpus = [
+        "$x$",
+        "$frac({0}, {1})$",
+        "$*sqrt({0}) + {1}$",
+        '$a + b$',
+    ]
+    for template in corpus:
+        rendered = template.replace("{0}", "x").replace("{1}", "y")
+        # strip placeholders already replaced; ensure no {N}
+        d = tempfile.mkdtemp()
+        typ_path = os.path.join(d, "t.typ")
+        pdf_path = os.path.join(d, "t.pdf")
+        with open(typ_path, "w", encoding="utf-8") as h:
+            h.write(rendered + "\n")
+        try:
+            typst.compile(typ_path, pdf_path)
+        except Exception as e:
+            raise AssertionError(f"accepted template did not compile: {rendered}: {e}")

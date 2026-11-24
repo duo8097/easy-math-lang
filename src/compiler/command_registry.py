@@ -37,7 +37,7 @@ _FORBIDDEN_KEYS = frozenset({'handler'})
 
 # Per-compile budget for user-mod template expansion.
 MAX_MOD_TEMPLATE_DEPTH = 10
-MAX_MOD_TEMPLATE_EXPANSIONS = 10000
+MAX_MOD_TEMPLATE_EXPANSIONS = 200
 MAX_MOD_TEMPLATE_OUTPUT_CHARS = 1_000_000
 
 
@@ -327,6 +327,26 @@ def load_mod_text(text, *, allow_builtin=False, source_name='<mod>',
                 report('Error', line_no,
                        f'invalid mod file {source_name}: command {name!r} '
                        f'template must not contain an inner "$"')
+                return
+            if '\\$' in typst:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must not contain an escaped dollar "\\\\$"')
+                return
+            if '//' in typst or '/*' in typst or '*/' in typst:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must not contain comments')
+                return
+            if typst.count('"') % 2 != 0:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template has an odd number of double quotes')
+                return
+            if '`' in typst or '@' in typst:
+                report('Error', line_no,
+                       f'invalid mod file {source_name}: command {name!r} '
+                       f'template must not contain backticks or "@"')
                 return
 
         usage = entry.get('usage', '')
@@ -642,12 +662,14 @@ def render_spec(spec, ctx, args):
         return _reconstruct_call(spec, args)
 
     ctx._mod_template_depth = depth + 1
-    count = getattr(ctx, '_mod_expansion_count', 0) + 1
-    ctx._mod_expansion_count = count
-    if count > MAX_MOD_TEMPLATE_EXPANSIONS:
-        _abort_mod_expansion(ctx)
-        ctx._mod_template_depth = depth
-        return _reconstruct_call(spec, args)
+    nested = depth > 0
+    if nested:
+        count = getattr(ctx, '_mod_expansion_count', 0) + 1
+        ctx._mod_expansion_count = count
+        if count > MAX_MOD_TEMPLATE_EXPANSIONS:
+            _abort_mod_expansion(ctx)
+            ctx._mod_template_depth = depth
+            return _reconstruct_call(spec, args)
 
     try:
         cleaned = [_mc.clean_inner_math(ctx, a) for a in args[:spec.args]]
