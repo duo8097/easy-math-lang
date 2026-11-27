@@ -17,6 +17,11 @@ for those.
   smart download button, examples gallery, rendered docs, OG/favicon assets,
   changelog page, and an "ezmath vs LaTeX" comparison page.
 
+### Fixed
+- Playground on Vercel: ship a validly-named wheel plus `wheel.json` in the
+  repo and add a Vercel `buildCommand` so the in-browser compiler can be
+  installed; remove the non-standard `easymath.whl`.
+
 ## [8.0.1] - 2026-11-27
 
 ### Fixed
