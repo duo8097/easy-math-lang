@@ -4,8 +4,7 @@
 * text=auto
 
 # Shell scripts must stay LF (a CRLF shebang fails on Linux/macOS) and
-# keep their executable bit — see commit 6dca06d, where a lost +x on
-# installer/build_linux.sh broke `bash installer/build_linux.sh` runs.
+# keep their executable bit.
 *.sh text eol=lf
 
 # Windows-side PowerShell/batch scripts are fine with CRLF.
@@ -16,9 +15,7 @@
 # Inno Setup and packaging files.
 *.iss text eol=crlf
 
-# Vendored third-party Typst packages (downloaded by
-# scripts/vendor_typst_packages.py; never edit by hand). Kept byte-for-byte
-# as upstream ships them, hidden from diffs and language stats.
+# Vendored third-party Typst packages.
 vendor/typst-packages/** -text linguist-vendored linguist-generated
 
 # Binary assets — never line-convert.
@@ -37,3 +34,15 @@ vendor/typst-packages/** -text linguist-vendored linguist-generated
 *.deb binary
 *.rpm binary
 *.zst binary
+
+# Site text assets must stay LF on every platform (Windows CI compares
+# committed byte sizes/hashes).
+*.svg text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playground — Easy Math Lang</title>
+<meta name="description" content="Try Easy Math Lang in your browser: type ezmath on the left, see the compiled output on the right. No install.">
+<link rel="canonical" href="https://duo8097.github.io/easy-math-lang/playground.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://duo8097.github.io/easy-math-lang/playground.html">
+<meta property="og:site_name" content="Easy Math Lang">
+<meta property="og:title" content="Easy Math Lang Playground">
+<meta property="og:description" content="Try Easy Math Lang in your browser. No install required.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Easy Math Lang Playground">
+<meta name="twitter:description" content="Try Easy Math Lang in your browser. No install required.">
+<meta name="twitter:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/playground.css">
+<script src="assets/js/main.js" defer></script>
+<script src="assets/js/playground.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main" data-i18n="nav.skip">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html">
+      <img src="assets/img/ezmath-icon.png" alt="" width="36" height="36">
+      <span class="brand-name">Easy&nbsp;Math&nbsp;Lang</span>
+    </a>
+    <div class="header-tools">
+      <button id="theme-toggle" class="icon-button" type="button" data-i18n-attr-aria-label="nav.theme" aria-label="Switch between light and dark mode">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+          <path class="icon-sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/>
+          <path class="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+        </svg>
+      </button>
+      <div class="lang-switch" role="group" data-i18n-attr-aria-label="nav.language" aria-label="Language">
+        <button type="button" class="lang-btn" data-lang="en" lang="en" aria-pressed="true">EN</button>
+        <button type="button" class="lang-btn" data-lang="vi" lang="vi" aria-pressed="false">VI</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <h1 data-i18n="playground.title">Playground</h1>
+  <p class="section-intro" data-i18n="playground.subtitle">Type ezmath on the left. The compiled Typst output appears on the right. Runs entirely in your browser.</p>
+
+  <div class="pg-toolbar">
+    <label for="pg-example" data-i18n="playground.example_label">Example</label>
+    <select id="pg-example"></select>
+    <button type="button" id="pg-run" class="btn btn-primary" data-i18n="playground.run">Run</button>
+    <button type="button" id="pg-copy" class="btn" data-i18n="playground.copy">Copy output</button>
+    <button type="button" id="pg-share" class="btn" data-i18n="playground.share">Share link</button>
+  </div>
+
+  <div class="pg-grid">
+    <div class="pg-pane">
+      <label for="pg-input" data-i18n="playground.input_label">ezmath input</label>
+      <textarea id="pg-input" spellcheck="false"></textarea>
+    </div>
+    <div class="pg-pane">
+      <label for="pg-output" data-i18n="playground.output_label">Compiled output (Typst)</label>
+      <pre id="pg-output"></pre>
+    </div>
+  </div>
+
+  <div id="pg-error" class="pg-error" hidden></div>
+
+  <div id="pg-loading" class="pg-loading" hidden>
+    <p data-i18n="playground.loading">Loading the compiler (Pyodide)…</p>
+  </div>
+
+  <p id="pg-fallback" class="pg-fallback" hidden data-i18n="playground.fallback">
+    The in-browser compiler could not be loaded. You can still read the compiled Typst output for the built-in examples above.
+  </p>
+
+  <p class="pg-note" data-i18n="playground.note">
+    Rendering to PDF/PNG/SVG requires the Typst compiler, which does not run in the browser. The playground shows the compiled Typst source; install Easy Math Lang to render it.
+  </p>
+</main>
+</body>
+</html>

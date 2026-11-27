@@ -15,6 +15,7 @@
     "note": "Làm cho giáo viên và học sinh. Miễn phí và mã nguồn mở (MIT).",
     "buttons": {
       "download": "Tải xuống",
+      "try": "Thử ngay",
       "github": "GitHub",
       "docs": "Tài liệu"
     }
@@ -104,10 +105,27 @@
     "release": "Tất cả bản phát hành trên GitHub",
     "source": "Hoặc chạy từ mã nguồn — xem hướng dẫn cài đặt."
   },
+  "playground": {
+    "title": "Sân chơi",
+    "subtitle": "Gõ ezmath ở bên trái. Kết quả Typst biên dịch hiện ở bên phải. Chạy hoàn toàn trong trình duyệt.",
+    "example_label": "Ví dụ",
+    "run": "Chạy",
+    "copy": "Sao chép kết quả",
+    "share": "Chia sẻ liên kết",
+    "input_label": "Mã nguồn ezmath",
+    "output_label": "Kết quả biên dịch (Typst)",
+    "loading": "Đang tải bộ biên dịch (Pyodide)…",
+    "fallback": "Không tải được bộ biên dịch trong trình duyệt. Bạn vẫn có thể đọc kết quả Typst biên dịch cho các ví dụ có sẵn ở trên.",
+    "note": "Để kết xuất PDF/PNG/SVG cần bộ biên dịch Typst, không chạy được trong trình duyệt. Sân chơi hiển thị mã nguồn Typst đã biên dịch; hãy cài Easy Math Lang để kết xuất."
+  },
   "docs": {
     "title": "Tài liệu",
     "subtitle": "Các hướng dẫn nằm trong kho lưu trữ dưới dạng Markdown thuần.",
     "items": {
+      "site_docs": "Tài liệu trên site",
+      "vs_latex": "ezmath so với LaTeX",
+      "changelog": "Nhật ký thay đổi",
+      "playground": "Sân chơi",
       "editor": "Trình soạn thảo",
       "algebra": "Viết công thức toán",
       "geometry": "Vẽ hình học",

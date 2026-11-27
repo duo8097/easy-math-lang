@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language server (editor support) — Easy Math Lang Docs</title>
+<meta property="og:title" content="Language server (editor support) — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Language server (editor support)</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#language-server-editor-support">Language server (editor support)</a></li><li><a href="#running-it">Running it</a></li><li><a href="#connecting-your-editor">Connecting your editor</a></li><li><a href="#neovim-with-nvim-lspconfig">Neovim (with `nvim-lspconfig`)</a></li><li><a href="#vs-code">VS Code</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#for-developers">For developers</a></li></ul></nav>
+    <h1 id="language-server-editor-support">Language server (editor support)</h1>
+<p>The file <code>easy-math-lsp</code> is a <a href="https://microsoft.github.io/language-server-protocol/">Language Server Protocol</a></p>
+<p>server for Easy-Math-Lang. Connect a compatible editor to it and you get,</p>
+<p>while you type:</p>
+<ul>
+<li><strong>Error messages</strong> — undefined variables (with "did you mean …?" hints),</li>
+</ul>
+<p>broken <code>calc(...)</code> expressions, unknown commands, and geometry problems</p>
+<ul>
+<li><strong>Autocompletion</strong> — your variables and defines, built-in math commands</li>
+</ul>
+<p>(<code><em>frac</code>, <code></em>sum</code>, …), <code>*draw</code> and the geometry commands inside it, point</p>
+<p>constructors (<code>midpoint</code>, <code>foot</code>, <code>intersect</code>, …), and <code>*symbol</code> shortcuts</p>
+<ul>
+<li><strong>Hover information</strong> — a variable's value, or a built-in's (math,</li>
+</ul>
+<p>keyword or geometry — including <code>*draw</code>) or constructor's description</p>
+<ul>
+<li><strong>Document symbols</strong> — jump to defines, variables, and <code>*draw</code> blocks</li>
+</ul>
+<p>It works with <code>.ezmath</code> and <code>.eml</code> files.</p>
+<hr>
+<h2 id="running-it">Running it</h2>
+<p>From the project folder:</p>
+<pre class="code"><code>uv run easy-math-lsp</code></pre>
+<p>The server communicates using standard JSON-RPC <strong>over stdin/stdout</strong>.</p>
+<p>Don't type into its terminal — your editor talks to it for you.</p>
+<p>> ⚠️ Logs and debugging go to <strong>stderr</strong>. Stdout is reserved for the</p>
+<p>> protocol and must not be polluted, or your editor will disconnect.</p>
+<hr>
+<h2 id="connecting-your-editor">Connecting your editor</h2>
+<p>Any editor that can launch a custom stdio language server works.</p>
+<p>Two common setups:</p>
+<h3 id="neovim-with-nvim-lspconfig">Neovim (with <code>nvim-lspconfig</code>)</h3>
+<pre class="code"><code>vim.api.nvim_create_autocmd(&#x27;FileType&#x27;, {
+  pattern = { &#x27;easymath&#x27; },
+  callback = function()
+    vim.lsp.start({
+      name = &#x27;easy-math-lsp&#x27;,
+      cmd = { &#x27;uv&#x27;, &#x27;--directory&#x27;, &#x27;/path/to/easy-math-lang&#x27;, &#x27;run&#x27;, &#x27;easy-math-lsp&#x27; },
+    })
+  end,
+})</code></pre>
+<h3 id="vs-code">VS Code</h3>
+<p>VS Code needs a small extension to launch a custom server. Options:</p>
+<ol>
+<li>Use a generic LSP client extension (e.g. "Generic LSP Client" from the</li>
+</ol>
+<p>marketplace) configured with command <code>uv run easy-math-lsp</code> for the</p>
+<p><code>easymath</code> language.</p>
+<ol>
+<li>Associate the extension with <code>.ezmath</code> files first:</li>
+</ol>
+<p><code>&quot;files.associations&quot;: { &quot;*.ezmath&quot;: &quot;easymath&quot; }</code>.</p>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table><thead><tr><th>Problem</th><th>What to check</th></tr></thead><tbody>
+<tr><td>Editor says the server didn't start</td><td>Run <code>uv run easy-math-lsp</code> by hand and send it <code>initialize</code> — it should answer with its capabilities. Make sure <code>uv sync</code> was run so dependencies (<code>pygls</code>) are installed.</td></tr>
+<tr><td>No diagnostics appear</td><td>Confirm the file is recognized (<code>.ezmath</code>/<code>.eml</code> extension or <code>easymath</code> language id) and was opened <em>after</em> the server started.</td></tr>
+<tr><td>Server disconnects randomly</td><td>Something is writing to the server's stdout. Only stderr may be used for logs.</td></tr>
+<tr><td>Packaged app (installer/<code>dist/</code>): editor can't start the server or compile</td><td>The editor finds <code>easy-math-lsp</code> / <code>easy-math-lang</code> next to itself (the shared install folder) without needing <code>PATH</code>. If you moved the binaries, keep them together or point <code>EASYMATH_LSP_EXE</code> / <code>EASYMATH_COMPILER_EXE</code> at the right files.</td></tr>
+</tbody></table>
+<p>More editor and compiler problems:</p>
+<p><a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+<hr>
+<h2 id="for-developers">For developers</h2>
+<p>The server lives in <code>src/lsp/</code> and reuses the compiler</p>
+<p>(<code>src/compiler/</code>, <code>src/geometry/</code>) instead of</p>
+<p>parsing the language a second time. Run its tests with:</p>
+<pre class="code"><code>uv run pytest tests/test_lsp_analysis.py tests/test_lsp_server.py -v</code></pre>
+  </article>
+</main>
+</body>
+</html>

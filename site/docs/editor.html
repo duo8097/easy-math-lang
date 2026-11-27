@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop editor — Easy Math Lang Docs</title>
+<meta property="og:title" content="Desktop editor — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Desktop editor</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#desktop-editor">Desktop editor</a></li><li><a href="#first-steps">First steps</a></li><li><a href="#language-english-vietnamese">Language (English / Vietnamese)</a></li><li><a href="#adding-a-language">Adding a language</a></li><li><a href="#icons">Icons</a></li><li><a href="#icon-to-buttonaction-mapping">Icon to button/action mapping</a></li><li><a href="#glossary-consistent-vietnamese-terms">Glossary (consistent Vietnamese terms)</a></li><li><a href="#auditing-translations">Auditing translations</a></li><li><a href="#getting-help-from-the-editor">Getting help from the editor</a></li><li><a href="#the-draw-geometry-gallery">The `*draw` geometry gallery</a></li><li><a href="#live-preview">Live preview</a></li><li><a href="#exporting-pdf-images-html-typst">Exporting (PDF, images, HTML, Typst)</a></li><li><a href="#under-the-hood-helper-programs">Under the hood: helper programs</a></li><li><a href="#making-text-comfortable-to-read">Making text comfortable to read</a></li><li><a href="#finding-your-way-around">Finding your way around</a></li><li><a href="#layout">Layout</a></li><li><a href="#settings-file">Settings file</a></li><li><a href="#keeping-the-editor-up-to-date">Keeping the editor up to date</a></li><li><a href="#files-and-shortcuts">Files and shortcuts</a></li><li><a href="#linux-input-methods-vietnamese-etc">Linux: input methods (Vietnamese etc.)</a></li><li><a href="#what-pyside6-ships">What PySide6 ships</a></li><li><a href="#what-the-editor-does-automatically-linux-only">What the editor does automatically (Linux only)</a></li><li><a href="#which-package-provides-the-fcitx5-plugin">Which package provides the fcitx5 plugin?</a></li><li><a href="#version-mismatch-from-source">Version mismatch (from source)</a></li><li><a href="#opt-out">Opt-out</a></li><li><a href="#debugging">Debugging</a></li><li><a href="#xwayland-vs-wayland">XWayland vs Wayland</a></li><li><a href="#maintainers-bumping-the-pinned-fcitx5-qt-ref-a-new-pyside6-qt">Maintainers: bumping the pinned fcitx5-qt ref / a new PySide6 Qt</a></li><li><a href="#glibc-floor-of-the-linux-installers">glibc floor of the Linux installers</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="desktop-editor">Desktop editor</h1>
+<p>The project ships with a small desktop editor for <code>.ezmath</code> files.</p>
+<p>Launch it from the project folder:</p>
+<ul>
+<li><a href="#first-steps">First steps</a></li>
+<li><a href="#language-english--vietnamese">Language (English / Vietnamese)</a></li>
+<li><a href="#adding-a-language">Adding a language</a></li>
+<li><a href="#icons">Icons</a></li>
+<li><a href="#icon-to-buttonaction-mapping">Icon to button/action mapping</a></li>
+<li><a href="#glossary-consistent-vietnamese-terms">Glossary (consistent Vietnamese terms)</a></li>
+<li><a href="#auditing-translations">Auditing translations</a></li>
+<li><a href="#getting-help-from-the-editor">Getting help from the editor</a></li>
+<li><a href="#the-draw-geometry-gallery">The <code>*draw</code> geometry gallery</a></li>
+<li><a href="#live-preview">Live preview</a></li>
+<li><a href="#exporting-pdf-images-html-typst">Exporting (PDF, images, HTML, Typst)</a></li>
+<li><a href="#under-the-hood-helper-programs">Under the hood: helper programs</a></li>
+<li><a href="#making-text-comfortable-to-read">Making text comfortable to read</a></li>
+<li><a href="#finding-your-way-around">Finding your way around</a></li>
+<li><a href="#layout">Layout</a></li>
+<li><a href="#settings-file">Settings file</a></li>
+<li><a href="#keeping-the-editor-up-to-date">Keeping the editor up to date</a></li>
+<li><a href="#files-and-shortcuts">Files and shortcuts</a></li>
+<li><a href="#linux-input-methods-vietnamese-etc">Linux: input methods (Vietnamese etc.)</a></li>
+<li><a href="#what-pyside6-ships">What PySide6 ships</a></li>
+<li><a href="#what-the-editor-does-automatically-linux-only">What the editor does automatically (Linux only)</a></li>
+<li><a href="#which-package-provides-the-fcitx5-plugin">Which package provides the fcitx5 plugin?</a></li>
+<li><a href="#version-mismatch-from-source">Version mismatch (from source)</a></li>
+<li><a href="#opt-out">Opt-out</a></li>
+<li><a href="#debugging">Debugging</a></li>
+<li><a href="#xwayland-vs-wayland">XWayland vs Wayland</a></li>
+<li><a href="#maintainers-bumping-the-pinned-fcitx5-qt-ref--a-new-pyside6-qt">Maintainers: bumping the pinned fcitx5-qt ref / a new PySide6 Qt</a></li>
+<li><a href="#glibc-floor-of-the-linux-installers">glibc floor of the Linux installers</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<pre class="code"><code>uv run easy-math-editor [options] [optional-file.ezmath]</code></pre>
+<p>Options:</p>
+<table><thead><tr><th>Flag</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>--no-save-prompt</code></td><td>Close without asking to save (unsaved changes are discarded; useful for automated tests)</td></tr>
+</tbody></table>
+<p>You can also install the <code>easy-math-editor</code> command with your Python</p>
+<p>environment — it is declared in <code>pyproject.toml</code>.</p>
+<hr>
+<h2 id="first-steps">First steps</h2>
+<ul>
+<li>A new document shows a short example to get you started.</li>
+</ul>
+<p>Delete it and type your own math, or open an example instead:</p>
+<p><code>File → Open → examples/example.ezmath</code>.</p>
+<ul>
+<li>On first run a dismissible welcome banner shows a 3-step quick</li>
+</ul>
+<p>start and a button that opens a ready-to-run example. It can be</p>
+<p>reopened from <code>Help → Welcome</code>; tick "Don't show again" to keep</p>
+<p>it away. When the editor is empty it also shows a faint hint</p>
+<p>pointing to <code>Help → Examples</code> and the symbol bar.</p>
+<ul>
+<li>Press <strong>Ctrl+B</strong> (or <code>Build → Compile</code>) to turn the document into a PDF.</li>
+</ul>
+<p>The status bar tells you where the PDF was written.</p>
+<ul>
+<li>If a document has unsaved changes, the window title shows a <code>*</code></li>
+</ul>
+<p>and you will be asked before closing.</p>
+<hr>
+<h2 id="language-english-vietnamese">Language (English / Vietnamese)</h2>
+<ul>
+<li>The editor interface is available in <strong>English</strong> (default) and</li>
+</ul>
+<p><strong>Vietnamese (<code>vi</code>)</strong>. On first run the language follows your</p>
+<p>system locale (for example <code>LANG=vi_VN.UTF-8</code>); afterwards your</p>
+<p>choice is remembered.</p>
+<ul>
+<li>Change it any time with <code>View → Language…</code> (English, Vietnamese,</li>
+</ul>
+<p>or System default). The change applies immediately, without</p>
+<p>touching your document, cursor, or open files, and is persisted</p>
+<p>in <code>~/.config/ezmath/config.ini</code> as <code>ui/language</code>.</p>
+<ul>
+<li>Only UI chrome is translated. Language syntax and keywords</li>
+</ul>
+<p>(<code><em>vec</code>, <code></em>draw</code>, <code>*point</code>, …), file names, code snippets, and</p>
+<p>compiler/LSP identifiers are never translated. Command</p>
+<p>descriptions and draw titles are translated by name/id</p>
+<p>(<code>symbol.&lt;name&gt;.description</code>, <code>draw.&lt;id&gt;.title</code>); the registry</p>
+<p>data itself stays canonical English and the UI looks the</p>
+<p>translation up at display time.</p>
+<ul>
+<li>Qt has no Vietnamese catalog, so Qt-generated texts are set</li>
+</ul>
+<p>explicitly from the catalog: text-edit context menus</p>
+<p>(<code>editor/qt_text.py</code>), standard dialog buttons, file dialog</p>
+<p>labels (file dialogs are always Qt-drawn, never native, so</p>
+<p>their labels can be translated), and input dialog buttons.</p>
+<p>The font dialog's internal labels cannot be set this way and</p>
+<p>stay Qt-generated (see remaining exceptions in</p>
+<p><code>scripts/audit_i18n_allowlist.json</code> and below).</p>
+<ul>
+<li>UI fonts prefer Noto Sans / DejaVu Sans, which render Vietnamese</li>
+</ul>
+<p>diacritics correctly; Qt falls back per glyph, so frozen builds</p>
+<p>use system fonts (no bundled font files). Vietnamese typing via</p>
+<p>fcitx5 (<code>fcitx5-lotus</code>) is unaffected — see [Linux input</p>
+<p>methods](#linux-input-methods-vietnamese-etc) below.</p>
+<h3 id="adding-a-language">Adding a language</h3>
+<ol>
+<li>Copy <code>src/editor/locales/en.json</code> to</li>
+</ol>
+<p><code>src/editor/locales/&lt;code&gt;.json</code> (for example <code>fr.json</code>).</p>
+<ol>
+<li>Translate every value; keep the keys and every <code>{placeholder}</code></li>
+</ol>
+<p>exactly as in <code>en.json</code>. Do not translate <code>*commands</code>, file</p>
+<p>extensions, or values that are examples of code.</p>
+<ol>
+<li>Add the code to <code>SUPPORTED_LOCALES</code> in</li>
+</ol>
+<p><code>src/editor/i18n.py</code> and to the picker in</p>
+<p><code>MainWindow._open_language_dialog</code>.</p>
+<ol>
+<li>Add a test that the new catalog has the same keys as <code>en.json</code></li>
+</ol>
+<p>(see <code>test_catalogs_have_the_same_keys</code> in</p>
+<p><code>tests/test_i18n.py</code>, which covers every <code>*.json</code> in the</p>
+<p>directory once the file exists — just add the file).</p>
+<p>The catalogs are bundled automatically: <code>scripts/build_binaries.py</code></p>
+<p>passes <code>src/editor/locales/</code> as <code>--add-data</code> for the editor build,</p>
+<p>so the Windows/Linux/macOS frozen builds and the installers that</p>
+<p>copy the whole bundle (Inno Setup <code>_internal/</code>, Arch <code>PKGBUILD</code></p>
+<p><code>cp -a dist/…</code>) carry them with no further changes.</p>
+<h2 id="icons">Icons</h2>
+<p>Buttons and menu actions use icons from</p>
+<p><a href="https://github.com/lucide-icons/lucide">Lucide</a> (ISC License, MIT</p>
+<p>for Feather-derived icons). Only the icons actually used are</p>
+<p>vendored as SVG in <code>src/editor/assets/icons/</code> with the full license</p>
+<p>in <code>src/editor/assets/icons/LICENSE</code>; <code>README.md</code> also attributes</p>
+<p>them. One registry (<code>src/editor/icons.py</code>) maps logical names to</p>
+<p>SVG files, renders them at the requested size (crisp on HiDPI),</p>
+<p>recolors them for the light/dark theme and the disabled state, and</p>
+<p>falls back to no icon (logging once) when a file is missing.</p>
+<p>Icons are bundled by <code>scripts/build_binaries.py</code> as</p>
+<p><code>--add-data editor/assets/icons</code>, so the installers that copy the</p>
+<p>whole bundle carry them automatically. Icon-only buttons always</p>
+<p>keep a translated tooltip and accessible name from the i18n</p>
+<p>catalog. The math symbols on the symbol-bar buttons themselves</p>
+<p>are not replaced by icons.</p>
+<h3 id="icon-to-buttonaction-mapping">Icon to button/action mapping</h3>
+<table><thead><tr><th>Icon name</th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>file-new</code> / <code>file-open</code> / <code>file-save</code> / <code>file-save-as</code></td><td>File menu New/Open/Save/Save As and the toolbar (icon + text)</td></tr>
+<tr><td><code>export</code></td><td>File Export As menu and command palette export entries</td></tr>
+<tr><td><code>exit</code></td><td>File Exit</td></tr>
+<tr><td><code>undo</code> / <code>redo</code></td><td>Edit Undo/Redo and the text context menu</td></tr>
+<tr><td><code>cut</code> / <code>copy</code> / <code>paste</code></td><td>Edit Cut/Copy/Paste and the text context menu</td></tr>
+<tr><td><code>find</code> / <code>goto-line</code></td><td>Edit Find / Go to Line</td></tr>
+<tr><td><code>find-prev</code> / <code>find-next</code> / <code>find-close</code></td><td>Find bar previous/next/close (icon-only, tooltip + accessible name)</td></tr>
+<tr><td><code>replace</code> / <code>replace-all</code> / <code>match-case</code> / <code>whole-word</code></td><td>Find bar replace row (Replace/Replace All are icon + text; match-case/whole-word are icon-only toggles)</td></tr>
+<tr><td><code>compile</code></td><td>Build Compile and the toolbar Compile action</td></tr>
+<tr><td><code>refresh</code></td><td>Build Refresh Preview / Restart Language Server</td></tr>
+<tr><td><code>zoom-in</code> / <code>zoom-out</code> / <code>zoom-reset</code> / <code>fit</code></td><td>View zoom actions and the preview panel zoom/fit buttons</td></tr>
+<tr><td><code>preview</code></td><td>View Live Preview toggle</td></tr>
+<tr><td><code>open-external</code></td><td>Preview Open PDF externally</td></tr>
+<tr><td><code>language</code> / <code>theme</code> / <code>examples</code> / <code>shortcuts</code> / <code>about</code> / <code>welcome</code> / <code>palette</code> / <code>gallery</code> / <code>font</code></td><td>View/Help menu actions (Language, Dark Mode, Examples, Keyboard Shortcuts, About, Welcome, Command Palette, Geometry Gallery, Editor Font)</td></tr>
+<tr><td><code>ok</code> / <code>yes</code> / <code>apply</code> / <code>insert</code></td><td>Dialog OK/Yes/Apply and Insert buttons</td></tr>
+<tr><td><code>cancel</code> / <code>close</code> / <code>no</code> / <code>discard</code></td><td>Dialog Cancel/Close/No and Discard (unsaved-changes prompt)</td></tr>
+<tr><td><code>file-save</code> (dialog)</td><td>Save buttons in message boxes</td></tr>
+<tr><td><code>clear</code> / <code>filter</code></td><td>Problems panel Clear button and severity filter</td></tr>
+<tr><td><code>error</code> / <code>warning</code> / <code>info</code></td><td>Problems panel rows by severity</td></tr>
+<tr><td><code>variable</code> / <code>function</code> / <code>heading</code> / <code>draw</code> / <code>define</code></td><td>Outline panel rows by symbol kind</td></tr>
+<tr><td><code>insert-example</code> / <code>insert-command</code> / <code>empty-block</code> / <code>add-row</code> / <code>add-cell</code></td><td>Draw gallery, template and symbol-dialog buttons</td></tr>
+<tr><td><code>outline</code> / <code>problems</code></td><td>View Outline/Problems toggles and command palette entries</td></tr>
+</tbody></table>
+<h3 id="glossary-consistent-vietnamese-terms">Glossary (consistent Vietnamese terms)</h3>
+<p>Repeated terms use one Vietnamese wording everywhere; the actual</p>
+<p>Vietnamese strings live only in <code>src/editor/locales/vi.json</code></p>
+<p>(docs stay in English). The table below maps each English concept</p>
+<p>to its catalog key so new strings reuse the established term.</p>
+<table><thead><tr><th>English concept</th><th>Catalog key (prefix)</th><th>Notes</th></tr></thead><tbody>
+<tr><td>File / Save / Open</td><td><code>menu.file</code>, <code>btn.save</code></td><td>Use "Save" for both menu and dialog button</td></tr>
+<tr><td>Vector</td><td><code>symbol.vec.description</code></td><td>Kept as "vector" (standard loanword)</td></tr>
+<tr><td>Angle / Right angle</td><td><code>symbol.geo-angle.description</code></td><td>Distinct keys for angle vs right-angle marker</td></tr>
+<tr><td>Circle</td><td><code>draw.circle.title</code></td><td>Standard term for a circle</td></tr>
+<tr><td>Midpoint / Centre</td><td><code>draw.midpoint.title</code>, <code>field_labels.Center</code></td><td>Distinguish midpoint from centre</td></tr>
+<tr><td>Line / Segment / Ray</td><td><code>draw.line.title</code>, <code>draw.ray.title</code></td><td>Segment vs ray vs line kept distinct</td></tr>
+<tr><td>Parallel / Perpendicular</td><td><code>draw.parallel.title</code>, <code>draw.perp.title</code></td><td>Keep the two constraints distinct</td></tr>
+<tr><td>Fraction / Equation</td><td><code>examples.fraction_equation</code></td><td>Reuse the Examples wording</td></tr>
+<tr><td>Compile / Export</td><td><code>action.compile</code>, <code>action.export_as</code></td><td>Compile = build to PDF; Export = save as other format</td></tr>
+<tr><td>Language server</td><td><code>status.lsp_connected</code></td><td>Keep the "LSP" abbreviation unchanged</td></tr>
+<tr><td>Welcome / Examples / Shortcuts</td><td><code>welcome.<em></code>, <code>examples.</em></code>, <code>shortcuts.*</code></td><td>Help menu wording</td></tr>
+</tbody></table>
+<h3 id="auditing-translations">Auditing translations</h3>
+<p>Run <code>python scripts/audit_i18n.py</code> to list user-visible literals</p>
+<p>that bypass <code>tr()</code> (grouped by file) plus registry/catalog strings</p>
+<p>missing a translation. <code>scripts/audit_i18n_allowlist.json</code> records</p>
+<p>justified exceptions (glyphs, file-format names, example values,</p>
+<p>raw LSP/compiler text). <code>tests/test_i18n.py</code> runs the same audit</p>
+<p>as a regression guard and walks the Vietnamese UI offscreen.</p>
+<hr>
+<h2 id="getting-help-from-the-editor">Getting help from the editor</h2>
+<ul>
+<li><strong>Command palette</strong> (<strong>Ctrl+Shift+P</strong>, or <code>View → Command Palette…</code>):</li>
+</ul>
+<p>type a few letters of any command — fuzzy matching finds it, Enter runs it.</p>
+<ul>
+<li><strong>Problems panel</strong> (bottom): error and warning messages for the current</li>
+</ul>
+<p>document. Click a row to jump to that line. Clicking the problem count in</p>
+<p>the status bar brings the panel back.</p>
+<ul>
+<li><strong>Outline panel</strong> (left): variables, defines, and <code>*draw</code> blocks.</li>
+</ul>
+<p>Click a row to jump to it. Hide either panel from <code>View</code>.</p>
+<ul>
+<li><strong>Autocompletion</strong>: suggestions pop up automatically right after you</li>
+</ul>
+<p>type <code>*</code> or <code>&lt;</code>; <strong>Ctrl+Space</strong> works anywhere too. While browsing,</p>
+<p>the status bar shows what each candidate needs (e.g.</p>
+<p><code>*frac(numerator ; denominator)</code>). Picking a function inserts empty</p>
+<p><code>()</code> with the cursor inside, ready for arguments.</p>
+<ul>
+<li><strong>Hover</strong>: rest the mouse pointer on a name to see its value or meaning.</li>
+<li><strong>Status bar</strong>: cursor position (<code>Ln</code>/<code>Col</code>), problem count, and whether</li>
+</ul>
+<p>the language server is connected.</p>
+<ul>
+<li><strong>Welcome, Examples, shortcuts</strong> (<code>Help</code> menu): the welcome banner</li>
+</ul>
+<p>(3-step quick start), <code>Help → Examples</code> with short ready-to-run</p>
+<p>samples (basic math, a fraction/equation, a vector, a simple</p>
+<p><code>*draw</code> — each compiles on its own), and `Help → Keyboard</p>
+<p>Shortcuts` listing the real shortcuts.</p>
+<ul>
+<li><strong>Symbol bar tooltips</strong>: every symbol button shows what it</li>
+</ul>
+<p>inserts, its category, and a one-line <code>Example:</code> you can copy.</p>
+<ul>
+<li><strong>Problems panel</strong>: each row shows a plain-language explanation</li>
+</ul>
+<p>and, where the cause is obvious, a "Did you mean …?" hint, with</p>
+<p>the raw technical message kept in the row text and tooltip.</p>
+<p>Compile and export failures use the same friendly text, with the</p>
+<p>raw log below it.</p>
+<p>All of this comes from the built-in language server — see</p>
+<p><a href="lsp.html">Language server</a>. If the status bar says <code>LSP: Disconnected</code>,</p>
+<p>use <code>Build → Restart Language Server</code>.</p>
+<hr>
+<h2 id="the-draw-geometry-gallery">The <code>*draw</code> geometry gallery</h2>
+<ul>
+<li>The **<code>*draw</code>** button on the Symbol Bar (or `View → Geometry</li>
+</ul>
+<p>Gallery…<code>, **Ctrl+Shift+G</code>, or the command palette entry</p>
+<p><code>Draw: Geometry Gallery…</code>) opens a <strong>non-modal</strong> window that lists</p>
+<p>every geometry command <strong>and point construction</strong> (28 cards) — a</p>
+<p>thumbnail of what it draws, its syntax,</p>
+<p>and a one-line description. The editor stays usable behind it, and a</p>
+<p>second click just re-raises the same window.</p>
+<ul>
+<li><strong>Search</strong> (by command, title or description) and the <strong>group</strong></li>
+</ul>
+<p>dropdown (Shapes / Angles / Constraints / Constructions /</p>
+<p>Measure & Label) narrow</p>
+<p>the list. The <strong>Constructions</strong> cards insert a computed point —</p>
+<p><code>*point(M = midpoint(A ; B))</code> — instead of a command of their own.</p>
+<ul>
+<li>Each card offers two actions:</li>
+<li><strong>Insert example…</strong> — opens the <strong>template window</strong> for that</li>
+</ul>
+<p>command: a large preview of the figure on the left with the</p>
+<p>complete, validated <code>*draw(...)</code> block <strong>underneath — editable</strong>,</p>
+<p>so what you insert is exactly what you see. On the right a</p>
+<p><strong>command palette</strong> lists <strong>all</strong> geometry commands (one row per</p>
+<p>command — point constructions come through the <code>*point</code> row) — the ones</p>
+<p>already used in the code are pinned to the top in <strong>bold</strong> and</p>
+<p>stay there while the list fuzzy-filters as you type (every</p>
+<p>geometry command has a parameter dialog, so no row is greyed</p>
+<p>out). Picking one (double-</p>
+<p>click or <strong>Enter</strong>) opens its usual parameter dialog and the</p>
+<p>built command lands in the <em>code area</em> (before the closing <code>)</code>),</p>
+<p>never in the document — Enter runs <em>only</em> the pick, never the</p>
+<p>insert. <strong>Insert</strong> commits the code at the cursor — inside an</p>
+<p>existing block it is appended before the closing <code>)</code> (single-line</p>
+<p>blocks are expanded first), anywhere else it becomes its own</p>
+<p>block, always <strong>one undo step</strong> — and closes the window; it</p>
+<p>stays greyed out while the code could not be inserted (e.g. an</p>
+<p>unterminated <code>*draw(</code> block), so edits are never silently lost.</p>
+<p><strong>Cancel</strong> (or Esc) closes without touching the document, and</p>
+<p>re-clicking the same card keeps your in-progress edits (another</p>
+<p>card reloads its example).</p>
+<ul>
+<li><strong>Insert command…</strong> — opens the usual parameter dialog for that</li>
+</ul>
+<p>command (every geometry command has one).</p>
+<ul>
+<li><strong>Insert empty block</strong> puts the old bare <code>*draw(...)</code> skeleton at</li>
+</ul>
+<p>the cursor, so the previous <code>*draw</code> button behavior is still one</p>
+<p>click away.</p>
+<ul>
+<li>Thumbnails are pre-rendered SVGs shipped with the editor (no</li>
+</ul>
+<p>network, no compile while browsing); a missing file simply shows a</p>
+<p>neutral placeholder tile.</p>
+<hr>
+<h2 id="live-preview">Live preview</h2>
+<ul>
+<li><code>View → Live Preview</code> (<strong>Ctrl+Shift+V</strong>) opens a PDF preview dock on the</li>
+</ul>
+<p>right. It recompiles automatically (~0.8 s after you stop typing) in a</p>
+<p>background thread, so typing never stutters.</p>
+<ul>
+<li><code>Build → Refresh Preview</code> (<strong>F5</strong>, or the ⟳ button in the panel) renders</li>
+</ul>
+<p>immediately. The <code>Auto</code> checkbox pauses automatic updates; <code>Fit</code> / <code>+</code> /</p>
+<p><code>−</code> control zoom and <code>Open…</code> opens the preview PDF externally.</p>
+<ul>
+<li>The preview uses the same compiler as <code>Build → Compile</code>, so variables,</li>
+</ul>
+<p><code>calc()</code>, and <code>*draw</code> geometry all match the final PDF — including</p>
+<p>untitled documents (no save needed). Failures show the compiler log in</p>
+<p>the panel instead of a popup, and the last good page stays visible.</p>
+<hr>
+<h2 id="exporting-pdf-images-html-typst">Exporting (PDF, images, HTML, Typst)</h2>
+<ul>
+<li><code>File → Export As…</code> saves the current document (saved or untitled, no</li>
+</ul>
+<p>save needed) as <strong>PDF</strong> (<code>.pdf</code>), <strong>PNG</strong> (<code>.png</code>, prompts for DPI),</p>
+<p><strong>SVG</strong> (<code>.svg</code>), <strong>HTML</strong> (<code>.html</code>) or <strong>Typst source</strong> (<code>.typ</code>).</p>
+<p>Multi-page PNG/SVG writes <code>stem-1.ext</code>, <code>stem-2.ext</code>, … next to your</p>
+<p>chosen file. The same formats work from the terminal —</p>
+<p>see <a href="export.html">Export</a>.</p>
+<p>For saved documents, relative <code>*image(...)</code> paths resolve from the</p>
+<p>document's folder in both preview and export. Typst/HTML exports carry</p>
+<p>diagram SVGs and a <code>&lt;stem&gt;-images/</code> folder for embedded image assets;</p>
+<p>keep those assets beside the exported document when moving it.</p>
+<ul>
+<li><code>Build → Compile</code> (<strong>Ctrl+B</strong>) still writes a PDF next to your file</li>
+</ul>
+<p>(saved documents only).</p>
+<hr>
+<h2 id="under-the-hood-helper-programs">Under the hood: helper programs</h2>
+<p>The live preview compiles in-process, so it needs no helper. Full</p>
+<p><code>Build → Compile</code> still uses the <code>easy-math-lang</code> program below.</p>
+<p>The editor needs two helper programs to work fully:</p>
+<table><thead><tr><th>Program</th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>easy-math-lsp</code></td><td>Error checking, completion, hover, outline (everything above)</td></tr>
+<tr><td><code>easy-math-lang</code></td><td><code>Build → Compile</code> (Ctrl+B) turning your document into a PDF</td></tr>
+</tbody></table>
+<p>You never have to configure them. On startup the editor looks for each</p>
+<p>program in this order:</p>
+<ol>
+<li>The <code>EASYMATH_LSP_EXE</code> / <code>EASYMATH_COMPILER_EXE</code> environment variable,</li>
+</ol>
+<p>if you set one.</p>
+<ol>
+<li>Next to the editor itself — the installer's <code>bin/</code> folder (which also</li>
+</ol>
+<p>holds the editor executable and the shared <code>_internal/</code> library</p>
+<p>directory), or the <code>Scripts/</code> folder of your Python environment when</p>
+<p>running from source.</p>
+<ol>
+<li>Anywhere on your <code>PATH</code>.</li>
+<li>Only when running from source: the current Python (<code>python -m lsp</code> /</li>
+</ol>
+<p><code>python -m compiler</code>).</p>
+<p>That means the installed app works even when <code>bin/</code> was <strong>not</strong> added to</p>
+<p><code>PATH</code> during setup — the editor and its helpers always ship together</p>
+<p>now, sharing one library directory.</p>
+<hr>
+<h2 id="making-text-comfortable-to-read">Making text comfortable to read</h2>
+<ul>
+<li><code>View → Zoom In</code> (<strong>Ctrl+=</strong>), <code>Zoom Out</code> (<strong>Ctrl+-</strong>),</li>
+</ul>
+<p><code>Reset Zoom</code> (<strong>Ctrl+0</strong>). Sizes stay between 6 and 48 pt.</p>
+<ul>
+<li><code>View → Dark Mode</code> (<strong>Ctrl+Shift+D</strong>): switches the whole editor —</li>
+</ul>
+<p>chrome, editor background, line numbers, syntax colors, and find</p>
+<p>highlights — between light and dark. Your choice is remembered</p>
+<p>between launches.</p>
+<ul>
+<li><code>View → Auto-close Brackets</code> (<strong>Ctrl+Shift+B</strong>): when enabled,</li>
+</ul>
+<p>typing an opening bracket or quote auto-inserts its closer.</p>
+<p>Pairs are <code>( )</code>, <code>[ ]</code>, <code>{ }</code> and <code>&quot;&quot;</code> — <code>&lt;</code>, <code>$</code>, backtick and <code>&#x27;</code></p>
+<p>are deliberately not paired. Insertion happens only when the next</p>
+<p>character is end of line, whitespace, or a closer; before a word</p>
+<p>character only the opener is inserted. For <code>&quot;</code>, no pairing occurs</p>
+<p>when the previous character is a word character (so <code>5&quot;</code> in prose is</p>
+<p>left alone). With a selection, the opener wraps the selection</p>
+<p>(<code>(selection)</code>) and keeps it selected. Typing a matching closer</p>
+<p>overtypes it instead of inserting a duplicate; Backspace between</p>
+<p>an empty pair deletes both characters; Enter between an empty pair</p>
+<p>expands it to three lines with proper indentation. Each auto-pair</p>
+<p>action is a single undo step. A backslash before an opener is</p>
+<p>counted (<code>\\</code> is a literal backslash, so only an odd number of</p>
+<p>backslashes escapes): an escaped opener like <code>\(</code> gets no</p>
+<p>auto-closer, because ezmath has no <code>\( \)</code> pairs — <code>\</code> toggles</p>
+<p>inline math — while <code>\\(</code> auto-closes normally. Typing a closer</p>
+<p>over an escaped closer (<code>\)</code>) steps over both characters, and</p>
+<p>Backspace between an opener and its escaped closer deletes the</p>
+<p>whole pair. Typing <code>\</code> auto-inserts a second backslash with the</p>
+<p>cursor between them (<code>\|\</code>); typing <code>\</code> again overtypes the</p>
+<p>second one, typing a letter/digit/opening bracket after the pair</p>
+<p>rolls back the trailing backslash (so <code>\alpha</code> and <code>\(</code> stay</p>
+<p>single), and Backspace between the two backslashes deletes</p>
+<p>both. Typing <code>\</code> after an existing backslash run, before a</p>
+<p>backslash/letter/digit, or with a selection inserts only one.</p>
+<p>Typing <code>\</code> alone never creates a pair when auto-close is off. IME composition</p>
+<p>(Vietnamese Telex/VNI, fcitx5/ibus, CJK IMEs) is never disturbed,</p>
+<p>and programmatic edits (paste, completion insertion, LSP changes)</p>
+<p>never auto-pair. The setting is persisted in</p>
+<p><code>~/.config/ezmath/config.ini</code> under <code>editor/autoCloseBrackets</code></p>
+<p>(default on).</p>
+<ul>
+<li>The editor uses a monospace font with line numbers, a highlighted</li>
+</ul>
+<p>current line, and 4-space tab stops.</p>
+<ul>
+<li><code>View → Editor Font…</code>: pick the editor font family and size</li>
+</ul>
+<p>(monospace recommended). Your choice is remembered between launches.</p>
+<p>Zooming stays temporary; <code>Reset Zoom</code> returns to your chosen size.</p>
+<hr>
+<h2 id="finding-your-way-around">Finding your way around</h2>
+<ul>
+<li><strong>Find</strong> (<strong>Ctrl+F</strong>, <code>Edit → Find…</code>): type to jump through matches</li>
+</ul>
+<p>(<code>Enter</code>/<code>F3</code> next, <code>Shift+F3</code> previous, <code>Esc</code> closes). The bar opens</p>
+<p>with your selected word already filled in.</p>
+<ul>
+<li><strong>Go to Line</strong> (<strong>Ctrl+G</strong>): jump straight to a line number.</li>
+<li><strong>Open Recent</strong> (<code>File → Open Recent</code>): your last files, most recent</li>
+</ul>
+<p>first. Missing files are hidden automatically.</p>
+<h2 id="layout">Layout</h2>
+<ul>
+<li>The <strong>toolbar</strong> holds New, Open, Save, and Compile for one-click access.</li>
+<li>The <strong>Outline</strong> (left), <strong>Problems</strong> (bottom), and <strong>Preview</strong> (right)</li>
+</ul>
+<p>panels can be hidden from <code>View</code> or by closing them; reopen them from</p>
+<p>the same menu.</p>
+<ul>
+<li>The <strong>status bar</strong> shows cursor position, problem count, and language</li>
+</ul>
+<p>server status.</p>
+<h2 id="settings-file">Settings file</h2>
+<p>Your preferences (recent files, dark/light mode) live in one plain INI</p>
+<p>file: <code>~/.config/ezmath/config.ini</code>. Delete it to reset the editor to</p>
+<p>defaults; settings from older versions are migrated there automatically</p>
+<p>on first launch.</p>
+<hr>
+<h2 id="keeping-the-editor-up-to-date">Keeping the editor up to date</h2>
+<p>Easy Math Lang checks <a href="https://github.com/duo8097/easy-math-lang/releases">GitHub Releases</a></p>
+<p>for new versions so you do not have to remember to look.</p>
+<ul>
+<li><strong>Automatic check:</strong> about once a day, in the background, silent on</li>
+</ul>
+<p>failure. When a newer release exists, a small dismissible banner</p>
+<p>appears under the toolbar ("Easy Math Lang X is available"). Turn the</p>
+<p>automatic check off any time with **View → Check for updates</p>
+<p>automatically** (or set <code>update/autoCheck=false</code> in</p>
+<p><code>~/.config/ezmath/config.ini</code>). Scripts and tests can disable it</p>
+<p>entirely with <code>EZMATH_NO_AUTO_UPDATE=1</code>.</p>
+<ul>
+<li><strong>Check manually:</strong> <code>Help → Check for Updates…</code> opens the update</li>
+</ul>
+<p>dialog; failures are reported only for manual checks.</p>
+<ul>
+<li><strong>The banner / dialog:</strong> shows the current and new version, the</li>
+</ul>
+<p>release notes (scrollable), the download size and the install hint.</p>
+<p>"Update now" is offered only when this install can be updated in</p>
+<p>place — see below — otherwise the dialog points at the manual</p>
+<p>download instead.</p>
+<ul>
+<li><strong>Unsaved documents:</strong> "Update now" asks you to save first — the same</li>
+</ul>
+<p>prompt you get on window close. The app restarts itself after the</p>
+<p>update is installed.</p>
+<ul>
+<li><strong>One-click update</strong> per platform:</li>
+<li><strong>Windows</strong>: runs the signed-less setup silently; Windows shows a</li>
+</ul>
+<p>UAC prompt — that is your verification. The installer upgrades the</p>
+<p>existing installation in place (same <code>AppId</code>).</p>
+<ul>
+<li><strong>macOS</strong>: offered only when the editor is inside an <code>.app</code> bundle</li>
+</ul>
+<p>in a writable location (usually <code>/Applications</code>). The DMG is</p>
+<p>mounted, the new app is staged next to it, and the bundle is swapped</p>
+<p>after the app quits (with rollback to the backup if the swap</p>
+<p>fails).</p>
+<ul>
+<li><strong>Debian/Ubuntu</strong>: offered only when <code>dpkg -S</code> shows the running</li>
+</ul>
+<p>binary belongs to the <code>easymath</code> package; installs with</p>
+<p><code>pkexec apt-get install -y ./….deb</code> (falls back to</p>
+<p><code>pkexec dpkg -i</code>).</p>
+<ul>
+<li><strong>Fedora/RHEL</strong>: same idea with <code>rpm -qf</code> and</li>
+</ul>
+<p><code>pkexec dnf install -y ./….rpm</code> (falls back to <code>pkexec rpm -U</code>).</p>
+<ul>
+<li><strong>Arch</strong>: offered only when <code>pacman -Qo</code> shows <code>easy-math-lang-git</code></li>
+</ul>
+<p>owns the binary; installs with</p>
+<p><code>pkexec pacman -U --noconfirm ./….pkg.tar.zst</code>. Never <code>-Sy</code>, never a</p>
+<p>full system upgrade.</p>
+<ul>
+<li>If <code>pkexec</code> is missing or no polkit agent is running, no one-click</li>
+</ul>
+<p>button is shown — you get the exact manual command instead.</p>
+<ul>
+<li><strong>Source checkouts</strong> (<code>git clone</code> + <code>uv sync</code>) never self-update;</li>
+</ul>
+<p>use <code>git pull &amp;&amp; uv sync</code>.</p>
+<ul>
+<li><strong>Failure path:</strong> if installing fails, the old version stays runnable,</li>
+</ul>
+<p>the reason is logged to <code>~/.config/ezmath/update.log</code>, and the next</p>
+<p>start shows the error once with a <strong>Download manually</strong> button.</p>
+<p>The CLI equivalent is <code>easy-math-lang --update</code> (see</p>
+<p><a href="installation.html">Installation</a>) — the same flow on the command line.</p>
+<hr>
+<h2 id="files-and-shortcuts">Files and shortcuts</h2>
+<table><thead><tr><th>Action</th><th>Menu</th><th>Shortcut</th></tr></thead><tbody>
+<tr><td>New / Open / Save / Save As</td><td>File</td><td>Ctrl+N / Ctrl+O / Ctrl+S</td></tr>
+<tr><td>Open Recent</td><td>File</td><td>—</td></tr>
+<tr><td>Undo / Redo / Cut / Copy / Paste / Select All</td><td>Edit</td><td>standard shortcuts</td></tr>
+<tr><td>Find in File</td><td>Edit</td><td>Ctrl+F, F3 / Shift+F3, Esc</td></tr>
+<tr><td>Go to Line</td><td>Edit</td><td>Ctrl+G</td></tr>
+<tr><td>Command Palette</td><td>View</td><td>Ctrl+Shift+P</td></tr>
+<tr><td>Geometry Gallery (<code>*draw</code>)</td><td>View</td><td>Ctrl+Shift+G</td></tr>
+<tr><td>Toggle Outline / Problems / Preview, Zoom, Dark Mode</td><td>View</td><td>Ctrl+=, Ctrl+-, Ctrl+0, Ctrl+Shift+V, Ctrl+Shift+D</td></tr>
+<tr><td>Auto-close brackets toggle</td><td>View</td><td>Ctrl+Shift+B</td></tr>
+<tr><td>Compile to PDF</td><td>Build</td><td>Ctrl+B</td></tr>
+<tr><td>Refresh Preview</td><td>Build</td><td>F5</td></tr>
+<tr><td>Restart Language Server</td><td>Build</td><td>—</td></tr>
+<tr><td>Autocompletion</td><td>— (in editor)</td><td>auto after <code>*</code>/<code>&lt;</code>, or Ctrl+Space</td></tr>
+</tbody></table>
+<p>Supported files end in <code>.ezmath</code> or <code>.eml</code>.</p>
+<hr>
+<h2 id="linux-input-methods-vietnamese-etc">Linux: input methods (Vietnamese etc.)</h2>
+<p>The desktop editor supports fcitx5 input methods on Linux — for example Vietnamese Telex via <code>fcitx5-lotus</code>, and other CJK IMEs. The short version:</p>
+<ul>
+<li><strong>ibus users: nothing to install or configure</strong> — ibus works out of the box as long as the ibus daemon is running (PySide6's bundled Qt ships the ibus plugin).</li>
+<li><strong>fcitx5 works out of the box in the <code>.deb</code>/<code>.rpm</code> installers</strong> — the frozen Linux builds bundle a plugin compiled from source in CI against exactly PySide6's Qt, so no system Qt matters.</li>
+<li><strong>From source (<code>uv run easy-math-editor</code>) fcitx5 needs a matching system plugin</strong> — install your distro's Qt6 plugin and it will be used automatically, but only when its Qt major.minor matches PySide6's (currently <strong>Qt 6.12</strong>, PySide6 6.12.0 in <code>uv.lock</code>). Otherwise use ibus, or a PySide6 built against your system Qt.</li>
+<li>The editor <strong>never touches your input-method configuration unless fcitx is evidently in use</strong>, and a mismatch or failure never blocks the editor — worst case, fcitx5 input is unavailable.</li>
+</ul>
+<h3 id="what-pyside6-ships">What PySide6 ships</h3>
+<p>PySide6 from PyPI bundles its own Qt. Its <code>platforminputcontexts</code> directory contains only the <strong>ibus</strong> and <strong>compose</strong> plugins — no fcitx5 plugin. The fcitx5 Qt6 platform input context plugin (<code>libfcitx5platforminputcontextplugin.so</code>) must come from elsewhere, and it only loads if it was built against the same Qt major.minor as PySide6's Qt.</p>
+<h3 id="what-the-editor-does-automatically-linux-only">What the editor does automatically (Linux only)</h3>
+<p>At startup, before the Qt application is created, the editor:</p>
+<ol>
+<li><strong>Activates only when fcitx is evidently your IM framework</strong> — at least one of: <code>QT_IM_MODULE=fcitx|fcitx5</code>, <code>XMODIFIERS</code> containing <code>@im=fcitx</code>, or <code>GTK_IM_MODULE=fcitx|fcitx5</code>. If none match (e.g. ibus or unset), the editor does nothing at all — no environment variables are changed.</li>
+<li><strong>Picks the plugin</strong>, in order:</li>
+</ol>
+<ul>
+<li>Frozen builds: the plugin <strong>bundled by CI</strong> (built against exactly PySide6's Qt — trusted, no version check required).</li>
+<li>Otherwise: the <strong>system plugin</strong>, found in <code>$QT_PLUGIN_PATH</code> or the standard system Qt6 plugin directories, and only used when the <strong>system Qt major.minor matches PySide6's</strong> (system Qt detected via <code>qmake6 -query QT_VERSION</code>, then <code>qtpaths6</code>; if it can't be determined, it proceeds with a warning).</li>
+</ul>
+<ol>
+<li><strong>Wires it up</strong>: symlinks the plugin into <code>~/.cache/easy-math-lang/qt-plugins/platforminputcontexts/</code> (honoring <code>$XDG_CACHE_HOME</code>; refreshed when the system plugin changes, copy fallback), prepends that directory's parent to <code>QT_PLUGIN_PATH</code> — keeping your own entries — and defaults <code>QT_IM_MODULE</code> to <code>fcitx</code> via <code>os.environ.setdefault</code> (your own setting always wins). <code>QT_QPA_PLATFORM</code> is never touched.</li>
+</ol>
+<p>On a version mismatch the fix is skipped with one clear stderr warning (mentioning IBus and a matching PySide6 as alternatives). The editor always starts; ibus users see zero difference.</p>
+<h3 id="which-package-provides-the-fcitx5-plugin">Which package provides the fcitx5 plugin?</h3>
+<p>Verified: <strong>Arch Linux</strong> → <code>fcitx5-qt</code> (owns <code>/usr/lib/qt6/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so</code>; also what the Arch package bundles when Qt matches). <strong>Debian/Ubuntu</strong> → <code>fcitx5-frontend-qt6</code> (e.g. noble ships 5.1.4 against Qt 6.4.2 — see the mismatch note above; the <code>.deb</code> installer needs no system package). <strong>Fedora and others</strong>: check your distro — package names and Qt versions vary; the version match below applies regardless.</p>
+<h3 id="version-mismatch-from-source">Version mismatch (from source)</h3>
+<p>PySide6 currently bundles <strong>Qt 6.12</strong> (<code>pyside6 6.12.0</code> in <code>uv.lock</code>). If your system Qt is not 6.12.x (Ubuntu 24.04: 6.4.2), the system plugin cannot load; the editor warns once on stderr and leaves ibus/everything else alone. Your options:</p>
+<ul>
+<li>use <strong>ibus</strong> (<code>QT_IM_MODULE=ibus</code>, ibus-daemon running) — works out of the box;</li>
+<li>run the <strong>installers</strong> (<code>.deb</code>/<code>.rpm</code>) — they carry a plugin built for Qt 6.12;</li>
+<li>install/build a PySide6 against your system Qt 6 and set <code>EZMATH_NO_IME_FIX</code> concerns aside; or</li>
+<li>install a newer system Qt whose 6.x matches PySide6's and the matching fcitx5 plugin.</li>
+</ul>
+<h3 id="opt-out">Opt-out</h3>
+<pre class="code"><code>EZMATH_NO_IME_FIX=1 easy-math-editor</code></pre>
+<p>disables the whole fix (no lookups, no environment changes, no warnings). Other <code>QT_IM_MODULE</code> values (e.g. <code>ibus</code>) likewise leave you untouched.</p>
+<h3 id="debugging">Debugging</h3>
+<ul>
+<li><code>QT_DEBUG_PLUGINS=1 easy-math-editor</code> — Qt logs every plugin probe; look for <code>libfcitx5platforminputcontextplugin.so</code> and a <code>loaded library</code> line.</li>
+<li>Check stderr for the one-line warning; it names both Qt versions on a mismatch.</li>
+<li>Verify the versions yourself: <code>qmake6 -query QT_VERSION</code> vs <code>uv run python -c &quot;from PySide6.QtCore import qVersion; print(qVersion())&quot;</code>.</li>
+<li>Integration tests: <code>uv run pytest tests/test_linux_ime_integration.py -v</code> (headless; passes via the real plugin load, or skips with the reason when nothing matches).</li>
+</ul>
+<h3 id="xwayland-vs-wayland">XWayland vs Wayland</h3>
+<p>Qt apps on Wayland use the <code>wayland</code> platform via XWayland if unset. fcitx5 works best with a native Wayland session (<code>QT_QPA_PLATFORM=wayland</code>); under XWayland the X11 input-method path applies. If the candidate window misbehaves, try <code>QT_QPA_PLATFORM=xcb</code> (X11/XWayland) or confirm your fcitx5 version supports Qt6 Wayland text-input. The editor does not set any of these itself.</p>
+<h3 id="maintainers-bumping-the-pinned-fcitx5-qt-ref-a-new-pyside6-qt">Maintainers: bumping the pinned fcitx5-qt ref / a new PySide6 Qt</h3>
+<p>The CI-built plugin is pinned in <code>scripts/fcitx5_qt_ref.txt</code> (currently <code>5.1.16</code>) and cached by <code>Qt version + ref + runner image</code> (actions/cache). To bump it: edit that one line; CI rebuilds the plugin from the new tag.</p>
+<p>When PySide6 moves to a new Qt minor (e.g. Qt 6.13):</p>
+<ol>
+<li>Ensure aqtinstall hosts the matching SDK (<code>aqt list-qt linux desktop --spec &quot;6.13&quot;</code>) — the build-linux-binary job installs exactly <code>qVersion()</code> and verifies it;</li>
+<li>confirm the aqtinstall archives <code>qtbase</code>, <code>qtwayland</code>, <code>icu</code> still carry the private cmake configs (<code>Qt6GuiPrivate</code>, <code>Qt6WaylandClientPrivate</code>, <code>Qt6WaylandGlobalPrivate</code>);</li>
+<li>bump <code>scripts/fcitx5_qt_ref.txt</code> if a newer fcitx5-qt is needed; CI rebuilds and the <code>libfcitx5platforminputcontextplugin.so</code> basename check + bundle assertion catch layout regressions;</li>
+<li>run <code>uv run pytest tests/test_linux_ime_integration.py -v</code> and <code>QT_DEBUG_PLUGINS=1</code> once to confirm the plugin loads; the version guard (<code>major.minor</code>) is deliberate — patch-level Qt differences are fine.</li>
+</ol>
+<h3 id="glibc-floor-of-the-linux-installers">glibc floor of the Linux installers</h3>
+<p>The <code>.deb</code>/<code>.rpm</code> (and Arch package) are built on <strong>Ubuntu 24.04 (glibc 2.39)</strong> — that is the minimum glibc for the Linux installers. PySide6 6.12 requires manylinux_2_34 (x86_64) / manylinux_2_39 (aarch64) regardless.</p>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="troubleshooting.html">Troubleshooting and FAQ</a> — <code>LSP: Disconnected</code>, preview issues, resets</li>
+<li><a href="cheatsheet.html">Cheat sheet</a> — what to type in the editor</li>
+<li><a href="lsp.html">Language server</a> — details of the error checking</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

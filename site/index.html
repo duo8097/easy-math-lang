@@ -12,9 +12,9 @@
 <meta property="og:site_name" content="Easy Math Lang">
 <meta property="og:title" content="Easy Math Lang — write math documents in plain text">
 <meta property="og:description" content="Turn a plain text file into a clean PDF with fractions, Greek symbols and geometry drawings. Free and open source.">
-<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-english-light.png">
-<meta property="og:image:width" content="2400">
-<meta property="og:image:height" content="1600">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="The Easy Math Editor showing an .ezmath document with the symbol bar and the outline panel">
 <meta property="og:locale" content="en">
 <meta property="og:locale:alternate" content="vi">
@@ -25,8 +25,9 @@
 <meta name="twitter:image" content="https://duo8097.github.io/easy-math-lang/assets/img/editor-english-light.png">
 <meta name="twitter:image:alt" content="The Easy Math Editor showing an .ezmath document with the symbol bar and the outline panel">
 
-<link rel="icon" href="assets/img/ezmath-icon.png" type="image/png">
-<link rel="apple-touch-icon" href="assets/img/ezmath-icon.png">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="assets/js/main.js" defer></script>
 </head>
@@ -63,6 +64,7 @@
       <p class="lead" data-i18n="hero.subtitle">Easy Math Lang turns a simple text file into a clean PDF with real fractions, the full Greek alphabet and geometry drawings — no design skills needed.</p>
       <p class="actions">
         <a class="btn btn-primary" href="#download" data-i18n="hero.buttons.download">Download</a>
+        <a class="btn" href="playground.html" data-i18n="hero.buttons.try">Try it</a>
         <a class="btn" href="https://github.com/duo8097/easy-math-lang" data-i18n="hero.buttons.github">GitHub</a>
         <a class="btn" href="#docs" data-i18n="hero.buttons.docs">Docs</a>
       </p>
@@ -223,6 +225,10 @@ Length: *root(2 ; *pow(3 ; 2) + *pow(4 ; 2))</code></pre>
       <h2 data-i18n="download.title">Download</h2>
       <p class="section-intro" data-i18n="download.subtitle">Installers for every platform are published on the releases page. The link below always points at the latest release.</p>
       <p class="os-hint" id="os-hint" hidden></p>
+    <p id="download-primary-wrap" class="download-primary" hidden>
+      <a id="download-primary" class="btn btn-primary" href="https://github.com/duo8097/easy-math-lang/releases/latest">Download</a>
+      <span id="download-meta" class="muted"></span>
+    </p>
       <ul class="platforms">
         <li>
           <a href="https://github.com/duo8097/easy-math-lang/releases/latest" data-platform="windows">
@@ -257,6 +263,10 @@ Length: *root(2 ; *pow(3 ; 2) + *pow(4 ; 2))</code></pre>
       <h2 data-i18n="docs.title">Documentation</h2>
       <p class="section-intro" data-i18n="docs.subtitle">The guides live in the repository as plain Markdown.</p>
       <ul class="doc-list">
+        <li><a href="docs/index.html"><span data-i18n="docs.items.site_docs">Docs on this site</span></a></li>
+        <li><a href="vs-latex.html"><span data-i18n="docs.items.vs_latex">ezmath vs LaTeX</span></a></li>
+        <li><a href="changelog.html"><span data-i18n="docs.items.changelog">Changelog</span></a></li>
+        <li><a href="playground.html"><span data-i18n="docs.items.playground">Playground</span></a></li>
         <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/editor.md"><span data-i18n="docs.items.editor">Desktop editor</span></a></li>
         <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/algebra.md"><span data-i18n="docs.items.algebra">Writing math</span></a></li>
         <li><a href="https://github.com/duo8097/easy-math-lang/blob/main/docs/geometry.md"><span data-i18n="docs.items.geometry">Drawing geometry</span></a></li>

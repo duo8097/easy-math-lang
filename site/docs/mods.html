@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mod files (user commands) — Easy Math Lang Docs</title>
+<meta property="og:title" content="Mod files (user commands) — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Mod files (user commands)</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#mod-files-user-commands">Mod files (user commands)</a></li><li><a href="#format">Format</a></li><li><a href="#override-rules">Override rules</a></li><li><a href="#bad-mod-files">Bad mod files</a></li><li><a href="#editor-and-language-server">Editor and language server</a></li></ul></nav>
+    <h1 id="mod-files-user-commands">Mod files (user commands)</h1>
+<p>A mod file is a TOML file that adds math commands or overrides built-in</p>
+<p>ones. Load it from a document with:</p>
+<pre class="code"><code>*use(&quot;my-commands.toml&quot;)</code></pre>
+<p>The path is relative to the <code>.ezmath</code> file's folder (absolute paths are</p>
+<p>also allowed). The <code><em>use</code> line emits nothing in the output. All <code></em>use</code></p>
+<p>lines are collected in a pre-pass, so their order does not matter; mod</p>
+<p>files load in the order the lines appear.</p>
+<h2 id="format">Format</h2>
+<pre class="code"><code>[[commands]]
+name = &quot;avg&quot;
+args = 2
+typst = &quot;$frac({0} + {1}, 2)$&quot;
+usage = &quot;*avg(a ; b)&quot;
+doc = &quot;Average of two values.&quot;</code></pre>
+<p>Templates are Typst markup, not Python. A template must be a single math</p>
+<p>expression: it must start and end with <code>$</code> and contain no <code>#</code> and no inner</p>
+<p><code>$</code>. The compiler rejects anything else in a user mod. Mods cannot run</p>
+<p>Python; they can only shape output. Only load mods you trust — a mod can</p>
+<p>still consume compile time within the expansion budget and change the</p>
+<p>generated document.</p>
+<p>Each entry has <code>name</code>, <code>args</code> (minimum argument count), <code>usage</code> and</p>
+<p><code>doc</code>. An optional <code>aliases</code> array lists extra spellings. The <code>typst</code></p>
+<p>template uses <code>{0}</code>, <code>{1}</code>, ... for the already-cleaned arguments; a</p>
+<p>literal brace is written as <code>{{</code> or <code>}}</code>.</p>
+<h2 id="override-rules">Override rules</h2>
+<ul>
+<li>A template command may override a built-in template command; the</li>
+</ul>
+<p>compiler emits a warning (`command 'frac' overrides the built-in</p>
+<p>definition`).</p>
+<ul>
+<li>Overriding a built-in alias is allowed too</li>
+</ul>
+<p>(<code>overrides built-in alias &#x27;fraction&#x27; (of *frac)</code>).</p>
+<ul>
+<li>Overriding a command implemented in Python (<code>int</code>, <code>diff</code>, <code>cases</code>,</li>
+</ul>
+<p><code>det</code>, <code>set</code>, <code>align</code>, <code>vec</code>, <code>matrix</code>, <code>pow</code>, ...) is an error and</p>
+<p>the entry is ignored.</p>
+<ul>
+<li>Declaring <code>kind = &quot;builtin&quot;</code> or a <code>handler</code> key in a user mod is an</li>
+</ul>
+<p>error.</p>
+<ul>
+<li>If two mod files define the same name, the later-loaded one wins and</li>
+</ul>
+<p>a warning names both files.</p>
+<h2 id="bad-mod-files">Bad mod files</h2>
+<p>Invalid TOML, missing <code>args</code>, a template referencing <code>{3}</code> with only</p>
+<p>2 arguments, unknown keys, or duplicate names in one file produce</p>
+<p>diagnostics and never crash the build. A missing or unreadable mod</p>
+<p>file is an error at the <code>*use</code> line.</p>
+<h2 id="editor-and-language-server">Editor and language server</h2>
+<p>The language server loads mod files per document and includes their</p>
+<p>commands in completion and hover. Mod diagnostics appear on the</p>
+<p><code>*use</code> line. Editing a mod file on disk updates completions without</p>
+<p>reopening the document. The editor recompiles the preview on save;</p>
+<p>there is no file watcher for mod files.</p>
+  </article>
+</main>
+</body>
+</html>

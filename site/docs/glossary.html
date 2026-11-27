@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary — Easy Math Lang Docs</title>
+<meta property="og:title" content="Glossary — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Glossary</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#glossary">Glossary</a></li><li><a href="#for-writing-documents">For writing documents</a></li><li><a href="#for-the-output">For the output</a></li><li><a href="#for-the-tools">For the tools</a></li><li><a href="#for-developers">For developers</a></li></ul></nav>
+    <h1 id="glossary">Glossary</h1>
+<p>Plain-language meanings of the words used in these guides — no</p>
+<p>programming background assumed.</p>
+<p>> Reading a message from the compiler? Jump to</p>
+<p>> <a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+<hr>
+<h2 id="for-writing-documents">For writing documents</h2>
+<p><strong><code>.ezmath</code> file</strong></p>
+<p>The plain-text file where you write your document. Any text editor works</p>
+<p>(Notepad, TextEdit, VS Code, or the built-in</p>
+<p><a href="editor.html">desktop editor</a>).</p>
+<p><strong>Argument</strong></p>
+<p>A value you pass to a command, inside its parentheses. In</p>
+<p><code>*frac(2 ; 3)</code> the arguments are <code>2</code> and <code>3</code>. Arguments are separated</p>
+<p>by <code>;</code> — or by <code>,</code> if you prefer.</p>
+<p><strong>Calc</strong> — short for <em>calculation</em>. The <code>calc(...)</code> wrapper makes the</p>
+<p>compiler do arithmetic for you: <code>calc(2 + 3)</code> becomes <code>5</code>. Without it,</p>
+<p>text is printed exactly as you wrote it.</p>
+<p><strong>Comment</strong></p>
+<p>A note for yourself that never appears in the PDF. Start it with <code>//</code>.</p>
+<p><strong>Define</strong> — <code>*define(name = value)</code>. A name that stands for a value.</p>
+<p>The name is printed exactly as written — it is not calculated. See</p>
+<p><a href="algebra.html#variables--storing-calculated-values">Variables vs defines</a>.</p>
+<p><strong>Variable</strong> — <code>&lt;name&gt; = value</code>. Like a define, but it can be</p>
+<p>calculated (<code>&lt;area&gt; = calc(&lt;width&gt; * &lt;height&gt;)</code>) and its value updates</p>
+<p>everywhere you use <code>&lt;name&gt;</code>.</p>
+<p><strong>Silent block</strong> — <code>*( ... )</code> around variable definitions so they are</p>
+<p>computed but not printed in the PDF.</p>
+<p><strong>Math mode</strong> — an expression wrapped in backslashes, like <code>\ x = 2 \</code>.</p>
+<p>Inside it you get proper math typography (fancy fonts, automatic</p>
+<p>spacing) without needing LaTeX.</p>
+<p><strong>Symbol shortcut</strong> — a short text spelling that becomes a symbol in</p>
+<p>the PDF, like <code>&lt;=</code> → ≤ or <code>*alpha</code> → α.</p>
+<p><strong>Separator</strong> — the character between arguments (<code>;</code> or <code>,</code>) and rows</p>
+<p>(<code>|</code>). When <code>;</code> is present it wins, so <code>100,000</code> stays one number.</p>
+<hr>
+<h2 id="for-the-output">For the output</h2>
+<p><strong>PDF</strong> — the finished, printable document the compiler produces.</p>
+<p><strong>PNG / SVG</strong> — image formats you can export instead of PDF. PNG is a</p>
+<p>picture made of pixels (good for slides); SVG is vector (stays sharp at</p>
+<p>any size). Multi-page documents produce one file per page.</p>
+<p><strong>HTML</strong> — a web-page version of your document.</p>
+<p><strong>Typst</strong> — the typesetting engine that turns text into a beautiful PDF.</p>
+<p>easy-math-lang writes a small Typst file for you behind the scenes and</p>
+<p>hands it over — you never need to learn Typst. (It is installed</p>
+<p>automatically; see <a href="installation.html">Installation</a>.)</p>
+<p><strong>PPI (DPI)</strong> — pixels per inch; the sharpness of an exported PNG.</p>
+<p>Higher = sharper and bigger. <code>--ppi 300</code> is print quality.</p>
+<p><strong>Intermediate files</strong> — the temporary <code>.typ</code> file, source map</p>
+<p>(<code>.smap.json</code>), and <code><em>-plot-</em>.svg</code> diagrams created</p>
+<p>during a build. They are deleted after a successful build; pass</p>
+<p><code>--save-build-artifacts</code> to keep them for debugging.</p>
+<p><strong>Source map</strong> — a record of where each generated line came from in</p>
+<p>your <code>.ezmath</code> file, so errors and editor links can point back to the</p>
+<p>right line.</p>
+<hr>
+<h2 id="for-the-tools">For the tools</h2>
+<p><strong>Terminal / command prompt</strong></p>
+<p>The window where you type commands instead of clicking buttons. Also</p>
+<p>called "Console", "PowerShell", or "Shell".</p>
+<p><strong>CLI</strong> — <em>command-line interface</em>; running <code>easy-math-lang</code> from the</p>
+<p>terminal (as opposed to clicking in the <a href="editor.html">editor</a>).</p>
+<p><strong>uv</strong> — the tool that installs Python packages for this project. You</p>
+<p>only need <code>uv sync</code> once, then <code>uv run ...</code> to run things. See</p>
+<p><a href="installation.html">Installation</a>.</p>
+<p><strong>Compiler</strong> — the program that reads your <code>.ezmath</code> file and produces</p>
+<p>the PDF (<code>easy-math-lang</code>).</p>
+<p><strong>LSP / language server</strong> — <code>easy-math-lsp</code>, a helper that gives your</p>
+<p>editor autocompletion, hover info, and live error checking for</p>
+<p><code>.ezmath</code> files. See <a href="lsp.html">Language server</a>.</p>
+<p><strong>Diagnostic</strong> — a message the compiler prints about your document.</p>
+<p>Two kinds: <strong>[Error]</strong> (something is wrong, e.g. an undefined variable)</p>
+<p>and <strong>[Warning]</strong> (suspicious but the build continues). Messages often</p>
+<p>appear <em>inside</em> the PDF too, exactly where the problem is.</p>
+<p><strong>Strict mode</strong> — the <code>--strict</code> flag: instead of writing the PDF and</p>
+<p>exiting with code 0, the compiler exits non-zero when there were</p>
+<p>errors — useful in automated builds (CI) so typos fail loudly.</p>
+<p><strong>Exit code</strong> — the number a program returns after running: <code>0</code> means</p>
+<p>success, anything else means something went wrong (scripts and CI read</p>
+<p>this).</p>
+<hr>
+<h2 id="for-developers">For developers</h2>
+<p><strong>Pipeline</strong> — the ordered steps the compiler runs on your file</p>
+<p>(strip comments → resolve variables → expand commands → escape →</p>
+<p>generate Typst). See <a href="architecture.html">Architecture</a>.</p>
+<p><strong>Constraint solver</strong> — the geometry engine. You state rules ("AC = 3",</p>
+<p>"AB ⊥ AC") and it computes where each point must go.</p>
+<p><strong>Constructed point</strong> — a point defined by a formula instead of</p>
+<p>coordinates or rules: <code>*point(M = midpoint(A ; B))</code>. The program</p>
+<p>computes its position from the other points, and it always follows</p>
+<p>them — it is never placed by the solver itself. See</p>
+<p><a href="geometry.html#construction-points">Construction points</a>.</p>
+<p><strong>Repository (repo)</strong> — the project's folder under version control</p>
+<p>(<code>git</code>); <code>git clone</code> copies it to your computer.</p>
+<p><strong>Tests</strong> — the automated checks in <code>tests/</code> run with</p>
+<p><code>uv run pytest tests/ -v</code>. Run them before sending a change.</p>
+<p><strong>CI</strong> — continuous integration: the automated builds that run on every</p>
+<p>push in <code>.github/workflows</code> (tests, installers, nightly builds).</p>
+<p>See <a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md">Contributing</a> to make your first change.</p>
+  </article>
+</main>
+</body>
+</html>

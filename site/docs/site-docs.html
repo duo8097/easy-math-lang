@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The website — Easy Math Lang Docs</title>
+<meta property="og:title" content="The website — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>The website</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#the-website">The website</a></li><li><a href="#regenerating-the-images">Regenerating the images</a></li><li><a href="#checking-the-site">Checking the site</a></li><li><a href="#translations">Translations</a></li></ul></nav>
+    <h1 id="the-website">The website</h1>
+<p><code>site/</code> holds the GitHub Pages site: a static landing page for</p>
+<p>easy-math-lang. Plain HTML, CSS and JavaScript — no framework, no build</p>
+<p>step, no external resources.</p>
+<pre class="code"><code>site/
+├── index.html          the page
+├── .nojekyll           keeps GitHub Pages from running Jekyll
+├── assets/css/style.css
+├── assets/js/main.js   theme toggle, EN/VI switch, OS detection
+├── assets/img/         screenshots + compiled example output
+│   └── manifest.json   what each image is and how it was produced
+└── i18n/en.json, vi.json</code></pre>
+<p>The page is deployed by <code>.github/workflows/pages.yml</code>. One manual step is</p>
+<p>needed once: **Settings → Pages → Build and deployment → Source: GitHub</p>
+<p>Actions**.</p>
+<h2 id="regenerating-the-images">Regenerating the images</h2>
+<p>Every image under <code>site/assets/img/</code> is produced by the project itself —</p>
+<p>editor screenshots come from the real editor rendered offscreen, the</p>
+<p>example images come from the project compiler. Nothing is drawn by hand.</p>
+<pre class="code"><code>QT_QPA_PLATFORM=offscreen python3 scripts/make_site_screenshots.py</code></pre>
+<p>The script</p>
+<ul>
+<li>opens the real editor (<code>MainWindow</code>, like the offscreen GUI tests do)</li>
+</ul>
+<p>with <code>examples/example_2.ezmath</code> loaded and grabs it in English and</p>
+<p>Vietnamese, light and dark, plus the welcome banner and the <code>*draw</code></p>
+<p>gallery;</p>
+<ul>
+<li>compiles the four built-in examples of <code>src/editor/help_dialogs.py</code></li>
+</ul>
+<p>(basic math, fraction/equation, vector, simple <code>*draw</code>) to SVG with</p>
+<p><code>compiler.pipeline.compile_ezmath</code> and crops the page to its content;</p>
+<ul>
+<li>writes <code>site/assets/img/manifest.json</code> with the SHA-256, the size and</li>
+</ul>
+<p>the way each image was produced.</p>
+<p>The output is deterministic: fixed window size, fixed theme, fixed</p>
+<p>example, an isolated settings file and no timestamps. Re-running the</p>
+<p>script on the same machine reproduces the same bytes.</p>
+<h2 id="checking-the-site">Checking the site</h2>
+<pre class="code"><code>python3 scripts/check_site.py</code></pre>
+<p>It fails when a relative link or image does not resolve, when a</p>
+<p><code>data-i18n</code> key is missing from <code>en.json</code> or <code>vi.json</code>, when an external</p>
+<p>http(s) resource would be loaded, when an image is not in the manifest</p>
+<p>(or does not match its SHA-256, or is too small to be a real image), or</p>
+<p>when the site grows past 3 MB. The same checks run as part of the test</p>
+<p>suite (<code>tests/test_site.py</code>).</p>
+<h2 id="translations">Translations</h2>
+<p><code>site/i18n/en.json</code> and <code>site/i18n/vi.json</code> hold the same keys. The</p>
+<p>English text is also in <code>index.html</code>, so the page stays readable when</p>
+<p>JavaScript is off. The Vietnamese strings reuse the wording of the</p>
+<p>editor's own catalog (<code>src/editor/locales/vi.json</code>).</p>
+  </article>
+</main>
+</body>
+</html>

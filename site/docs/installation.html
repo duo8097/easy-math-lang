@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation Guide — Easy Math Lang Docs</title>
+<meta property="og:title" content="Installation Guide — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Installation Guide</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#installation-guide">Installation Guide</a></li><li><a href="#option-a-windows-installer-easiest">Option A — Windows installer (easiest)</a></li><li><a href="#option-a2-macos-disk-image-easiest">Option A2 — macOS disk image (easiest)</a></li><li><a href="#option-a3-linux-packages-easiest">Option A3 — Linux packages (easiest)</a></li><li><a href="#option-a4-arch-package">Option A4 — Arch package</a></li><li><a href="#option-b-run-from-source-all-platforms">Option B — Run from source (all platforms)</a></li><li><a href="#what-you-need-to-install">What you need to install</a></li><li><a href="#step-1-install-python">Step 1 — Install Python</a></li><li><a href="#windows">Windows</a></li><li><a href="#macos">macOS</a></li><li><a href="#linux">Linux</a></li><li><a href="#step-2-install-uv">Step 2 — Install uv</a></li><li><a href="#step-3-download-easy-math-lang">Step 3 — Download easy-math-lang</a></li><li><a href="#step-4-install-the-project-dependencies">Step 4 — Install the project dependencies</a></li><li><a href="#youre-ready">You&#x27;re ready!</a></li><li><a href="#updating-later">Updating later</a></li><li><a href="#something-went-wrong">Something went wrong?</a></li></ul></nav>
+    <h1 id="installation-guide">Installation Guide</h1>
+<p>This guide will walk you through everything you need to install,</p>
+<p>even if you have never set up a programming tool before.</p>
+<ul>
+<li><a href="#option-a--windows-installer-easiest">Option A — Windows installer (easiest)</a></li>
+<li><a href="#option-a2--macos-disk-image-easiest">Option A2 — macOS disk image (easiest)</a></li>
+<li><a href="#option-a3--linux-packages-easiest">Option A3 — Linux packages (easiest)</a></li>
+<li><a href="#option-a4--arch-package">Option A4 — Arch package</a></li>
+<li><a href="#option-b--run-from-source-all-platforms">Option B — Run from source (all platforms)</a></li>
+<li><a href="#what-you-need-to-install">What you need to install</a></li>
+<li><a href="#step-1--install-python">Step 1 — Install Python</a></li>
+<li><a href="#windows">Windows</a></li>
+<li><a href="#macos">macOS</a></li>
+<li><a href="#linux">Linux</a></li>
+<li><a href="#step-2--install-uv">Step 2 — Install uv</a></li>
+<li><a href="#step-3--download-easy-math-lang">Step 3 — Download easy-math-lang</a></li>
+<li><a href="#step-4--install-the-project-dependencies">Step 4 — Install the project dependencies</a></li>
+<li><a href="#youre-ready">You're ready!</a></li>
+<li><a href="#updating-later">Updating later</a></li>
+<li><a href="#something-went-wrong">Something went wrong?</a></li>
+</ul>
+<p>> <strong>On Windows?</strong> The fastest way is the ready-made installer —</p>
+<p>> see <a href="#option-a--windows-installer-easiest">Option A</a> below.</p>
+<p>> No Python needed (Windows 10 version 1809 / build 17763 or newer,</p>
+<p>> 64-bit).</p>
+<p>></p>
+<p>> <strong>On macOS?</strong> Download the <code>.dmg</code> from the latest stable</p>
+<p>> release on the</p>
+<p>> <a href="https://github.com/duo8097/easy-math-lang/releases">Releases page</a> —</p>
+<p>> see <a href="#option-a2--macos-disk-image-easiest">Option A2</a> below.</p>
+<p>> No Python needed (Apple Silicon only, M1 or newer, and requires</p>
+<p>> macOS 14 (Sonoma) or newer; does not run on Intel Macs).</p>
+<p>></p>
+<p>> <strong>On Linux?</strong> Download the <code>.deb</code> (Debian/Ubuntu) or <code>.rpm</code></p>
+<p>> (Fedora/RHEL/openSUSE) from the latest stable release on the</p>
+<p>> <a href="https://github.com/duo8097/easy-math-lang/releases">Releases page</a> —</p>
+<p>> see <a href="#option-a3--linux-packages-easiest">Option A3</a> below.</p>
+<p>> No Python needed (x86_64, glibc 2.39 or newer — the packages are built</p>
+<p>> on Ubuntu 24.04 and will not run on older distros).</p>
+<p>></p>
+<p>> <strong>Nightly builds</strong> (fresh off <code>main</code>) are under Actions as run</p>
+<p>> Artifacts (expire after 14 days) — see each option below.</p>
+<hr>
+<h2 id="option-a-windows-installer-easiest">Option A — Windows installer (easiest)</h2>
+<p>Requires <strong>Windows 10 version 1809 (build 17763) or newer, 64-bit</strong></p>
+<p>(the installer refuses to run on older systems).</p>
+<ol>
+<li>Download <code>EasyMathLang-Windows-x64-Setup.exe</code> from the latest stable release on the</li>
+</ol>
+<p><a href="https://github.com/duo8097/easy-math-lang/releases">GitHub Releases page</a></p>
+<p>(or the nightly artifact under Actions -> "Build Installers").</p>
+<ol>
+<li>Run it and follow the steps. Two options are offered:</li>
+</ol>
+<ul>
+<li><em>Create a desktop shortcut</em> (off by default).</li>
+<li><em>Add compiler/LSP to PATH</em> (off by default) — tick this only if you</li>
+</ul>
+<p>want to run <code>easy-math-lang</code> from a terminal. It appends to your</p>
+<p><strong>user</strong> PATH (<code>HKCU\Environment</code>), so no extra permissions are needed</p>
+<p>for that step.</p>
+<ol>
+<li>Launch <strong>Easy Math Editor</strong> from the Start Menu.</li>
+</ol>
+<p>No further setup is needed: the editor finds its helper programs</p>
+<p>(<code>easy-math-lsp</code>, <code>easy-math-lang</code>) next to itself automatically —</p>
+<p>see <a href="editor.html#under-the-hood-helper-programs">Desktop editor</a>. The</p>
+<p>editor and the helpers all install into one folder,</p>
+<p><code>C:\Program Files\EasyMathLang\bin\</code>, which also holds the single</p>
+<p>shared library directory <code>_internal\</code> (installed as</p>
+<p><code>bin\_internal\</code>). The executables load their runtime from</p>
+<p><code>bin\_internal\</code>; keep that folder next to the <code>.exe</code> files.</p>
+<hr>
+<h2 id="option-a2-macos-disk-image-easiest">Option A2 — macOS disk image (easiest)</h2>
+<p>Apple Silicon only (M1 or newer); requires macOS 14 (Sonoma) or newer;</p>
+<p>does not run on Intel Macs or on macOS 13 (Ventura).</p>
+<ol>
+<li>Download <code>EasyMathLang-macOS-arm64.dmg</code> from the latest stable release</li>
+</ol>
+<p>on the <a href="https://github.com/duo8097/easy-math-lang/releases">GitHub Releases page</a></p>
+<p>(or the nightly artifact under Actions -> "Build Installers").</p>
+<ol>
+<li>Open the <code>.dmg</code> and drag <code>easy-math-editor.app</code> to <code>Applications</code></li>
+</ol>
+<p>(a shortcut to <code>Applications</code> is included in the image for this).</p>
+<p>The disk image contains:</p>
+<pre class="code"><code>   easy-math-editor.app   (helpers live inside the bundle:
+                           Contents/MacOS/easy-math-lang, …)
+   README.txt</code></pre>
+<ol>
+<li>Run the app from <code>Applications</code>.</li>
+</ol>
+<p>The app is ad-hoc signed, <strong>not notarized</strong>, so Gatekeeper will block</p>
+<p>a plain double-click on first launch. Either:</p>
+<ul>
+<li>right-click <code>easy-math-editor.app</code> → <strong>Open</strong>, then <strong>Open</strong> again</li>
+</ul>
+<p>in the dialog; or</p>
+<ul>
+<li>remove the quarantine flag yourself:</li>
+</ul>
+<p><code>xattr -dr com.apple.quarantine /Applications/easy-math-editor.app</code></p>
+<p>After the first launch it opens normally.</p>
+<ol>
+<li>Optional terminal use — the helpers live inside the app bundle:</li>
+</ol>
+<pre class="code"><code>   BIN=&quot;/Applications/easy-math-editor.app/Contents/MacOS&quot;
+   &quot;$BIN/easy-math-lang&quot; doc.ezmath</code></pre>
+<p>or add it to <code>PATH</code> (<code>export PATH=&quot;$BIN:$PATH&quot;</code>), then</p>
+<p><code>easy-math-lang doc.ezmath</code> (PDF) or</p>
+<p><code>easy-math-lang doc.ezmath out.png --format png</code> (image).</p>
+<p>See <a href="export.html">Export</a>.</p>
+<p>No further setup is needed: the editor finds the bundled helpers</p>
+<p>automatically, even when nothing was added to <code>PATH</code>.</p>
+<hr>
+<h2 id="option-a3-linux-packages-easiest">Option A3 — Linux packages (easiest)</h2>
+<p>x86_64 only. glibc <strong>2.39 or newer</strong> is required (the packages are</p>
+<p>built on Ubuntu 24.04); Ubuntu ≤ 22.04, Debian ≤ 11 or RHEL 8 will</p>
+<p>not run them.</p>
+<ol>
+<li>Download <code>EasyMathLang-Debian-amd64.deb</code> (Debian, Ubuntu, Mint and</li>
+</ol>
+<p>derivatives) or <code>EasyMathLang-Fedora-amd64.rpm</code> (Fedora, RHEL,</p>
+<p>openSUSE and derivatives) from the latest</p>
+<p>stable release on the</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/releases">GitHub Releases page</a></p>
+<p>(or the nightly artifact under Actions -> "Build Installers").</p>
+<ol>
+<li>Install it:</li>
+</ol>
+<pre class="code"><code>   sudo dpkg -i EasyMathLang-Debian-amd64.deb       # Debian/Ubuntu/Mint</code></pre>
+<pre class="code"><code>   sudo rpm -i EasyMathLang-Fedora-amd64.rpm        # Fedora/RHEL/openSUSE</code></pre>
+<p>(On Debian/Ubuntu, if <code>dpkg</code> complains about missing dependencies,</p>
+<p>run <code>sudo apt-get install -f</code> afterwards.)</p>
+<ol>
+<li>Launch <strong>Easy Math Editor</strong> from your applications menu, or run</li>
+</ol>
+<p><code>easy-math-lang doc.ezmath</code> in a terminal.</p>
+<p>No further setup is needed: the programs install to the standard</p>
+<p>locations (<code>/usr/bin</code>, <code>/usr/lib/easy-math-lang</code>), so the editor</p>
+<p>finds its helper programs automatically.</p>
+<hr>
+<h2 id="option-a4-arch-package">Option A4 — Arch package</h2>
+<p>x86_64 only, glibc 2.39 or newer (Arch is a rolling release and</p>
+<p>satisfies this by default).</p>
+<ol>
+<li>Download <code>easy-math-lang-git-&lt;version&gt;-&lt;rel&gt;-x86_64.pkg.tar.zst</code> from</li>
+</ol>
+<p>the latest stable release on the</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/releases">GitHub Releases page</a></p>
+<p>(or the nightly artifact under Actions -> "Build Installers").</p>
+<ol>
+<li>Install it:</li>
+</ol>
+<pre class="code"><code>   sudo pacman -U easy-math-lang-git-&lt;version&gt;-&lt;rel&gt;-x86_64.pkg.tar.zst</code></pre>
+<ol>
+<li>Launch <strong>Easy Math Editor</strong> from your applications menu, or run</li>
+</ol>
+<p><code>easy-math-lang doc.ezmath</code> in a terminal.</p>
+<p>The package installs the same layout as the Debian/Fedora packages</p>
+<p>(<code>/usr/bin</code>, <code>/usr/lib/easy-math-lang</code>), so the editor finds its helper</p>
+<p>programs automatically. See <a href="packaging.html">Packaging and releases</a> for</p>
+<p>how it is built.</p>
+<hr>
+<h2 id="option-b-run-from-source-all-platforms">Option B — Run from source (all platforms)</h2>
+<h2 id="what-you-need-to-install">What you need to install</h2>
+<p>Two things are required:</p>
+<table><thead><tr><th>What</th><th>Why you need it</th></tr></thead><tbody>
+<tr><td><strong>Python</strong></td><td>The language the compiler is written in</td></tr>
+<tr><td><strong>uv</strong></td><td>A tool that manages Python packages (think of it like an app store for Python)</td></tr>
+</tbody></table>
+<p>Typst (the tool that turns your math text into a beautiful PDF) is now</p>
+<p>installed automatically as a Python package (<code>typst</code> from PyPI) when you</p>
+<p>run <code>uv sync</code> below — you do <strong>not</strong> need to install it separately.</p>
+<hr>
+<h2 id="step-1-install-python">Step 1 — Install Python</h2>
+<p>You need <strong>Python 3.12 or newer</strong> (see <code>requires-python</code> in <code>pyproject.toml</code>).</p>
+<h3 id="windows">Windows</h3>
+<ol>
+<li>Go to <a href="https://www.python.org/downloads/">python.org/downloads</a></li>
+<li>Click the big yellow <strong>Download Python</strong> button</li>
+<li>Run the installer</li>
+<li>⚠️ On the first screen, check <strong>"Add Python to PATH"</strong> before clicking Install</li>
+</ol>
+<h3 id="macos">macOS</h3>
+<p>Requires macOS 14 (Sonoma) or newer (PySide6, the GUI toolkit, ships</p>
+<p>no macOS 13 wheels since 6.12 — earlier releases work on macOS 13).</p>
+<p>Open <strong>Terminal</strong> (press <code>Cmd + Space</code>, type "Terminal", press Enter) and run:</p>
+<pre class="code"><code>xcode-select --install</code></pre>
+<p>Then go to <a href="https://www.python.org/downloads/">python.org/downloads</a> and download the Mac installer.</p>
+<h3 id="linux">Linux</h3>
+<p>Open a terminal and run:</p>
+<pre class="code"><code>sudo apt install python3 python3-pip</code></pre>
+<hr>
+<h2 id="step-2-install-uv">Step 2 — Install uv</h2>
+<p>> <strong>What is a terminal?</strong></p>
+<p>> A terminal (also called "command prompt" on Windows) is a window where you type</p>
+<p>> commands instead of clicking buttons. Don't worry — you only need a few simple ones.</p>
+<p><strong>Windows</strong> — Open <strong>Command Prompt</strong> (press <code>Win + R</code>, type <code>cmd</code>, press Enter):</p>
+<pre class="code"><code>powershell -ExecutionPolicy ByPass -c &quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</code></pre>
+<p><strong>macOS / Linux</strong> — Open <strong>Terminal</strong> and run:</p>
+<pre class="code"><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+<p>After it finishes, close the terminal and open a new one (this is needed for the change to take effect).</p>
+<p>Check it worked by typing:</p>
+<pre class="code"><code>uv --version</code></pre>
+<p>You should see something like <code>uv 0.x.x</code>. If you do, it worked!</p>
+<hr>
+<hr>
+<h2 id="step-3-download-easy-math-lang">Step 3 — Download easy-math-lang</h2>
+<p>If you have Git installed:</p>
+<pre class="code"><code>git clone https://github.com/duo8097/easy-math-lang
+cd easy-math-lang</code></pre>
+<p>Otherwise, go to the GitHub page, click the green <strong>Code</strong> button, then <strong>Download ZIP</strong>.</p>
+<p>Unzip it, then open a terminal <strong>inside that folder</strong>.</p>
+<p>> <strong>How to open a terminal in a folder:</strong></p>
+<p>> - <strong>Windows:</strong> Hold <code>Shift</code> and right-click the folder, then choose "Open PowerShell window here"</p>
+<p>> - <strong>macOS:</strong> Right-click the folder in Finder, choose "New Terminal at Folder"</p>
+<hr>
+<h2 id="step-4-install-the-project-dependencies">Step 4 — Install the project dependencies</h2>
+<p>Inside the project folder, run:</p>
+<pre class="code"><code>uv sync</code></pre>
+<p>This installs everything the project needs — including Typst (the PDF</p>
+<p>engine, via the <code>typst</code> PyPI package). You only have to do this once.</p>
+<hr>
+<h2 id="youre-ready">You're ready!</h2>
+<p>To compile your first document, create a file called <code>my-doc.ezmath</code> inside the</p>
+<p>project folder (any plain text editor works — even Notepad), write some content,</p>
+<p>then run:</p>
+<pre class="code"><code>uv run easy-math-lang my-doc.ezmath</code></pre>
+<p>You will see your finished document appear:</p>
+<ul>
+<li><code>my-doc.pdf</code> — open this!</li>
+</ul>
+<p>(The intermediate <code>my-doc.typ</code> is removed on success; pass</p>
+<p><code>--save-build-artifacts</code> to keep it for debugging.)</p>
+<p>> <strong>Want to try immediately?</strong> The <code>examples/</code> folder already contains finished</p>
+<p>> documents. Run <code>uv run easy-math-lang examples/example.ezmath</code> and open</p>
+<p>> <code>examples/example.pdf</code>.</p>
+<p>> <strong>Want autocompletion and error checking in your editor?</strong> See the</p>
+<p>> <a href="lsp.html">Language server</a> guide.</p>
+<hr>
+<h2 id="updating-later">Updating later</h2>
+<p>Once installed, you update with one command (or one click in the</p>
+<p>editor):</p>
+<ul>
+<li><code>easy-math-lang --update</code> — checks GitHub Releases, shows what would</li>
+</ul>
+<p>be installed (with release notes), asks <code>Update now? [y/N]</code>, then</p>
+<p>downloads, verifies <code>SHA256SUMS.txt</code> from the same release and hands</p>
+<p>over to a small helper that installs it after the app exits. <code>--yes</code></p>
+<p>skips the prompt for scripts.</p>
+<ul>
+<li><code>easy-math-lang --check-update</code> — just reports whether a newer</li>
+</ul>
+<p>release exists (always exits 0).</p>
+<ul>
+<li>From source: <code>git pull &amp;&amp; uv sync</code> (the tool never updates a source</li>
+</ul>
+<p>checkout by itself).</p>
+<p>Automatic update checks are on by default in the editor (about once a</p>
+<p>day, silent on failure); see <a href="https://github.com/duo8097/easy-math-lang/blob/main/README.md#updating">Updating</a> and</p>
+<p><a href="editor.html#keeping-the-editor-up-to-date">Desktop editor</a>.</p>
+<h2 id="something-went-wrong">Something went wrong?</h2>
+<table><thead><tr><th>Problem</th><th>Solution</th></tr></thead><tbody>
+<tr><td><code>uv: command not found</code></td><td>Close and reopen the terminal after installing uv</td></tr>
+<tr><td><code>Python not found</code></td><td>Re-install Python and check "Add to PATH"</td></tr>
+<tr><td>PDF looks empty</td><td>Check your <code>.ezmath</code> file for typos</td></tr>
+<tr><td>Editor installed from setup says <code>LSP: Disconnected</code></td><td>Keep the installed folders together (<code>bin\</code> and <code>bin\_internal\</code> next to each other). Then use <code>Build → Restart Language Server</code>. If you moved the binaries, point <code>EASYMATH_LSP_EXE</code> / <code>EASYMATH_COMPILER_EXE</code> at the right files — see <a href="editor.html#under-the-hood-helper-programs">Desktop editor</a>.</td></tr>
+</tbody></table>
+<p>More problems and every compiler message explained:</p>
+<p><a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+  </article>
+</main>
+</body>
+</html>

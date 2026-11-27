@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting and FAQ — Easy Math Lang Docs</title>
+<meta property="og:title" content="Troubleshooting and FAQ — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Troubleshooting and FAQ</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#troubleshooting-and-faq">Troubleshooting and FAQ</a></li><li><a href="#first-how-to-read-a-message">First: how to read a message</a></li><li><a href="#installation-and-setup">Installation and setup</a></li><li><a href="#windows-failed-to-load-python-dll-internalpython312dll">Windows: `Failed to load Python DLL &#x27;…\_internal\python312.dll&#x27;`</a></li><li><a href="#compiler-messages-one-by-one">Compiler messages, one by one</a></li><li><a href="#error-line-7-undefined-variable-widht">`[Error] Line 7: undefined variable &lt;widht&gt;`</a></li><li><a href="#warning-unknown-command-fract-treated-as-plain-text">`[Warning] … unknown command *fract — treated as plain text.`</a></li><li><a href="#warning-point-is-only-valid-inside-draw">`[Warning] … *point is only valid inside *draw(...)`</a></li><li><a href="#error-line-4-calc-division-by-zero-in-x-y">`[Error] Line 4: calc(): division by zero in: &#x27;x / y&#x27;`</a></li><li><a href="#error-line-4-calc-invalid-syntax">`[Error] Line 4: calc(): invalid syntax …`</a></li><li><a href="#warning-unclosed-frac-missing-closing-parenthesis">`[Warning] … unclosed *frac(... — missing closing parenthesis`</a></li><li><a href="#warning-expects-2-arguments-got-1-leaving-as-is">`[Warning] … expects 2 argument(s), got 1 — leaving as-is`</a></li><li><a href="#warning-line-9-table-is-text-mode-and-cannot-be-used-inside-math">`[Warning] Line 9: *table(...) is text mode and cannot be used inside math \ ... \`</a></li><li><a href="#error-line-9-unclosed-math-delimiter-missing-closing">`[Error] Line 9: unclosed math delimiter \ ... \ — missing closing \.`</a></li><li><a href="#warning-unclosed-or-malformed-draw">`[Warning] … unclosed or malformed *draw(...)`</a></li><li><a href="#geometryerror-perpa-b-c-d-constraint-conflict-or-non-convergence">`[GeometryError] *perp(A ; B ; C ; D): constraint conflict or non-convergence — …`</a></li><li><a href="#geometryerror-pointp-midpinta-b-unknown-construction">`[GeometryError] *point(P = midpint(A ; B)): unknown construction &#x27;…&#x27;`</a></li><li><a href="#geometryerror-construction-cycle-m---n---m">`[GeometryError] … construction cycle: M -&gt; N -&gt; M`</a></li><li><a href="#geometryerror-pointp-intersect-requires-k-1-or-2">`[GeometryError] *point(P = intersect(…)): … requires k = 1 or 2`</a></li><li><a href="#geometryerror-parallel-no-intersection-degenerate-line">`[GeometryError] … parallel … / no intersection / degenerate line`</a></li><li><a href="#error-typst-compilation-failed-the-draw-geometry-package-previewcetz">`[ERROR] Typst compilation failed: the *draw geometry package (@preview/cetz:…)`</a></li><li><a href="#plot-error-image-error">`[Plot Error: …]`, `[Image Error: …]`</a></li><li><a href="#nothing-special-the-output-looks-wrong">Nothing special — the output looks wrong</a></li><li><a href="#questions-about-the-output">Questions about the output</a></li><li><a href="#the-desktop-editor">The desktop editor</a></li><li><a href="#the-language-server-in-vs-code-neovim">The language server (in VS Code, Neovim, …)</a></li><li><a href="#updates">Updates</a></li><li><a href="#still-stuck">Still stuck?</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="troubleshooting-and-faq">Troubleshooting and FAQ</h1>
+<p>Something not working? This page lists the messages easy-math-lang</p>
+<p>prints, what causes them, and how to fix them — plus answers to the</p>
+<p>most common questions.</p>
+<ul>
+<li><a href="#first-how-to-read-a-message">First: how to read a message</a></li>
+<li><a href="#installation-and-setup">Installation and setup</a></li>
+<li><a href="#windows-failed-to-load-python-dll-_internalpython312dll">Windows: <code>Failed to load Python DLL &#x27;…\_internal\python312.dll&#x27;</code></a></li>
+<li><a href="#compiler-messages-one-by-one">Compiler messages, one by one</a></li>
+<li>[<code>[Error] Line 7: undefined variable &lt;widht&gt;</code>](#error-line-7-undefined-variable)</li>
+<li>[<code>[Warning] … unknown command *fract — treated as plain text.</code>](#warning--unknown-command-fract--treated-as-plain-text)</li>
+<li>[<code>[Warning] … <em>point is only valid inside </em>draw(...)</code>](#warning--point-is-only-valid-inside-draw)</li>
+<li>[<code>[Error] Line 4: calc(): division by zero in: &#x27;x / y&#x27;</code>](#error-line-4-calc-division-by-zero-in-x--y)</li>
+<li>[<code>[Error] Line 4: calc(): invalid syntax …</code>](#error-line-4-calc-invalid-syntax)</li>
+<li>[<code>[Warning] … unclosed *frac(... — missing closing parenthesis</code>](#warning--unclosed-frac--missing-closing-parenthesis)</li>
+<li>[<code>[Warning] … expects 2 argument(s), got 1 — leaving as-is</code>](#warning--expects-2-arguments-got-1--leaving-as-is)</li>
+<li>[<code>[Warning] Line 9: *table(...) is text mode and cannot be used inside math \ ... \</code>](#warning-line-9-table-is-text-mode-and-cannot-be-used-inside-math)</li>
+<li>[<code>[Error] Line 9: unclosed math delimiter \ ... \ — missing closing \.</code>](#error-line-9-unclosed-math-delimiter-----missing-closing)</li>
+<li>[<code>[Warning] … unclosed or malformed *draw(...)</code>](#warning--unclosed-or-malformed-draw)</li>
+<li>[<code>[GeometryError] *perp(A ; B ; C ; D): constraint conflict or non-convergence — …</code>](#geometryerror-perpa--b--c--d-constraint-conflict-or-non-convergence)</li>
+<li>[<code>[GeometryError] *point(P = midpint(A ; B)): unknown construction &#x27;…&#x27;</code>](#geometryerror-pointp--midpinta--b-unknown-construction)</li>
+<li>[<code>[GeometryError] … construction cycle: M -&gt; N -&gt; M</code>](#geometryerror--construction-cycle-m---n---m)</li>
+<li>[<code>[GeometryError] *point(P = intersect(…)): … requires k = 1 or 2</code>](#geometryerror-pointp--intersect--requires-k--1-or-2)</li>
+<li>[<code>[GeometryError] … parallel … / no intersection / degenerate line</code>](#geometryerror--parallel---no-intersection--degenerate-line)</li>
+<li>[<code>[ERROR] Typst compilation failed: the *draw geometry package (@preview/cetz:…)</code>](#error-typst-compilation-failed-the-draw-geometry-package-previewcetz)</li>
+<li>[<code>[Plot Error: …]</code>, <code>[Image Error: …]</code>](#plot-error--image-error)</li>
+<li><a href="#nothing-special--the-output-looks-wrong">Nothing special — the output looks wrong</a></li>
+<li><a href="#questions-about-the-output">Questions about the output</a></li>
+<li><a href="#the-desktop-editor">The desktop editor</a></li>
+<li><a href="#the-language-server-in-vs-code-neovim">The language server (in VS Code, Neovim, …)</a></li>
+<li><a href="#updates">Updates</a></li>
+<li><a href="#still-stuck">Still stuck?</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<p>New to the terminology? The <a href="glossary.html">Glossary</a> explains every word</p>
+<p>in plain language.</p>
+<hr>
+<h2 id="first-how-to-read-a-message">First: how to read a message</h2>
+<p>During a build you may see lines like this:</p>
+<pre class="code"><code>[Error] Line 12: undefined variable &lt;widht&gt;
+  File &quot;bai1.ezmath&quot;, line 12, column 9
+    Total = &lt;widht&gt; + 2
+            ^^^^^^^
+[Warning] Line 30: unknown command *fract — treated as plain text. Did you mean &#x27;*frac(...)&#x27;?</code></pre>
+<ul>
+<li><strong>Line numbers</strong> count from the top of your <code>.ezmath</code> file.</li>
+<li><strong>[Error]</strong> — something is definitely wrong (typo, bad calculation).</li>
+<li><strong>[Warning]</strong> — suspicious, but the build carries on.</li>
+<li>Diagnostics print a small context block under their first line:</li>
+</ul>
+<p>the <code>File &quot;name&quot;, line N, column M</code> header, the real</p>
+<p><code>.ezmath</code> line, and a caret (<code>^</code>) under the exact spot. Columns</p>
+<p>count characters, not bytes (Vietnamese text works the same), and</p>
+<p>tabs are expanded. When the column is not known there is no caret —</p>
+<p>you just get the file/line header and the source line. Very long</p>
+<p>lines are truncated around the caret with an ellipsis (<code>…</code>). Almost</p>
+<p>every compiler diagnostic shows this block; the few that cannot point</p>
+<p>at a line in your file — CLI-level errors and Typst failures whose</p>
+<p>message carries no mappable position — keep the classic single-line</p>
+<p>output.</p>
+<ul>
+<li>Color is only used on a terminal; when stderr is captured (as in</li>
+</ul>
+<p>the editor) or <code>NO_COLOR</code> is set, the output stays plain text.</p>
+<ul>
+<li>Multi-line constructs point at the line where they open: an</li>
+</ul>
+<p>unclosed math delimiter (<code>\ … \</code>) or an unterminated <code>*draw(</code> block</p>
+<p>is reported at the line with the opening delimiter.</p>
+<ul>
+<li>By default the PDF is <strong>still written</strong> even with errors; the last</li>
+</ul>
+<p>line tells you honestly how many there were:</p>
+<pre class="code"><code>  Compiled doc.ezmath to doc.pdf with 2 error(s), 1 warning(s)</code></pre>
+<p>Use <code>--strict</code> if you want a non-zero exit code instead (useful in</p>
+<p>automated builds): <code>easy-math-lang --strict doc.ezmath</code>.</p>
+<ul>
+<li>Some messages (<code>[Calc Error: …]</code>, <code>[Image Error: …]</code>) appear **inside</li>
+</ul>
+<p>the PDF** at the exact spot the problem occurred.</p>
+<hr>
+<h2 id="installation-and-setup">Installation and setup</h2>
+<table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
+<tr><td><code>uv: command not found</code></td><td>Close the terminal completely and open a new one (uv was just installed and needs a fresh terminal).</td></tr>
+<tr><td><code>Python not found</code> during setup</td><td>Re-run the Python installer and make sure <strong>"Add Python to PATH"</strong> is ticked.</td></tr>
+<tr><td><code>easy-math-lang: command not found</code></td><td>You skipped <code>uv sync</code>, or you're not in the project folder. From source, always run <code>uv run easy-math-lang …</code>.</td></tr>
+<tr><td>macOS blocks the app on first launch</td><td>Right-click the app → <strong>Open</strong> → <strong>Open</strong> again (the app is ad-hoc signed, not notarized). See <a href="installation.html#option-a2--macos-disk-image-easiest">Installation → macOS</a>.</td></tr>
+<tr><td>Windows installer: <code>LSP: Disconnected</code></td><td>The installed editor and its helpers now ship in one folder; if the <code>LSP: Disconnected</code> persists, use <strong>Build → Restart Language Server</strong>. Details: <a href="editor.html#under-the-hood-helper-programs">Desktop editor → helper programs</a>.</td></tr>
+<tr><td>Arch/Debian package installed but the editor doesn't see the helpers</td><td>The packages install to <code>/usr/bin</code> + <code>/usr/lib/easy-math-lang</code>; if you moved files, set <code>EASYMATH_LSP_EXE</code> / <code>EASYMATH_COMPILER_EXE</code> to point at them.</td></tr>
+<tr><td>Windows installer: every <code>.exe</code> fails with <code>Failed to load Python DLL &#x27;…\_internal\python312.dll&#x27;</code></td><td>Installs made with the broken v6.0.0/v7.0.0 setup flattened the shared <code>_internal\</code> folder into <code>bin\</code>. Reinstall with the current Windows installer, or repair the layout by hand — see below.</td></tr>
+</tbody></table>
+<h3 id="windows-failed-to-load-python-dll-internalpython312dll">Windows: <code>Failed to load Python DLL &#x27;…\_internal\python312.dll&#x27;</code></h3>
+<pre class="code"><code>Failed to load Python DLL &#x27;C:\Program Files\EasyMathLang\bin\_internal\python312.dll&#x27;.
+LoadLibrary: The specified module could not be found.</code></pre>
+<p>Every Easy Math executable on Windows (<code>easy-math-lang.exe</code>,</p>
+<p><code>ezmath.exe</code>, <code>easy-math-editor.exe</code>, <code>easy-math-lsp.exe</code>) fails at</p>
+<p>startup with this message. The PyInstaller onedir bootloader loads its</p>
+<p>runtime from <code>_internal\</code> <strong>next to</strong> the executables; the v6.0.0 and</p>
+<p>v7.0.0 Windows installers copied the <em>contents</em> of <code>_internal\</code></p>
+<p>straight into <code>bin\</code>, so <code>bin\_internal\python312.dll</code> never existed.</p>
+<p>Reinstalling with the current Windows installer fixes it. Running the</p>
+<p>new setup over an existing (flattened) install is safe: the new</p>
+<p><code>bin\_internal\</code> folder is created and the executables are replaced;</p>
+<p>leftover flattened files directly in <code>bin\</code> are ignored by the</p>
+<p>bootloader. If you cannot reinstall right now, repair the layout by</p>
+<p>hand:</p>
+<ol>
+<li>Close Easy Math and any <code>easy-math-lang</code> terminals.</li>
+<li>Open <code>C:\Program Files\EasyMathLang\bin\</code> in Explorer (confirm the</li>
+</ol>
+<p>administrator prompt).</p>
+<ol>
+<li>Create a folder named <code>_internal</code> inside <code>bin\</code>.</li>
+<li>Move <strong>everything</strong> in <code>bin\</code> into <code>bin\_internal\</code> **except the</li>
+</ol>
+<p>four executables** <code>easy-math-lang.exe</code>, <code>easy-math-lsp.exe</code>,</p>
+<p><code>easy-math-editor.exe</code> and <code>ezmath.exe</code>.</p>
+<ol>
+<li>Start <strong>Easy Math Editor</strong> again — it should open normally.</li>
+</ol>
+<p>If you installed to a custom folder, use that install's <code>bin\</code></p>
+<p>instead of <code>C:\Program Files\EasyMathLang\bin\</code>.</p>
+<p>Step-by-step from scratch: <a href="installation.html">Installation guide</a>.</p>
+<hr>
+<h2 id="compiler-messages-one-by-one">Compiler messages, one by one</h2>
+<h3 id="error-line-7-undefined-variable-widht"><code>[Error] Line 7: undefined variable &lt;widht&gt;</code></h3>
+<pre class="code"><code>[Error] Line 7: undefined variable &lt;widht&gt;
+  File &quot;doc.ezmath&quot;, line 7, column 9
+    Total = &lt;widht&gt; + 2
+            ^^^^^^^</code></pre>
+<p>You used <code>&lt;widht&gt;</code> but never defined it — almost always a typo</p>
+<p>(<code>&lt;width&gt;</code> was defined somewhere else), or you used it <strong>before</strong></p>
+<p>defining it. Variables must be defined earlier in the file than where</p>
+<p>you use them.</p>
+<p>In the PDF this spot shows <code>[UNDEFINED: &lt;widht&gt;]</code>.</p>
+<h3 id="warning-unknown-command-fract-treated-as-plain-text"><code>[Warning] … unknown command *fract — treated as plain text.</code></h3>
+<p><code>*fract</code> is not a command. The message usually ends with</p>
+<p><code>Did you mean &#x27;*frac(...)&#x27;?</code> — follow the hint, or check</p>
+<p><a href="cheatsheet.html">Cheat sheet</a> / <a href="algebra.html">Writing math</a>.</p>
+<h3 id="warning-point-is-only-valid-inside-draw"><code>[Warning] … <em>point is only valid inside </em>draw(...)</code></h3>
+<p>Geometry commands only work between <code>*draw(</code> and <code>)</code>. Wrap them:</p>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *triangle(A ; B ; C)
+)</code></pre>
+<h3 id="error-line-4-calc-division-by-zero-in-x-y"><code>[Error] Line 4: calc(): division by zero in: &#x27;x / y&#x27;</code></h3>
+<p>Your <code>calc(...)</code> divided by a zero value. Check the variable used as</p>
+<p>the divisor — it may be <code>0</code> or not yet assigned.</p>
+<h3 id="error-line-4-calc-invalid-syntax"><code>[Error] Line 4: calc(): invalid syntax …</code></h3>
+<p>Something <code>calc()</code> doesn't understand. The usual suspects:</p>
+<ul>
+<li><strong>Decimal comma</strong>: <code>calc(3,5)</code> → write <code>calc(3.5)</code>. A comma never</li>
+</ul>
+<p>means a decimal point inside <code>calc</code>.</p>
+<ul>
+<li><strong>Missing multiplication sign</strong>: <code>calc(2x)</code> → write <code>calc(2 * x)</code>.</li>
+<li><strong>Unknown name</strong>: <code>calc(x)</code> outside <code>*plot</code> — <code>calc</code> only knows</li>
+</ul>
+<p>numbers, your <code>&lt;variables&gt;</code>, <code>pi</code>, <code>e</code>, and functions like</p>
+<p><code>sqrt</code>/<code>sin</code>.</p>
+<h3 id="warning-unclosed-frac-missing-closing-parenthesis"><code>[Warning] … unclosed *frac(... — missing closing parenthesis</code></h3>
+<p>A command opened <code>(</code> that is never closed. Add the missing <code>)</code>.</p>
+<h3 id="warning-expects-2-arguments-got-1-leaving-as-is"><code>[Warning] … expects 2 argument(s), got 1 — leaving as-is</code></h3>
+<p>The command needs more arguments than you gave it. Example:</p>
+<p><code><em>frac(2)</code> needs both parts — <code></em>frac(2 ; 3)</code>.</p>
+<h3 id="warning-line-9-table-is-text-mode-and-cannot-be-used-inside-math"><code>[Warning] Line 9: *table(...) is text mode and cannot be used inside math \ ... \</code></h3>
+<p><code><em>table</code>, <code></em>image</code> and <code>*newpage</code> don't work inside</p>
+<p><code>\ … \</code> math mode. Move them outside the backslashes (<code>*matrix</code> and</p>
+<p><code><em>vec</code> </em>do* work there).</p>
+<h3 id="error-line-9-unclosed-math-delimiter-missing-closing"><code>[Error] Line 9: unclosed math delimiter \ ... \ — missing closing \.</code></h3>
+<p>You opened math mode with <code>\</code> but never closed it. Add the second <code>\</code>:</p>
+<pre class="code"><code>The solution is \ x = 2 \.</code></pre>
+<h3 id="warning-unclosed-or-malformed-draw"><code>[Warning] … unclosed or malformed *draw(...)</code></h3>
+<p>A <code>*draw(</code> block was started but the closing <code>)</code> is missing or sits</p>
+<p>outside the block. When this happens the build stops entirely:</p>
+<pre class="code"><code>[ERROR] Build failed: unclosed block — output PDF not attempted.
+Add the missing &#x27;)&#x27; and retry.</code></pre>
+<p>Count your parentheses — each <code>*draw(</code> needs exactly one <code>)</code>.</p>
+<h3 id="geometryerror-perpa-b-c-d-constraint-conflict-or-non-convergence"><code>[GeometryError] *perp(A ; B ; C ; D): constraint conflict or non-convergence — …</code></h3>
+<p>Either your geometry rules contradict each other (e.g. <code>*distance(A ; B ; 5)</code></p>
+<p>together with <code>*distance(A ; B ; 9)</code>), or the solver did not converge —</p>
+<p>the message names the constraints involved. If they truly conflict, reread</p>
+<p>the rules and remove the one that can't be true; if the numbers look fine,</p>
+<p>the figure may be under-constrained — pin enough points to determine it.</p>
+<h3 id="geometryerror-pointp-midpinta-b-unknown-construction"><code>[GeometryError] *point(P = midpint(A ; B)): unknown construction &#x27;…&#x27;</code></h3>
+<p>The right side of a <code>*point</code> starts with <code>name(</code> but the constructor</p>
+<p>name isn't one of the eight (<code>midpoint</code>, <code>foot</code>, <code>reflect</code>, <code>intersect</code>,</p>
+<p><code>centroid</code>, <code>circumcenter</code>, <code>incenter</code>, <code>orthocenter</code>). Fix the typo —</p>
+<p>the message suggests the closest match — or, if you meant to give</p>
+<p>coordinates, write them as <code>*point(P = x, y)</code>.</p>
+<h3 id="geometryerror-construction-cycle-m---n---m"><code>[GeometryError] … construction cycle: M -&gt; N -&gt; M</code></h3>
+<p>The constructed points depend on each other in a loop, so no position</p>
+<p>can ever be computed (<code>M = midpoint(N ; A)</code> and</p>
+<p><code>N = midpoint(M ; B)</code>). A construction may only depend on <em>other</em></p>
+<p>points — break the loop.</p>
+<h3 id="geometryerror-pointp-intersect-requires-k-1-or-2"><code>[GeometryError] *point(P = intersect(…)): … requires k = 1 or 2</code></h3>
+<p>A <code>line + circle</code> or <code>circle + circle</code> intersection can cross twice,</p>
+<p>so you must pick one with <code>k = 1</code> or <code>k = 2</code> (and only those —</p>
+<p><code>intersect(line ; line)</code> crosses once and rejects any k). Add the</p>
+<p>argument: <code>*point(P = intersect(line(A ; B) ; circle(O ; 3) ; 1))</code>.</p>
+<h3 id="geometryerror-parallel-no-intersection-degenerate-line"><code>[GeometryError] … parallel … / no intersection / degenerate line</code></h3>
+<p><code>intersect</code> couldn't find a unique crossing: the lines are parallel or</p>
+<p>coincident, a line misses the circle, the circles don't cross, or a</p>
+<p>line was built from the same point twice. Check the points you fed the</p>
+<p>construction — the message names them.</p>
+<p>When geometry fails hard, the build stops with:</p>
+<pre class="code"><code>[ERROR] Build failed: invalid *draw block — output PDF not attempted.
+Fix the geometry errors above and retry.</code></pre>
+<h3 id="error-typst-compilation-failed-the-draw-geometry-package-previewcetz"><code>[ERROR] Typst compilation failed: the *draw geometry package (@preview/cetz:…)</code></h3>
+<p>Easy Math ships the drawing library (CeTZ) <strong>inside</strong> the install, so</p>
+<p><code>*draw</code> needs no internet connection — not even on first use. This</p>
+<p>message means one of two things:</p>
+<ul>
+<li>**"…this build does not include the bundled package. Check your</li>
+</ul>
+<p>internet connection and rerun once online…"** — your copy is missing</p>
+<p>the bundled CeTZ (an incomplete or very old install). Connect to the</p>
+<p>internet and run once more, or reinstall easy-math-lang.</p>
+<ul>
+<li>**"…the bundled @preview/cetz:… package could not be loaded — the</li>
+</ul>
+<p>installation may be corrupted."** — the bundled files are damaged.</p>
+<p>Reinstall easy-math-lang; if it still fails, report it with the full</p>
+<p>error line.</p>
+<p>The bundled files live in <code>_internal/typst-packages/</code> (Linux:</p>
+<p><code>/usr/lib/easy-math-lang/_internal/typst-packages</code>; Windows:</p>
+<p><code>{app}\bin\_internal\typst-packages</code>; macOS: inside the app under</p>
+<p><code>Contents/Frameworks/typst-packages</code>). Running from source, they live</p>
+<p>in <code>vendor/typst-packages/</code> — if you deleted them, restore with</p>
+<p><code>uv run --frozen python scripts/vendor_typst_packages.py</code> (needs a</p>
+<p>one-time network connection).</p>
+<h3 id="plot-error-image-error"><code>[Plot Error: …]</code>, <code>[Image Error: …]</code></h3>
+<p>These appear <strong>in the PDF</strong> (and on the terminal) instead of the</p>
+<p>diagram/image. The rest of the document still builds:</p>
+<ul>
+<li><strong>Plot</strong> — usually no finite values in the range (e.g.</li>
+</ul>
+<p><code>*plot(sqrt(x); -10; -1)</code> — sqrt of a negative number) or wrong</p>
+<p>number of arguments. Check the expression and its interval.</p>
+<ul>
+<li><strong>Image</strong> — the file wasn't found (paths are relative to your</li>
+</ul>
+<p><code>.ezmath</code> file's folder) or the width is invalid.</p>
+<h3 id="nothing-special-the-output-looks-wrong">Nothing special — the output looks wrong</h3>
+<p>Warnings don't stop the build, so it's easy to miss one. Scroll up in</p>
+<p>the terminal: every <code>[Warning]</code>/<code>[Error]</code> line is listed <strong>above</strong> the</p>
+<p>final <code>Compiled …</code> summary. In the editor, the <strong>Problems</strong> panel</p>
+<p>(click the problem count in the status bar) shows them all, and you can</p>
+<p>click a row to jump to the line.</p>
+<hr>
+<h2 id="questions-about-the-output">Questions about the output</h2>
+<p><strong>Where is my PDF?</strong></p>
+<p>Right next to your <code>.ezmath</code> file (same folder). The editor's status</p>
+<p>bar shows the exact path after compiling.</p>
+<p>**Where did <code>doc.typ</code>, <code>doc.smap.json</code>, or the <code><em>-plot-</em>.svg</code> files go?**</p>
+<p>They are build intermediates, deleted after a successful build. Pass</p>
+<p><code>--save-build-artifacts</code> to keep them — useful when you need to debug</p>
+<p>or inspect the generated Typst source. Failed builds always keep them.</p>
+<p><strong>Only part of the document printed — where are the variables?</strong></p>
+<p>Variables print where you wrote them, but only after they are defined.</p>
+<p>A <code>&lt;name&gt;</code> used before its definition shows as <code>[UNDEFINED: &lt;name&gt;]</code>.</p>
+<p>**Why does <code>2 * 3</code> show as <code>2 . 3</code>?**</p>
+<p>Your document sets <code>*define(write_type.multiplication = .)</code>. Remove</p>
+<p>that line (or change <code>.</code> to <code>x</code>, <code>·</code>, …) — see</p>
+<p><a href="algebra.html#the-multiplication-dot">The multiplication dot</a>.</p>
+<p><strong>Why did I get <code>doc-1.png</code>, <code>doc-2.png</code>?</strong></p>
+<p>PNG and SVG exports are one file per page. Include <code>{p}</code> in the name to</p>
+<p>choose the pattern yourself: <code>easy-math-lang doc.ezmath out-{p}.png</code>.</p>
+<p>See <a href="export.html#multi-page-images">Export</a>.</p>
+<p><strong>The PDF is still written — how do I make errors fail the build?</strong></p>
+<p>Use <code>--strict</code>. Without it, a build with errors exits 0 on purpose</p>
+<p>(backward compatibility) but reports the counts honestly.</p>
+<hr>
+<h2 id="the-desktop-editor">The desktop editor</h2>
+<table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
+<tr><td><code>LSP: Disconnected</code> in the status bar</td><td><strong>Build → Restart Language Server</strong>. Still stuck? See <a href="editor.html#under-the-hood-helper-programs">editor helper programs</a>.</td></tr>
+<tr><td>Preview doesn't update</td><td>Make sure the <strong>Auto</strong> checkbox in the preview panel is ticked, or press <strong>F5</strong>.</td></tr>
+<tr><td>Preview shows an error</td><td>The panel keeps the compiler log and the last good page — read the log, fix the line, it refreshes by itself.</td></tr>
+<tr><td>Autocomplete never appears</td><td>It pops up automatically after <code>*</code> or <code>&lt;</code>; press <strong>Ctrl+Space</strong> anywhere.</td></tr>
+<tr><td>Everything looks odd / old settings</td><td>Delete <code>~/.config/ezmath/config.ini</code> to reset to defaults.</td></tr>
+</tbody></table>
+<p>Full tour: <a href="editor.html">Desktop editor</a>.</p>
+<hr>
+<h2 id="the-language-server-in-vs-code-neovim">The language server (in VS Code, Neovim, …)</h2>
+<ul>
+<li>The server must be started by your editor — typing into its window</li>
+</ul>
+<p>won't do anything (it talks JSON-RPC over stdin/stdout).</p>
+<ul>
+<li>Logs go to <strong>stderr</strong>; if something writes to stdout, the editor</li>
+</ul>
+<p>disconnects.</p>
+<ul>
+<li>Make sure the file extension is <code>.ezmath</code> (or <code>.eml</code>) and that</li>
+</ul>
+<p><code>uv sync</code> has been run.</p>
+<p>Details: <a href="lsp.html#troubleshooting">Language server → Troubleshooting</a>.</p>
+<hr>
+<h2 id="updates">Updates</h2>
+<table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
+<tr><td>No "Update now" button</td><td>One-click update is only offered when this exact install can be replaced in place (Windows installer, macOS <code>.app</code> in a writable folder, or the Debian/Fedora/Arch package that owns the running binary, with <code>pkexec</code> available). Use <strong>Download…</strong> and install manually, or see the hint shown in the dialog.</td></tr>
+<tr><td>Update failed: <code>SHA-256 mismatch</code></td><td><strong>Do not run the downloaded file.</strong> The file did not match the <code>SHA256SUMS.txt</code> published with the release — it may be corrupted or tampered with. Delete it and retry later; if it persists, report it on GitHub Issues.</td></tr>
+<tr><td>Update failed with a pkexec error / polkit window never appears</td><td>No polkit agent is reachable (e.g. minimal session, SSH, container). The updater will not fall back to sudo — run the manual command shown in the dialog instead: <code>sudo apt install ./EasyMathLang-Debian-amd64.deb</code>, <code>sudo dnf install ./EasyMathLang-Fedora-amd64.rpm</code>, <code>sudo pacman -U ./….pkg.tar.zst</code>, or on Arch <code>sudo pacman -U</code>.</td></tr>
+<tr><td>Update failed: "the application did not exit within 120s"</td><td>The editor was still running (e.g. another window held it). Close everything and try again — the old version was kept and nothing was changed.</td></tr>
+<tr><td>"Last update failed: …" on startup</td><td>The previous update did not finish (on Windows this is detected by comparing the pending version in <code>~/.config/ezmath/update-state.json</code> with the running one — the editor shows the reason after the silent installer could not replace the install cleanly). The dialog shows the exact reason (on Windows usually the tail of <code>update-install.log</code>) and the log path (<code>~/.config/ezmath/update.log</code>). Use <strong>Download manually</strong> to get the asset from the release page, or read the logs for details.</td></tr>
+<tr><td>The editor relaunched with the old version / an empty <code>Easy Math Lang_is1</code> key vs <code>Easy Math Lang</code></td><td>The installer's <code>AppId</code> must stay equal to <code>AppName</code> (the implicit pre-7.0.0 value); see the packaging guide. If you end up with two uninstall entries, uninstall the stale one by hand and reinstall the latest release.</td></tr>
+<tr><td>Check always says it could not check</td><td>Network is down or GitHub rate-limited this machine (unauthenticated API). Wait and retry; automatic checks are limited to once per 24h and use ETag, so they cost practically nothing.</td></tr>
+<tr><td>The editor shows an old version after an update</td><td>The update did not happen: check <code>~/.config/ezmath/update.log</code>, or reinstall manually from the Releases page.</td></tr>
+<tr><td>I want to stop the update checks</td><td><code>View → Check for updates automatically</code> (or <code>update/autoCheck=false</code> in <code>~/.config/ezmath/config.ini</code>). Manual checks via <code>Help → Check for Updates…</code> still work.</td></tr>
+<tr><td>Updates from source?</td><td>Source checkouts are never updated by the tool: <code>git pull &amp;&amp; uv sync</code>.</td></tr>
+</tbody></table>
+<hr>
+<h2 id="still-stuck">Still stuck?</h2>
+<ol>
+<li>Re-run with <code>--save-build-artifacts</code> and open the generated</li>
+</ol>
+<p><code>doc.typ</code> — it shows exactly what was sent to the typesetter.</p>
+<ol>
+<li>Check the version you have: <code>easy-math-lang --version</code> (or</li>
+</ol>
+<p><code>uv run easy-math-lang --version</code>).</p>
+<ol>
+<li>Ask for help on the project's</li>
+</ol>
+<p><a href="https://github.com/duo8097/easy-math-lang/issues">GitHub Issues</a></p>
+<p>and include your <code>.ezmath</code> file plus the full message text — that is</p>
+<p>usually enough to solve it in one round trip.</p>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="cheatsheet.html">Cheat sheet</a> — one-page quick reference</li>
+<li><a href="algebra.html">Writing math</a> — every command explained</li>
+<li><a href="geometry.html">Drawing geometry</a> — figures and constraints</li>
+<li><a href="glossary.html">Glossary</a> — plain-language definitions</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

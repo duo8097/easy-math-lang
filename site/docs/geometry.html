@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing Geometry — Easy Math Lang Docs</title>
+<meta property="og:title" content="Drawing Geometry — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Drawing Geometry</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#drawing-geometry">Drawing Geometry</a></li><li><a href="#how-it-works">How it works</a></li><li><a href="#a-simple-example">A simple example</a></li><li><a href="#points">Points</a></li><li><a href="#with-exact-coordinates">With exact coordinates</a></li><li><a href="#without-coordinates-auto-positioned">Without coordinates (auto-positioned)</a></li><li><a href="#what-auto-placement-decides-and-what-it-doesnt">What auto-placement decides (and what it doesn&#x27;t)</a></li><li><a href="#construction-points">Construction points</a></li><li><a href="#picking-an-intersection">Picking an intersection</a></li><li><a href="#when-things-go-wrong">When things go wrong</a></li><li><a href="#lines">Lines</a></li><li><a href="#line-segment-from-a-to-b">Line segment (from A to B)</a></li><li><a href="#infinite-line">Infinite line</a></li><li><a href="#ray-starts-at-a-goes-through-b">Ray (starts at A, goes through B)</a></li><li><a href="#triangles">Triangles</a></li><li><a href="#circles">Circles</a></li><li><a href="#arcs">Arcs</a></li><li><a href="#angles">Angles</a></li><li><a href="#right-angle-90-marker">Right angle (90° marker)</a></li><li><a href="#rules-and-constraints">Rules and constraints</a></li><li><a href="#distance-between-two-points">Distance between two points</a></li><li><a href="#perpendicular-lines-90-angle">Perpendicular lines (90° angle)</a></li><li><a href="#parallel-lines">Parallel lines</a></li><li><a href="#point-lies-on-a-line">Point lies on a line</a></li><li><a href="#point-lies-on-a-circle">Point lies on a circle</a></li><li><a href="#two-sides-have-the-same-length">Two sides have the same length</a></li><li><a href="#two-angles-are-equal">Two angles are equal</a></li><li><a href="#midpoint">Midpoint</a></li><li><a href="#intersection-of-two-lines">Intersection of two lines</a></li><li><a href="#labels-and-measurements">Labels and measurements</a></li><li><a href="#examples">Examples</a></li><li><a href="#example-1-right-triangle">Example 1 — Right triangle</a></li><li><a href="#example-2-isosceles-triangle">Example 2 — Isosceles triangle</a></li><li><a href="#example-3-circle-with-a-tangent-line">Example 3 — Circle with a tangent line</a></li><li><a href="#tips">Tips</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="drawing-geometry">Drawing Geometry</h1>
+<p>easy-math-lang can draw geometric figures — triangles, circles, angles, and more —</p>
+<p>directly in your PDF.</p>
+<ul>
+<li><a href="#how-it-works">How it works</a></li>
+<li><a href="#a-simple-example">A simple example</a></li>
+<li><a href="#points">Points</a></li>
+<li><a href="#with-exact-coordinates">With exact coordinates</a></li>
+<li><a href="#without-coordinates-auto-positioned">Without coordinates (auto-positioned)</a></li>
+<li><a href="#what-auto-placement-decides-and-what-it-doesnt">What auto-placement decides (and what it doesn't)</a></li>
+<li><a href="#construction-points">Construction points</a></li>
+<li><a href="#picking-an-intersection">Picking an intersection</a></li>
+<li><a href="#when-things-go-wrong">When things go wrong</a></li>
+<li><a href="#lines">Lines</a></li>
+<li><a href="#line-segment-from-a-to-b">Line segment (from A to B)</a></li>
+<li><a href="#infinite-line">Infinite line</a></li>
+<li><a href="#ray-starts-at-a-goes-through-b">Ray (starts at A, goes through B)</a></li>
+<li><a href="#triangles">Triangles</a></li>
+<li><a href="#circles">Circles</a></li>
+<li><a href="#arcs">Arcs</a></li>
+<li><a href="#angles">Angles</a></li>
+<li><a href="#right-angle-90-marker">Right angle (90° marker)</a></li>
+<li><a href="#rules-and-constraints">Rules and constraints</a></li>
+<li><a href="#distance-between-two-points">Distance between two points</a></li>
+<li><a href="#perpendicular-lines-90-angle">Perpendicular lines (90° angle)</a></li>
+<li><a href="#parallel-lines">Parallel lines</a></li>
+<li><a href="#point-lies-on-a-line">Point lies on a line</a></li>
+<li><a href="#point-lies-on-a-circle">Point lies on a circle</a></li>
+<li><a href="#two-sides-have-the-same-length">Two sides have the same length</a></li>
+<li><a href="#two-angles-are-equal">Two angles are equal</a></li>
+<li><a href="#midpoint">Midpoint</a></li>
+<li><a href="#intersection-of-two-lines">Intersection of two lines</a></li>
+<li><a href="#labels-and-measurements">Labels and measurements</a></li>
+<li><a href="#examples">Examples</a></li>
+<li><a href="#example-1--right-triangle">Example 1 — Right triangle</a></li>
+<li><a href="#example-2--isosceles-triangle">Example 2 — Isosceles triangle</a></li>
+<li><a href="#example-3--circle-with-a-tangent-line">Example 3 — Circle with a tangent line</a></li>
+<li><a href="#tips">Tips</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<p>You don't need to know the exact coordinates of every point. Just describe the</p>
+<p><strong>relationships</strong> between points (e.g. "these two sides are equal", "this angle is 90°"),</p>
+<p>and the program figures out where to place everything automatically.</p>
+<hr>
+<h2 id="how-it-works">How it works</h2>
+<p>You write geometry commands inside a <code>*draw(...)</code> block.</p>
+<p>The program:</p>
+<ol>
+<li>Reads your commands</li>
+<li>Calculates where each point should go (using a constraint solver)</li>
+<li>Draws the figure and places it in your PDF</li>
+</ol>
+<hr>
+<h2 id="a-simple-example">A simple example</h2>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C = 2, 3)
+    *triangle(A ; B ; C)
+)</code></pre>
+<p>This draws triangle ABC where you have set the coordinates yourself.</p>
+<p>> <strong>Friendly:</strong> <code>,</code> works like <code>;</code> between points</p>
+<p>> (<code><em>triangle(A, B, C)</code> = <code></em>triangle(A ; B ; C)</code>,</p>
+<p>> <code><em>line(A, B)</code>, <code></em>intersection(C, line(A, B), line(D, E))</code>).</p>
+<p>> When <code>;</code> is present it wins. <code>*point(A = 0, 0)</code> never splits —</p>
+<p>> its <code>x, y</code> comma is coordinates, not a separator.</p>
+<hr>
+<h2 id="points">Points</h2>
+<p>A <strong>point</strong> is a dot with a name.</p>
+<h3 id="with-exact-coordinates">With exact coordinates</h3>
+<p>If you know where a point should be, write its position as <code>x, y</code>:</p>
+<pre class="code"><code>*point(A = 0, 0)    // A is at position (0, 0) — the bottom left
+*point(B = 4, 0)    // B is 4 units to the right of A
+*point(C = 2, 3)    // C is up and to the right</code></pre>
+<p>Think of it like a grid — <code>x</code> goes right, <code>y</code> goes up.</p>
+<h3 id="without-coordinates-auto-positioned">Without coordinates (auto-positioned)</h3>
+<p>If you don't know or don't care about the exact position, just name the point.</p>
+<p>The program will place it automatically based on the other rules you give:</p>
+<pre class="code"><code>*point(C)</code></pre>
+<p>This is useful when you say something like "C is 3 cm from A" — the program</p>
+<p>figures out a position for C that satisfies the rule.</p>
+<h3 id="what-auto-placement-decides-and-what-it-doesnt">What auto-placement decides (and what it doesn't)</h3>
+<p>A point without coordinates is placed by the solver from the constraints</p>
+<p>that mention it. Four things to know:</p>
+<ul>
+<li><strong>Position and rotation are arbitrary unless you pin them.</strong> An</li>
+</ul>
+<p>auto-positioned figure can land anywhere, at any rotation. For a tidy,</p>
+<p>canonical picture, pin the first points yourself — <code>*point(A = 0, 0)</code></p>
+<p>and, to fix the orientation, <code>*point(B = 4, 0)</code> — and let the solver</p>
+<p>place the rest.</p>
+<ul>
+<li><strong>The result is deterministic.</strong> The same block always produces the</li>
+</ul>
+<p>same figure: auto points start from a fixed guess (there is no</p>
+<p>randomness), so re-running a file never moves the points.</p>
+<ul>
+<li><strong>The solver is numeric, not exact.</strong> Lengths and angles come out</li>
+</ul>
+<p>right to about 1% (in our checks a 3-unit leg landed within 0.03 and</p>
+<p>a 5-unit side within 0.05) — plenty for a drawing, but don't treat</p>
+<p>the output as a mathematical proof.</p>
+<ul>
+<li><strong>Constraints must determine the figure.</strong> A point that no constraint</li>
+</ul>
+<p>mentions is placed arbitrarily, and too few constraints can collapse</p>
+<p>a shape (a bare <code>*triangle(A ; B ; C)</code> over three auto points draws A</p>
+<p>and C almost on top of each other). Give every auto point at least</p>
+<p>one constraint, and pin extra points when a constraint leaves two</p>
+<p>possible placements (a distance fixes a length but not a direction;</p>
+<p><code>*on-circle</code> fixes a radius but not the angle around the circle).</p>
+<hr>
+<h2 id="construction-points">Construction points</h2>
+<p>A point can also be <strong>defined by a construction</strong>: a formula that computes</p>
+<p>its position from other points. Write the constructor call on the right</p>
+<p>side of <code>=</code>:</p>
+<pre class="code"><code>*point(M = midpoint(A ; B))          // halfway between A and B
+*point(F = foot(C ; line(A ; B)))    // where C projects onto line AB
+*point(R = reflect(C ; line(A ; B))) // C mirrored across the line
+*point(P = intersect(line(A ; B) ; line(C ; D)))</code></pre>
+<p>A constructed point is <strong>derived</strong>, not a free variable: it always equals</p>
+<p>its formula, and it follows its inputs automatically — if a solver</p>
+<p>constraint moves A, the midpoint moves too. Constraints may reference</p>
+<p>constructed points:</p>
+<pre class="code"><code>*point(C)                      // free point, solver places it
+*point(M = midpoint(A ; C))    // derived from A and C
+*distance(B ; M ; 5)           // the constraint moves C; M follows</code></pre>
+<p>The eight</p>
+<p>constructors:</p>
+<table><thead><tr><th>Constructor</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>midpoint(A ; B)</code></td><td>halfway between A and B</td></tr>
+<tr><td><code>foot(P ; line(A ; B))</code></td><td>the perpendicular foot of P on line AB</td></tr>
+<tr><td><code>reflect(P ; line(A ; B))</code></td><td>P mirrored across the line</td></tr>
+<tr><td><code>reflect(P ; O)</code></td><td>P mirrored through the point O</td></tr>
+<tr><td><code>intersect(...)</code></td><td>where two lines/circles cross (see below)</td></tr>
+<tr><td><code>centroid(A ; B ; C)</code></td><td>center of mass of the triangle</td></tr>
+<tr><td><code>circumcenter(A ; B ; C)</code></td><td>center of the circle through A, B, C</td></tr>
+<tr><td><code>incenter(A ; B ; C)</code></td><td>center of the inscribed circle</td></tr>
+<tr><td><code>orthocenter(A ; B ; C)</code></td><td>where the three altitudes meet</td></tr>
+</tbody></table>
+<p>Constructors may be <strong>nested inside other constructors</strong>:</p>
+<pre class="code"><code>*point(M = midpoint(A ; midpoint(B ; C)))</code></pre>
+<p>(The restriction is about <em>commands</em>: a construction may only appear on</p>
+<p>the right side of <code><em>point(NAME = ...)</code>, never inside <code></em>line(...)</code> or</p>
+<p><code>*circle(...)</code> — those take plain point names. Referenced points may be</p>
+<p>defined later; the program sorts dependencies for you.)</p>
+<h3 id="picking-an-intersection">Picking an intersection</h3>
+<p>Two intersecting lines cross exactly once, so no choice is needed — and</p>
+<p>passing one is an error:</p>
+<pre class="code"><code>*point(P = intersect(line(A ; B) ; line(C ; D)))</code></pre>
+<p>A line and a circle cross up to twice, and two circles up to twice, so</p>
+<p>you must say <strong>which</strong> solution with <code>k = 1</code> or <code>k = 2</code>:</p>
+<pre class="code"><code>*point(P1 = intersect(line(A ; B) ; circle(O ; 3) ; 1))
+*point(P2 = intersect(circle(O ; 3) ; circle(Q ; A) ; 2))</code></pre>
+<ul>
+<li><strong>Line + circle:</strong> <code>k = 1</code> is the intersection reached first walking</li>
+</ul>
+<p>from A toward B along the line; <code>k = 2</code> is the second. (Swapping the</p>
+<p>line's two points swaps the order.)</p>
+<ul>
+<li><strong>Circle + circle:</strong> <code>k = 1</code> is on the <strong>left</strong> (counterclockwise)</li>
+</ul>
+<p>side of the direction from the first circle's center to the second's;</p>
+<p><code>k = 2</code> is on the right.</p>
+<h3 id="when-things-go-wrong">When things go wrong</h3>
+<p>Construction errors are reported like any other geometry error, with the</p>
+<p>offending <code>*point(...)</code> named:</p>
+<ul>
+<li><strong>Parallel (or coincident) lines</strong> — <code>intersect</code> of two lines has no</li>
+</ul>
+<p>unique solution.</p>
+<ul>
+<li><strong>A line misses a circle / circles don't cross</strong> — no intersection.</li>
+<li><strong>Degenerate line</strong> — <code>line(A ; A)</code> (the same point twice).</li>
+<li><strong>Collinear triangle</strong> — no circumcenter or orthocenter.</li>
+<li><strong>Unknown constructor</strong> — with a suggestion:</li>
+</ul>
+<p><code>unknown construction &#x27;midpint&#x27; — did you mean &#x27;midpoint&#x27;?</code></p>
+<ul>
+<li><strong>Wrong arity</strong> — e.g. <code>midpoint requires 2 arguments: midpoint(A ; B)</code>.</li>
+<li><strong>Missing or invalid <code>k</code></strong> — required for two-solution cases, rejected</li>
+</ul>
+<p>for line + line, and must be 1 or 2.</p>
+<ul>
+<li><strong>A constructed point given coordinates too</strong> (or built twice) — a</li>
+</ul>
+<p>derived point is computed, never free.</p>
+<ul>
+<li><strong>Construction cycles</strong> — a point that (directly or through others)</li>
+</ul>
+<p>depends on itself: <code>construction cycle: M -&gt; N -&gt; M</code>.</p>
+<p>The three-argument <em>constraint</em> form <code>*midpoint(A ; B ; M)</code> is unchanged:</p>
+<p>it makes M a free solver point, whereas <code>*point(M = midpoint(A ; B))</code></p>
+<p>computes M directly.</p>
+<p>A complete runnable file:</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/blob/main/examples/construction_points.ezmath"><code>examples/construction_points.ezmath</code></a></p>
+<p>(the orthocenter built from two altitude feet).</p>
+<hr>
+<h2 id="lines">Lines</h2>
+<p>A <code>*draw(...)</code> block can also be written on a single line:</p>
+<pre class="code"><code>*draw(*point(A = 0, 0) *point(B = 4, 0) *point(C = 2, 3) *triangle(A ; B ; C))</code></pre>
+<h3 id="line-segment-from-a-to-b">Line segment (from A to B)</h3>
+<pre class="code"><code>*line(A ; B)</code></pre>
+<p>Draws a straight line between two points.</p>
+<h3 id="infinite-line">Infinite line</h3>
+<pre class="code"><code>*line(A ; B ; infinite)</code></pre>
+<p>Draws the infinite line through A and B, clipped to the figure bounds.</p>
+<h3 id="ray-starts-at-a-goes-through-b">Ray (starts at A, goes through B)</h3>
+<pre class="code"><code>*ray(A ; B)</code></pre>
+<hr>
+<h2 id="triangles">Triangles</h2>
+<pre class="code"><code>*triangle(A ; B ; C)</code></pre>
+<p>Draws the three sides of triangle ABC.</p>
+<hr>
+<h2 id="circles">Circles</h2>
+<pre class="code"><code>*circle(O ; 3)</code></pre>
+<p>Draws a circle centered at O with radius 3.</p>
+<p>You can also define the circle using a point on it instead of a number:</p>
+<pre class="code"><code>*circle(O ; A)</code></pre>
+<p>Draws a circle centered at O that passes through point A.</p>
+<hr>
+<h2 id="arcs">Arcs</h2>
+<pre class="code"><code>*arc(O ; A ; B)</code></pre>
+<p>Draws an arc of the circle centered at O, going counterclockwise from</p>
+<p>point A to point B (radius = distance OA).</p>
+<hr>
+<h2 id="angles">Angles</h2>
+<pre class="code"><code>*angle(A ; B ; C)</code></pre>
+<p>Draws the interior angle marker at vertex B, between sides BA and BC.</p>
+<p>You can add a label:</p>
+<pre class="code"><code>*angle(A ; B ; C ; 60°)</code></pre>
+<h3 id="right-angle-90-marker">Right angle (90° marker)</h3>
+<pre class="code"><code>*right-angle(B ; A ; C)</code></pre>
+<p>Draws a small corner marker at the <strong>middle argument</strong> (here: A) to show the</p>
+<p>angle is exactly 90°. The other two arguments define the two arms.</p>
+<hr>
+<h2 id="rules-and-constraints">Rules and constraints</h2>
+<p><strong>Constraints</strong> are rules that tell the program how points relate to each other.</p>
+<p>Use them when you don't want to set exact coordinates yourself.</p>
+<h3 id="distance-between-two-points">Distance between two points</h3>
+<pre class="code"><code>*distance(A ; B ; 5)</code></pre>
+<p>"The distance from A to B is 5."</p>
+<h3 id="perpendicular-lines-90-angle">Perpendicular lines (90° angle)</h3>
+<pre class="code"><code>*perp(A ; B ; C ; D)</code></pre>
+<p>"Line AB is perpendicular to line CD."</p>
+<p>A 3-argument form constrains two segments sharing a point:</p>
+<pre class="code"><code>*perp(A ; B ; C)</code></pre>
+<p>"Segment AB is perpendicular to segment BC."</p>
+<h3 id="parallel-lines">Parallel lines</h3>
+<pre class="code"><code>*parallel(A ; B ; C ; D)</code></pre>
+<p>"Line AB is parallel to line CD."</p>
+<h3 id="point-lies-on-a-line">Point lies on a line</h3>
+<pre class="code"><code>*on-line(A ; B ; C)</code></pre>
+<p>"Point C lies on the line through A and B."</p>
+<h3 id="point-lies-on-a-circle">Point lies on a circle</h3>
+<pre class="code"><code>*on-circle(O ; 5 ; A)</code></pre>
+<p>"Point A lies on the circle centered at O with radius 5."</p>
+<h3 id="two-sides-have-the-same-length">Two sides have the same length</h3>
+<pre class="code"><code>*equal-length(A ; B ; C ; D)</code></pre>
+<p>"Segment AB has the same length as segment CD."</p>
+<p>(Used by the solver to position points; no tick marks are drawn yet.)</p>
+<h3 id="two-angles-are-equal">Two angles are equal</h3>
+<pre class="code"><code>*equal-angle(A ; B ; C ; D ; E ; F)</code></pre>
+<p>"Angle ABC equals angle DEF." The vertex is the <strong>middle</strong> point of</p>
+<p>each triple (B and E); the arms go through the outer points. The solver</p>
+<p>moves the free points until the two interior angles match, and both</p>
+<p>angles get the same equality mark — an arc with one tick, identical on</p>
+<p>both angles — so the figure shows the constraint.</p>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C = 2, 3)
+    *point(D = 7, 0)
+    *point(E = 11, 0)
+    *point(F)
+    *equal-angle(A ; B ; C ; D ; E ; F)
+    *distance(E ; F ; 5)
+    *triangle(A ; B ; C)
+    *triangle(D ; E ; F)
+)</code></pre>
+<p>Here F is placed automatically so the two apex angles come out equal.</p>
+<p>A complete runnable file:</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/blob/main/examples/draw_test.ezmath"><code>examples/draw_test.ezmath</code></a> (last block).</p>
+<h3 id="midpoint">Midpoint</h3>
+<pre class="code"><code>*midpoint(A ; B ; M)</code></pre>
+<p>"M is the midpoint of AB."</p>
+<h3 id="intersection-of-two-lines">Intersection of two lines</h3>
+<pre class="code"><code>*intersection(P ; line(A ; B) ; line(C ; D))</code></pre>
+<p>"P is the point where line AB and line CD cross."</p>
+<p>The program calculates P's position automatically.</p>
+<hr>
+<h2 id="labels-and-measurements">Labels and measurements</h2>
+<p>Point labels are placed automatically (the program puts each label on the</p>
+<p>side away from the figure's edges when possible).</p>
+<p>Custom text labels attach to a point, just outside its automatic label:</p>
+<pre class="code"><code>*label(A ; entrance)</code></pre>
+<p>To show a length or angle value in the figure:</p>
+<pre class="code"><code>*length(A ; B)             // shows the length of AB
+*angle-value(A ; B ; C)    // shows the measure of angle ABC (vertex B)</code></pre>
+<p>You can also assign a value:</p>
+<pre class="code"><code>*length(A ; B) = 5
+*angle-value(A ; B ; C) = 60°</code></pre>
+<hr>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-right-triangle">Example 1 — Right triangle</h3>
+<p>The program places C automatically so that AC = 3 and the angle at A is 90°.</p>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)
+
+    *distance(A ; C ; 3)
+    *perp(A ; B ; A ; C)
+
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+)</code></pre>
+<h3 id="example-2-isosceles-triangle">Example 2 — Isosceles triangle</h3>
+<p>Both sides AC and BC are equal in length.</p>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 6, 0)
+    *point(C)
+
+    *equal-length(A ; C ; B ; C)
+    *distance(A ; C ; 5)
+
+    *triangle(A ; B ; C)
+)</code></pre>
+<h3 id="example-3-circle-with-a-tangent-line">Example 3 — Circle with a tangent line</h3>
+<p>A tangent line touches the circle at exactly one point (at a right angle to the radius).</p>
+<p>A is pinned on the x-axis so the picture has a canonical orientation;</p>
+<p>the solver places B on the tangent through A.</p>
+<pre class="code"><code>*draw(
+    *point(O = 0, 0)
+    *point(A = 3, 0)
+    *circle(O ; 3)
+
+    *on-circle(O ; 3 ; A)
+    *line(O ; A)
+
+    *point(B)
+    *perp(O ; A ; A ; B)
+    *distance(A ; B ; 2)
+    *line(A ; B)
+)</code></pre>
+<hr>
+<h2 id="tips">Tips</h2>
+<ul>
+<li>You don't need to set coordinates for every point — only the ones you care about.</li>
+<li>For a tidy figure, pin <code>A = 0, 0</code> and <code>B = x, 0</code> and let the solver place the</li>
+</ul>
+<p>rest — see <a href="#what-auto-placement-decides-and-what-it-doesnt">What auto-placement decides</a>.</p>
+<ul>
+<li>Think of constraints as rules in plain language: "these sides are equal", "this angle is 90°".</li>
+<li>The more constraints you give, the more precisely the figure is drawn.</li>
+<li>Placement is deterministic: the same input always produces the same figure.</li>
+</ul>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="cheatsheet.html">Cheat sheet</a> — geometry and math commands on one page</li>
+<li><a href="troubleshooting.html">Troubleshooting and FAQ</a> — fixing <code>[GeometryError]</code> messages</li>
+<li><a href="glossary.html">Glossary</a> — plain-language definitions (constraint solver, …)</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

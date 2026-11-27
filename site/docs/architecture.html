@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture (for contributors) — Easy Math Lang Docs</title>
+<meta property="og:title" content="Architecture (for contributors) — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Architecture (for contributors)</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#architecture-for-contributors">Architecture (for contributors)</a></li><li><a href="#the-big-picture">The big picture</a></li><li><a href="#the-compiler-srccompiler">The compiler (`src/compiler/`)</a></li><li><a href="#entry-points">Entry points</a></li><li><a href="#what-one-compile-does">What one compile does</a></li><li><a href="#module-map">Module map</a></li><li><a href="#geometry-srcgeometry">Geometry (`src/geometry/`)</a></li><li><a href="#language-server-srclsp">Language server (`src/lsp/`)</a></li><li><a href="#desktop-editor-srceditor">Desktop editor (`src/editor/`)</a></li><li><a href="#tests-tests">Tests (`tests/`)</a></li><li><a href="#ci-and-releases-githubworkflows">CI and releases (`.github/workflows/`)</a></li><li><a href="#where-to-change-what">Where to change what</a></li><li><a href="#the-five-packages-in-plain-words">The five packages in plain words</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="architecture-for-contributors">Architecture (for contributors)</h1>
+<p>This page explains how easy-math-lang is put together, so you can find</p>
+<p>your way around before touching code. End users should start with the</p>
+<p><a href="installation.html">Installation guide</a> and <a href="algebra.html">Writing math</a>.</p>
+<ul>
+<li><a href="#the-big-picture">The big picture</a></li>
+<li><a href="#the-compiler-srccompiler">The compiler (<code>src/compiler/</code>)</a></li>
+<li><a href="#entry-points">Entry points</a></li>
+<li><a href="#what-one-compile-does">What one compile does</a></li>
+<li><a href="#module-map">Module map</a></li>
+<li><a href="#geometry-srcgeometry">Geometry (<code>src/geometry/</code>)</a></li>
+<li><a href="#language-server-srclsp">Language server (<code>src/lsp/</code>)</a></li>
+<li><a href="#desktop-editor-srceditor">Desktop editor (<code>src/editor/</code>)</a></li>
+<li><a href="#tests-tests">Tests (<code>tests/</code>)</a></li>
+<li><a href="#ci-and-releases-githubworkflows">CI and releases (<code>.github/workflows/</code>)</a></li>
+<li><a href="#where-to-change-what">Where to change what</a></li>
+<li><a href="#the-five-packages-in-plain-words">The five packages in plain words</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<p>New to the project? Read <a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md">Contributing</a> first for</p>
+<p>the setup steps — then come back here.</p>
+<hr>
+<h2 id="the-big-picture">The big picture</h2>
+<p>One <code>.ezmath</code> text file in, one PDF (or image/HTML/Typst file) out:</p>
+<pre class="code"><code>                      ┌──────────────────────────────────────────────┐
+ doc.ezmath ─────────►│  compiler/pipeline.py                       │
+                      │  strip comments → resolve &lt;variables&gt;       │
+                      │  → expand *commands → escape → Typst text   │
+                      │      ▲              ▲             ▲         │
+                      │      │              │             │         │
+                      │  geometry/       lsp/ reuses  symbols,      │
+                      │  *draw blocks    the same     calc, tables… │
+                      │  (solve + draw)  modules                    │
+                      └──────────────┬───────────────────────────────┘
+                                     │
+                        doc.typ + doc.smap.json
+                                     │
+                               Typst (PyPI)
+                                     │
+                                     ▼
+                     doc.pdf / .png / .svg / .html / .typ</code></pre>
+<p>Five packages under <code>src/</code> — all plain Python packages, imported as</p>
+<p><code>compiler.<em></code>, <code>geometry.</em></code>, <code>lsp.<em></code>, <code>editor.</em></code>, <code>typst_bundle.*</code>:</p>
+<table><thead><tr><th>Package</th><th>What it does</th><th>Entry point</th></tr></thead><tbody>
+<tr><td><code>src/compiler/</code></td><td><code>.ezmath</code> → Typst → PDF/images (the whole language)</td><td><code>easy-math-lang</code> → <code>compiler.pipeline:main</code></td></tr>
+<tr><td><code>src/geometry/</code></td><td><code>*draw</code> blocks: parse rules → solve positions → draw (CeTZ)</td><td>called by the compiler</td></tr>
+<tr><td><code>src/lsp/</code></td><td>Language server: errors, completion, hover, outline</td><td><code>easy-math-lsp</code> → <code>lsp.server:main</code></td></tr>
+<tr><td><code>src/editor/</code></td><td>Desktop editor (PySide6)</td><td><code>easy-math-editor</code> → <code>editor.app:main</code></td></tr>
+<tr><td><code>src/typst_bundle/</code></td><td>Vendored Typst packages: pinned versions + <code>#import</code> line + bundle resolution</td><td>stdlib-only leaf; used by <code>geometry</code> and <code>compiler</code></td></tr>
+</tbody></table>
+<p>The single most important rule: <strong>there is exactly one parser.</strong> The</p>
+<p>language server and the editor's preview both drive the same compiler</p>
+<p>modules — never fork the syntax into a second implementation.</p>
+<hr>
+<h2 id="the-compiler-srccompiler">The compiler (<code>src/compiler/</code>)</h2>
+<h3 id="entry-points">Entry points</h3>
+<ul>
+<li><code>main()</code> (<code>pipeline.py</code>) — the CLI: parses <code>--format/--ppi/-o/--strict/…</code></li>
+</ul>
+<p>and calls:</p>
+<ul>
+<li><code>compile_ezmath(input, output, …)</code> (<code>pipeline.py</code>) — the public API.</li>
+</ul>
+<p>The editor preview, the tests, and the CLI all call this. It is</p>
+<p>wrapped by <code>@_with_diag_count</code>, which counts <code>[Error]</code>/<code>[Warning]</code></p>
+<p>writes (only at the start of a line, so echoed source lines in the</p>
+<p>new context blocks never count) and implements <code>--strict</code>.</p>
+<h3 id="what-one-compile-does">What one compile does</h3>
+<ol>
+<li><strong>Read + strip comments</strong> — <code>comments.strip_comments</code> (protects</li>
+</ol>
+<p>URLs and <code>\ … \</code> math ranges from <code>//</code>).</p>
+<ol>
+<li><strong>Line loop</strong> (<code>compile_ezmath</code>) — every line is classified:</li>
+</ol>
+<p>fenced blocks, math-mode continuations, friendly statements</p>
+<p>(<code>let x = 5</code>), <code><em>define(...)</code>, single-line and block <code></em>draw(...)</code>,</p>
+<p>silent blocks <code><em>( ...) </code>, assignments <code>&lt;x&gt; = ...</code>, <code></em>doc_title</code> /</p>
+<p><code>*doc_font</code> control lines, friendly blocks (<code>#</code> headings, lists) —</p>
+<p>and finally normal text.</p>
+<ol>
+<li><strong>Per-line text pipeline</strong> — <code>_render_text_line</code> runs a fixed</li>
+</ol>
+<p>sequence of phases on each ordinary line (each phase is one small</p>
+<p>module): <code>*p(...)</code> raw segments → <code>&lt;variables&gt;</code> → undefined check →</p>
+<p>defines → <code>calc()</code> → <code>\ … \</code> math pairs → <code><em>det</code>/tables → <code></em>plot</code> →</p>
+<p>styling/<code>*image</code> → math commands → unknown-command warnings</p>
+<p>→ <code><em>pi</code>/<code></em>infinity</code> → merge math → subscripts → symbol shortcuts →</p>
+<p>multiplication symbol → escape to Typst.</p>
+<ol>
+<li><strong>Typst generation</strong> — adds <code>#set text/page/document</code>, joins lines,</li>
+</ol>
+<p>writes <code>doc.typ</code>, and records a <strong>source map</strong> (<code>doc.smap.json</code>) so</p>
+<p>the editor can jump from a PDF position back to your source line.</p>
+<ol>
+<li><strong>Failure gates</strong> — an unclosed block or a broken <code>*draw</code> stops the</li>
+</ol>
+<p>build before Typst runs (everything else only warns).</p>
+<ol>
+<li><strong>Export</strong> — <code>_run_typst_export()</code> passes the vendored Typst</li>
+</ol>
+<p>bundle as <code>package_path</code> (when present) and calls</p>
+<p><code>typst.compile()</code> for</p>
+<p>PDF/PNG/SVG/HTML (or copies the <code>.typ</code> for <code>typ</code> exports), then</p>
+<p>intermediate files are cleaned up unless <code>--save-build-artifacts</code>.</p>
+<h3 id="module-map">Module map</h3>
+<table><thead><tr><th>Module</th><th>Responsibility</th></tr></thead><tbody>
+<tr><td><code>pipeline.py</code></td><td>Everything above: line loop, per-line phases, Typst output, CLI</td></tr>
+<tr><td><code>state.py</code></td><td><code>CompileContext</code> — per-run state (variables, defines, doc title/font, plot counters, original source lines for diagnostics)</td></tr>
+<tr><td><code>comments.py</code></td><td><code>//</code> stripping</td></tr>
+<tr><td><code>statements.py</code></td><td><code>*define(...)</code>, <code>&lt;x&gt; = ...</code>, <code>let x = 5</code> normalization</td></tr>
+<tr><td><code>variables.py</code></td><td><code>&lt;name&gt;</code> substitution + <code>undefined variable</code> errors</td></tr>
+<tr><td><code>calc.py</code></td><td>Safe <code>calc(...)</code> evaluation (AST whitelist, no <code>eval</code>)</td></tr>
+<tr><td><code>safemath.py</code></td><td>The shared function whitelist for <code>calc</code>/<code>*plot</code></td></tr>
+<tr><td><code>math_commands.py</code></td><td><code><em>frac</code>, <code></em>pow</code>, <code><em>sum</code>, <code></em>int</code>, <code><em>diff</code>, <code></em>cases</code>, <code><em>set</code>, <code></em>align</code>, <code>*det</code>, … + argument splitting</td></tr>
+<tr><td><code>inline_math.py</code></td><td><code>\ … \</code> math mode → Typst <code>$…$</code></td></tr>
+<tr><td><code>symbols.py</code></td><td>ASCII → Unicode tables (<code>-&gt;</code> → →, <code>*alpha</code> → α)</td></tr>
+<tr><td><code>tables.py</code></td><td><code><em>table</code> / <code></em>matrix</code> parsing and emission</td></tr>
+<tr><td><code>plots.py</code></td><td><code>*plot</code> → Matplotlib SVG → <code>#image(...)</code></td></tr>
+<tr><td><code>text_commands.py</code></td><td><code><em>bold/</em>italic/<em>underline</code>, <code></em>newpage</code>, <code>*image</code></td></tr>
+<tr><td><code>escaping.py</code></td><td>Escaping text so it is safe in Typst</td></tr>
+<tr><td><code>diagnostics.py</code></td><td>Unknown-command warnings, "did you mean …?", and the <code>report()</code> helper that prints every diagnostic with a Python-style context block (file/line/column, the real source line and a caret)</td></tr>
+<tr><td><code>source_map.py</code>, <code>source_links.py</code></td><td><code>.smap.json</code> sidecar + <code>eml-src://</code> PDF click-back links</td></tr>
+<tr><td><code>update.py</code></td><td><code>--check-update</code> GitHub release lookup</td></tr>
+</tbody></table>
+<p><code>math_commands.py</code> and <code>pipeline.py</code> are the two biggest files — both</p>
+<p>carry a table-of-contents docstring at the top.</p>
+<hr>
+<h2 id="geometry-srcgeometry">Geometry (<code>src/geometry/</code>)</h2>
+<p><code>*draw(...)</code> blocks go through three stages:</p>
+<ol>
+<li><strong>Parse</strong> — <code>parsing.parse_draw_block</code> splits the block into</li>
+</ol>
+<p><code>(command, args, annotation)</code> triples.</p>
+<ol>
+<li><strong>Solve</strong> — <code>commands._process_command</code> turns each command into</li>
+</ol>
+<p>points/constraints on a <code>GeometrySolver</code>; <code>solver.solve()</code> is a</p>
+<p>hand-rolled gradient-descent fit (NumPy only, deterministic — same</p>
+<p>input always gives the same figure).</p>
+<ol>
+<li><strong>Codegen</strong> — <code>codegen.generate_typst</code> emits a CeTZ canvas</li>
+</ol>
+<p>(<code>#import &quot;@preview/cetz:0.4.2&quot;</code>, built from the pinned constant in</p>
+<p><code>src/typst_bundle</code>), embedding errors as comments so</p>
+<p>the rest of the document still builds. CeTZ ships inside the repo</p>
+<p>and the packaged builds (<code>vendor/typst-packages/</code>, passed to Typst as</p>
+<p><code>package_path</code>), so <code>*draw</code> works fully offline — see</p>
+<p><a href="packaging.html#vendored-typst-packages-offline-draw">packaging.md</a>.</p>
+<p>Failures print <code>[GeometryError] …</code> to stderr; a hard failure is</p>
+<p>signalled back to the compiler by an <code>// [Error]</code> placeholder, which</p>
+<p>fails the build before Typst runs.</p>
+<hr>
+<h2 id="language-server-srclsp">Language server (<code>src/lsp/</code>)</h2>
+<ul>
+<li><code>server.py</code> — pygls wiring over stdio (JSON-RPC on stdin/stdout;</li>
+</ul>
+<p><strong>logs must go to stderr</strong> or editors disconnect).</p>
+<ul>
+<li><code>analysis.py</code> — the brain: <code>analyze_text()</code> walks the document</li>
+</ul>
+<p>mirroring the compiler's line classification and <strong>reuses</strong></p>
+<p>compiler modules (<code>comments</code>, <code>statements</code>, <code>variables</code>, <code>calc</code>,</p>
+<p><code>diagnostics</code>, <code>tables</code>, <code>geometry.parsing</code>) instead of parsing a</p>
+<p>second time. Also <code>complete()</code>, <code>hover()</code>, <code>document_symbols()</code>.</p>
+<ul>
+<li><code>builtins.py</code> — completion/hover microcopy; its <code>_CROSS_CHECK</code></li>
+</ul>
+<p>asserts the LSP's command tables stay in sync with the compiler's</p>
+<p>(<code>diagnostics.KNOWN_COMMANDS</code>, geometry's command list) and logs a</p>
+<p>warning on drift.</p>
+<p>If you add a command to the compiler, this is where completion text</p>
+<p>goes too.</p>
+<hr>
+<h2 id="desktop-editor-srceditor">Desktop editor (<code>src/editor/</code>)</h2>
+<p><code>main_window.py</code> (≈1900 lines) is the hub; its section banners</p>
+<p>(<code># LSP lifecycle</code>, <code># Navigation…</code>, <code># Completion + hover</code>,</p>
+<p><code># File operations</code>, <code># Build…</code>, <code># Wiring…</code>, <code># Live preview…</code>) mark</p>
+<p>the table of contents — a fuller map sits in its module docstring.</p>
+<p>Three ways the editor talks to the rest of the system:</p>
+<table><thead><tr><th>Feature</th><th>How it runs</th></tr></thead><tbody>
+<tr><td><strong>Build → Compile</strong> (Ctrl+B)</td><td><em>Out of process</em>: <code>QProcess</code> runs <code>easy-math-lang</code> (found by <code>paths.resolve_compiler_command</code>)</td></tr>
+<tr><td><strong>Live preview + Export As…</strong></td><td><em>In process</em>: a worker <code>QThread</code> calls <code>compiler.pipeline.compile_ezmath()</code> directly — works for unsaved documents, no helper needed</td></tr>
+<tr><td><strong>Errors / completion / outline</strong></td><td><em>Out of process</em>: <code>lsp_client.LspClient</code> runs <code>easy-math-lsp</code> over JSON-RPC</td></tr>
+</tbody></table>
+<p>Supporting modules worth knowing:</p>
+<table><thead><tr><th>Module</th><th>Responsibility</th></tr></thead><tbody>
+<tr><td><code>paths.py</code></td><td>Finds the helper binaries in every install type (env var → next to exe → <code>PATH</code> → <code>python -m</code>). <strong>Stdlib-only</strong> so it bundles cheaply — keep it that way.</td></tr>
+<tr><td><code>preview.py</code></td><td>Qt-free in-process compile for preview/export (serializes with a lock)</td></tr>
+<tr><td><code>preview_panel.py</code></td><td>PDF viewer dock, zoom, Ctrl+Click source links</td></tr>
+<tr><td><code>lsp_client.py</code></td><td>Async LSP client over <code>QProcess</code> (state machine + watchdogs)</td></tr>
+<tr><td><code>symbol_registry.py</code></td><td>The symbol palette catalogue (with a <code>_cross_check</code> against compiler specs); the <code>draw-gallery</code> symbol opens the geometry gallery</td></tr>
+<tr><td><code>draw_catalog.py</code></td><td>Qt-free gallery data: one entry per geometry command (group, title, syntax from <code>GEOMETRY_DOCS</code>, example), enclosing <code>*draw</code> block detection, insertion math, and the template palette helpers (<code>commands_in</code>, <code>symbol_for_command</code>)</td></tr>
+<tr><td><code>draw_gallery.py</code></td><td>The non-modal <code>*draw</code> gallery dialog: cards, search + group filter, thumbnails rendered from <code>assets/draw_previews/&lt;id&gt;.svg</code> (<code>QSvgRenderer</code>, placeholder when missing). <strong>Lazily imported</strong> on first click — keep it out of editor startup</td></tr>
+<tr><td><code>draw_template.py</code></td><td>The non-modal template window a gallery card's <code>Insert example…</code> opens: static SVG preview over the editable bare code to insert, plus a fuzzy palette of all geometry commands (in-code ones pinned bold first; parameter-dialog picks land in the code area). <strong>Lazily imported</strong> with the gallery</td></tr>
+<tr><td><code>theme.py</code>, <code>editor_widget.py</code>, <code>syntax_highlighter.py</code></td><td>Colors, text area, highlighting</td></tr>
+<tr><td><code>problems_panel.py</code>, <code>outline_panel.py</code>, <code>command_palette.py</code>, <code>find_bar.py</code></td><td>The panels and pickers</td></tr>
+<tr><td><code>positions.py</code>, <code>protocol.py</code>, <code>pdf_links.py</code></td><td>Qt-free helpers: UTF-16 ↔ code-point, LSP framing, PDF link parsing — all unit-testable without a GUI</td></tr>
+</tbody></table>
+<hr>
+<h2 id="tests-tests">Tests (<code>tests/</code>)</h2>
+<ul>
+<li><code>tests/conftest.py</code> puts <code>src/</code> on <code>sys.path</code>, provides an offscreen</li>
+</ul>
+<p><code>qapp</code> fixture (GUI tests skip/headless cleanly), and redirects the</p>
+<p>editor's config file to a temp dir so tests never touch your real</p>
+<p>settings.</p>
+<ul>
+<li>The common pattern for compiler tests: write a temp <code>.ezmath</code> file,</li>
+</ul>
+<p><strong>stub</strong> the Typst backend (<code>monkeypatch.setattr(pipeline, &quot;typst&quot;, stub)</code>),</p>
+<p>call <code>compile_ezmath()</code>, then assert on the generated <code>.typ</code> text and</p>
+<p>captured stderr. See <code>tests/test_compiler.py</code>'s <code>compile_text</code> helper</p>
+<p>for the canonical shape.</p>
+<ul>
+<li>Geometry tests call <code>geometry.parse_draw_block(...)</code> directly; LSP</li>
+</ul>
+<p>tests call <code>lsp.analysis.analyze_text(...)</code>.</p>
+<ul>
+<li><code>tests/test_packaged_build.py</code> is <strong>opt-in</strong> (needs <code>dist/</code> binaries</li>
+</ul>
+<p>and <code>EASYMATH_RUN_BUILD_TESTS=1</code>).</p>
+<ul>
+<li><code>tests/test_lazy_imports.py</code> guards startup cost: NumPy, Typst and</li>
+</ul>
+<p>PySide6 must stay lazily imported where they already are.</p>
+<p>Run everything with <code>uv run pytest tests/ -v</code>.</p>
+<p>> The committed PDFs in <code>examples/</code> are illustrative output for users —</p>
+<p>> tests do <strong>not</strong> diff against them.</p>
+<hr>
+<h2 id="ci-and-releases-githubworkflows">CI and releases (<code>.github/workflows/</code>)</h2>
+<table><thead><tr><th>Workflow</th><th>Trigger</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>tests.yml</code></td><td>every push + PR</td><td><code>uv sync --frozen</code>, then the full test suite on <strong>ubuntu + windows</strong> (Python 3.12, <code>QT_QPA_PLATFORM=offscreen</code>)</td></tr>
+<tr><td><code>build-installers.yml</code></td><td>push, PR, nightly cron, tags</td><td>builds DMG / deb+rpm / Windows Inno Setup / Arch packages, re-runs tests as a gate, and on a tag matching the <code>pyproject.toml</code> version publishes a release</td></tr>
+</tbody></table>
+<p><code>scripts/check_tag_version.py</code> fails the release if the tag and</p>
+<p><code>pyproject.toml</code> version disagree. Details: <a href="packaging.html">Packaging and releases</a>.</p>
+<hr>
+<h2 id="where-to-change-what">Where to change what</h2>
+<p>The code splits into five packages under <code>src/</code>. Each one has its own</p>
+<p><code>README.md</code> with a file-by-file map and a plain-language data-flow</p>
+<p>diagram. Start here:</p>
+<table><thead><tr><th>I want to…</th><th>Start here</th></tr></thead><tbody>
+<tr><td>Add/change a math command (<code>*foo</code>)</td><td><code>compiler/math_commands.py</code> (add a spec to <code>math_call_specs</code> or a dedicated <code>replace_*_calls</code>), register the name in <code>diagnostics.KNOWN_COMMANDS</code>, then add tests + docs (<code>rule.txt</code>, <code>docs/algebra.md</code>, <code>lsp/builtins.py</code>)</td></tr>
+<tr><td>Add a symbol (<code>*foo</code> → glyph, or <code>-&gt;</code> → →)</td><td><code>compiler/symbols.py</code> (<code>SYMBOL_REPLACEMENTS</code> / <code>WORD_REPLACEMENTS</code>) — completion picks it up from <code>symbol_registry.py</code> / <code>lsp/builtins.py</code></td></tr>
+<tr><td>Change how lines are processed</td><td><code>compiler/pipeline.py</code> (<code>_render_text_line</code> phases — keep the order, it is documented in the docstring)</td></tr>
+<tr><td>Add a geometry command</td><td><code>geometry/commands.py</code> (+ <code>KNOWN_GEOMETRY_COMMANDS</code>), codegen in <code>geometry/codegen.py</code></td></tr>
+<tr><td>Add/change a <code>*draw</code> gallery card (example, group, wording)</td><td><code>editor/draw_catalog.py</code> (<code>_EXAMPLES</code> + specs) and <code>lsp/builtins.py</code> (<code>GEOMETRY_DOCS</code>), then re-render the thumbnails: <code>uv run python scripts/build_draw_previews.py</code> — the manifest hash mismatch fails <code>tests/test_draw_catalog.py</code> until you do</td></tr>
+<tr><td>Fix an error message / add a hint</td><td><code>compiler/diagnostics.py</code> (and the matching row in <code>docs/troubleshooting.md</code>)</td></tr>
+<tr><td>Improve completion/hover</td><td><code>lsp/builtins.py</code> text; behavior in <code>lsp/analysis.py</code></td></tr>
+<tr><td>Add an editor feature</td><td><code>editor/main_window.py</code> (wire it in <code>_create_menus</code>), keep new logic in its own Qt-light module</td></tr>
+<tr><td>Change the language itself</td><td>The human-readable spec is <code>rule.txt</code> (also consumed by <code>lsp/builtins.py</code> for its help text)</td></tr>
+</tbody></table>
+<h3 id="the-five-packages-in-plain-words">The five packages in plain words</h3>
+<table><thead><tr><th>Package</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>compiler/</code></td><td>Reads your <code>.ezmath</code> text and turns it into Typst, then PDF/PNG/SVG/HTML. One parser — the language server and editor preview both use it.</td></tr>
+<tr><td><code>geometry/</code></td><td>Solves <code>*draw(...)</code> constraints (points, distances, angles) and emits Typst/CeTZ drawing code.</td></tr>
+<tr><td><code>lsp/</code></td><td>Language server: gives any editor error checking, autocompletion, hover, and outline for <code>.ezmath</code> files. Reuses the compiler.</td></tr>
+<tr><td><code>editor/</code></td><td>Desktop app (PySide6): text editor, build button, live preview, Export As…, settings.</td></tr>
+<tr><td><code>typst_bundle/</code></td><td>Vendored Typst packages (CeTZ) so <code>*draw</code> works offline with no download.</td></tr>
+</tbody></table>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md">Contributing</a> — setup, workflow, PR checklist</li>
+<li><a href="packaging.html">Packaging and releases</a> — building installers</li>
+<li><a href="lsp.html">Language server</a> — how the LSP is used</li>
+<li><a href="glossary.html">Glossary</a> — plain-language definitions</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

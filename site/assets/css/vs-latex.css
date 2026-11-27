@@ -1,0 +1,14 @@
+.vs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.vs-col { padding: 1rem; }
+.vs-col h3 { margin-top: 0; }
+.vs-col pre { background-color: var(--code-bg); color: var(--code-ink); padding: 1rem; border-radius: 8px; white-space: pre-wrap; }
+.vs-meta { font-size: .85rem; color: var(--ink-soft); }
+@media (max-width: 720px) { .vs-row { grid-template-columns: 1fr; } }

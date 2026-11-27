@@ -1,0 +1,92 @@
+[
+  {
+    "title": "Fraction",
+    "latex": "\\\\frac{2}{3}",
+    "ezmath": "*frac(2 ; 3)\n",
+    "latex_chars": 12,
+    "ezmath_chars": 13,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Power and root",
+    "latex": "x^{2} + \\\\sqrt{x + 1}",
+    "ezmath": "*pow(x ; 2) + *root(2 ; x + 1)\n",
+    "latex_chars": 21,
+    "ezmath_chars": 31,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Sum and integral",
+    "latex": "\\\\sum_{i=1}^{n} i, \\\\int_{0}^{1} x^{2} dx",
+    "ezmath": "*sum(i = 1 ; n ; i)\n*int(0 ; 1 ; x^2)\n",
+    "latex_chars": 41,
+    "ezmath_chars": 38,
+    "latex_lines": 1,
+    "ezmath_lines": 3
+  },
+  {
+    "title": "Limit",
+    "latex": "\\\\lim_{x \\\\to 0} \\\\frac{\\\\sin x}{x}",
+    "ezmath": "*lim(x -> 0 ; *frac(sin(x) ; x))\n",
+    "latex_chars": 35,
+    "ezmath_chars": 33,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Matrix",
+    "latex": "\\\\begin{pmatrix} a & b \\\\\\\\ c & d \\\\end{pmatrix}",
+    "ezmath": "*matrix(a ; b | c ; d)\n",
+    "latex_chars": 48,
+    "ezmath_chars": 23,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Column vector",
+    "latex": "\\\\begin{pmatrix} 3 \\\\\\\\ 4 \\\\end{pmatrix}",
+    "ezmath": "*vec(3 ; 4)\n",
+    "latex_chars": 40,
+    "ezmath_chars": 12,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "System of equations",
+    "latex": "\\\\begin{cases} x + y = 5 \\\\\\\\ x - y = 1 \\\\end{cases}",
+    "ezmath": "*cases(x + y = 5 | x - y = 1)\n",
+    "latex_chars": 52,
+    "ezmath_chars": 30,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Piecewise function",
+    "latex": "\\\\begin{cases} x^2, & x \\\\ge 0 \\\\\\\\ -x, & x < 0 \\\\end{cases}",
+    "ezmath": "*cases(x^2 ; x >= 0 | -x ; x < 0)\n",
+    "latex_chars": 60,
+    "ezmath_chars": 34,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  },
+  {
+    "title": "Geometry figure",
+    "latex": "% (TikZ omitted for brevity)",
+    "ezmath": "*draw(\n    *point(A = 0, 0)\n    *point(B = 3, 0)\n    *point(C = 0, 4)\n    *triangle(A ; B ; C)\n)\n",
+    "latex_chars": 28,
+    "ezmath_chars": 97,
+    "latex_lines": 1,
+    "ezmath_lines": 7
+  },
+  {
+    "title": "Greek symbols",
+    "latex": "\\\\alpha, \\\\beta, \\\\gamma, \\\\Delta",
+    "ezmath": "*alpha *beta *gamma *Delta\n",
+    "latex_chars": 33,
+    "ezmath_chars": 27,
+    "latex_lines": 1,
+    "ezmath_lines": 2
+  }
+]
