@@ -1,6 +1,4 @@
 {
-  "framework": null,
-  "buildCommand": "ROOT=\"$(git rev-parse --show-toplevel)\"; uv run --project \"$ROOT\" python \"$ROOT/scripts/build_playground.py\"",
   "outputDirectory": "site",
   "cleanUrls": true
 }
