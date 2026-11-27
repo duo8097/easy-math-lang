@@ -1546,9 +1546,13 @@ def compile_ezmath(input_file, output_pdf=None, *, output=None, format=None, ppi
             continue
         if in_fence:
             # Fenced code blocks are literal: no assignments, no math,
-            # no Typst structure. Force every '$' literal.
+            # no Typst structure. Treat every character as literal text
+            # (including '$' and anything that would otherwise look like
+            # a math span) so special Typst characters are all escaped.
+            _fenced = line.rstrip('\n')
+            _ph = '\x00'
             _append_output(
-                escape_typst_outside_math(line.rstrip('\n')).replace('$', r'\$'),
+                escape_typst_outside_math(_fenced.replace('$', _ph)).replace(_ph, r'\$'),
                 line_no, line_no,
             )
             continue
