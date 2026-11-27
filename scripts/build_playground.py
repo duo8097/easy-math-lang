@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Build the in-browser playground package from the real compiler source.
 
-Produces ``site/assets/playground/easymath.whl`` — a wheel built from the
-repository's own source tree (via ``uv build``), so the playground runs the
-real compiler with a single source of truth. No compiler code is copied or
-duplicated here.
+Produces a valid wheel under ``site/assets/playground/`` plus a
+``wheel.json`` naming the file, so the playground can install the real
+compiler with a single source of truth. Desktop-only dependencies
+(PySide6) and the native ``typst`` package are stripped from the wheel
+metadata because they are not installable in Pyodide; the playground only
+needs the pure-Python compiler (NumPy and Matplotlib are provided by
+Pyodide).
 
 Usage:
     python3 scripts/build_playground.py
@@ -12,19 +15,35 @@ Usage:
 
 from __future__ import annotations
 
+import json
+import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE_DIR = ROOT / 'site'
 OUT_DIR = SITE_DIR / 'assets' / 'playground'
-WHEEL_NAME = 'easymath.whl'
+
+
+def _strip_deps(metadata: str) -> str:
+    lines = metadata.splitlines(keepends=True)
+    out = []
+    for line in lines:
+        if line.startswith('Requires-Dist:'):
+            if re.search(r'\b(pyside6|typst)\b', line, re.IGNORECASE):
+                continue
+        out.append(line)
+    return ''.join(out)
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for old in OUT_DIR.iterdir():
+        if old.is_file():
+            old.unlink()
     work = ROOT / '.build' / 'playground'
     if work.exists():
         shutil.rmtree(work)
@@ -41,8 +60,23 @@ def main() -> int:
     if not wheels:
         print('no wheel produced', file=sys.stderr)
         return 1
-    shutil.copyfile(wheels[0], OUT_DIR / WHEEL_NAME)
-    print(f'wrote {OUT_DIR / WHEEL_NAME} ({(OUT_DIR / WHEEL_NAME).stat().st_size} bytes)')
+    src_wheel = wheels[0]
+
+    # Rewrite metadata to drop non-Pyodide dependencies, keeping the
+    # standard filename so micropip can identify the distribution.
+    dst_wheel = OUT_DIR / src_wheel.name
+    with zipfile.ZipFile(src_wheel) as zin:
+        names = zin.namelist()
+        with zipfile.ZipFile(dst_wheel, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for info in zin.infolist():
+                data = zin.read(info.filename)
+                if info.filename.endswith('.dist-info/METADATA'):
+                    data = _strip_deps(data.decode('utf-8')).encode('utf-8')
+                zout.writestr(info, data)
+
+    (OUT_DIR / 'wheel.json').write_text(
+        json.dumps({'file': dst_wheel.name}), encoding='utf-8', newline='\n')
+    print(f'wrote {dst_wheel} ({dst_wheel.stat().st_size} bytes)')
     return 0
 
 

@@ -5,7 +5,7 @@
 
   var PYODIDE_VERSION = '0.26.4';
   var PYODIDE_INDEX = 'https://cdn.jsdelivr.net/pyodide/v' + PYODIDE_VERSION + '/full/';
-  var WHEEL_URL = (new URL('assets/playground/easymath.whl', window.location.href)).href;
+  var WHEEL_BASE = (new URL('assets/playground/', window.location.href)).href;
 
   var pyodide = null;
   var loadingPromise = null;
@@ -81,8 +81,10 @@
       }
       var py = await window.loadPyodide({ indexURL: PYODIDE_INDEX });
       await py.loadPackage('micropip');
+      var wr = await fetch(WHEEL_BASE + 'wheel.json', { cache: 'no-cache' });
+      var wj = await wr.json();
       var micropip = py.pyimport('micropip');
-      await micropip.install(WHEEL_URL);
+      await micropip.install(WHEEL_BASE + wj.file);
       pyodide = py;
       loadingEl.hidden = true;
       return py;
@@ -123,17 +125,14 @@
         '        out_text = _f.read()',
         'except FileNotFoundError:',
         '    out_text = ""',
-        'print("__EZMATH_STDERR__" + err_text + "__EZMATH_STDERR__")',
-        'print("__EZMATH_STDOUT__" + out_text + "__EZMATH_STDOUT__")',
+        'ezmath_result = out_text',
+        'ezmath_stderr = err_text',
       ].join('\n');
-      var result = await py.runPythonAsync(python);
-      var text = String(result || '');
-      var mErr = text.match(/__EZMATH_STDERR__([\s\S]*?)__EZMATH_STDERR__/);
-      var mOut = text.match(/__EZMATH_STDOUT__([\s\S]*?)__EZMATH_STDOUT__/);
-      var errText = mErr ? mErr[1] : '';
-      var outText = mOut ? mOut[1] : text;
-      outputEl.textContent = outText;
-      if (errText.trim()) showError(errText.trim());
+      await py.runPythonAsync(python);
+      var outText = py.globals.get('ezmath_result');
+      var errText = py.globals.get('ezmath_stderr');
+      outputEl.textContent = (outText === undefined || outText === null) ? '' : String(outText);
+      if (errText && String(errText).trim()) showError(String(errText).trim());
     } catch (e) {
       fallbackEl.hidden = false;
       showError((e && e.message) ? e.message : String(e));
