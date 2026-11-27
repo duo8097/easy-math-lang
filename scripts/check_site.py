@@ -40,8 +40,9 @@ MAX_SITE_BYTES = 3 * 1024 * 1024
 MIN_IMAGE_BYTES = 4096
 
 #: Hosts the page may link to (plain hyperlinks, not loaded resources).
-ALLOWED_LINK_HOSTS = {'github.com', 'duo8097.github.io', 'www.python.org',
-                      'microsoft.github.io', 'astral.sh'}
+ALLOWED_LINK_HOSTS = {'github.com', 'api.github.com', 'duo8097.github.io',
+                      'www.python.org', 'microsoft.github.io', 'astral.sh',
+                      'cdn.jsdelivr.net'}
 
 
 def _sha256(path: Path) -> str:
@@ -188,6 +189,10 @@ def check_external_resources():
                 r'(?:import|require)\s*\(?\s*["\']([^"\']+)["\']', js):
             if url.startswith(('http://', 'https://', '//')):
                 issues.append(f'{js_file.name}: loads external module {url}')
+        for url in re.findall(r'["\'](https?://[^"\']+)["\']', js):
+            host = urlparse(url).netloc
+            if host not in ALLOWED_LINK_HOSTS:
+                issues.append(f'{js_file.name}: loads external resource {url}')
 
     if issues:
         return issues
