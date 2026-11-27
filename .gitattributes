@@ -1,10 +1,42 @@
-* text=auto eol=lf
+# Set consistent line endings and keep shell scripts runnable.
+# Let Git detect text files and normalize to LF in the repository;
+# working-tree checkout follows the platform default.
+* text=auto
+
+# Shell scripts must stay LF (a CRLF shebang fails on Linux/macOS) and
+# keep their executable bit.
+*.sh text eol=lf
+
+# Windows-side PowerShell/batch scripts are fine with CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Inno Setup and packaging files.
+*.iss text eol=crlf
+
+# Vendored third-party Typst packages.
+vendor/typst-packages/** -text linguist-vendored linguist-generated
+
+# Binary assets — never line-convert.
+*.wasm binary
 *.png binary
 *.jpg binary
 *.jpeg binary
-*.gif binary
 *.ico binary
+*.gif binary
+*.pdf binary
+*.ttf binary
+*.otf binary
 *.whl binary
+*.exe binary
+*.dmg binary
+*.deb binary
+*.rpm binary
+*.zst binary
+
+# Site text assets must stay LF on every platform (Windows CI compares
+# committed byte sizes/hashes).
 *.svg text eol=lf
 *.html text eol=lf
 *.css text eol=lf
