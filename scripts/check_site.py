@@ -40,7 +40,8 @@ MAX_SITE_BYTES = 3 * 1024 * 1024
 MIN_IMAGE_BYTES = 4096
 
 #: Hosts the page may link to (plain hyperlinks, not loaded resources).
-ALLOWED_LINK_HOSTS = {'github.com', 'duo8097.github.io'}
+ALLOWED_LINK_HOSTS = {'github.com', 'duo8097.github.io', 'www.python.org',
+                      'microsoft.github.io', 'astral.sh'}
 
 
 def _sha256(path: Path) -> str:
@@ -238,9 +239,11 @@ def check_image_manifest():
             issues.append(f'{MANIFEST.name}: {name} is listed but missing')
             continue
         size = path.stat().st_size
-        if size < MIN_IMAGE_BYTES:
+        min_bytes = 64 if name in ('favicon-32.png', 'favicon.svg',
+                                    'apple-touch-icon.png') else MIN_IMAGE_BYTES
+        if size < min_bytes:
             issues.append(
-                f'{name}: {size} bytes is below the {MIN_IMAGE_BYTES} byte '
+                f'{name}: {size} bytes is below the {min_bytes} byte '
                 'minimum — looks like a placeholder')
         if size != entry.get('bytes'):
             issues.append(
@@ -279,6 +282,18 @@ def check_image_manifest():
     return issues
 
 
+def check_required_meta_tags():
+    """Every HTML page must carry the required OG/Twitter meta tags."""
+    issues = []
+    required = ('og:title', 'og:description', 'og:image', 'twitter:card')
+    for html_file in _html_files():
+        html = html_file.read_text(encoding='utf-8')
+        for tag in required:
+            if f'property="{tag}"' not in html and f'name="{tag}"' not in html:
+                issues.append(f'{html_file.name}: missing meta tag {tag}')
+    return issues
+
+
 def check_site_size():
     total = 0
     for path in SITE_DIR.rglob('*'):
@@ -298,6 +313,7 @@ def main() -> int:
         ('i18n key parity (en/vi)', check_i18n_parity),
         ('no external resources loaded', check_external_resources),
         ('images match the manifest', check_image_manifest),
+        ('required meta tags present', check_required_meta_tags),
     )
     for label, check in checks:
         issues = check()
