@@ -107,10 +107,12 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     examples = build_examples()
     (OUT_DIR / 'examples.json').write_text(
-        json.dumps(examples, ensure_ascii=False, indent=2), encoding='utf-8')
+        json.dumps(examples, ensure_ascii=False, indent=2), encoding='utf-8',
+        newline='\n')
     comparison = build_comparison()
     (OUT_DIR / 'comparison.json').write_text(
-        json.dumps(comparison, ensure_ascii=False, indent=2), encoding='utf-8')
+        json.dumps(comparison, ensure_ascii=False, indent=2), encoding='utf-8',
+        newline='\n')
     print(f'wrote {len(examples)} examples, {len(comparison)} comparison pairs')
     return 0
 

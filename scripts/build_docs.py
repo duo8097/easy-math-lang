@@ -213,15 +213,15 @@ def main() -> int:
         title = m.group(1).strip() if m else md_path.stem
         body, toc = markdown_to_html(md)
         html_page = page_template(title, body, toc, sidebar)
-        (OUT_DIR / (md_path.stem + '.html')).write_text(html_page, encoding='utf-8')
+        (OUT_DIR / (md_path.stem + '.html')).write_text(html_page, encoding='utf-8', newline='\n')
         text = re.sub(r'```.*?```', ' ', md, flags=re.DOTALL)
         text = re.sub(r'[#*`\[\]()]', ' ', text)
         search_index.append({'slug': md_path.stem, 'title': title, 'text': ' '.join(text.split())[:4000]})
 
     # index page
-    (OUT_DIR / 'index.html').write_text(page_template('Documentation', '<p>Choose a topic from the sidebar.</p>', [], sidebar), encoding='utf-8')
+    (OUT_DIR / 'index.html').write_text(page_template('Documentation', '<p>Choose a topic from the sidebar.</p>', [], sidebar), encoding='utf-8', newline='\n')
 
-    (DATA_DIR / 'docs-search.json').write_text(json.dumps(search_index, ensure_ascii=False), encoding='utf-8')
+    (DATA_DIR / 'docs-search.json').write_text(json.dumps(search_index, ensure_ascii=False), encoding='utf-8', newline='\n')
     print(f'rendered {len(MD_FILES)} docs')
     return 0
 

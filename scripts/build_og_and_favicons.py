@@ -49,7 +49,7 @@ def make_favicon_svg() -> None:
   <rect width="32" height="32" rx="6" fill="#12141a"/>
   <text x="16" y="22" font-family="monospace" font-size="14" font-weight="700" fill="#fe8808" text-anchor="middle">{ * \u03a3 }</text>
 </svg>'''
-    (IMG / 'favicon.svg').write_text(svg, encoding='utf-8')
+    (IMG / 'favicon.svg').write_bytes(svg.encode('utf-8'))
 
 
 def make_png(size: int, name: str) -> None:
