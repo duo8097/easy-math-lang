@@ -1,5 +1,5 @@
 {
-  "buildCommand": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; [ -n \"$ROOT\" ] || ROOT=\".\"; cd \"$ROOT\" && uv run python scripts/build_playground.py",
+  "buildCommand": "ROOT=\"$(git rev-parse --show-toplevel)\"; uv run --project \"$ROOT\" python \"$ROOT/scripts/build_playground.py\"",
   "outputDirectory": "site",
   "cleanUrls": true
 }
