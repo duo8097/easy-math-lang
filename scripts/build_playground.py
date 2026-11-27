@@ -33,7 +33,8 @@ def _strip_deps(metadata: str) -> str:
     out = []
     for line in lines:
         if line.startswith('Requires-Dist:'):
-            if re.search(r'\b(pyside6|typst)\b', line, re.IGNORECASE):
+            if re.search(r'\b(pyside6|typst|matplotlib|numpy|pygls)\b', line,
+                         re.IGNORECASE):
                 continue
         out.append(line)
     return ''.join(out)

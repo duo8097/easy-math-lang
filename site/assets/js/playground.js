@@ -80,6 +80,7 @@
         });
       }
       var py = await window.loadPyodide({ indexURL: PYODIDE_INDEX });
+      await py.loadPackage(['numpy', 'matplotlib']);
       await py.loadPackage('micropip');
       var wr = await fetch(WHEEL_BASE + 'wheel.json', { cache: 'no-cache' });
       var wj = await wr.json();
