@@ -12,6 +12,11 @@ for those.
 
 ## [Unreleased]
 
+### Added
+- Levelled up the website (`site/`): in-browser playground (Pyodide),
+  smart download button, examples gallery, rendered docs, OG/favicon assets,
+  changelog page, and an "ezmath vs LaTeX" comparison page.
+
 ## [8.0.1] - 2026-11-27
 
 ### Fixed
