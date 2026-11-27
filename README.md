@@ -221,10 +221,14 @@ All notable changes to easy-math-lang are documented in
 [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog format,
 [Semantic Versioning](https://semver.org/)). The latest release:
 
-### [8.0.0] - 2026-11-24
+### [8.0.1] - 2026-11-27
 
-#### Added
-- **Easy Math Lang 8.0.0.** Production release integrating user mod files (`*use`), single source of truth for math commands (`commands.toml`), and LSP/editor awareness.
+#### Fixed
+- Fenced code blocks now escape all Typst special characters (including
+  those inside `$...$`-looking spans) instead of leaving inner content
+  unescaped.
+- `escape_number_commas` no longer escapes commas that separate
+  single-digit function arguments (e.g. `frac(2,3)`).
 
 Earlier releases are listed in
 [CHANGELOG.md](CHANGELOG.md) and on the
@@ -241,4 +245,4 @@ UI icons are from [Lucide](https://github.com/lucide-icons/lucide)
 files and full license text live in `src/editor/assets/icons/`
 (see `src/editor/assets/icons/LICENSE` for attribution).
 
-[8.0.0]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...v8.0.0
+[8.0.1]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0...v8.0.1

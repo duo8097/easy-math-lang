@@ -12,6 +12,15 @@ for those.
 
 ## [Unreleased]
 
+## [8.0.1] - 2026-11-27
+
+### Fixed
+- Fenced code blocks now escape all Typst special characters (including
+  those inside `$...$`-looking spans) instead of leaving inner content
+  unescaped.
+- `escape_number_commas` no longer escapes commas that separate
+  single-digit function arguments (e.g. `frac(2,3)`).
+
 ## [8.0.0] - 2026-11-24
 
 ### Added
@@ -305,7 +314,8 @@ for those.
   editor export asset handling, `//` comment stripping, plot/variable
   edge cases (PR #1).
 
-[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0...HEAD
+[Unreleased]: https://github.com/duo8097/easy-math-lang/compare/v8.0.1...HEAD
+[8.0.1]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0...v8.0.1
 [8.0.0]: https://github.com/duo8097/easy-math-lang/compare/v8.0.0-rc.1...v8.0.0
 [8.0.0-rc.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.1...v8.0.0-rc.1
 [7.1.1]: https://github.com/duo8097/easy-math-lang/compare/v7.1.0...v7.1.1
