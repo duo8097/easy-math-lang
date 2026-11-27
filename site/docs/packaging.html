@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packaging and releases (for developers) — Easy Math Lang Docs</title>
+<meta property="og:title" content="Packaging and releases (for developers) — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Packaging and releases (for developers)</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#packaging-and-releases-for-developers">Packaging and releases (for developers)</a></li><li><a href="#what-gets-built-windows">What gets built (Windows)</a></li><li><a href="#self-update-on-windows-how-it-avoids-replacing-a-running-app">Self-update on Windows (how it avoids replacing a running app)</a></li><li><a href="#the-build-scripts">The build scripts</a></li><li><a href="#binary-size">Binary size</a></li><li><a href="#what-gets-built-macos">What gets built (macOS)</a></li><li><a href="#what-gets-built-linux">What gets built (Linux)</a></li><li><a href="#what-gets-built-arch">What gets built (Arch)</a></li><li><a href="#the-release-assets">The release assets</a></li><li><a href="#releasing">Releasing</a></li><li><a href="#vendored-typst-packages-offline-draw">Vendored Typst packages (offline `*draw`)</a></li><li><a href="#how-it-is-wired">How it is wired</a></li><li><a href="#updating-the-vendored-packages">Updating the vendored packages</a></li><li><a href="#licensing">Licensing</a></li><li><a href="#how-the-editor-finds-its-helpers-at-runtime">How the editor finds its helpers at runtime</a></li><li><a href="#testing">Testing</a></li><li><a href="#build-performance">Build performance</a></li></ul></nav>
+    <h1 id="packaging-and-releases-for-developers">Packaging and releases (for developers)</h1>
+<p>End users should start with the <a href="installation.html">Installation guide</a>.</p>
+<p>This page documents how the Windows/macOS installers and their binaries</p>
+<p>are built, how the editor finds them at runtime, and how to test all of it.</p>
+<ul>
+<li><a href="#what-gets-built-windows">What gets built (Windows)</a></li>
+<li><a href="#self-update-on-windows-how-it-avoids-replacing-a-running-app">Self-update on Windows (how it avoids replacing a running app)</a></li>
+<li><a href="#the-build-scripts">The build scripts</a></li>
+<li><a href="#binary-size">Binary size</a></li>
+<li><a href="#what-gets-built-macos">What gets built (macOS)</a></li>
+<li><a href="#what-gets-built-linux">What gets built (Linux)</a></li>
+<li><a href="#what-gets-built-arch">What gets built (Arch)</a></li>
+<li><a href="#the-release-assets">The release assets</a></li>
+<li><a href="#releasing">Releasing</a></li>
+<li><a href="#vendored-typst-packages-offline-draw">Vendored Typst packages (offline <code>*draw</code>)</a></li>
+<li><a href="#how-it-is-wired">How it is wired</a></li>
+<li><a href="#updating-the-vendored-packages">Updating the vendored packages</a></li>
+<li><a href="#licensing">Licensing</a></li>
+<li><a href="#how-the-editor-finds-its-helpers-at-runtime">How the editor finds its helpers at runtime</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#build-performance">Build performance</a></li>
+</ul>
+<hr>
+<h2 id="what-gets-built-windows">What gets built (Windows)</h2>
+<p>Three PyInstaller binaries, with the exact flags used by CI</p>
+<p>(<code>scripts/build_binaries.py</code>):</p>
+<table><thead><tr><th>Binary</th><th>Mode</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>easy-math-lang/</code> (shared bundle)</td><td>onedir CLI</td><td>Compiler (<code>.ezmath</code> → PDF/PNG/SVG/HTML/Typst via Typst)</td></tr>
+<tr><td><code>ezmath</code></td><td>symlink / file copy</td><td>Short alias to the compiler (POSIX: relative symlink; Windows: copy)</td></tr>
+<tr><td><code>easy-math-lsp/</code> (shared bundle)</td><td>onedir CLI</td><td>Language server (compiler bundled in-process)</td></tr>
+<tr><td><code>easy-math-editor</code> (shared bundle)</td><td>onedir GUI (<code>--windowed</code>)</td><td>Desktop editor (PySide6)</td></tr>
+</tbody></table>
+<p>All three executables are assembled into ONE shared bundle directory</p>
+<p>(<code>dist/easy-math-lang/</code> with a single <code>_internal/</code>) by</p>
+<p><code>scripts/build_binaries.py</code> (Approach A): the CLI and the language server</p>
+<p>reuse the desktop editor's collected libraries instead of each carrying</p>
+<p>their own copy, so an install holds exactly one copy of NumPy, Matplotlib,</p>
+<p>Typst, PySide6, …</p>
+<p>Inno Setup (<code>installer/setup.iss</code>) packs the shared bundle into</p>
+<p><code>EasyMathLang-Windows-x64-Setup.exe</code> with this installed layout:</p>
+<pre class="code"><code>{app}/
+└── bin/
+    ├── easy-math-lang.exe
+    ├── easy-math-lsp.exe
+    ├── easy-math-editor.exe
+    ├── ezmath.exe
+    └── _internal/ (+ editor assets, vendored Typst packages)</code></pre>
+<p>The installer version comes from <code>pyproject.toml</code> — never hard-coded.</p>
+<p>CI reads it with <code>tomllib</code> (the same source of truth as</p>
+<p><code>scripts/check_tag_version.py</code>) and passes it to ISCC as</p>
+<p><code>/DAppVersion=&lt;version&gt;</code>; <code>setup.iss</code> defines a <code>0.0.0</code> fallback under</p>
+<p><code>#ifndef AppVersion</code> so a hand-run <code>ISCC.exe installer\setup.iss</code> still</p>
+<p>compiles (with a placeholder version instead of a stale one).</p>
+<p><code>tests/test_installer_script.py</code> guards this statically.</p>
+<p><code>AppId</code> is declared as exactly <strong><code>AppName</code></strong> (no braces). Releases up</p>
+<p>to 7.0.0 shipped without an explicit <code>AppId</code>, so Inno used <code>AppName</code></p>
+<p>as the implicit AppId and the uninstall key <code>Easy Math Lang_is1</code>;</p>
+<p>declaring anything else (e.g. a braces literal) would make new</p>
+<p>installers not see existing installs and leave two Add/Remove Programs</p>
+<p>entries behind. The CI job therefore installs the previous release</p>
+<p>first and then this build over it, and requires exactly one uninstall</p>
+<p>entry named <code>Easy Math Lang</code> (else the build fails). When the previous</p>
+<p>release asset cannot be downloaded (forks, or the first installer</p>
+<p>release), the step prints the manual procedure instead of verifying;</p>
+<p>run it by hand before tagging whenever it does — it installs into one</p>
+<p>shared directory and checks <code>HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall</code></p>
+<p>for exactly one <code>DisplayName = &quot;Easy Math Lang&quot;</code> entry.</p>
+<h3 id="self-update-on-windows-how-it-avoids-replacing-a-running-app">Self-update on Windows (how it avoids replacing a running app)</h3>
+<p>The helper that drives the Windows self-update is the CLI binary from</p>
+<p>the install directory, so it cannot stay running while the installer</p>
+<p>replaces that same binary and <code>_internal/</code>. The flow is therefore:</p>
+<ol>
+<li>The editor (or <code>easy-math-lang --update</code>) downloads the asset and</li>
+</ol>
+<p><code>SHA256SUMS.txt</code>, and verifies SHA-256 (and, immediately before the</p>
+<p>installer runs, again — see</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/blob/main/SECURITY.md#updating--verification">Security</a>).</p>
+<ol>
+<li>It spawns the helper (<code>easy-math-lang(.exe) --apply-update &lt;plan&gt;</code>)</li>
+</ol>
+<p>detached, then the editor quits through its normal shutdown path.</p>
+<ol>
+<li>The helper waits for the editor's PID to exit, launches the</li>
+</ol>
+<p>installer <strong>detached</strong> — <code>/SILENT /SP- /NORESTART /UPDATE=1 /LOG=…</code></p>
+<p>— and exits immediately. Nothing from the install directory is</p>
+<p>alive while its files are being replaced. <code>/CLOSEAPPLICATIONS</code> and</p>
+<p><code>/RESTARTAPPLICATIONS</code> are intentionally absent: in silent mode</p>
+<p>they could force-close an unrelated editor instance holding</p>
+<p>unsaved work.</p>
+<ol>
+<li>Success: after the files are replaced, an Inno <code>[Run]</code> entry fires</li>
+</ol>
+<p>(it runs only on <code>/UPDATE=1</code>, gated by a <code>Check</code> function reading</p>
+<p><code>{param:UPDATE|0}</code>) and relaunches the editor with the <em>original</em></p>
+<p>user's credentials — never as admin.</p>
+<ol>
+<li>Failure: the installer never reaches <code>[Run]</code>; nothing relaunches.</li>
+</ol>
+<p>On the next start the editor compares the pending version recorded</p>
+<p>in the update state file with the running one; on mismatch it shows</p>
+<p>"Last update failed" once with the install-log tail and a manual</p>
+<p>download button (the temp dir with the installer is cleaned up then</p>
+<p>— the installer itself keeps it until it exits).</p>
+<p>The alternative — copying the helper and its ~200 MB <code>_internal/</code> to</p>
+<p>a temp directory — was rejected: it burns disk and time on every</p>
+<p>update, is only provable by running a frozen Windows build (which was</p>
+<p>not available during development), and buys nothing over the hand-off</p>
+<p>above.</p>
+<p>> <strong>Honest status:</strong> the whole Windows self-update path was developed</p>
+<p>> and tested on Linux with fakes. The AppId upgrade, the silent</p>
+<p>> installer, the <code>[Run]</code> relaunch, the pending-update detection and the</p>
+<p>> failure notice have <strong>not been exercised on a real Windows machine</strong></p>
+<p>> and need the manual checklist in the PR notes before tagging a</p>
+<p>> release.</p>
+<p>The editor shortcut points at <code>{app}\bin\easy-math-editor.exe</code>.</p>
+<p>Adding <code>{app}\bin</code> to <code>PATH</code> is an <strong>optional</strong> setup task that targets the</p>
+<p><strong>per-user</strong> <code>PATH</code> (<code>HKCU\Environment</code>, broadcast via <code>WM_SETTINGCHANGE</code></p>
+<p>so new terminals pick it up) — the editor must work without it (see below).</p>
+<p>Never write <code>PATH</code> to <code>HKLM\Environment</code>: it is not a real environment</p>
+<p>location, and creating keys directly under <code>HKLM</code> fails on some machines</p>
+<p>with <code>RegCreateKeyEx failed; code 87</code>, aborting the whole install.</p>
+<p><code>tests/test_installer_script.py</code> guards this statically.</p>
+<p>CI also smoke-tests the compiled installer on Windows before the</p>
+<p>artifact is uploaded: it installs silently into a temporary folder</p>
+<p>(<code>/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=&lt;temp&gt;</code>), asserts</p>
+<p>that <code>bin\_internal\python312.dll</code> exists and runs</p>
+<p><code>easy-math-lang.exe --version</code> and <code>ezmath.exe --version</code>, failing the</p>
+<p>job on a non-zero exit code. The desktop editor is never launched.</p>
+<p>Note: ISCC prints a <code>UsedUserAreasWarning</code> because the setup runs</p>
+<p>elevated (<code>PrivilegesRequired=admin</code>) yet writes <code>HKCU</code>. That is intended:</p>
+<p>with the usual UAC consent prompt <code>HKCU</code> is the installing user's own</p>
+<p>hive, so the optional PATH entry lands in the right place. Only</p>
+<p>over-the-shoulder elevation (different admin credentials) would target</p>
+<p>the admin's hive instead — an accepted edge case, same as most installers.</p>
+<hr>
+<h2 id="the-build-scripts">The build scripts</h2>
+<p>Every build path (CI and local) goes through the same shared scripts, so</p>
+<p>the PyInstaller flags exist exactly once:</p>
+<table><thead><tr><th>Script</th><th>Does</th></tr></thead><tbody>
+<tr><td><code>scripts/build_binaries.py</code></td><td>Freezes the three binaries with PyInstaller (entry points, per-platform flags, <code>ezmath</code> alias, shared-bundle assembly) into <code>dist/easy-math-lang/</code> (one <code>_internal/</code> for the CLI, the LSP and the editor). The entry shims are written to a temp dir, so no <code>entry_*.py</code> is left in the repo.</td></tr>
+<tr><td><code>scripts/package_macos.sh</code></td><td>macOS only: bundles the helpers into the <code>.app</code>, prunes the nested Qt tool apps, signs the bundle inside-out and (with <code>--stage</code>) writes the DMG layout to <code>staging/</code>.</td></tr>
+<tr><td><code>scripts/check_tag_version.py</code></td><td>Release guard: fails the build when a <code>v*</code> tag does not match the <code>pyproject.toml</code> version.</td></tr>
+<tr><td><code>installer/build_linux.sh</code></td><td>Linux driver with subcommands: <code>binary</code> (PyInstaller → <code>dist/easy-math-lang/</code>), <code>deb</code> and <code>rpm</code> (package the bundle; they never invoke PyInstaller), <code>all</code> (default; as before).</td></tr>
+</tbody></table>
+<p>The local drivers only orchestrate them:</p>
+<table><thead><tr><th>Local build</th><th>Command</th></tr></thead><tbody>
+<tr><td>Windows</td><td><code>powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1</code></td></tr>
+<tr><td>macOS</td><td><code>bash scripts/build_macos.sh</code></td></tr>
+<tr><td>Linux (<code>.deb</code> + <code>.rpm</code>)</td><td><code>bash installer/build_linux.sh</code></td></tr>
+<tr><td>Arch (<code>.pkg.tar.zst</code>)</td><td><code>bash installer/build_arch.sh</code> (on Arch)</td></tr>
+</tbody></table>
+<p>Linux is three independent stages — <code>binary</code>, then <code>deb</code>, then <code>rpm</code> —</p>
+<p>each re-runnable on its own:</p>
+<pre class="code"><code>bash installer/build_linux.sh binary        # PyInstaller only
+bash installer/build_linux.sh deb           # needs dist/easy-math-lang/
+bash installer/build_linux.sh rpm           # needs dist/easy-math-lang/
+bash installer/build_linux.sh all           # all three (default)</code></pre>
+<p><code>deb</code> and <code>rpm</code> reuse the bundle produced by <code>binary</code> and never invoke</p>
+<p>PyInstaller; they fail fast with a clear message if</p>
+<p><code>dist/easy-math-lang/</code> (or its executables, or <code>_internal/</code>) is missing.</p>
+<p>Tool requirements per subcommand: <code>binary</code> needs uv (+ pyinstaller via</p>
+<p>uv); <code>deb</code> needs <code>dpkg-deb</code>; <code>rpm</code> needs <code>rpmbuild</code> (both refuse to run</p>
+<p>with a missing bundle). <code>all</code> still builds the <code>.deb</code> and warns when</p>
+<p><code>rpmbuild</code> is absent; <code>rpm</code> alone treats a missing <code>rpmbuild</code> as a hard</p>
+<p>error. The FHS staging is one shared helper in the script used by both</p>
+<p>packages, so the <code>.deb</code> and <code>.rpm</code> cannot drift apart.</p>
+<p>All of them leave their output in <code>dist/</code> (gitignored). Every push runs</p>
+<p>the same steps in CI and uploads the installer(s) as run artifacts</p>
+<p>(14-day retention); tagging a commit <code>v*</code> additionally attaches them to</p>
+<p>a stable GitHub Release (hyphenated tags become prereleases). The</p>
+<p>nightly schedule, pull requests and manual dispatch build the same way.</p>
+<h3 id="binary-size">Binary size</h3>
+<p>The builder uses PyInstaller's normal dependency hooks rather than</p>
+<p><code>--collect-all</code> for NumPy, Matplotlib, Typst and pygls. The custom Matplotlib</p>
+<p>backend hook keeps Agg and SVG for plots. The CLI excludes</p>
+<p>Qt/Tk; the LSP also excludes Typst and Matplotlib but retains NumPy for</p>
+<p>geometry diagnostics. The editor keeps its PDF renderer and preview modules.</p>
+<p>Linux builds enable PyInstaller's <code>--strip</code>: native libraries are stripped in</p>
+<p>its cache <strong>before</strong> being packed into the executable. Install <code>binutils</code> if</p>
+<p><code>strip</code> is unavailable, or use <code>python scripts/build_binaries.py --no-strip</code></p>
+<p>to retain native symbols for debugging. Windows/macOS do not enable stripping</p>
+<p>by default. Never run <code>strip</code> directly on a completed onedir executable or</p>
+<p>onefile executable; that can destroy its appended archive.</p>
+<p>On Linux/macOS, <code>ezmath</code> is a relative symlink to <code>easy-math-lang</code>, including</p>
+<p>inside installers/the macOS app. Distribute the two names together; Windows</p>
+<p>keeps a standalone <code>.exe</code> copy. A symlink avoids storing the entire compiler</p>
+<p>twice and remains valid when the containing directory is moved.</p>
+<p>To validate a build on Linux, run:</p>
+<pre class="code"><code>EASYMATH_RUN_BUILD_TESTS=1 uv run --frozen pytest tests/test_packaged_build.py -q</code></pre>
+<p>These tests cover PDF/PNG/SVG plots through the alias, geometry</p>
+<p>diagnostics in the LSP, and editor startup with its Qt/PDF modules. Windows</p>
+<p>uses its existing editor/LSP process test instead of the POSIX startup test.</p>
+<p>For size comparisons, count regular files once and do not follow symlinks;</p>
+<p>following Qt/NumPy library symlinks overstates the payload size.</p>
+<hr>
+<h2 id="what-gets-built-macos">What gets built (macOS)</h2>
+<p>Same three binaries, macOS names, built by</p>
+<p><code>.github/workflows/build-installers.yml</code> on <code>macos-15</code> (arm64,</p>
+<p>Apple Silicon only, M1 or newer; requires macOS 14 (Sonoma) or newer</p>
+<p>and does not run on Intel Macs). Intel Macs on macOS 14+ can still</p>
+<p>run from source (<code>uv sync</code>; the PySide6 wheels are universal2).</p>
+<p>The build is still experimental / ad-hoc signed, not notarized:</p>
+<table><thead><tr><th>Binary</th><th>Mode</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>easy-math-lang</code></td><td>onedir CLI</td><td>Compiler (<code>.ezmath</code> → PDF/PNG/SVG/HTML/Typst)</td></tr>
+<tr><td><code>ezmath</code></td><td>symlink</td><td>Relative alias to <code>easy-math-lang</code></td></tr>
+<tr><td><code>easy-math-lsp</code></td><td>onedir CLI</td><td>Language server</td></tr>
+<tr><td><code>easy-math-editor.app</code></td><td>GUI bundle (<code>--onedir --windowed</code>)</td><td>Desktop editor; helpers bundled in <code>Contents/MacOS/</code></td></tr>
+</tbody></table>
+<p>The <code>.app</code> carries the Easy Math icon: PyInstaller's BUNDLE step copies</p>
+<p><code>icons/ezmath.icns</code> into <code>Contents/Resources/</code> and writes the matching</p>
+<p><code>CFBundleIconFile</code> entry into the generated <code>Info.plist</code>, so Finder and</p>
+<p>the Dock show it. Only the <code>.icns</code> goes into the bundle; the runtime Qt</p>
+<p>window icon stays the single bundled 256px PNG (see above) on every</p>
+<p>platform. The DMG volume itself carries no custom icon (the plain</p>
+<p><code>hdiutil create</code> invocation has no volume-icon option), so the visible</p>
+<p>icon is the <code>.app</code>'s own Finder icon inside the image.</p>
+<p>Staged DMG layout (only the <code>.app</code> ships, so dragging it alone to</p>
+<p><code>/Applications</code> keeps working — <code>editor/paths.py</code> finds the helpers</p>
+<p>inside the bundle without <code>PATH</code>):</p>
+<pre class="code"><code>staging/
+├── easy-math-editor.app   (Contents/MacOS/easy-math-lang, …,
+│                           Contents/Frameworks/typst-packages/,
+│                           Contents/Resources/THIRD_PARTY_LICENSES)
+├── Applications -&gt; /Applications (symlink for drag-and-drop install)
+└── README.txt</code></pre>
+<p><code>hdiutil</code> packs <code>staging/</code> into the single <code>EasyMathLang-macOS-arm64.dmg</code>.</p>
+<p><code>scripts/package_macos.sh</code> does the bundling, the pruning and the</p>
+<p>signing — signing is inside-out</p>
+<p>(nested code, then the bundle — never recursive for the final sign) with</p>
+<p><code>codesign --verify --deep --strict</code> afterwards, and the step has no</p>
+<p>leniency: a bad signature fails the job. Ad-hoc means first launch still</p>
+<p>needs right-click → <strong>Open</strong>. Static checks live in</p>
+<p><code>tests/test_macos_packaging.py</code>.</p>
+<hr>
+<h2 id="what-gets-built-linux">What gets built (Linux)</h2>
+<p>Same three binaries, Linux names, built by <code>.github/workflows/build-installers.yml</code></p>
+<p>in three independent jobs on <code>ubuntu-24.04</code> (x86_64 only), mirroring</p>
+<p>the subcommand split in <code>installer/build_linux.sh</code>:</p>
+<table><thead><tr><th>Job</th><th>Needs</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>build-linux-binary</code></td><td>—</td><td>Test suite, tag guard, fcitx5-qt + Qt SDK, <code>build_linux.sh binary</code>, frozen-binary smoke tests; packs <code>dist/easy-math-lang/</code> into one tarball and uploads it as <code>linux-bundle-amd64</code></td></tr>
+<tr><td><code>build-deb</code></td><td><code>build-linux-binary</code></td><td>Extracts the bundle, builds <code>EasyMathLang-Debian-amd64.deb</code>, installs and smoke-tests it (<code>dpkg -i</code>, compile example, offline *draw)</td></tr>
+<tr><td><code>build-rpm</code></td><td><code>build-linux-binary</code></td><td>In a Fedora container (<code>fedora:41</code>), extracts the bundle, builds <code>EasyMathLang-Fedora-amd64.rpm</code>, inspects the payload and smoke-tests it (<code>dnf install</code>, compile example, offline *draw — CLI only, no display)</td></tr>
+</tbody></table>
+<p>The binary bundle travels between the jobs as one tarball</p>
+<p>(<code>linux-bundle-amd64.tar.zst</code>, numeric owner root:root, modes/symlinks/</p>
+<p>executable bits preserved; <code>upload-artifact</code> alone does not preserve</p>
+<p>file modes on directories). The artifact is short-lived (2 days) and</p>
+<p>deliberately does <strong>not</strong> match the release job's <code>EasyMathLang*</code></p>
+<p>download pattern, so it is never published as a release asset. If the</p>
+<p><code>.deb</code> job fails, the <code>.rpm</code> job still runs (and vice versa); the</p>
+<p>release job needs all three (plus macOS/Windows/Arch), so a missing</p>
+<p>asset still blocks the release.</p>
+<table><thead><tr><th>Binary</th><th>Mode</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>easy-math-lang</code></td><td>onedir CLI</td><td>Compiler (<code>.ezmath</code> → PDF/PNG/SVG/HTML/Typst via Typst)</td></tr>
+<tr><td><code>ezmath</code></td><td>symlink</td><td>Relative alias to <code>easy-math-lang</code></td></tr>
+<tr><td><code>easy-math-lsp</code></td><td>onedir CLI</td><td>Language server</td></tr>
+<tr><td><code>easy-math-editor</code></td><td>onedir GUI</td><td>Desktop editor (PySide6)</td></tr>
+</tbody></table>
+<p>Note on the runtime baseline: the bundle is built on <code>ubuntu-24.04</code>,</p>
+<p>so the Linux packages **require a glibc of at least the Ubuntu 24.04</p>
+<p>glibc (2.39)** at install time. Nothing older (Ubuntu ≤ 22.04, Debian</p>
+<p>≤ 11, RHEL 8, older Arch) will run it — use the closest distro build</p>
+<p>from that family instead.</p>
+<p>Both packages install the same FHS layout (mirroring</p>
+<p><code>installer/PKGBUILD</code> for Arch): the exes live in <code>/usr/lib/easy-math-lang/</code></p>
+<p>together with one shared <code>_internal/</code>, and <code>/usr/bin</code> holds the command</p>
+<p>symlinks:</p>
+<pre class="code"><code>usr/
+├── bin/
+│   ├── easy-math-lang -&gt; /usr/lib/easy-math-lang/easy-math-lang
+│   ├── ezmath -&gt; easy-math-lang
+│   ├── easy-math-lsp -&gt; /usr/lib/easy-math-lang/easy-math-lsp
+│   └── easy-math-editor -&gt; /usr/lib/easy-math-lang/easy-math-editor
+├── lib/easy-math-lang/   (shared onedir bundle: exes + one _internal
+│                          with the vendored Typst packages)
+├── share/applications/easy-math-editor.desktop
+├── share/icons/hicolor/&lt;size&gt;x&lt;size&gt;/apps/ezmath.png  (16/32/48/64/
+│                                                        128/256; backs
+│                                                        Icon=ezmath)
+├── share/doc/easymath/                    (README, copyright,
+│                                            THIRD_PARTY_LICENSES)
+└── share/licenses/easymath/               (LICENSE, THIRD_PARTY_LICENSES)</code></pre>
+<ul>
+<li><code>installer/build_linux.sh</code> (run from the repo root on Linux) writes</li>
+</ul>
+<p><code>dist/easymath_&lt;ver&gt;_amd64.deb</code> and <code>dist/easymath-&lt;ver&gt;-1.x86_64.rpm</code></p>
+<p>plus stable <code>dist/EasyMathLang-Debian-amd64.deb</code> (Debian/Ubuntu/Mint)</p>
+<p>and <code>dist/EasyMathLang-Fedora-amd64.rpm</code> (Fedora/RHEL/openSUSE) copies</p>
+<p>attached to the stable GitHub Release. Version comes from <code>pyproject.toml</code> — never hard-coded.</p>
+<p>To rebuild only one package locally:</p>
+<p><code>bash installer/build_linux.sh deb</code> or <code>bash installer/build_linux.sh rpm</code></p>
+<p>(both need an existing <code>dist/easy-math-lang/</code>; they never run</p>
+<p>PyInstaller). <code>bash installer/build_linux.sh binary</code> rebuilds the</p>
+<p>bundle alone, and <code>bash installer/build_linux.sh all</code> redoes everything.</p>
+<ul>
+<li>The <code>.deb</code> is assembled with <code>dpkg-deb</code> (required); the <code>.rpm</code> needs</li>
+</ul>
+<p><code>rpmbuild</code> and is skipped with a warning when it is missing</p>
+<p>(<code>rpm</code> alone hard-fails instead; CI builds the <code>.deb</code> on Ubuntu and</p>
+<p>the <code>.rpm</code> in the Fedora container).</p>
+<ul>
+<li>CI smoke-tests the installed <code>.deb</code> (<code>dpkg -i</code>, <code>--version</code>, compile</li>
+</ul>
+<p>of <code>examples/example.ezmath</code>) and both packages (<code>dnf install</code> in the</p>
+<p>Fedora container), plus the offline <code>*draw</code> check with a dead proxy.</p>
+<p>Static checks live in <code>tests/test_linux_packaging.py</code> and</p>
+<p><code>tests/test_linux_build_script.py</code>.</p>
+<hr>
+<h2 id="what-gets-built-arch">What gets built (Arch)</h2>
+<p><code>installer/PKGBUILD</code> builds the same three binaries for Arch and packs</p>
+<p>them into <code>easy-math-lang-git-&lt;version&gt;-&lt;rel&gt;-x86_64.pkg.tar.zst</code>.</p>
+<p>The installed layout is the FHS layout above</p>
+<p>(<code>/usr/bin/easy-math-lang</code>, <code>ezmath</code>, <code>easy-math-lsp</code>,</p>
+<p><code>easy-math-editor</code> → <code>/usr/lib/easy-math-lang/…</code>).</p>
+<ul>
+<li><code>installer/build_arch.sh</code> (run from the repo root <strong>on Arch</strong>) packs</li>
+</ul>
+<p>the checked-out tree into a source tarball, patches a copy of the</p>
+<p>PKGBUILD to use it and runs <code>makepkg</code>; the finished package lands in</p>
+<p>the repo root. The editor uses selective Qt collection, including the</p>
+<p>PDF preview modules, just like Windows and macOS.</p>
+<ul>
+<li><code>pkgver()</code> describes the commit in a VCS checkout and falls back to</li>
+</ul>
+<p>the <code>pyproject.toml</code> version for the tarball source the CI build uses</p>
+<p>(a pull request is packaged exactly as checked out — no access to the</p>
+<p>upstream repository is needed).</p>
+<ul>
+<li>CI builds the package in an <code>archlinux:base</code> container (makepkg only</li>
+</ul>
+<p>runs on Arch and refuses to run as root, so the build runs as an</p>
+<p>unprivileged user) and uploads the <code>.pkg.tar.zst</code> as</p>
+<p><code>EasyMathLang-Arch-x86_64</code>; it is attached to the GitHub Release</p>
+<p>like the other installers.</p>
+<hr>
+<h2 id="the-release-assets">The release assets</h2>
+<p>Tag builds (<code>vX.Y.Z</code>) publish a GitHub Release whose files are what the</p>
+<p>built-in updater downloads. The names are <strong>stable and load-bearing</strong> —</p>
+<p>the updater selects assets by exact name and the CI release job fails</p>
+<p>if any of them is missing:</p>
+<table><thead><tr><th>Asset (exact name)</th><th>Platform</th></tr></thead><tbody>
+<tr><td><code>EasyMathLang-Windows-x64-Setup.exe</code></td><td>Windows installer (Inno Setup)</td></tr>
+<tr><td><code>EasyMathLang-macOS-arm64.dmg</code></td><td>macOS (Apple Silicon) app bundle</td></tr>
+<tr><td><code>EasyMathLang-Debian-amd64.deb</code></td><td>Debian/Ubuntu (<code>easymath</code> package)</td></tr>
+<tr><td><code>EasyMathLang-Fedora-amd64.rpm</code></td><td>Fedora/RHEL/openSUSE (<code>easymath</code> package)</td></tr>
+<tr><td><code>easy-math-lang-git-&lt;version&gt;-&lt;rel&gt;-x86_64.pkg.tar.zst</code></td><td>Arch (<code>easy-math-lang-git</code>)</td></tr>
+<tr><td><code>SHA256SUMS.txt</code></td><td>sha256sum-format sums of every file above</td></tr>
+</tbody></table>
+<p><code>build-installers.yml</code> (the <code>release</code> job) downloads the installer</p>
+<p>artifacts, generates <code>SHA256SUMS.txt</code> with <code>sha256sum *</code>, verifies</p>
+<p>every expected asset exists and is covered, and attaches everything</p>
+<p>to the release. The checksum file is <strong>mandatory</strong>: the updater</p>
+<p>refuses to install anything whose SHA-256 is not listed there (it</p>
+<p>never offers a "skip verification" path). Tags containing <code>-</code> (e.g.</p>
+<p><code>v7.1.0-rc.1</code>) publish as prereleases and are ignored by installs</p>
+<p>whose installed version is not itself a prerelease.</p>
+<p><code>installer/PKGBUILD</code>'s <code>pkgver=</code> placeholder is the pacman-safe</p>
+<p>rendering of the declared version (<code>7.1.0-rc.1</code> → <code>7.1.0rc1</code>, because</p>
+<p>pacman's <code>pkgver</code> cannot contain <code>-</code>); <code>pkgver()</code> overrides it at build</p>
+<p>time, and <code>tests/test_installer_script.py</code> understands the mapping.</p>
+<hr>
+<h2 id="releasing">Releasing</h2>
+<p>The single supported way to bump the version is</p>
+<p><code>scripts/bump_version.py</code> (see <a href="https://github.com/duo8097/easy-math-lang/blob/main/CONTRIBUTING.md#5-releasing">Contributing</a>):</p>
+<pre class="code"><code>uv run python scripts/bump_version.py &lt;major|minor|patch|X.Y.Z[-rc.N]&gt; \
+    [--dry-run] [--no-changelog] [--commit] [--date YYYY-MM-DD] [--force]</code></pre>
+<p>It rewrites <code>pyproject.toml</code> (the source of truth), <code>uv.lock</code> (via</p>
+<p><code>uv lock</code>, never by hand), <code>src/compiler/update.py:FALLBACK_VERSION</code>,</p>
+<p><code>installer/PKGBUILD</code> and the bug-report placeholder — the only</p>
+<p>hard-coded copies — moves <code>## [Unreleased]</code> in <code>CHANGELOG.md</code> to</p>
+<p><code>## [X.Y.Z] - DATE</code> (inserting a fresh <code>## [Unreleased]</code>), keeps the</p>
+<p><code>README.md</code> changelog section and both files' compare links consistent,</p>
+<p>and (<code>--commit</code>) makes one <code>chore(release): vX.Y.Z</code> commit. It refuses</p>
+<p>a version that is not strictly greater, and a lower/equal target needs</p>
+<p><code>--force</code>. See <code>CONTRIBUTING.md</code> for the full flow (bump → PR → tag →</p>
+<p>CI publishes) and <code>scripts/check_tag_version.py</code>, which a tag build</p>
+<p>uses to fail when the tag or any synced location disagrees with</p>
+<p><code>pyproject.toml</code>.</p>
+<hr>
+<h2 id="vendored-typst-packages-offline-draw">Vendored Typst packages (offline <code>*draw</code>)</h2>
+<p><code>*draw</code> renders through CeTZ, a Typst package. Typst normally downloads</p>
+<p><code>@preview/…</code> packages from packages.typst.org on first use — which</p>
+<p>means a machine without internet access could not use <code>*draw</code> at all.</p>
+<p>Easy Math instead <strong>vendors</strong> the packages it needs and ships them in</p>
+<p>the repo and the packaged builds, so <code>*draw</code> works fully offline with</p>
+<p>no first-run download.</p>
+<table><thead><tr><th></th><th>cetz</th><th>oxifmt</th></tr></thead><tbody>
+<tr><td>Version</td><td>0.4.2</td><td>1.0.0 (imported by cetz — the complete transitive set)</td></tr>
+<tr><td>Size (vendored)</td><td>410.0 KiB</td><td>63.4 KiB (473.4 KiB total)</td></tr>
+<tr><td>License</td><td>LGPL-3.0-or-later</td><td>MIT OR Apache-2.0</td></tr>
+<tr><td>Upstream</td><td>https://github.com/cetz-package/cetz</td><td>https://github.com/PgBiel/typst-oxifmt</td></tr>
+</tbody></table>
+<p>Layout: <code>vendor/typst-packages/preview/&lt;name&gt;/&lt;version&gt;/</code> — exactly</p>
+<p>what Typst expects as a package path. <code>typst.toml</code>, all <code>.typ</code></p>
+<p>sources, the LICENSE files and runtime assets (CeTZ's WASM core) are</p>
+<p>kept; manuals, galleries, docs PDFs and tests are pruned by the</p>
+<p>vendor script. See <code>vendor/typst-packages/README.md</code>.</p>
+<h3 id="how-it-is-wired">How it is wired</h3>
+<ul>
+<li><code>src/typst_bundle/</code> pins the versions (<code>TYPST_PACKAGES</code>,</li>
+</ul>
+<p><code>CEZ_VERSION</code>) and builds the <code>#import</code> line used by the geometry</p>
+<p>codegen. It is the single source of truth; <code>geometry</code> and</p>
+<p><code>compiler</code> both import it.</p>
+<ul>
+<li><code>compiler.pipeline._run_typst_export()</code> (the only <code>typst.compile()</code></li>
+</ul>
+<p>caller in the compiler, verified with grep) resolves the bundle via</p>
+<p><code>typst_bundle.vendored_packages_dir()</code> and passes it as</p>
+<p><code>package_path</code>. Typst checks the package path <strong>before</strong> its user</p>
+<p>cache and <strong>before</strong> the network; the bundled copy always wins</p>
+<p>(verified by compiling with a corrupt cache copy present, and with a</p>
+<p>dead proxy). If the bundle directory is missing or incomplete, the</p>
+<p>code passes nothing and Typst falls back to its usual behavior</p>
+<p>(user cache, then download) — it never crashes.</p>
+<ul>
+<li>From source, the bundle resolves to <code>&lt;repo&gt;/vendor/typst-packages</code>;</li>
+</ul>
+<p>frozen by PyInstaller, it resolves to <code>sys._MEIPASS/typst-packages</code>;</p>
+<p>pip-installed wheels ship the bundle as package data</p>
+<p>(<code>typst_bundle/typst-packages</code>, via hatch's <code>force-include</code>). Frozen</p>
+<p>builds ship exactly one copy under <code>_internal/typst-packages/</code></p>
+<p>(editor build's data files; the CLI and the LSP reuse that same</p>
+<p><code>_internal/</code>).</p>
+<ul>
+<li><code>tests/test_typst_bundle.py</code> fails when the vendored tree doesn't</li>
+</ul>
+<p>match the pins (each package's <code>typst.toml</code> must match its directory</p>
+<p>name and version; LICENSE files must be present). The offline test</p>
+<p>there compiles a <code>*draw</code> document with every package-cache location</p>
+<p>redirected to an empty temporary directory and asserts the cache is</p>
+<p>still empty afterwards, proving nothing was downloaded.</p>
+<p><code>tests/test_packaged_build.py</code> does the same against the frozen</p>
+<p>binaries (with dead proxies) and asserts the bundle ships in</p>
+<p><code>_internal/</code>.</p>
+<h3 id="updating-the-vendored-packages">Updating the vendored packages</h3>
+<ol>
+<li>Edit the pins in <code>src/typst_bundle/__init__.py</code></li>
+</ol>
+<p>(<code>TYPST_PACKAGES</code>, and <code>CEZ_VERSION</code> for the import line).</p>
+<ol>
+<li>Edit <code>PACKAGES</code> in <code>scripts/vendor_typst_packages.py</code> — same</li>
+</ol>
+<p>name/version pairs plus the new SHA-256 of each tarball</p>
+<p>(<code>sha256sum cetz-&lt;version&gt;.tar.gz</code> after downloading it, or read it</p>
+<p>from the script's failure output).</p>
+<ol>
+<li>Delete the old tree and re-vendor:</li>
+</ol>
+<pre class="code"><code>   rm -rf vendor/typst-packages/preview/&lt;name&gt;
+   uv run --frozen python scripts/vendor_typst_packages.py
+   uv run --frozen python scripts/vendor_typst_packages.py --check</code></pre>
+<ol>
+<li>Review the diff and commit the script, the constant and the new</li>
+</ol>
+<p><code>vendor/</code> files together. <code>tests/test_typst_bundle.py</code> fails if any</p>
+<p>pin drifts.</p>
+<ol>
+<li>CeTZ's own transitive dependencies must be re-verified on every</li>
+</ol>
+<p>cetz bump: delete <code>oxifmt</code> (and any other dependency) from the</p>
+<p>vendored tree, then compile a <code>*draw</code> document offline — Typst will</p>
+<p>name any missing package it tries to download.</p>
+<h3 id="licensing">Licensing</h3>
+<p>The vendored packages are <strong>not</strong> MIT. CeTZ is LGPL-3.0-or-later (its</p>
+<p>LGPL incorporates GPLv3 by reference) and ships unmodified; oxifmt is</p>
+<p>MIT OR Apache-2.0. <code>THIRD_PARTY_LICENSES</code> (repo root) carries the</p>
+<p>upstream repository URLs and the verbatim license texts, and every</p>
+<p>installer ships it (Windows: <code>{app}</code>; Debian/RPM:</p>
+<p><code>/usr/share/doc/easymath</code> + <code>/usr/share/licenses/easymath</code>; Arch:</p>
+<p><code>/usr/share/licenses/&lt;pkg&gt;</code>; macOS: <code>Contents/Resources/</code> in the</p>
+<p><code>.app</code>). The packages stay unmodified plain <code>.typ</code> files so users can</p>
+<p>inspect and replace them. See</p>
+<p><a href="https://github.com/duo8097/easy-math-lang/blob/main/THIRD_PARTY_LICENSES">THIRD_PARTY_LICENSES</a>.</p>
+<hr>
+<h2 id="how-the-editor-finds-its-helpers-at-runtime">How the editor finds its helpers at runtime</h2>
+<p>All resolution lives in <code>src/editor/paths.py</code> (stdlib only, so it bundles</p>
+<p>cheaply). Order for each of <code>easy-math-lsp</code> / <code>easy-math-lang</code>:</p>
+<ol>
+<li><code>EASYMATH_LSP_EXE</code> / <code>EASYMATH_COMPILER_EXE</code> environment override.</li>
+<li>Binaries next to the running executable: the venv <code>Scripts/</code> dir from</li>
+</ol>
+<p>source; the installer's <code>bin/</code> folder (which holds the editor and the</p>
+<p>shared <code>_internal/</code>), or a side-by-side <code>dist/</code> when frozen.</p>
+<ol>
+<li><code>PATH</code> via <code>shutil.which</code>.</li>
+<li>Source only: <code>[sys.executable, &#x27;-m&#x27;, ...]</code> (needs</li>
+</ol>
+<p><code>src/compiler/__main__.py</code> for <code>python -m compiler</code>).</p>
+<ol>
+<li>Frozen last resort: the bare exe name, so <code>QProcess</code> reports</li>
+</ol>
+<p>"failed to start" instead of crashing.</p>
+<p>Rules that bit us before (do not regress):</p>
+<ul>
+<li><strong>Never run <code>[sys.executable, &#x27;-m&#x27;/&#x27;-c&#x27;, ...]</code> when frozen</strong> —</li>
+</ul>
+<p><code>sys.executable</code> is then the bundled binary itself, not a Python</p>
+<p>interpreter.</p>
+<ul>
+<li><strong>Never assume any install folder is on <code>PATH</code></strong> — it is opt-in during</li>
+</ul>
+<p>setup (the editor itself never needs it).</p>
+<ul>
+<li>The LSP needs no subprocess to reach the compiler: it imports</li>
+</ul>
+<p><code>compiler</code>/<code>geometry</code> in-process, so both must stay bundled in</p>
+<p><code>easy-math-lsp.exe</code> (they are picked up automatically via</p>
+<p><code>entry_lsp.py</code> imports).</p>
+<hr>
+<h2 id="testing">Testing</h2>
+<p>Fast unit tests for the resolution logic (fake trees, no build needed):</p>
+<pre class="code"><code>uv run pytest tests/test_editor_paths.py -v</code></pre>
+<p>Static checks for the installer script (hive choice, broadcast flag,</p>
+<p><code>NeedsAddPath</code> consistency) run in the normal suite:</p>
+<pre class="code"><code>uv run pytest tests/test_installer_script.py -v</code></pre>
+<p>Slow tests against real binaries in <code>dist/</code> (opt-in so the normal suite</p>
+<p>stays fast):</p>
+<pre class="code"><code>powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1
+$env:EASYMATH_RUN_BUILD_TESTS = &#x27;1&#x27;
+uv run pytest tests/test_packaged_build.py -v</code></pre>
+<p><code>tests/test_packaged_build.py</code> covers: the compiler exe producing a real</p>
+<p>PDF, a full stdio session with the frozen LSP, and the frozen editor</p>
+<p>(launched offscreen in an installer-like <code>dist/bin</code> layout) staying alive</p>
+<p>and spawning <code>easy-math-lsp.exe</code> — the exact failure this setup once had.</p>
+<p>Without the env var (or without <code>dist/</code>) these tests skip with a message</p>
+<p>saying how to enable them.</p>
+<h2 id="build-performance">Build performance</h2>
+<p>The shared builder and local scripts default to at most two CPU workers (one on</p>
+<p>single-CPU systems). <code>--jobs N</code> overrides <code>EASYMATH_BUILD_JOBS</code>, which overrides</p>
+<p>the automatic default. Installer CI explicitly uses two workers. Each target has</p>
+<p>its own work directory and binary cache.</p>
+<p>Windows: <code>powershell -ExecutionPolicy Bypass -File scripts/build_local.ps1 -Jobs 2</code>.</p>
+<p>macOS: <code>bash scripts/build_macos.sh --jobs 2</code>.</p>
+<p>Linux: <code>bash installer/build_linux.sh all --jobs 2</code>.</p>
+<p>Arch: <code>EASYMATH_BUILD_JOBS=2 bash installer/build_arch.sh</code>.</p>
+<p>Set jobs to 1 for lower memory use. All local wrappers use the frozen lockfile.</p>
+<p>Generated entry scripts and specs now live at stable paths under ignored</p>
+<p><code>build/</code>; unchanged entry scripts are not rewritten. PyInstaller can therefore</p>
+<p>reuse Analysis/PYZ on subsequent builds, while still checking source changes.</p>
+<p>Delete <code>build/</code> for a clean rebuild. Arch packaging extracts a fresh source tree</p>
+<p>in a temporary directory, so it benefits from parallelism but does not retain</p>
+<p>this incremental work cache between package builds.</p>
+<p>The <code>ezmath</code> alias is copied only after all three builds succeed.</p>
+<p>All platforms collect the Qt modules used by the editor rather than the entire</p>
+<p>PySide6 distribution. <code>--full-pyside6</code> remains a troubleshooting option (do not</p>
+<p>use it for macOS signing). Windows runs the opt-in packaged-binary smoke tests</p>
+<p>before compiling the installer; the existing macOS and Linux checks remain.</p>
+<p>Inno Setup uses <code>lzma2/fast</code>, trading some compression ratio for build speed.</p>
+<p>Artifact upload uses compression level 0 because installers are already</p>
+<p>compressed. Compare job step durations in Actions to measure the improvement;</p>
+<p>runner load and cold dependency caches affect total time.</p>
+<p>Tables of contents: this is one of the long docs with an auto-generated</p>
+<p>table of contents between <code>&lt;!-- toc --&gt;</code> markers. After editing headings,</p>
+<p>run <code>python scripts/gen_toc.py</code> — CI fails with <code>gen_toc.py --check</code> when</p>
+<p>a table of contents is out of date.</p>
+  </article>
+</main>
+</body>
+</html>

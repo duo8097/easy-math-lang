@@ -208,20 +208,110 @@
     hint.hidden = false;
   }
 
+  /* ---------------------------------------------------- smart download */
+ 
+  var RELEASE_CACHE_KEY = 'ezmath-release';
+  var RELEASE_TTL_MS = 10 * 60 * 1000;
+ 
+  function readSession(key) {
+    try { return window.sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+  function writeSession(key, value) {
+    try { window.sessionStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+ 
+  function osAssetName(os) {
+    if (os === 'windows') return /Windows.*Setup\.exe/i;
+    if (os === 'macos') return /\.dmg$/i;
+    if (os === 'linux') return /\.(deb|rpm)$/i;
+    return null;
+  }
+ 
+  function formatDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString(); } catch (e) { return iso; }
+  }
+ 
+  function updateDownloadPrimary(release) {
+    var wrap = document.getElementById('download-primary-wrap');
+    var link = document.getElementById('download-primary');
+    var meta = document.getElementById('download-meta');
+    if (!wrap || !link) return;
+    var os = '';
+    try { os = detectOSValue(); } catch (e) { os = ''; }
+    var assets = (release && release.assets) || [];
+    var re = osAssetName(os);
+    var chosen = null;
+    if (re) {
+      for (var i = 0; i < assets.length; i += 1) {
+        if (re.test(assets[i].name)) { chosen = assets[i]; break; }
+      }
+    }
+    if (chosen) {
+      link.href = chosen.browser_download_url;
+      link.textContent = chosen.name;
+    } else {
+      link.href = (release && release.html_url) || 'https://github.com/duo8097/easy-math-lang/releases/latest';
+      link.textContent = lookup('download.release') || 'All releases on GitHub';
+    }
+    if (meta && release) {
+      meta.textContent = (release.tag_name || '') + (release.published_at ? ' · ' + formatDate(release.published_at) : '');
+    }
+    wrap.hidden = false;
+  }
+ 
+  function detectOSValue() {
+    var agent = navigator.userAgent || '';
+    if (/Windows/i.test(agent)) return 'windows';
+    if (/Mac OS X|Macintosh/i.test(agent)) return 'macos';
+    if (/Linux|X11|Android/i.test(agent)) return 'linux';
+    return '';
+  }
+ 
+  async function fetchLatestRelease() {
+    var cached = readSession(RELEASE_CACHE_KEY);
+    if (cached) {
+      try {
+        var parsed = JSON.parse(cached);
+        if (parsed && parsed._ts && (Date.now() - parsed._ts) < RELEASE_TTL_MS) {
+          updateDownloadPrimary(parsed.data);
+          return;
+        }
+      } catch (e) { /* ignore */ }
+    }
+    try {
+      var res = await fetch('https://api.github.com/repos/duo8097/easy-math-lang/releases/latest', {
+        headers: { 'Accept': 'application/vnd.github+json' }
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      writeSession(RELEASE_CACHE_KEY, JSON.stringify({ _ts: Date.now(), data: data }));
+      updateDownloadPrimary(data);
+    } catch (e) {
+      var wrap = document.getElementById('download-primary-wrap');
+      if (wrap) {
+        var link = document.getElementById('download-primary');
+        if (link) link.href = 'https://github.com/duo8097/easy-math-lang/releases/latest';
+        wrap.hidden = false;
+      }
+    }
+  }
+ 
   /* ------------------------------------------------------------- init */
-
+ 
   function init() {
     initTheme();
     var lang = detectLanguage();
     loadLanguage(lang);
     detectOS();
-
+ 
     var buttons = document.querySelectorAll('.lang-btn');
     for (var i = 0; i < buttons.length; i += 1) {
       buttons[i].addEventListener('click', function (event) {
         setLanguage(event.currentTarget.getAttribute('data-lang'));
       });
     }
+    fetchLatestRelease();
   }
 
   if (document.readyState === 'loading') {

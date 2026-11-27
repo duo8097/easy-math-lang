@@ -78,6 +78,30 @@
       "bytes": 49595,
       "sha256": "bbafbd0f55d01c49234ac37665fd97caec39a1445e5ac5efa921dfee71fc022e",
       "produced_by": "the repository app icon icons/ezmath-icon.png scaled to 256x256 px (not redrawn)"
+    },
+    {
+      "file": "og-image.png",
+      "bytes": 4520,
+      "sha256": "212fb685430fd19d26993ce35f140b4d912e330808b81a9a4877f4bd5f139153",
+      "produced_by": "scripts/build_og_and_favicons.py"
+    },
+    {
+      "file": "favicon.svg",
+      "bytes": 253,
+      "sha256": "fd4c28f207684316448886e7e1ecea57e153dbc0aea3e77b6fe0cd3024a1f49c",
+      "produced_by": "scripts/build_og_and_favicons.py"
+    },
+    {
+      "file": "favicon-32.png",
+      "bytes": 472,
+      "sha256": "348da5f7f252da1d87c8742c7105d4f27bc73640d361e6cb3c783c7ba548739d",
+      "produced_by": "scripts/build_og_and_favicons.py"
+    },
+    {
+      "file": "apple-touch-icon.png",
+      "bytes": 1014,
+      "sha256": "9ec373ae97ab43ebd56847ea67c90e0592bdd6e12b0dc9cf89f94ad799670c4a",
+      "produced_by": "scripts/build_og_and_favicons.py"
     }
   ]
 }

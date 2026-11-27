@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheat sheet — Easy Math Lang Docs</title>
+<meta property="og:title" content="Cheat sheet — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Cheat sheet</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#cheat-sheet">Cheat sheet</a></li><li><a href="#run-the-compiler">Run the compiler</a></li><li><a href="#skeleton-of-a-document">Skeleton of a document</a></li><li><a href="#values">Values</a></li><li><a href="#separators-one-rule">Separators — one rule</a></li><li><a href="#everyday-math">Everyday math</a></li><li><a href="#aliases-same-command-other-names">Aliases — same command, other names</a></li><li><a href="#text-and-structure">Text and structure</a></li><li><a href="#symbols">Symbols</a></li><li><a href="#draw-geometry">Draw geometry</a></li><li><a href="#construction-points">Construction points</a></li><li><a href="#plot-a-function">Plot a function</a></li><li><a href="#if-something-goes-wrong">If something goes wrong</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="cheat-sheet">Cheat sheet</h1>
+<p>One page with everything you type most often. Each section links to the</p>
+<p>full guide if you need details.</p>
+<ul>
+<li><a href="#run-the-compiler">Run the compiler</a></li>
+<li><a href="#skeleton-of-a-document">Skeleton of a document</a></li>
+<li><a href="#values">Values</a></li>
+<li><a href="#separators--one-rule">Separators — one rule</a></li>
+<li><a href="#everyday-math">Everyday math</a></li>
+<li><a href="#aliases--same-command-other-names">Aliases — same command, other names</a></li>
+<li><a href="#text-and-structure">Text and structure</a></li>
+<li><a href="#symbols">Symbols</a></li>
+<li><a href="#draw-geometry">Draw geometry</a></li>
+<li><a href="#construction-points">Construction points</a></li>
+<li><a href="#plot-a-function">Plot a function</a></li>
+<li><a href="#if-something-goes-wrong">If something goes wrong</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<hr>
+<h2 id="run-the-compiler">Run the compiler</h2>
+<pre class="code"><code>uv run easy-math-lang doc.ezmath              → doc.pdf (next to your file)
+uv run easy-math-lang doc.ezmath out.png      → image(s)
+uv run easy-math-lang --strict doc.ezmath     → exit non-zero on errors (CI)
+uv run easy-math-lang --help                  → all options</code></pre>
+<p>Installed the app? Just <code>easy-math-lang doc.ezmath</code> (or press <strong>Ctrl+B</strong></p>
+<p>in the editor). See <a href="export.html">Export</a>.</p>
+<hr>
+<h2 id="skeleton-of-a-document">Skeleton of a document</h2>
+<pre class="code"><code>// A comment — invisible in the PDF
+*doc_title(My Lesson)
+
+# Title
+## Subtitle
+
+*(
+    &lt;width&gt;  = 5
+    &lt;height&gt; = 3
+    &lt;area&gt;   = calc(&lt;width&gt; * &lt;height&gt;)
+)
+
+The area is &lt;width&gt; . &lt;height&gt; = &lt;area&gt; cm².
+
+- a list item
+1. a numbered step</code></pre>
+<hr>
+<h2 id="values">Values</h2>
+<table><thead><tr><th>You write</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>*define(pi_approx = 3.14)</code></td><td>Name for a value — printed as written</td></tr>
+<tr><td><code>&lt;width&gt; = 5</code></td><td>Variable — can be calculated later</td></tr>
+<tr><td><code>let x = 5</code> / <code>var x = 5</code></td><td>Friendly aliases for a variable</td></tr>
+<tr><td><code>calc(&lt;a&gt; + &lt;b&gt;)</code></td><td>Actually calculate: <code>+ - * / % ^</code>, <code>sqrt</code>, <code>sin</code>, <code>pi</code>, …</td></tr>
+<tr><td><code>*( ... )</code></td><td>Define several variables without printing them</td></tr>
+<tr><td><code>// text</code></td><td>Comment (also works at the end of a line)</td></tr>
+</tbody></table>
+<p>> <strong>Decimal rule:</strong> inside <code>calc</code> always use a dot (<code>3.5</code>, never <code>3,5</code>).</p>
+<p>> In commands, <code>,</code> separates arguments: <code>*frac(3,5)</code> is 3 over 5.</p>
+<hr>
+<h2 id="separators-one-rule">Separators — one rule</h2>
+<p><code>,</code> and <code>;</code> separate arguments everywhere. When <code>;</code> is present it wins,</p>
+<p>so big numbers keep their commas: <code>*frac(100,000 ; 2)</code>.</p>
+<pre class="code"><code>*frac(2, 3)          same as   *frac(2 ; 3)
+*line(A, B)          same as   *line(A ; B)
+*table(a ; b | c ; d)          rows split on |, cells on ;</code></pre>
+<hr>
+<h2 id="everyday-math">Everyday math</h2>
+<table><thead><tr><th>Write</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code>*frac(2, 3)</code></td><td>²⁄₃ as a real fraction</td></tr>
+<tr><td><code>*pow(x, 2)</code></td><td>x²</td></tr>
+<tr><td><code>*root(2, x)</code></td><td>√x (first number = index)</td></tr>
+<tr><td><code>*cbrt(x)</code></td><td>∛x</td></tr>
+<tr><td><code>*abs(x - 2)</code></td><td>\</td><td>x − 2\</td><td></td></tr>
+<tr><td><code>A_1</code></td><td>A₁ (subscript)</td></tr>
+<tr><td><code><em>sin(x)</code> <code></em>cos(x)</code> <code><em>tan(x)</code> <code></em>arcsin(x)</code> …</td><td>trigonometry</td></tr>
+<tr><td><code><em>log(x)</code> <code></em>ln(x)</code></td><td>logarithms</td></tr>
+<tr><td><code>*sum(i = 1 ; n ; i)</code></td><td>Σ — sum of i from 1 to n</td></tr>
+<tr><td><code>*prod(i = 1 ; n ; i)</code></td><td>Π — product</td></tr>
+<tr><td><code>*lim(x -&gt; 0 ; sin(x) / x)</code></td><td>limit</td></tr>
+<tr><td><code>*int(0 ; 1 ; x^2)</code></td><td>∫₀¹ x² (use <code>*integral</code> if you prefer)</td></tr>
+<tr><td><code><em>diff(f ; x)</code> / <code></em>pdiff(f ; x)</code></td><td>df/dx / ∂f/∂x</td></tr>
+<tr><td><code>*binom(n, k)</code></td><td>binomial coefficient</td></tr>
+<tr><td><code>*set(x ; x &gt; 0)</code></td><td>set-builder {x \</td><td>x > 0}</td></tr>
+<tr><td>`*matrix(1 ; 2 \</td><td>3 ; 4)`</td><td>matrix (rows on `\</td><td>`)</td></tr>
+<tr><td>`*cases(x ; x > 0 \</td><td>0 ; x <= 0)`</td><td>piecewise / equation systems</td></tr>
+<tr><td>`*align(x = 1 \</td><td>y = 2)`</td><td>equations aligned on <code>=</code></td></tr>
+<tr><td><code><em>hat(x)</code> <code></em>bar(AB)</code> <code>*dot(x)</code></td><td>accents</td></tr>
+<tr><td><code><em>pi</code> <code></em>infinity</code> <code>*degree</code></td><td>π ∞ °</td></tr>
+</tbody></table>
+<p>Full list with every argument pattern: <a href="algebra.html">Writing math</a>.</p>
+<hr>
+<h2 id="aliases-same-command-other-names">Aliases — same command, other names</h2>
+<p>Like a word with two spellings? These all produce the same output:</p>
+<table><thead><tr><th>You write</th><th>Same as</th></tr></thead><tbody>
+<tr><td><code>*fraction(2, 3)</code></td><td><code>*frac(2, 3)</code></td></tr>
+<tr><td><code>*power(x, 2)</code></td><td><code>*pow(x, 2)</code></td></tr>
+<tr><td><code><em>squareroot(x)</code> / <code></em>square-root(x)</code></td><td><code>*sqrt(x)</code></td></tr>
+<tr><td><code><em>cbrt(x)</code> / <code></em>cuberoot(x)</code> / <code>*cube-root(x)</code></td><td><code>*root(3 ; x)</code></td></tr>
+<tr><td><code>*absolute(x - 2)</code></td><td><code>*abs(x - 2)</code></td></tr>
+<tr><td><code>*summation(i = 1 ; n ; i)</code></td><td><code>*sum(i = 1 ; n ; i)</code></td></tr>
+<tr><td><code>*product(i = 1 ; n ; i)</code></td><td><code>*prod(i = 1 ; n ; i)</code></td></tr>
+<tr><td><code>*limit(x -&gt; 0 ; sin(x) / x)</code></td><td><code>*lim(x -&gt; 0 ; sin(x) / x)</code></td></tr>
+<tr><td><code>*integral(0 ; 1 ; x^2)</code></td><td><code>*int(0 ; 1 ; x^2)</code></td></tr>
+<tr><td>`*mat(1 ; 2 \</td><td>3 ; 4)`</td><td>`*matrix(1 ; 2 \</td><td>3 ; 4)`</td></tr>
+</tbody></table>
+<hr>
+<h2 id="text-and-structure">Text and structure</h2>
+<table><thead><tr><th>Write</th><th>Result</th></tr></thead><tbody>
+<tr><td><code># Title</code> <code>## Sub</code> <code>### Sub-sub</code></td><td>headings</td></tr>
+<tr><td><code>- item</code> / <code>1. item</code></td><td>list / numbered list</td></tr>
+<tr><td><code><em>bold(text)</code> <code></em>italic(text)</code> <code>*underline(text)</code></td><td>styling (<code><em>b</code> <code></em>i</code> <code>*u</code> work too)</td></tr>
+<tr><td><code>\ x = 2 \</code></td><td>inline math mode (math font, no LaTeX needed)</td></tr>
+<tr><td><code>*newpage</code></td><td>page break</td></tr>
+<tr><td><code>*image(pic.png ; 50%)</code></td><td>image (optional width)</td></tr>
+<tr><td><code>*p(sin(x))</code></td><td>print <code>sin(x)</code> literally</td></tr>
+<tr><td><code>*doc_title(My Lesson)</code></td><td>centered title + PDF metadata</td></tr>
+<tr><td><code>*doc_font(DejaVu Sans ; 14pt)</code></td><td>body font</td></tr>
+<tr><td><code>*use(&quot;my-commands.toml&quot;)</code></td><td>load math commands from a mod file</td></tr>
+</tbody></table>
+<hr>
+<h2 id="symbols">Symbols</h2>
+<table><thead><tr><th>You type</th><th>PDF shows</th><th></th><th>You type</th><th>PDF shows</th></tr></thead><tbody>
+<tr><td><code>&lt;=</code> <code>&gt;=</code> <code>!=</code></td><td>≤ ≥ ≠</td><td></td><td><code><em>alpha</code> … <code></em>omega</code></td><td>Greek letters</td></tr>
+<tr><td><code>-&gt;</code> <code>=&gt;</code> <code>&lt;=&gt;</code></td><td>→ ⇒ ⇔</td><td></td><td><code><em>Gamma</code> … <code></em>Omega</code></td><td>capitals Γ Δ …</td></tr>
+<tr><td><code>==</code></td><td>=</td><td></td><td><code><em>leq</code> <code></em>geq</code> <code>*neq</code></td><td>≤ ≥ ≠</td></tr>
+<tr><td><code>+-</code> <code>~~</code> <code>...</code></td><td>± ≈ …</td><td></td><td><code><em>times</code> <code></em>div</code> <code>*cdot</code></td><td>× ÷ ⋅</td></tr>
+<tr><td><code>&amp;&amp;</code> `\</td><td>\</td><td>`</td><td>∧ ∨</td><td></td><td><code><em>isin</code> <code></em>notin</code> <code>*subset</code></td><td>∈ ∉ ⊂</td></tr>
+<tr><td><code>**</code></td><td>⋅</td><td></td><td><code><em>forall</code> <code></em>exists</code> <code>*emptyset</code></td><td>∀ ∃ ∅</td></tr>
+</tbody></table>
+<p>Tables by category (arrows, Greek, set theory, delimiters, spacing):</p>
+<p><a href="algebra.html#symbol-keywords">Writing math → Symbol keywords</a>.</p>
+<hr>
+<h2 id="draw-geometry">Draw geometry</h2>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C)                    // placed automatically
+    *distance(A ; C ; 3)         // a rule instead of coordinates
+    *perp(A ; B ; A ; C)
+    *triangle(A ; B ; C)
+    *right-angle(B ; A ; C)
+)</code></pre>
+<p>You describe <strong>relationships</strong>; the solver finds the positions.</p>
+<p>Full guide: <a href="geometry.html">Drawing geometry</a>.</p>
+<table><thead><tr><th>You type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>*distance(A ; B ; 5)</code></td><td>AB has length 5</td></tr>
+<tr><td><code>*perp(A ; B ; C ; D)</code></td><td>AB ⊥ CD (3 args: AB ⊥ BC)</td></tr>
+<tr><td><code>*parallel(A ; B ; C ; D)</code></td><td>AB ∥ CD</td></tr>
+<tr><td><code>*on-line(A ; B ; C)</code></td><td>C lies on line AB</td></tr>
+<tr><td><code>*on-circle(O ; 5 ; A)</code></td><td>A lies on circle (O, 5)</td></tr>
+<tr><td><code>*equal-length(A ; B ; C ; D)</code></td><td>AB = CD</td></tr>
+<tr><td><code>*equal-angle(A ; B ; C ; D ; E ; F)</code></td><td>angle ABC = angle DEF (equality marks on both)</td></tr>
+<tr><td><code>*midpoint(A ; B ; M)</code></td><td>M is the midpoint of AB</td></tr>
+<tr><td><code>*intersection(P ; line(A ; B) ; line(C ; D))</code></td><td>P is where the lines cross</td></tr>
+</tbody></table>
+<h3 id="construction-points">Construction points</h3>
+<p>A point can be computed instead of free — write a constructor on the</p>
+<p>right of <code>=</code>:</p>
+<table><thead><tr><th>You type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>*point(M = midpoint(A ; B))</code></td><td>halfway between A and B</td></tr>
+<tr><td><code>*point(F = foot(P ; line(A ; B)))</code></td><td>perpendicular foot of P</td></tr>
+<tr><td><code>*point(R = reflect(P ; line(A ; B)))</code></td><td>P mirrored across the line</td></tr>
+<tr><td><code>*point(P = intersect(line(A ; B) ; line(C ; D)))</code></td><td>where two lines cross</td></tr>
+<tr><td><code>*point(P = intersect(line(A ; B) ; circle(O ; 3) ; 1))</code></td><td><code>k = 1 or 2</code> picks the solution</td></tr>
+<tr><td><code>*point(G = centroid(A ; B ; C))</code></td><td>triangle center of mass</td></tr>
+<tr><td><code>*point(O = circumcenter(A ; B ; C))</code></td><td>circle-through-the-corners center</td></tr>
+<tr><td><code>*point(I = incenter(A ; B ; C))</code></td><td>inscribed-circle center</td></tr>
+<tr><td><code>*point(H = orthocenter(A ; B ; C))</code></td><td>altitudes' meeting point</td></tr>
+</tbody></table>
+<p>Constructors nest inside constructors (<code>midpoint(A ; midpoint(B ; C))</code>),</p>
+<p>and constraints may use the derived points. Ordering rules and error</p>
+<p>cases: <a href="geometry.html#construction-points">Construction points → geometry.md</a>.</p>
+<hr>
+<h2 id="plot-a-function">Plot a function</h2>
+<pre class="code"><code>*plot(x^2, -5, 5)
+*plot(sin(x), -10, 10)</code></pre>
+<p>Creates <code>doc-plot-1.svg</code> next to your file and embeds it automatically.</p>
+<p>Only functions of <code>x</code>; write <code><em></code> for multiplication (<code>2</em>x</code>, not <code>2x</code>).</p>
+<hr>
+<h2 id="if-something-goes-wrong">If something goes wrong</h2>
+<table><thead><tr><th>Message</th><th>What it means</th></tr></thead><tbody>
+<tr><td><code>[Error] Line 7: undefined variable &lt;widht&gt;</code> (with the source line + caret under the token)</td><td>Typo in a variable name</td></tr>
+<tr><td><code>[Warning] … unknown command *fract …</code></td><td>Misspelled command — a suggestion is printed</td></tr>
+<tr><td><code>[Calc Error: division by zero]</code></td><td><code>calc()</code> tried to divide by 0</td></tr>
+<tr><td><code>Compiled … with 2 error(s), 1 warning(s)</code></td><td>PDF was written anyway; fix these or use <code>--strict</code></td></tr>
+</tbody></table>
+<p>Every message points at a spot in your <code>.ezmath</code> file: the first line</p>
+<p>says the line number, the lines under it show the real source line and</p>
+<p>a caret under the exact character (<code>File &quot;doc.ezmath&quot;, line 7, column 9</code>).</p>
+<p>Full guide with fixes: <a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="algebra.html">Writing math</a> — every command explained</li>
+<li><a href="geometry.html">Drawing geometry</a> — figures and constraints</li>
+<li><a href="export.html">Export</a> — PDF, PNG, SVG, HTML, Typst</li>
+<li><a href="editor.html">Desktop editor</a> — shortcuts and panels</li>
+<li><a href="glossary.html">Glossary</a> — what all the terms mean</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

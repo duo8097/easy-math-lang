@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started — Easy Math Lang Docs</title>
+<meta property="og:title" content="Getting started — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Getting started</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#getting-started">Getting started</a></li><li><a href="#step-0-install-easy-math-lang">Step 0 — Install easy-math-lang</a></li><li><a href="#step-1-create-your-first-ezmath-file">Step 1 — Create your first .ezmath file</a></li><li><a href="#what-each-line-means">What each line means</a></li><li><a href="#step-2-compile-it-to-pdf">Step 2 — Compile it to PDF</a></li><li><a href="#step-3-try-more-math">Step 3 — Try more math</a></li><li><a href="#step-4-draw-a-simple-figure">Step 4 — Draw a simple figure</a></li><li><a href="#step-5-what-if-something-goes-wrong">Step 5 — What if something goes wrong?</a></li><li><a href="#youre-done">You&#x27;re done!</a></li></ul></nav>
+    <h1 id="getting-started">Getting started</h1>
+<p>Write your first ezmath file in 5 minutes.</p>
+<p>This tutorial walks you through creating a <code>.ezmath</code> text file and</p>
+<p>turning it into a PDF. No programming experience needed — if you can</p>
+<p>type in Notepad, TextEdit, or VS Code, you can do this.</p>
+<hr>
+<h2 id="step-0-install-easy-math-lang">Step 0 — Install easy-math-lang</h2>
+<p>You need the <code>easy-math-lang</code> command on your computer.</p>
+<p><strong>Fastest way (no Python needed):</strong> download the installer for your</p>
+<p>system from the <a href="https://github.com/duo8097/easy-math-lang/releases"><strong>Releases page</strong></a>:</p>
+<ul>
+<li><strong>Windows:</strong> <code>EasyMathLang-Windows-x64-Setup.exe</code></li>
+<li><strong>macOS (Apple Silicon):</strong> <code>EasyMathLang-macOS-arm64.dmg</code></li>
+<li><strong>Linux:</strong> <code>.deb</code>, <code>.rpm</code>, or Arch package</li>
+</ul>
+<p>Install it, then launch <strong>Easy Math Editor</strong> from your Start Menu or</p>
+<p>Applications.</p>
+<p>> Need step-by-step install help? See the <a href="installation.html">Installation guide</a>.</p>
+<hr>
+<h2 id="step-1-create-your-first-ezmath-file">Step 1 — Create your first .ezmath file</h2>
+<p>Open any text editor (Notepad, TextEdit, VS Code, anything) and type:</p>
+<pre class="code"><code>// My first ezmath document
+
+*doc_title(My Lesson)
+
+&lt;width&gt; = 5
+&lt;height&gt; = 3
+&lt;area&gt; = calc(&lt;width&gt; * &lt;height&gt;)
+
+The rectangle is &lt;width&gt; cm wide and &lt;height&gt; cm tall.
+Its area is: &lt;width&gt; . &lt;height&gt; = &lt;area&gt; cm².</code></pre>
+<p>Save it as <code>my-doc.ezmath</code> in a folder you can find again (for example</p>
+<p>your Desktop or Documents folder).</p>
+<h3 id="what-each-line-means">What each line means</h3>
+<table><thead><tr><th>Line</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>// My first ezmath document</code></td><td>A <strong>comment</strong> — anything after <code>//</code> is ignored and never shows in the PDF</td></tr>
+<tr><td><code>*doc_title(My Lesson)</code></td><td>Sets the document title and the PDF's metadata</td></tr>
+<tr><td><code>&lt;width&gt; = 5</code></td><td>Creates a <strong>variable</strong> named <code>width</code> and gives it the value 5</td></tr>
+<tr><td><code>&lt;height&gt; = 3</code></td><td>Creates a variable named <code>height</code> with value 3</td></tr>
+<tr><td><code>&lt;area&gt; = calc(&lt;width&gt; * &lt;height&gt;)</code></td><td>Calculates 5 × 3 = 15 and stores it in <code>area</code></td></tr>
+<tr><td><code>The rectangle is ...</code></td><td>Normal text — printed as-is in the PDF</td></tr>
+<tr><td><code>&lt;width&gt;</code>, <code>&lt;height&gt;</code>, <code>&lt;area&gt;</code></td><td>Variables are replaced by their values when the PDF is built</td></tr>
+</tbody></table>
+<p><strong>Rule of thumb:</strong> words in <code>&lt;...&gt;</code> are variables you define. Words</p>
+<p>starting with <code>*</code> are commands that do something special. Everything</p>
+<p>else is ordinary text.</p>
+<hr>
+<h2 id="step-2-compile-it-to-pdf">Step 2 — Compile it to PDF</h2>
+<p>Open a terminal in the folder where you saved <code>my-doc.ezmath</code> and run:</p>
+<pre class="code"><code>easy-math-lang my-doc.ezmath</code></pre>
+<p>(If you installed from source, use <code>uv run easy-math-lang my-doc.ezmath</code> instead.)</p>
+<p>You should see:</p>
+<pre class="code"><code>Compiling PDF with Typst...
+Successfully compiled my-doc.ezmath to my-doc.pdf via Typst!</code></pre>
+<p>A file named <code>my-doc.pdf</code> now sits next to <code>my-doc.ezmath</code>. Open it —</p>
+<p>you should see:</p>
+<p>> My Lesson</p>
+<p>></p>
+<p>> The rectangle is 5 cm wide and 3 cm tall.</p>
+<p>> Its area is: 5 . 3 = 15 cm²</p>
+<hr>
+<h2 id="step-3-try-more-math">Step 3 — Try more math</h2>
+<p>Change your file to this:</p>
+<pre class="code"><code>*doc_title(More math)
+
+&lt;base&gt; = 6
+&lt;height&gt; = 4
+&lt;area&gt; = calc(&lt;base&gt; * &lt;height&gt; / 2)
+
+Triangle area:
+&lt;base&gt; . &lt;height&gt; / 2 = &lt;area&gt;
+
+A fraction: *frac(1, 2)
+A power: *pow(x, 2)
+A square root: *root(2, x)
+Pi: *pi</code></pre>
+<p>Save and compile again:</p>
+<pre class="code"><code>easy-math-lang my-doc.ezmath</code></pre>
+<p>The PDF now shows the triangle area (12), a real fraction (½), x²,</p>
+<p>√x, and π.</p>
+<hr>
+<h2 id="step-4-draw-a-simple-figure">Step 4 — Draw a simple figure</h2>
+<p>ezmath can draw geometry too. Add this at the end of your file:</p>
+<pre class="code"><code>*draw(
+    *point(A = 0, 0)
+    *point(B = 4, 0)
+    *point(C = 2, 3)
+    *triangle(A ; B ; C)
+)</code></pre>
+<p>This describes a triangle: point A at the bottom-left, point B to the</p>
+<p>right, point C above the middle. ezmath figures out where everything</p>
+<p>goes and draws it in your PDF.</p>
+<p>> You describe <strong>relationships</strong> (points, distances, angles) and the</p>
+<p>> program figures out the exact coordinates. Full guide:</p>
+<p>> <a href="geometry.html">Drawing geometry</a>.</p>
+<hr>
+<h2 id="step-5-what-if-something-goes-wrong">Step 5 — What if something goes wrong?</h2>
+<p>You might see a message like:</p>
+<pre class="code"><code>[Error] Line 5: undefined variable &lt;widht&gt;</code></pre>
+<p>This means ezmath found <code>&lt;widht&gt;</code> but you never defined it — probably a</p>
+<p>typo (you meant <code>&lt;width&gt;</code>). The message shows the line number and the</p>
+<p>exact spot, so you can fix it and compile again.</p>
+<p>Every message points at a spot in your <code>.ezmath</code> file. Full list of</p>
+<p>messages and fixes: <a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+<hr>
+<h2 id="youre-done">You're done!</h2>
+<p>In 5 minutes you:</p>
+<ol>
+<li>Installed easy-math-lang</li>
+<li>Wrote a <code>.ezmath</code> file with variables and calculation</li>
+<li>Compiled it to a PDF</li>
+<li>Tried fractions, powers, roots, and π</li>
+<li>Drew a triangle</li>
+</ol>
+<p><strong>What next?</strong></p>
+<ul>
+<li><a href="cheatsheet.html">Cheat sheet</a> — everything you type most often, on one page</li>
+<li><a href="algebra.html">Writing math</a> — every command explained, with examples</li>
+<li><a href="editor.html">Desktop editor</a> — the graphical editor with shortcuts and panels</li>
+<li><a href="glossary.html">Glossary</a> — every term explained in plain language</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>

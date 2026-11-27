@@ -15,6 +15,7 @@
     "note": "Made for teachers and students. Free and open source (MIT).",
     "buttons": {
       "download": "Download",
+      "try": "Try it",
       "github": "GitHub",
       "docs": "Docs"
     }
@@ -104,10 +105,27 @@
     "release": "All releases on GitHub",
     "source": "Or run it from source — see the installation guide."
   },
+  "playground": {
+    "title": "Playground",
+    "subtitle": "Type ezmath on the left. The compiled Typst output appears on the right. Runs entirely in your browser.",
+    "example_label": "Example",
+    "run": "Run",
+    "copy": "Copy output",
+    "share": "Share link",
+    "input_label": "ezmath input",
+    "output_label": "Compiled output (Typst)",
+    "loading": "Loading the compiler (Pyodide)…",
+    "fallback": "The in-browser compiler could not be loaded. You can still read the compiled Typst output for the built-in examples above.",
+    "note": "Rendering to PDF/PNG/SVG requires the Typst compiler, which does not run in the browser. The playground shows the compiled Typst source; install Easy Math Lang to render it."
+  },
   "docs": {
     "title": "Documentation",
     "subtitle": "The guides live in the repository as plain Markdown.",
     "items": {
+      "site_docs": "Docs on this site",
+      "vs_latex": "ezmath vs LaTeX",
+      "changelog": "Changelog",
+      "playground": "Playground",
       "editor": "Desktop editor",
       "algebra": "Writing math",
       "geometry": "Drawing geometry",

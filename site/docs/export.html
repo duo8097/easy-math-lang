@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exporting to PDF, images, HTML and Typst — Easy Math Lang Docs</title>
+<meta property="og:title" content="Exporting to PDF, images, HTML and Typst — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Exporting to PDF, images, HTML and Typst</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#exporting-to-pdf-images-html-and-typst">Exporting to PDF, images, HTML and Typst</a></li><li><a href="#quick-examples">Quick examples</a></li><li><a href="#formats">Formats</a></li><li><a href="#multi-page-images">Multi-page images</a></li><li><a href="#tips">Tips</a></li><li><a href="#see-also">See also</a></li><li><a href="#honest-status-and---strict">Honest status and --strict</a></li></ul></nav>
+    <h1 id="exporting-to-pdf-images-html-and-typst">Exporting to PDF, images, HTML and Typst</h1>
+<p><code>easy-math-lang</code> writes the intermediate Typst source (<code>doc.typ</code></p>
+<p>next to your <code>.ezmath</code>), converts it with the <code>typst</code> package, then</p>
+<p>removes the intermediates on success — only the deliverable stays.</p>
+<p>Pick the output by extension — or explicitly with <code>--format</code>.</p>
+<h2 id="quick-examples">Quick examples</h2>
+<pre class="code"><code>uv run easy-math-lang doc.ezmath              # doc.pdf (default)
+uv run easy-math-lang doc.ezmath out.png      # PNG image(s)
+uv run easy-math-lang doc.ezmath out.svg      # SVG image(s)
+uv run easy-math-lang doc.ezmath out.html     # HTML page
+uv run easy-math-lang doc.ezmath out.typ      # Typst source only (no render)
+uv run easy-math-lang --format png doc.ezmath # doc.png
+uv run easy-math-lang --format png --ppi 300 doc.ezmath -o hi.png
+easy-math-lang --list-formats                 # pdf, png, svg, html, typ</code></pre>
+<p><code>typst</code> is accepted as an alias of <code>typ</code> (<code>--format typst</code>, <code>out.typst</code>),</p>
+<p>matching the "Typst" label used in the docs and the editor.</p>
+<p>The installed binaries (<code>easy-math-lang</code>, <code>ezmath</code>) accept the same flags.</p>
+<p>In the desktop editor: <strong>File → Export As…</strong> (PDF/PNG/SVG/HTML/Typst)</p>
+<p>works for saved and untitled documents; PNG prompts for DPI (default 150).</p>
+<h2 id="formats">Formats</h2>
+<table><thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead><tbody>
+<tr><td>PDF</td><td><code>.pdf</code></td><td>Default. Print-ready A4 document.</td></tr>
+<tr><td>PNG</td><td><code>.png</code></td><td>Raster image. <code>--ppi 1..1200</code> controls resolution.</td></tr>
+<tr><td>SVG</td><td><code>.svg</code></td><td>Vector image (scales cleanly for slides/web).</td></tr>
+<tr><td>HTML</td><td><code>.html</code></td><td>Single web page (Typst HTML export).</td></tr>
+<tr><td>Typst</td><td><code>.typ</code> (<code>.typst</code> also works)</td><td>Intermediate source only — no <code>typst.compile()</code> call.</td></tr>
+</tbody></table>
+<h2 id="multi-page-images">Multi-page images</h2>
+<p>PNG/SVG are one-file-per-page when the document spans pages.</p>
+<p><code>doc.png</code> with 3 pages writes <code>doc-1.png</code>, <code>doc-2.png</code>, <code>doc-3.png</code></p>
+<p>(the CLI prints the <code>stem-{p}.ext</code> pattern). To choose the pattern</p>
+<p>yourself, include <code>{p}</code> in the output name: <code>out-{p}.png</code>.</p>
+<h2 id="tips">Tips</h2>
+<ul>
+<li>Unknown extensions (e.g. <code>out</code>) warn and assume PDF — add <code>--format</code></li>
+</ul>
+<p>to be explicit.</p>
+<ul>
+<li>Invalid <code>--format</code>/<code>--ppi</code> fails fast with exit code 2 and a hint.</li>
+<li>Intermediates (<code>.typ</code>, <code>.smap.json</code>, <code>-plot-*.svg</code> next to</li>
+</ul>
+<p>the input) are removed on success; pass <code>--save-build-artifacts</code> to</p>
+<p>keep them for debugging layout. Failures always keep them. The</p>
+<p><code>compile_ezmath()</code> API and the editor preview always keep them.</p>
+<p><code>*image</code> files are your own sources, never intermediates: they are</p>
+<p>never deleted, and <code>typ</code>/<code>html</code> exports to another folder copy them</p>
+<p>along (preserving their relative layout) so the exported source</p>
+<p>keeps working.</p>
+<ul>
+<li>Geometry (<code>*draw</code>) renders identically in every format (CeTZ canvas).</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="troubleshooting.html">Troubleshooting and FAQ</a> — where did my PDF go? which messages mean what?</li>
+<li><a href="cheatsheet.html">Cheat sheet</a> — quick reference for everyday commands</li>
+<li><a href="glossary.html">Glossary</a> — PPI, intermediates, exit codes explained</li>
+</ul>
+<h2 id="honest-status-and---strict">Honest status and --strict</h2>
+<p>A document with <code>[Error]</code> diagnostics (undefined <code>&lt;variable&gt;</code>,</p>
+<p><code>calc()</code> division by zero, …) still writes the PDF by default and</p>
+<p>exits 0 for backward compatibility — but the final line is honest:</p>
+<pre class="code"><code>Compiled doc.ezmath to doc.pdf with 2 error(s), 1 warning(s)</code></pre>
+<p>instead of <code>Successfully compiled … via Typst!</code> (clean builds keep</p>
+<p>the success message). The PDF may contain inline markers like</p>
+<p><code>[Calc Error: …]</code> where evaluation failed.</p>
+<p>Pass <code>--strict</code> to turn errors into a non-zero exit (the PDF is still</p>
+<p>written when possible):</p>
+<pre class="code"><code>uv run easy-math-lang --strict doc.ezmath</code></pre>
+<p>Useful in CI to fail a build on typos and bad calculations.</p>
+  </article>
+</main>
+</body>
+</html>

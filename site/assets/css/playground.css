@@ -1,0 +1,59 @@
+.pg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.pg-pane {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+.pg-pane textarea, .pg-pane pre {
+  min-height: 320px;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: .9rem;
+  line-height: 1.5;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background-color: var(--code-bg);
+  color: var(--code-ink);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+.pg-pane textarea { resize: vertical; }
+.pg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+.pg-toolbar label { font-weight: 600; }
+.pg-toolbar select {
+  padding: .5rem .7rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background-color: var(--paper);
+  color: var(--ink);
+}
+.pg-error {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-left: 3px solid #c0392b;
+  background-color: var(--paper-2);
+  border-radius: 0 8px 8px 0;
+  font-family: var(--mono);
+  font-size: .85rem;
+  white-space: pre-wrap;
+}
+.pg-loading, .pg-fallback, .pg-note {
+  margin: 1rem 0;
+  color: var(--ink-soft);
+  font-size: .9rem;
+}
+@media (max-width: 720px) {
+  .pg-grid { grid-template-columns: 1fr; }
+}

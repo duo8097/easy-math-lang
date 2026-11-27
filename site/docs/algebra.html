@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing Math — Easy Math Lang Docs</title>
+<meta property="og:title" content="Writing Math — Easy Math Lang Docs">
+<meta property="og:description" content="Easy Math Lang documentation.">
+<meta property="og:image" content="https://duo8097.github.io/easy-math-lang/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+  <a class="brand" href="../index.html">Easy Math Lang</a>
+</div></header>
+<main class="wrap docs-layout">
+  <aside class="docs-sidebar"><ul><li><a href="algebra.html">Algebra</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="cheatsheet.html">Cheatsheet</a></li><li><a href="editor.html">Editor</a></li><li><a href="export.html">Export</a></li><li><a href="geometry.html">Geometry</a></li><li><a href="getting-started.html">Getting Started</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="installation.html">Installation</a></li><li><a href="lsp.html">Lsp</a></li><li><a href="mods.html">Mods</a></li><li><a href="packaging.html">Packaging</a></li><li><a href="site-docs.html">Site Docs</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li></ul></aside>
+  <article class="docs-content">
+    <p class="muted">Documentation is currently English-only.</p>
+    <h1>Writing Math</h1>
+    <nav class="doc-toc"><strong>On this page</strong><ul><li><a href="#writing-math">Writing Math</a></li><li><a href="#the-basic-idea">The basic idea</a></li><li><a href="#comments-notes-that-dont-appear-in-the-pdf">Comments — notes that don&#x27;t appear in the PDF</a></li><li><a href="#defines-giving-a-name-to-a-value">Defines — giving a name to a value</a></li><li><a href="#variables-storing-calculated-values">Variables — storing calculated values</a></li><li><a href="#grouping-variable-definitions-silent-block">Grouping variable definitions (silent block)</a></li><li><a href="#calculations-making-the-computer-do-the-math">Calculations — making the computer do the math</a></li><li><a href="#operators-you-can-use-inside-calc">Operators you can use inside calc</a></li><li><a href="#functions-and-constants-inside-calc">Functions and constants inside calc</a></li><li><a href="#decimal-point">Decimal point</a></li><li><a href="#the-multiplication-dot">The multiplication dot</a></li><li><a href="#raw-print-printing-something-exactly-as-written">Raw print — printing something exactly as written</a></li><li><a href="#math-commands">Math commands</a></li><li><a href="#fractions">Fractions</a></li><li><a href="#square-roots-and-nth-roots">Square roots and nth roots</a></li><li><a href="#powers-exponents">Powers (exponents)</a></li><li><a href="#subscripts-small-numbers-below">Subscripts (small numbers below)</a></li><li><a href="#absolute-value">Absolute value</a></li><li><a href="#trigonometry">Trigonometry</a></li><li><a href="#accents">Accents</a></li><li><a href="#integrals">Integrals</a></li><li><a href="#derivatives">Derivatives</a></li><li><a href="#piecewise-and-equation-systems">Piecewise and equation systems</a></li><li><a href="#determinants">Determinants</a></li><li><a href="#sets">Sets</a></li><li><a href="#aligned-equations">Aligned equations</a></li><li><a href="#column-vectors">Column vectors</a></li><li><a href="#binomial-coefficients">Binomial coefficients</a></li><li><a href="#logarithms">Logarithms</a></li><li><a href="#summation">Summation (Σ)</a></li><li><a href="#product">Product (Π)</a></li><li><a href="#limits">Limits</a></li><li><a href="#constants">Constants</a></li><li><a href="#function-plots-drawing-graphs-with-plot">Function plots — drawing graphs with `*plot`</a></li><li><a href="#inline-math-mode">Inline math mode — `\ ... \`</a></li><li><a href="#automatic-symbol-shortcuts">Automatic symbol shortcuts</a></li><li><a href="#symbol-keywords">Symbol keywords</a></li><li><a href="#comparisons">Comparisons</a></li><li><a href="#arrows">Arrows</a></li><li><a href="#math-operations">Math operations</a></li><li><a href="#geometry-symbols-in-text">Geometry symbols (in text)</a></li><li><a href="#set-theory">Set theory</a></li><li><a href="#dots-and-delimiters">Dots and delimiters</a></li><li><a href="#spacing-work-in-text-and-math-incl-casesmatrix-cells-and-math">Spacing (work in text and math, incl. `*cases`/`*matrix` cells and `\ ... \` math)</a></li><li><a href="#misc-symbols">Misc symbols</a></li><li><a href="#greek-letters">Greek letters</a></li><li><a href="#document-structure-headings-lists">Document structure (headings, lists)</a></li><li><a href="#document-title">Document title</a></li><li><a href="#document-font">Document font</a></li><li><a href="#text-styling-bold-italic-underline">Text styling — bold, italic, underline</a></li><li><a href="#page-breaks">Page breaks</a></li><li><a href="#images">Images</a></li><li><a href="#tables-and-matrices">Tables and matrices</a></li><li><a href="#full-example">Full example</a></li><li><a href="#see-also">See also</a></li></ul></nav>
+    <h1 id="writing-math">Writing Math</h1>
+<p>This page explains how to write math documents using easy-math-lang.</p>
+<ul>
+<li><a href="#the-basic-idea">The basic idea</a></li>
+<li><a href="#comments--notes-that-dont-appear-in-the-pdf">Comments — notes that don't appear in the PDF</a></li>
+<li><a href="#defines--giving-a-name-to-a-value">Defines — giving a name to a value</a></li>
+<li><a href="#variables--storing-calculated-values">Variables — storing calculated values</a></li>
+<li><a href="#grouping-variable-definitions-silent-block">Grouping variable definitions (silent block)</a></li>
+<li><a href="#calculations--making-the-computer-do-the-math">Calculations — making the computer do the math</a></li>
+<li><a href="#operators-you-can-use-inside-calc">Operators you can use inside calc</a></li>
+<li><a href="#functions-and-constants-inside-calc">Functions and constants inside calc</a></li>
+<li><a href="#decimal-point">Decimal point</a></li>
+<li><a href="#the-multiplication-dot">The multiplication dot</a></li>
+<li><a href="#raw-print--printing-something-exactly-as-written">Raw print — printing something exactly as written</a></li>
+<li><a href="#math-commands">Math commands</a></li>
+<li><a href="#fractions">Fractions</a></li>
+<li><a href="#square-roots-and-nth-roots">Square roots and nth roots</a></li>
+<li><a href="#powers-exponents">Powers (exponents)</a></li>
+<li><a href="#subscripts-small-numbers-below">Subscripts (small numbers below)</a></li>
+<li><a href="#absolute-value">Absolute value</a></li>
+<li><a href="#trigonometry">Trigonometry</a></li>
+<li><a href="#accents">Accents</a></li>
+<li><a href="#integrals">Integrals</a></li>
+<li><a href="#derivatives">Derivatives</a></li>
+<li><a href="#piecewise-and-equation-systems">Piecewise and equation systems</a></li>
+<li><a href="#determinants">Determinants</a></li>
+<li><a href="#sets">Sets</a></li>
+<li><a href="#aligned-equations">Aligned equations</a></li>
+<li><a href="#column-vectors">Column vectors</a></li>
+<li><a href="#binomial-coefficients">Binomial coefficients</a></li>
+<li><a href="#logarithms">Logarithms</a></li>
+<li><a href="#summation-σ">Summation (Σ)</a></li>
+<li><a href="#product-π">Product (Π)</a></li>
+<li><a href="#limits">Limits</a></li>
+<li><a href="#constants">Constants</a></li>
+<li><a href="#function-plots--drawing-graphs-with-plot">Function plots — drawing graphs with <code>*plot</code></a></li>
+<li><a href="#inline-math-mode">Inline math mode — <code>\ ... \</code></a></li>
+<li><a href="#automatic-symbol-shortcuts">Automatic symbol shortcuts</a></li>
+<li><a href="#symbol-keywords">Symbol keywords</a></li>
+<li><a href="#comparisons">Comparisons</a></li>
+<li><a href="#arrows">Arrows</a></li>
+<li><a href="#math-operations">Math operations</a></li>
+<li><a href="#geometry-symbols-in-text">Geometry symbols (in text)</a></li>
+<li><a href="#set-theory">Set theory</a></li>
+<li><a href="#dots-and-delimiters">Dots and delimiters</a></li>
+<li><a href="#spacing-work-in-text-and-math-incl-casesmatrix-cells-and----math">Spacing (work in text and math, incl. <code><em>cases</code>/<code></em>matrix</code> cells and <code>\ ... \</code> math)</a></li>
+<li><a href="#misc-symbols">Misc symbols</a></li>
+<li><a href="#greek-letters">Greek letters</a></li>
+<li><a href="#document-structure-headings-lists">Document structure (headings, lists)</a></li>
+<li><a href="#document-title">Document title</a></li>
+<li><a href="#document-font">Document font</a></li>
+<li><a href="#text-styling--bold-italic-underline">Text styling — bold, italic, underline</a></li>
+<li><a href="#page-breaks">Page breaks</a></li>
+<li><a href="#images">Images</a></li>
+<li><a href="#tables-and-matrices">Tables and matrices</a></li>
+<li><a href="#full-example">Full example</a></li>
+<li><a href="#see-also">See also</a></li>
+</ul>
+<p>Everything you write goes in a plain text file with the <code>.ezmath</code> extension.</p>
+<p>You can create and edit this file with any text editor — **Notepad, TextEdit,</p>
+<p>VS Code**, anything.</p>
+<p>> <strong>New? Start with the friendly shortcuts</strong> (all optional — classic <code>;</code></p>
+<p>> syntax keeps working):</p>
+<p>> - Commas work like <code>;</code>: <code><em>frac(2, 3)</code>, <code></em>pow(x, 2)</code>, <code>*line(A, B)</code>.</p>
+<p>> - Aliases: <code><em>fraction</code> → <code></em>frac</code>, <code><em>power</code> → <code></em>pow</code>, <code>*cbrt(x)</code> (cube root),</p>
+<p>>   <code><em>squareroot</code> → <code></em>sqrt</code>, <code><em>summation</code> → <code></em>sum</code>, … (full list below).</p>
+<p>> - <code>let x = 5</code> / <code>var x = 5</code> / <code>*define x = 5</code> work like <code>&lt;x&gt; = 5</code>.</p>
+<p>> - <code># Title</code>, <code>## Sub</code>, <code>- item</code>, <code>1. item</code> become headings/lists.</p>
+<p>> - <code>==</code> means <code>=</code> (single equals); unknown <code>*cmd</code> (with or without</p>
+<p>>   parens) suggests a fix.</p>
+<p>></p>
+<p>> <strong>Just want to look something up?</strong> The <a href="cheatsheet.html">Cheat sheet</a></p>
+<p>> fits the everyday commands on one page. Hit an error message? See</p>
+<p>> <a href="troubleshooting.html">Troubleshooting and FAQ</a>.</p>
+<hr>
+<h2 id="the-basic-idea">The basic idea</h2>
+<p>You write text that describes what you want, and the compiler turns it into a</p>
+<p>clean PDF. There are a few special commands you can use — they all start with <code>*</code></p>
+<p>so they are easy to spot.</p>
+<p>Words that start with <code>*</code> are <strong>commands</strong>.</p>
+<p>Words without <code>*</code> are printed as <strong>normal text</strong>.</p>
+<hr>
+<h2 id="comments-notes-that-dont-appear-in-the-pdf">Comments — notes that don't appear in the PDF</h2>
+<p>Add a <code>//</code> before any line to make it a comment. Comments are invisible in the PDF.</p>
+<p>Use them to leave notes for yourself.</p>
+<pre class="code"><code>// This is a note to myself — it won&#x27;t appear in the PDF
+&lt;width&gt; = 5</code></pre>
+<p>You can also put a comment at the end of a line:</p>
+<pre class="code"><code>&lt;width&gt; = 5   // the width of the rectangle</code></pre>
+<hr>
+<h2 id="defines-giving-a-name-to-a-value">Defines — giving a name to a value</h2>
+<p>Use <code>*define</code> to give a name to a number or expression you want to reuse:</p>
+<pre class="code"><code>*define(pi_approx = 3.14159)</code></pre>
+<p>Then use that name anywhere:</p>
+<pre class="code"><code>The value of pi is approximately &lt;pi_approx&gt;.</code></pre>
+<p>Output in the PDF:</p>
+<p>> The value of pi is approximately 3.14159.</p>
+<p>> <strong>Note:</strong> Defines are printed <strong>as text</strong>, exactly as you wrote them.</p>
+<p>> They are not automatically calculated.</p>
+<hr>
+<h2 id="variables-storing-calculated-values">Variables — storing calculated values</h2>
+<p>Variables work like defines, but they can be calculated:</p>
+<pre class="code"><code>&lt;width&gt;  = 5
+&lt;height&gt; = 3</code></pre>
+<p>Use angle brackets <code>&lt; &gt;</code> to name a variable and to call it later.</p>
+<pre class="code"><code>The width is &lt;width&gt; and the height is &lt;height&gt;.</code></pre>
+<p>Output:</p>
+<p>> The width is 5 and the height is 3.</p>
+<h3 id="grouping-variable-definitions-silent-block">Grouping variable definitions (silent block)</h3>
+<p>If you want to define several variables <strong>without printing them</strong>, wrap them in <code>*(</code> ... <code>)</code>:</p>
+<pre class="code"><code>*(
+    &lt;width&gt;  = 5
+    &lt;height&gt; = 3
+    &lt;area&gt;   = calc(&lt;width&gt; * &lt;height&gt;)
+)
+
+The area of the rectangle is &lt;width&gt; . &lt;height&gt; = &lt;area&gt;.</code></pre>
+<p>Output:</p>
+<p>> The area of the rectangle is 5 . 3 = 15.</p>
+<hr>
+<h2 id="calculations-making-the-computer-do-the-math">Calculations — making the computer do the math</h2>
+<p>Normally a variable is just printed as text. To actually calculate it, use <code>calc(...)</code>:</p>
+<pre class="code"><code>&lt;a&gt; = 10
+&lt;b&gt; = 20
+&lt;sum&gt; = calc(&lt;a&gt; + &lt;b&gt;)
+The answer is &lt;sum&gt;.</code></pre>
+<p>Output:</p>
+<p>> The answer is 30.</p>
+<h3 id="operators-you-can-use-inside-calc">Operators you can use inside calc</h3>
+<table><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>+</code></td><td>Addition</td></tr>
+<tr><td><code>-</code></td><td>Subtraction</td></tr>
+<tr><td><code>*</code></td><td>Multiplication</td></tr>
+<tr><td><code>/</code></td><td>Division</td></tr>
+<tr><td><code>^</code></td><td>Power (e.g. <code>2 ^ 3</code> = 8)</td></tr>
+<tr><td><code>%</code></td><td>Remainder</td></tr>
+</tbody></table>
+<h3 id="functions-and-constants-inside-calc">Functions and constants inside calc</h3>
+<p><code>calc</code> understands the same function whitelist as <code>*plot</code></p>
+<p>(<code>log</code> is base-10, <code>ln</code> is the natural log) plus <code>pi</code> and <code>e</code>:</p>
+<pre class="code"><code>calc(sqrt(16))      // 4 (exact results stay ints, not 4.0)
+calc(sin(0))        // 0
+calc(2 * pi)        // 6.283185307179586
+calc(log(100))      // 2</code></pre>
+<p>Only single-argument calls work (<code>calc(sin(1, 2))</code> is an error),</p>
+<p>and there is no <code>x</code> variable — <code>calc(x)</code> is an error. <code>*</code>-spellings</p>
+<p>(<code>calc(<em>sin(0))</code>, <code>calc(</em>pi)</code>) work too. Words that merely contain a</p>
+<p>function name (<code>since 1990</code>) are plain text, never evaluated.</p>
+<p>You can also write large numbers with spaces — they are ignored inside <code>calc</code>:</p>
+<pre class="code"><code>calc(1 000 000 + 500)</code></pre>
+<p>Result: <code>1000500</code></p>
+<h3 id="decimal-point">Decimal point</h3>
+<p>Inside <code>calc</code>, use a dot for decimals:</p>
+<pre class="code"><code>&lt;a&gt; = 3.5
+&lt;b&gt; = calc(&lt;a&gt; * 2)   // 7
+calc(0.25 * 4)        // 1</code></pre>
+<p>Thousands separators keep working: <code>calc(100,000 + 1)</code> is <code>100001</code></p>
+<p>and <code>calc(1,000 * 2)</code> is <code>2000</code>.</p>
+<p>> <strong>Note:</strong> a comma never means decimal — <code>3,5</code> is a calc error</p>
+<p>> (use <code>3.5</code>). In <code><em>frac</code>/<code></em>table</code>/etc, <code>,</code> separates arguments</p>
+<p>> (<code>*frac(3,5)</code> is two arguments <code>3</code> and <code>5</code>, never <code>3.5</code>).</p>
+<hr>
+<h2 id="the-multiplication-dot">The multiplication dot</h2>
+<p>By default, <code>*</code> in your text is replaced by whatever you set here:</p>
+<pre class="code"><code>*define(write_type.multiplication = .)</code></pre>
+<p>After that line, every time you write <code>*</code> in text, it shows as <code>.</code> in the PDF — which</p>
+<p>is how multiplication is often written in Vietnamese textbooks.</p>
+<pre class="code"><code>*define(write_type.multiplication = .)
+2 * 3</code></pre>
+<p>Output:</p>
+<p>> 2 . 3</p>
+<p>You can also use <code>x</code> or any other symbol:</p>
+<pre class="code"><code>*define(write_type.multiplication = x)
+2 * 3</code></pre>
+<p>Output:</p>
+<p>> 2 x 3</p>
+<hr>
+<h2 id="raw-print-printing-something-exactly-as-written">Raw print — printing something exactly as written</h2>
+<p>If you write something that looks like a command but you want it to appear as plain</p>
+<p>text, wrap it in <code>*p(...)</code>:</p>
+<pre class="code"><code>*p(sin(x))</code></pre>
+<p>Output:</p>
+<p>> sin(x)</p>
+<hr>
+<h2 id="math-commands">Math commands</h2>
+<p>All math commands start with <code>*</code>. Arguments are separated by <code>;</code></p>
+<p>— or by <code>,</code> if you prefer (<code><em>frac(2, 3)</code> = <code></em>frac(2 ; 3)</code>).</p>
+<p>When <code>;</code> is present it wins, so <code>*frac(100,000 ; 2)</code> keeps <code>100,000</code></p>
+<p>as one number. Friendly aliases (same output, pick what reads best):</p>
+<table><thead><tr><th>Alias</th><th>Same as</th></tr></thead><tbody>
+<tr><td><code>*fraction(...)</code></td><td><code>*frac(...)</code></td></tr>
+<tr><td><code>*power(...)</code></td><td><code>*pow(...)</code></td></tr>
+<tr><td><code><em>squareroot(x)</code>, <code></em>square-root(x)</code></td><td><code>*sqrt(x)</code></td></tr>
+<tr><td><code><em>cbrt(x)</code>, <code></em>cuberoot(x)</code>, <code>*cube-root(x)</code></td><td><code>*root(3 ; x)</code></td></tr>
+<tr><td><code>*absolute(...)</code></td><td><code>*abs(...)</code></td></tr>
+<tr><td><code>*summation(...)</code></td><td><code>*sum(...)</code></td></tr>
+<tr><td><code>*product(...)</code></td><td><code>*prod(...)</code></td></tr>
+<tr><td><code>*limit(...)</code></td><td><code>*lim(...)</code></td></tr>
+<tr><td><code>*integral(...)</code></td><td><code>*int(...)</code></td></tr>
+</tbody></table>
+<h3 id="fractions">Fractions</h3>
+<pre class="code"><code>*frac(2 ; 3)</code></pre>
+<p>Displays as a proper fraction (2 over 3).</p>
+<pre class="code"><code>*frac(x + 1 ; x - 1)</code></pre>
+<h3 id="square-roots-and-nth-roots">Square roots and nth roots</h3>
+<pre class="code"><code>*root(2 ; x)       // square root of x
+*root(3 ; x + 1)   // cube root of (x + 1)</code></pre>
+<p>The first number is the <strong>index</strong> (2 = square root, 3 = cube root), the second is</p>
+<p>what goes under the root sign.</p>
+<p>Shorthands: <code><em>sqrt(x)</code> (square root), <code></em>cbrt(x)</code> (cube root) — aliases</p>
+<p><code><em>squareroot</code>/<code></em>square-root</code> and <code><em>cuberoot</code>/<code></em>cube-root</code> work too.</p>
+<h3 id="powers-exponents">Powers (exponents)</h3>
+<pre class="code"><code>*pow(x ; 2)         // x squared
+*pow(x + 1 ; n)     // (x+1) to the power n
+*pow(A ; *degree)   // A degrees (A°)</code></pre>
+<h3 id="subscripts-small-numbers-below">Subscripts (small numbers below)</h3>
+<p>Write an underscore <code>_</code> between the letter and the subscript number:</p>
+<pre class="code"><code>A_1     → A₁
+x_n     → xₙ</code></pre>
+<h3 id="absolute-value">Absolute value</h3>
+<pre class="code"><code>*abs(x - 2)    // |x − 2|</code></pre>
+<p><code>*absolute(x - 2)</code> is an alias.</p>
+<h3 id="trigonometry">Trigonometry</h3>
+<pre class="code"><code>*sin(x)
+*cos(x)
+*tan(x)
+*cot(x)
+*sec(x)
+*csc(x)
+*arcsin(x)
+*arccos(x)
+*arctan(x)
+*sinh(x)
+*cosh(x)
+*tanh(x)
+*coth(x)</code></pre>
+<p>All take one argument, like <code><em>sin</code>. They also work inside <code></em>plot(...)</code>.</p>
+<h3 id="accents">Accents</h3>
+<pre class="code"><code>*hat(x)         // x̂
+*bar(x)         // x̄
+*overline(AB)   // overline over AB (e.g. segment AB)
+*tilde(x)       // x̃
+*dot(x)         // ẋ</code></pre>
+<p>All take one argument. Variables, <code>calc()</code> and nesting work inside,</p>
+<p>like everywhere else.</p>
+<h3 id="integrals">Integrals</h3>
+<pre class="code"><code>*int(x^2)                // indefinite: ∫ x²
+*int(x^2 ; x)            // indefinite with differential: ∫ x² dif x
+*int(0 ; 1 ; x^2)        // definite: ∫₀¹ x²
+*int(0 ; 1 ; x^2 ; x)    // definite with differential: ∫₀¹ x² dif x
+*oint(C ; F ; l)         // contour integral (Typst integral.cont)
+*integral(0 ; 1 ; x^2)   // alias of *int</code></pre>
+<p><code>lower ; upper</code> are optional; the last <code>; variable</code> adds <code>dif variable</code>.</p>
+<p>Variables and <code>calc()</code> work inside every argument.</p>
+<h3 id="derivatives">Derivatives</h3>
+<pre class="code"><code>*diff(f ; x)         // df/dx as a proper fraction
+*diff(f ; x ; 2)     // second derivative
+*pdiff(f ; x)        // partial derivative ∂f/∂x
+*pdiff(f ; x ; 2)    // second partial</code></pre>
+<p>Commas work too (<code>*diff(f, x)</code>). The order <code>n</code> is usually a number</p>
+<p>but any expression works (<code>*diff(f ; x ; n)</code>). Variables and <code>calc()</code></p>
+<p>work inside every argument.</p>
+<h3 id="piecewise-and-equation-systems">Piecewise and equation systems</h3>
+<pre class="code"><code>*cases(x + y = 3 | x - y = 1)</code></pre>
+<p>Rows split on <code>|</code> (same quote/nesting rules as <code>*matrix</code> rows).</p>
+<p>Inside a row, a depth-0 <code>;</code> (same rules as <code>*matrix</code> cells; <code>,</code> works</p>
+<p>when the row has no <code>;</code>) separates value/condition cells, aligned with</p>
+<p>Typst <code>&amp;</code> (conditions line up across rows — a fixed <code>quad</code> gap would</p>
+<p>not align). Piecewise example:</p>
+<pre class="code"><code>*cases(x ; x &gt; 0 | 0 ; x &lt;= 0)</code></pre>
+<p>Multiline block form works too (cells work per line as well):</p>
+<pre class="code"><code>*cases(
+    x + y = 3
+    x - y = 1
+)
+*cases(
+    x ; x &gt; 0
+    0 ; x &lt;= 0
+)</code></pre>
+<h3 id="determinants">Determinants</h3>
+<pre class="code"><code>*det(1 ; 2 | 3 ; 4)</code></pre>
+<p>Renders a determinant with vertical bars (Typst <code>mat</code> with <code>|</code></p>
+<p>delimiters: <code>$mat(delim: &quot;|&quot;, 1, 2; 3, 4)$</code>). Rows split</p>
+<p>on <code>|</code> and cells on <code>;</code> (or <code>,</code> when a row has no <code>;</code>) — the same</p>
+<p>rule as <code>*matrix</code>. Alternatively pass a matrix directly:</p>
+<pre class="code"><code>*det(*matrix(1 ; 2 | 3 ; 4))</code></pre>
+<p>Ragged rows pad with <code>0</code> (warning); variables, <code>calc()</code>, math and</p>
+<p>symbols work inside cells.</p>
+<h3 id="sets">Sets</h3>
+<pre class="code"><code>*set(x ; x &gt; 0)     // {x | x &gt; 0}
+*set(1 ; 2 ; 3)     // {1, 2, 3}</code></pre>
+<p>The rule is by separator: with <code>;</code>, two arguments mean set-builder</p>
+<p><code>{x | condition}</code>; one argument is a singleton (<code>*set(x)</code> → <code>{x}</code>)</p>
+<p>and three or more list their elements. Without <code>;</code>, commas always</p>
+<p>list — so two-element listings use commas (<code>*set(a, b)</code> → <code>{a, b}</code>)</p>
+<p>while <code>*set(a ; b)</code> stays set-builder. A condition containing <code>;</code></p>
+<p>can be quoted (<code>*set(x ; &quot;a;b&quot;)</code>), and <code>100,000</code>-style numbers stay</p>
+<p>intact when <code>;</code> is present (<code>*set(100,000 ; 2 ; 3)</code> lists three).</p>
+<h3 id="aligned-equations">Aligned equations</h3>
+<pre class="code"><code>*align(x = 1 | y = 2)</code></pre>
+<p>Rows split on <code>|</code> (same quote/nesting rules as <code>*matrix</code> rows) and</p>
+<p>each row aligns at its first <code>=</code> (Typst <code>&amp;</code>). The multiline block</p>
+<p>form works exactly like <code>*cases</code>:</p>
+<pre class="code"><code>*align(
+    x = 1
+    y = 2
+)</code></pre>
+<p>Rows without <code>=</code> are kept as-is (they never crash the build); only</p>
+<p>the first <code>=</code> aligns, later ones stay literal. Variables, <code>calc()</code>,</p>
+<p>math and symbols work inside rows.</p>
+<h3 id="column-vectors">Column vectors</h3>
+<pre class="code"><code>*vec(3 ; 4)
+*vec(1 ; 2 ; 3)</code></pre>
+<p>A math-mode column vector (Typst <code>vec</code>): at least 2 components,</p>
+<p>split on <code>;</code> — or by <code>,</code> when no <code>;</code> is present — with the same</p>
+<p>quote/nesting rules as <code><em>matrix</code> cells, so <code></em>vec(100,000 ; 2)</code> keeps</p>
+<p><code>100,000</code> intact. Variables, <code>calc()</code>, math commands and symbols work</p>
+<p>inside components, and <code>*vec</code> nests inside <code>\ ... \</code> math,</p>
+<p><code><em>matrix</code>/<code></em>det</code> cells and other math commands. The multiline block</p>
+<p>form works like <code>*matrix</code> (one component per line):</p>
+<pre class="code"><code>*vec(
+    1
+    2
+    3
+)</code></pre>
+<p>Fewer than two components (or an empty component) warns and leaves</p>
+<p>the text as-is.</p>
+<h3 id="binomial-coefficients">Binomial coefficients</h3>
+<pre class="code"><code>*binom(n ; k)</code></pre>
+<h3 id="logarithms">Logarithms</h3>
+<pre class="code"><code>*log(x)
+*ln(x)</code></pre>
+<h3 id="summation">Summation (Σ)</h3>
+<pre class="code"><code>*sum(i = 1 ; n ; i)</code></pre>
+<p>Means: the sum of <code>i</code>, where <code>i</code> goes from <code>1</code> to <code>n</code>.</p>
+<p><code>*summation(...)</code> is an alias.</p>
+<h3 id="product">Product (Π)</h3>
+<pre class="code"><code>*prod(i = 1 ; n ; i)</code></pre>
+<p><code>*product(...)</code> is an alias.</p>
+<h3 id="limits">Limits</h3>
+<pre class="code"><code>*lim(x -&gt; 0 ; sin(x) / x)</code></pre>
+<p>Means: the limit of sin(x)/x as x approaches 0.</p>
+<p><code>*limit(...)</code> is an alias.</p>
+<h3 id="constants">Constants</h3>
+<pre class="code"><code>*pi        → π
+*infinity  → ∞</code></pre>
+<hr>
+<h2 id="function-plots-drawing-graphs-with-plot">Function plots — drawing graphs with <code>*plot</code></h2>
+<p>Plot a function <code>y = f(x)</code> over an interval:</p>
+<pre class="code"><code>*plot(x^2; -5; 5)
+*plot(sin(x); -10; 10)
+*plot(1/x; -10; 10)</code></pre>
+<p>The syntax is:</p>
+<pre class="code"><code>*plot(expression ; xmin ; xmax)</code></pre>
+<p>Commas work too: <code>*plot(x^2, -5, 5)</code>.</p>
+<p>Each plot becomes an SVG image next to your document</p>
+<p>(<code>yourdoc-plot-1.svg</code>, <code>yourdoc-plot-2.svg</code>, …) and is embedded in</p>
+<p>the PDF automatically (the CLI removes these intermediates on success</p>
+<p>unless you pass <code>--save-build-artifacts</code>). Bounds accept the same numbers and</p>
+<p>expressions as <code>calc</code> (including variables: <code>*plot(x; -&lt;a&gt;; &lt;a&gt;)</code>).</p>
+<p>The expression uses <code>calc</code>-style syntax: <code>+ - * / % ^</code> (<code>^</code> is</p>
+<p>power), parentheses, the variable <code>x</code>, the constants <code>pi</code>/<code>e</code>, and</p>
+<p>the functions `sin cos tan cot sec csc arcsin arccos arctan sinh</p>
+<p>cosh tanh coth sqrt cbrt log ln abs exp`</p>
+<p>(<code>log</code> is base-10 like Typst's <code>log</code>; <code>ln</code> is the natural log).</p>
+<p>Math-command spellings such as <code>*sin(x)</code> also work inside plots.</p>
+<p>> <strong>Note:</strong> plots are generated <strong>numerically</strong> (1000 samples by</p>
+<p>> default). Values that are not finite are skipped, and the curve is</p>
+<p>> broken across large jumps so discontinuities like <code>1/x</code> do not draw</p>
+<p>> a misleading vertical line. Very steep regions may show tiny gaps</p>
+<p>> where the curve was split — this is expected.</p>
+<p>Limitations:</p>
+<ul>
+<li>Only single-variable functions of <code>x</code> are supported (no <code>ymin</code>,</li>
+</ul>
+<p><code>ymax</code>, multiple functions, or custom labels yet).</p>
+<ul>
+<li>Write multiplication explicitly (<code>2*x</code>, not <code>2x</code>).</li>
+<li>A plot whose expression has no finite values on the interval</li>
+</ul>
+<p>(e.g. <code>*plot(sqrt(x); -10; -1)</code>) emits a <code>[Plot Error: ...]</code></p>
+<p>message instead of an image — the rest of the document still builds.</p>
+<hr>
+<h2 id="inline-math-mode">Inline math mode — <code>\ ... \</code></h2>
+<p>Wrap an expression in backslashes to get Typst math typography:</p>
+<pre class="code"><code>The solution is \ x = 2 \.</code></pre>
+<p>This becomes <code>$x = 2$</code> in Typst, so math fonts apply automatically.</p>
+<p>Outside math mode, text stays normal document text.</p>
+<p>Inside math mode just write naturally:</p>
+<pre class="code"><code>\ x &lt;= y \
+\ a^2 + b^2 = c^2 \
+\ x -&gt; infinity \</code></pre>
+<p>Existing replacements keep working inside math mode</p>
+<p>(<code>&lt;=</code> → ≤, <code>-&gt;</code> → →, <code>*alpha</code> → α).</p>
+<p>You do NOT need LaTeX commands like <code>\leq</code> or <code>\rightarrow</code>.</p>
+<p>Rules:</p>
+<ul>
+<li>The first unescaped <code>\</code> opens math, the next one closes it.</li>
+<li>Spaces just inside the delimiters are ignored.</li>
+<li><code>\\</code> is a literal backslash and never opens math mode.</li>
+<li>Math can span several lines; the opener buffers until its closer.</li>
+<li>A missing closing <code>\</code> produces an error diagnostic.</li>
+<li>Empty <code>\ \</code> warns and emits nothing.</li>
+</ul>
+<hr>
+<h2 id="automatic-symbol-shortcuts">Automatic symbol shortcuts</h2>
+<p>You don't need to copy-paste math symbols. Just type these and they are</p>
+<p>automatically converted in the PDF:</p>
+<table><thead><tr><th>You type</th><th>PDF shows</th></tr></thead><tbody>
+<tr><td><code>=&gt;</code></td><td>⇒ (implies)</td></tr>
+<tr><td><code>&lt;=&gt;</code></td><td>⇔ (if and only if)</td></tr>
+<tr><td><code>&lt;==</code></td><td>⇐ (implied by)</td></tr>
+<tr><td><code>==&gt;</code></td><td>⇒ (implies)</td></tr>
+<tr><td><code>-&gt;</code></td><td>→ (arrow)</td></tr>
+<tr><td><code>&lt;-</code></td><td>← (left arrow)</td></tr>
+<tr><td><code>&lt;-&gt;</code></td><td>↔ (double arrow)</td></tr>
+<tr><td>`\</td><td>->`</td><td>↦ (maps to)</td></tr>
+<tr><td><code>&lt;=</code></td><td>≤ (less than or equal)</td></tr>
+<tr><td><code>&gt;=</code></td><td>≥ (greater than or equal)</td></tr>
+<tr><td><code>&lt;&lt;</code></td><td>≪ (much less than)</td></tr>
+<tr><td><code>&gt;&gt;</code></td><td>≫ (much greater than)</td></tr>
+<tr><td><code>!=</code></td><td>≠ (not equal)</td></tr>
+<tr><td><code>!==</code></td><td>≢ (not identical to)</td></tr>
+<tr><td><code>===</code></td><td>≡ (identical to)</td></tr>
+<tr><td><code>&amp;&amp;</code></td><td>∧ (and)</td></tr>
+<tr><td>`\</td><td>\</td><td>`</td><td>∨ (or)</td></tr>
+<tr><td>`\</td><td>-`</td><td>⊢ (proves)</td></tr>
+<tr><td>`-\</td><td>`</td><td>⊣</td></tr>
+<tr><td><code>==</code></td><td>= (equals — two become one)</td></tr>
+<tr><td><code>+-</code></td><td>± (plus or minus)</td></tr>
+<tr><td><code>-+</code></td><td>∓ (minus or plus)</td></tr>
+<tr><td><code>~=</code></td><td>≈ (approximately equal)</td></tr>
+<tr><td><code>~~</code></td><td>≈ (approximately equal)</td></tr>
+<tr><td><code>~=~</code></td><td>≅ (congruent)</td></tr>
+<tr><td><code>...</code></td><td>… (ellipsis)</td></tr>
+<tr><td><code>**</code></td><td>⋅ (multiplication dot)</td></tr>
+<tr><td><code>::</code></td><td>∷ (proportion)</td></tr>
+</tbody></table>
+<p>These work inside normal sentences too:</p>
+<pre class="code"><code>If x &gt;= 0 and x &lt;= 10, then x != 5 =&gt; something happens.</code></pre>
+<hr>
+<h2 id="symbol-keywords">Symbol keywords</h2>
+<p>You can also type symbols using <code>*</code> + a word:</p>
+<h3 id="comparisons">Comparisons</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code><em>le</code> or <code></em>leq</code></td><td>≤</td></tr>
+<tr><td><code><em>ge</code> or <code></em>geq</code></td><td>≥</td></tr>
+<tr><td><code><em>ne</code> or <code></em>neq</code></td><td>≠</td></tr>
+<tr><td><code>*equiv</code></td><td>≡</td></tr>
+<tr><td><code>*sim</code></td><td>∼</td></tr>
+<tr><td><code>*simeq</code></td><td>≃</td></tr>
+<tr><td><code>*asymp</code></td><td>≍</td></tr>
+<tr><td><code>*doteq</code></td><td>≐</td></tr>
+<tr><td><code>*ll</code></td><td>≪</td></tr>
+<tr><td><code>*gg</code></td><td>≫</td></tr>
+<tr><td><code>*prec</code></td><td>≺</td></tr>
+<tr><td><code>*succ</code></td><td>≻</td></tr>
+<tr><td><code>*preceq</code></td><td>⪯</td></tr>
+<tr><td><code>*succeq</code></td><td>⪰</td></tr>
+<tr><td><code>*approx</code></td><td>≈</td></tr>
+<tr><td><code>*cong</code></td><td>≅</td></tr>
+<tr><td><code>*pm</code></td><td>±</td></tr>
+<tr><td><code>*mp</code></td><td>∓</td></tr>
+<tr><td><code><em>prop</code> or <code></em>propto</code></td><td>∝</td></tr>
+<tr><td><code>*mid</code></td><td>∣ (divides)</td></tr>
+<tr><td><code>*ni</code></td><td>∋ (contains)</td></tr>
+</tbody></table>
+<h3 id="arrows">Arrows</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code><em>to</code> or <code></em>rightarrow</code></td><td>→</td></tr>
+<tr><td><code><em>gets</code> or <code></em>leftarrow</code></td><td>←</td></tr>
+<tr><td><code><em>implies</code> or <code></em>Rightarrow</code></td><td>⇒</td></tr>
+<tr><td><code><em>impliedby</code> or <code></em>Leftarrow</code></td><td>⇐</td></tr>
+<tr><td><code><em>iff</code> or <code></em>leftrightarrow</code></td><td>⇔</td></tr>
+<tr><td><code>*uparrow</code></td><td>↑</td></tr>
+<tr><td><code>*downarrow</code></td><td>↓</td></tr>
+<tr><td><code>*updownarrow</code></td><td>↕</td></tr>
+<tr><td><code>*mapsto</code></td><td>↦</td></tr>
+</tbody></table>
+<h3 id="math-operations">Math operations</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code><em>times</code> or <code></em>xx</code></td><td>×</td></tr>
+<tr><td><code>*cdot</code></td><td>⋅</td></tr>
+<tr><td><code>*div</code></td><td>÷</td></tr>
+<tr><td><code>*oplus</code></td><td>⊕</td></tr>
+<tr><td><code>*otimes</code></td><td>⊗</td></tr>
+<tr><td><code>*circ</code></td><td>∘</td></tr>
+<tr><td><code>*bullet</code></td><td>•</td></tr>
+<tr><td><code>*star</code></td><td>⋆</td></tr>
+<tr><td><code>*dagger</code></td><td>†</td></tr>
+<tr><td><code>*cap</code></td><td>∩</td></tr>
+<tr><td><code>*cup</code></td><td>∪</td></tr>
+<tr><td><code>*setminus</code></td><td>∖</td></tr>
+<tr><td><code><em>sqrt</code> or <code></em>surd</code></td><td>√</td></tr>
+<tr><td><code>*cbrt</code></td><td>∛</td></tr>
+</tbody></table>
+<h3 id="geometry-symbols-in-text">Geometry symbols (in text)</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code><em>degree</code> or <code></em>deg</code></td><td>°</td></tr>
+<tr><td><code>*angle</code></td><td>∠</td></tr>
+<tr><td><code>*triangle</code></td><td>△</td></tr>
+<tr><td><code>*parallel</code></td><td>∥</td></tr>
+<tr><td><code>*perp</code></td><td>⊥</td></tr>
+</tbody></table>
+<h3 id="set-theory">Set theory</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code><em>infinity</code> or <code></em>infty</code></td><td>∞</td></tr>
+<tr><td><code>*forall</code></td><td>∀</td></tr>
+<tr><td><code>*exists</code></td><td>∃</td></tr>
+<tr><td><code>*isin</code></td><td>∈</td></tr>
+<tr><td><code>*notin</code></td><td>∉</td></tr>
+<tr><td><code>*subset</code></td><td>⊂</td></tr>
+<tr><td><code><em>superset</code> or <code></em>supset</code></td><td>⊃</td></tr>
+<tr><td><code>*subseteq</code></td><td>⊆</td></tr>
+<tr><td><code>*supseteq</code></td><td>⊇</td></tr>
+<tr><td><code>*union</code></td><td>∪</td></tr>
+<tr><td><code>*intersect</code></td><td>∩</td></tr>
+<tr><td><code><em>emptyset</code> or <code></em>empty</code></td><td>∅</td></tr>
+<tr><td><code><em>reals</code> or <code></em>RR</code></td><td>ℝ (real numbers)</td></tr>
+<tr><td><code><em>naturals</code> or <code></em>NN</code></td><td>ℕ (natural numbers)</td></tr>
+<tr><td><code><em>integers</code> or <code></em>ZZ</code></td><td>ℤ (integers)</td></tr>
+<tr><td><code><em>rationals</code> or <code></em>QQ</code></td><td>ℚ (rational numbers)</td></tr>
+<tr><td><code><em>complex</code> or <code></em>CC</code></td><td>ℂ (complex numbers)</td></tr>
+<tr><td><code>*land</code></td><td>∧</td></tr>
+<tr><td><code>*lor</code></td><td>∨</td></tr>
+<tr><td><code>*lnot</code></td><td>¬</td></tr>
+<tr><td><code>*therefore</code></td><td>∴</td></tr>
+<tr><td><code>*because</code></td><td>∵</td></tr>
+</tbody></table>
+<h3 id="dots-and-delimiters">Dots and delimiters</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code>*ldots</code></td><td>…</td></tr>
+<tr><td><code>*cdots</code></td><td>⋯</td></tr>
+<tr><td><code>*vdots</code></td><td>⋮</td></tr>
+<tr><td><code>*ddots</code></td><td>⋱</td></tr>
+<tr><td><code><em>langle</code> / <code></em>rangle</code></td><td>⟨ ⟩</td></tr>
+<tr><td><code><em>lfloor</code> / <code></em>rfloor</code></td><td>⌊ ⌋</td></tr>
+<tr><td><code><em>lceil</code> / <code></em>rceil</code></td><td>⌈ ⌉</td></tr>
+</tbody></table>
+<h3 id="spacing-work-in-text-and-math-incl-casesmatrix-cells-and-math">Spacing (work in text and math, incl. <code><em>cases</code>/<code></em>matrix</code> cells and <code>\ ... \</code> math)</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code>*quad</code></td><td>1em space (Typst <code>quad</code>)</td></tr>
+<tr><td><code>*qquad</code></td><td>double quad space (<code>quad quad</code>; Typst has no bare <code>qquad</code>)</td></tr>
+<tr><td><code>*thin</code></td><td>thin space (Typst <code>thin</code>)</td></tr>
+<tr><td><code>*med</code></td><td>medium space (Typst <code>med</code>)</td></tr>
+</tbody></table>
+<h3 id="misc-symbols">Misc symbols</h3>
+<table><thead><tr><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code>*partial</code></td><td>∂</td></tr>
+<tr><td><code>*nabla</code></td><td>∇</td></tr>
+<tr><td><code>*aleph</code></td><td>ℵ</td></tr>
+<tr><td><code>*hbar</code></td><td>ℏ</td></tr>
+<tr><td><code>*ell</code></td><td>ℓ</td></tr>
+<tr><td><code>*Re</code></td><td>ℜ</td></tr>
+<tr><td><code>*Im</code></td><td>ℑ</td></tr>
+<tr><td><code>*wp</code></td><td>℘</td></tr>
+<tr><td><code>*prime</code></td><td>′</td></tr>
+<tr><td><code>*square</code></td><td>□</td></tr>
+<tr><td><code>*diamond</code></td><td>◇</td></tr>
+<tr><td><code>*top</code></td><td>⊤</td></tr>
+<tr><td><code>*bot</code></td><td>⊥</td></tr>
+<tr><td><code>*vdash</code></td><td>⊢</td></tr>
+<tr><td><code>*dashv</code></td><td>⊣</td></tr>
+<tr><td><code>*bowtie</code></td><td>⋈</td></tr>
+</tbody></table>
+<h3 id="greek-letters">Greek letters</h3>
+<p>All 24 lowercase letters plus the capitals that differ from Latin:</p>
+<table><thead><tr><th>Type</th><th>Gets</th><th></th><th>Type</th><th>Gets</th></tr></thead><tbody>
+<tr><td><code>*alpha</code></td><td>α</td><td></td><td><code>*Gamma</code></td><td>Γ</td></tr>
+<tr><td><code>*beta</code></td><td>β</td><td></td><td><code>*Delta</code></td><td>Δ</td></tr>
+<tr><td><code>*gamma</code></td><td>γ</td><td></td><td><code>*Theta</code></td><td>Θ</td></tr>
+<tr><td><code>*delta</code></td><td>δ</td><td></td><td><code>*Lambda</code></td><td>Λ</td></tr>
+<tr><td><code>*epsilon</code></td><td>ε</td><td></td><td><code>*Xi</code></td><td>Ξ</td></tr>
+<tr><td><code>*zeta</code></td><td>ζ</td><td></td><td><code>*Pi</code></td><td>Π</td></tr>
+<tr><td><code>*eta</code></td><td>η</td><td></td><td><code>*Sigma</code></td><td>Σ</td></tr>
+<tr><td><code>*theta</code></td><td>θ</td><td></td><td><code>*Upsilon</code></td><td>Υ</td></tr>
+<tr><td><code>*iota</code></td><td>ι</td><td></td><td><code>*Phi</code></td><td>Φ</td></tr>
+<tr><td><code>*kappa</code></td><td>κ</td><td></td><td><code>*Psi</code></td><td>Ψ</td></tr>
+<tr><td><code>*lambda</code></td><td>λ</td><td></td><td><code>*Omega</code></td><td>Ω</td></tr>
+<tr><td><code>*mu</code></td><td>μ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*nu</code></td><td>ν</td><td></td><td></td><td></td></tr>
+<tr><td><code>*xi</code></td><td>ξ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*omicron</code></td><td>ο</td><td></td><td></td><td></td></tr>
+<tr><td><code>*pi</code></td><td>π</td><td></td><td></td><td></td></tr>
+<tr><td><code>*rho</code></td><td>ρ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*sigma</code></td><td>σ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*tau</code></td><td>τ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*upsilon</code></td><td>υ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*phi</code></td><td>φ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*chi</code></td><td>χ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*psi</code></td><td>ψ</td><td></td><td></td><td></td></tr>
+<tr><td><code>*omega</code></td><td>ω</td><td></td><td></td><td></td></tr>
+</tbody></table>
+<hr>
+<h2 id="document-structure-headings-lists">Document structure (headings, lists)</h2>
+<p>Lesson plans read better with structure — no Typst needed:</p>
+<pre class="code"><code># My Lesson
+## Goals
+- item one
+- item two
+1. first step
+2. second step</code></pre>
+<p><code>#</code>/<code>##</code>/<code>###</code> become <code>=</code>/<code>==</code>/<code>===</code> headings; <code>-</code>/<code>+</code> stay lists;</p>
+<p><code>1.</code> stays an enumeration; <code>= Title</code> also works as a heading.</p>
+<p>Variables, <code>calc</code>, math and symbols keep working inside them.</p>
+<h3 id="document-title">Document title</h3>
+<p>Set the document title (centered heading + PDF metadata):</p>
+<pre class="code"><code>*doc_title(My Lesson Plan)</code></pre>
+<p>Aliases <code><em>doc-title</code>, <code></em>doctitle</code> and <code>*title</code> work the same.</p>
+<p>The line is consumed (not shown as body text); the last one wins.</p>
+<p>Variables, <code>calc</code>, math and symbols work inside the title.</p>
+<p>Without it, the title defaults to <code>Easy Math Document</code>.</p>
+<h3 id="document-font">Document font</h3>
+<p>Set the body font family, with an optional size:</p>
+<pre class="code"><code>*doc_font(DejaVu Sans)
+*doc_font(DejaVu Sans ; 14pt)</code></pre>
+<p>Aliases <code><em>doc-font</code> and <code></em>docfont</code> work the same. A bare number means</p>
+<p>points (<code>; 14</code> = <code>14pt</code>). The line is consumed; the last one wins.</p>
+<p>Without it, the document uses the Typst default at <code>12pt</code>. Note: the</p>
+<p>build ignores system fonts, so pick a family bundled with Typst.</p>
+<hr>
+<h2 id="text-styling-bold-italic-underline">Text styling — bold, italic, underline</h2>
+<pre class="code"><code>*bold(important)
+*italic(emphasis)
+*underline(note)</code></pre>
+<p>Short aliases: <code><em>b(...)</code>, <code></em>i(...)</code>, <code>*u(...)</code>. The whole text in</p>
+<p>parentheses is styled, so commas and semicolons stay literal</p>
+<p>(<code>*bold(yes, really)</code> keeps both words). Nesting works, and</p>
+<p>variables, <code>calc()</code> and math commands work inside:</p>
+<pre class="code"><code>&lt;name&gt; = Ada
+*bold(hello &lt;name&gt;)
+*bold(area is calc(3 * 4))
+*bold(a *italic(b) c)
+*bold(*frac(1 ; 2))</code></pre>
+<p>Styling also works inside <code>\ ... \</code> math and <code>*matrix</code> cells.</p>
+<hr>
+<h2 id="page-breaks">Page breaks</h2>
+<pre class="code"><code>*newpage</code></pre>
+<p>Alias <code><em>pagebreak</code>; <code></em>newpage()</code> with parentheses works too. Emits a</p>
+<p>Typst page break (text mode only — not inside <code>\ ... \</code> math).</p>
+<hr>
+<h2 id="images">Images</h2>
+<pre class="code"><code>*image(pic.png)
+*image(pic.png ; 50%)
+*image(photos/cat.jpg ; 6cm)</code></pre>
+<p>Relative paths resolve from your <code>.ezmath</code> file's folder, and the</p>
+<p>document embeds the relative path so the build stays relocatable</p>
+<p>(same discipline as <code>*plot</code> SVGs). With <code>typ</code>/<code>html</code></p>
+<p>exports to another folder, the image file is copied along.</p>
+<p>The optional width is a percentage (<code>50%</code>), a length (<code>6cm</code>, <code>10pt</code>,</p>
+<p><code>80mm</code>), or a bare number meaning percent (<code>50</code> = <code>50%</code>). Without a</p>
+<p>width the image keeps its natural size. Commas work too:</p>
+<p><code>*image(pic.png, 50%)</code>. Variables and <code>calc()</code> work inside both</p>
+<p>arguments.</p>
+<p>A missing file (or a bad width) does not stop the build: you get an</p>
+<p><code>[Error]</code> diagnostic plus a visible <code>[Image Error: ...]</code> placeholder</p>
+<p>in the PDF. Images are text mode only (not inside <code>\ ... \</code> math or</p>
+<p><code>*matrix</code> cells).</p>
+<hr>
+<h2 id="tables-and-matrices">Tables and matrices</h2>
+<p>Rows are separated by <code>|</code>, cells by <code>;</code> (or <code>,</code> when a row has no <code>;</code></p>
+<p>— same friendly rule as <code><em>frac</code>). <code></em>mat</code> is an alias of <code>*matrix</code>.</p>
+<p>Variables, <code>calc</code>, math commands and symbols work inside cells.</p>
+<pre class="code"><code>*table(Name ; Age | Alice ; 20 | Bob ; 22)
+
+*matrix(1 ; 2 | 3 ; 4)
+*mat(a ; b | c ; d)</code></pre>
+<p>Large tables read better one row per line:</p>
+<pre class="code"><code>*table(
+    Name ; Age
+    Alice ; 20
+    Bob ; 22
+)
+*matrix(
+    1 ; 2
+    3 ; 4
+)</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Every row should have the same number of cells — short rows are</li>
+</ul>
+<p>padded (with a warning): empty table cells become <code>[]</code>, empty</p>
+<p>matrix cells become <code>0</code> so the PDF still builds.</p>
+<ul>
+<li><code>100,000</code>-style numbers stay intact when <code>;</code> is present.</li>
+<li><code>||</code>, <code>|-</code>, <code>-|</code>, <code>|-&gt;</code> never split rows — use <code>*mid</code> for a literal</li>
+</ul>
+<p><code>|</code> inside a cell.</p>
+<ul>
+<li>Matrices also work inside <code>\ ... \</code> math; tables are text mode only.</li>
+</ul>
+<hr>
+<h2 id="full-example">Full example</h2>
+<p>Here is a complete document for a rectangle problem:</p>
+<pre class="code"><code>// Rectangle area problem
+*define(write_type.multiplication = .)
+
+*(
+    &lt;w&gt; = 12
+    &lt;h&gt; = 5
+    &lt;area&gt; = calc(&lt;w&gt; * &lt;h&gt;)
+)
+
+A rectangle has width &lt;w&gt; cm and height &lt;h&gt; cm.
+
+Area:      &lt;w&gt; . &lt;h&gt; = &lt;area&gt; cm²
+Diagonal:  *root(2 ; *pow(&lt;w&gt; ; 2) + *pow(&lt;h&gt; ; 2)) cm</code></pre>
+<p>Output in the PDF:</p>
+<p>> A rectangle has width 12 cm and height 5 cm.</p>
+<p>></p>
+<p>> Area: 12 . 5 = 60 cm²</p>
+<p>></p>
+<p>> Diagonal: √(144 + 25) cm</p>
+<hr>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="cheatsheet.html">Cheat sheet</a> — all of the above on one page</li>
+<li><a href="troubleshooting.html">Troubleshooting and FAQ</a> — fixing <code>[Error]</code>/<code>[Warning]</code> messages</li>
+<li><a href="glossary.html">Glossary</a> — defines, variables, math mode, … explained</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>
