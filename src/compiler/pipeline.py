@@ -1230,14 +1230,6 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
                     pass
         except Exception:
             pass
-    if _require_typst() is None:
-        print(
-            '\n[ERROR] The `typst` Python package is not installed.\n'
-            'Run `uv sync` to install it, then retry.',
-            file=sys.stderr,
-        )
-        return False
-    _backend = typst
     # Vendored Typst packages (CeTZ & co.): when the bundle is present,
     # Typst resolves @preview imports from it and never touches the
     # network. When it is missing, fall back to Typst's default behavior
@@ -1260,6 +1252,14 @@ def _run_typst_export(typst_file, output_path, fmt, ppi, input_str='',
         except OSError as e:
             print(f'\n[ERROR] Typst export failed: {e}', file=sys.stderr)
             return False
+    if _require_typst() is None:
+        print(
+            '\n[ERROR] The `typst` Python package is not installed.\n'
+            'Run `uv sync` to install it, then retry.',
+            file=sys.stderr,
+        )
+        return False
+    _backend = typst
     if ppi is not None and fmt != 'png':
         report(
             'Warning', None,
