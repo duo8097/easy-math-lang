@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pip install uv && uv run python scripts/build_playground.py",
+  "buildCommand": "if ! command -v uv >/dev/null 2>&1; then curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\"; fi && uv run python scripts/build_playground.py",
   "outputDirectory": "site",
   "cleanUrls": true
 }
